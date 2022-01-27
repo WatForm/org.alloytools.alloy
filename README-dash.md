@@ -109,9 +109,9 @@ The Alloy Analyzer GUI consists of several new buttons and Syntax Coloring to as
 ```Dash Options```
 - If the user opens a file with a Dash model or opens an empty tab using the **New Dash** button, there will be new options under the **Option** button in the Menubar. These are:
 
-**Variables Unchanged**: If this option is set to **true**,  then any variables in a concurrent state that are not expected to change during a step will remain unchanged once a small step has been taken.
+- **Variables Unchanged**: If this option is set to **true**,  then any variables in a concurrent state that are not expected to change during a step will remain unchanged once a small step has been taken.
 
-**Assume Single Input**:
+- **Assume Single Input**:
 
 In addition to the the modifications stated above, displaying an instance that has been created using the **Execute** button while the Analyzer is in **Dash Mode** will cause the instance to be displayed in a **Dash Theme**. Since the **Dash Theme** is used only when the Alloy Analyzer is in **Dash Mode**, Alloy models that have translated from a Dash model will not be displayed in the **Dash Theme**.
 
