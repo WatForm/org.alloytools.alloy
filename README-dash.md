@@ -103,10 +103,10 @@ The Alloy Analyzer GUI consists of several new buttons and Syntax Coloring to as
 ```Translate Button```
 - If the user opens a file with a Dash model or opens an empty tab using the **New Dash** button, the **Translate** button will appear in the Toolbar. Clicking on this button will translate the Dash model that has been opened (or written by the user in a new tab) into Alloy and show it to the user in a new tab. The user may then modify the Alloy model as they wish or run it using the **Execute** button.
 
-'''Dash Syntax Highlighting'''
+```Dash Syntax Highlighting```
 - The set of keywords that are used by Dash and not included in Alloy will be highlighted in the GUI.
 
-'''Dash Options'''
+```Dash Options```
 - If the user opens a file with a Dash model or opens an empty tab using the **New Dash** button, there will be new options under the **Option** button in the Menubar. These are:
 
 **Variables Unchanged**: If this option is set to **true**,  then any variables in a concurrent state that are not expected to change during a step will remain unchanged once a small step has been taken.
