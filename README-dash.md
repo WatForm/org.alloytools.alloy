@@ -106,8 +106,9 @@ The Alloy Analyzer GUI consists of several new buttons and Syntax Coloring to as
 '''Dash Syntax Highlighting'''
 - The set of keywords that are used by Dash and not included in Alloy will be highlighted in the GUI.
 
-```Dash Options```
+'''Dash Options'''
 - If the user opens a file with a Dash model or opens an empty tab using the **New Dash** button, there will be new options under the **Option** button in the Menubar. These are:
+
 **Variables Unchanged**: If this option is set to **true**,  then any variables in a concurrent state that are not expected to change during a step will remain unchanged once a small step has been taken.
 
 **Assume Single Input**:
