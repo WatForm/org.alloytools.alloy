@@ -114,14 +114,14 @@ The Alloy Analyzer GUI consists of several new buttons and Syntax Coloring to as
 **Dash Options**
 - If the user opens a file with a Dash model or opens an empty tab using the ```New Dash``` button, there will be new options under the ```Option``` button in the Menubar. These are:
 
-- ```Variables Unchanged```: If this option is set to ```true```,  then any variables in a concurrent state that are not expected to change during a step will remain unchanged once a small step has been taken. This is set to ```On``` by default.
+- `Variables Unchanged`: If this option is set to ``true``,  then any variables in a concurrent state that are not expected to change during a step will remain unchanged once a small step has been taken. This is set to ``On`` by default.
 
-- ```Assume Single Input```: This option constrains the number of events that be present in a snapshot such that at most one environmental event can be present in every snapshot. This set to ```Off``` by default.
+- `Assume Single Input`: This option constrains the number of events that be present in a snapshot such that at most one environmental event can be present in every snapshot. This set to ``Off`` by default.
 
-- ```Generate Significance Axioms```: This option creates predicates that allows the user to check whether every transition is represented by a pair of snapshots in a transition 
-relation, and whether every basic state is reachable. This is set to ```On``` by default.
+- `Generate Significance Axioms`: This option creates predicates that allows the user to check whether every transition is represented by a pair of snapshots in a transition 
+relation, and whether every basic state is reachable. This is set to ``On`` by default.
 
-- ```CTL Model Checking```: This option enables the automatic import of the ctl module and generates a fact that allows the user to perform model checking. This is set to ```On``` by default.
+- `CTL Model Checking`: This option enables the automatic import of the ctl module and generates a fact that allows the user to perform model checking. This is set to ``On`` by default.
 
 
 # Building the project
