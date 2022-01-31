@@ -2,7 +2,7 @@
 
 
 Dash is an extension of Alloy for modelling transition systems. It combines the control-oriented constructs of statecharts with the 
-declarative modelling of <a href="http://alloytools.org/" target="_blank">Alloy</a>.
+declarative modelling of Alloy.
 From Statecharts, Dash inherits a means to specify hierarchy, concurrency, and 
 communication, three useful aspects to describe the behaviour of reactive systems.
 From Alloy, Dash uses the expressiveness of relational logic and set theory to 
