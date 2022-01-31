@@ -1,5 +1,5 @@
 # Dash: Declarative Abstract State hierarchy
----
+
 
 Dash is a new language for the formal specification of abstract behavioural 
 models, which combines the control-oriented constructs of statecharts with the 
@@ -10,7 +10,7 @@ From Alloy, Dash uses the expressiveness of relational logic and set theory to
 abstractly and declaratively describe structures, data, and operations.
 
 # Building the project
----
+
 
 The project is built using the same directions as for building the (non-extended) Alloy Analyzer (repeated below for completeness).
 
@@ -29,7 +29,7 @@ command. In the scenario that this command fails to build the project, please tr
 Please note that ```gradle build -x test``` will not run the unit tests.
 
 # Running the Alloy Analyzer GUI Extended with Dash
----
+
 
 If the user wishes to use the Alloy Analyzer to create or open Dash models, then the following command should be run:
 
@@ -37,7 +37,7 @@ If the user wishes to use the Alloy Analyzer to create or open Dash models, then
 
 
 # Running the Dash to Alloy Translator at the Command Line
----
+
 
 To run the Dash to Alloy Translator at the Command Line after the build is successful, use the following command:
 
@@ -47,7 +47,7 @@ This will give provide a prompt to specify a path for a Dash (.dsh) file input a
 an output path where the Alloy model will be stored. 
 
 # Overview: Modifications to the Alloy Analyzer GUI
----
+
 
 The Alloy Analyzer GUI has been extended to support editing, translating, and analyzing Dash models.
 
@@ -82,7 +82,7 @@ If the user opens a file with a Dash model or opens an empty tab using the ```Ne
 
 
 # Code Modifications
----
+
 
 In creating this extension to the Alloy Analyzer, we have added files to support Dash and made very minor modifications to existing code.  
 
@@ -142,7 +142,7 @@ The unit tests are run every time the project is built using Gradle. Any failure
 from the a failed unit test will can be found in: 'org.alloytools.alloy.dash\target\reports\tests\test\index.html'
 
 # Integration with Alloy Analyzer
----
+
 
 The modifications to Alloy GUI files are described below:
 
