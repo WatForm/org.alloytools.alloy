@@ -673,6 +673,7 @@ public class DashValidation {
     public static void validateDashModel(DashModule dashModule) {
         addConcStates(dashModule);
         validateConcStates(dashModule);
+        clearContainers();
     }
 
     public static void clearContainers() {

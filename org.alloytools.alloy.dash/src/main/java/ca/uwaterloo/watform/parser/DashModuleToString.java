@@ -178,14 +178,33 @@ public class DashModuleToString {
 		if (expr.op == ExprBinary.Op.ISSEQ_ARROW_LONE)
 			out.print("seq ");
 		else if (expr.op == ExprBinary.Op.JOIN) {
+			printExprBinaryJoin(expr, out);
+		}
+		else if(expr.right instanceof ExprBinary && !(((ExprBinary) expr.right).op == ExprBinary.Op.JOIN))
+		{
 			printExpr(expr.left, out);
-			out.print(expr.op);
+			out.print(' ').print(expr.op).print(' ').print('{').print(' ');
+			printExpr(expr.right, out);
+			out.print(' ').print("}");
 		}
 		else {
 			printExpr(expr.left, out);
 			out.print(' ').print(expr.op).print(' ');
+			printExpr(expr.right, out);
 		}
-		printExpr(expr.right, out);
+	}
+	
+	private static void printExprBinaryJoin(ExprBinary expr, DataLayouter<NoExceptions> out) {
+		printExpr(expr.left, out);
+		if (expr.right.toString().charAt(0) == '(') {
+			out.print(expr.op);
+			printExpr(expr.right, out);
+		}
+		else {
+			out.print(expr.op).print(' ').print('(');
+			printExpr(expr.right, out);
+			out.print(")");
+		}
 	}
 
 	private static void printExprCall(ExprCall expr, DataLayouter<NoExceptions> out) {
@@ -302,6 +321,11 @@ public class DashModuleToString {
 				out.print('(');
 				printExpr(expr.sub, out);
 				out.print(")'");
+				return;
+			case RCLOSURE :
+				out.print("*(");
+				printExpr(expr.sub, out);
+				out.print(")");
 				return;
 			case NOOP :
 				break;

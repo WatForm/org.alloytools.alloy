@@ -9,8 +9,6 @@
 
 module util/stepUtil[S]
 
-open util/ctl[S]
-
     one sig Step {
         initial: some S,
         next_step: S -> S,
@@ -24,12 +22,6 @@ open util/ctl[S]
         conf: set StateLabel,
         /** Semantics consistency */
         taken: set TransitionLabel
-    }
-
-    fact {
-        all s: S | s in BaseSnapshot
-        Step.next_step = nextState
-        Step.initial = initialState
     }
 
     // These functions must be defined by the calling code
@@ -50,18 +42,8 @@ open util/ctl[S]
 /***************************** TRANSITIONS ************************************/
     abstract sig TransitionLabel {}
 
-/************************* Significance Axioms ********************************/
-
-    pred reachabilityAxiom {
-        all s : S | s in S .((Step.initial) <: * (Step.next_step) )
-    }
-
-    pred equalityAxiom {
-        all s, s': S |  s->s' in Step.equality => s = s'
-    }
 
     // The system is always in some state
-    assert check_some_conf {
-        ctl_mc[ag[{s: S | some s.conf}]]
-    }
-    check check_some_conf for 10 expect 0
+    //assert check_some_conf {
+    //    ctl_mc[ag[{s: S | some s.conf}]]
+    //}

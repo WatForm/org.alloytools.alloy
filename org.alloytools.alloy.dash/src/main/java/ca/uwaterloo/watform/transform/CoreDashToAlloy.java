@@ -55,10 +55,18 @@ public class CoreDashToAlloy {
         createModelDefFact(module);
         createInvariantFact(module);
         
-        if (DashOptions.hasEvents && DashOptions.assumeSingleInput) createSingleStepFact(module);
+        if (DashOptions.hasEvents && DashOptions.assumeSingleInput) 
+        	createSingleStepFact(module);
+        if (DashOptions.ctlModelChecking)
+        	createCTLFact(module);
+        if (DashOptions.generateSigAxioms) {
+        	createSignificanceAxiomAST(module);
+        	createOperationsAxiomAST(module);
+        	createReachabilityAST(module);
+        }
         
         return module;
-    }  
+    }
 
     /* Used by other functions to help create signature ASTs */
     public static void addSigAST(DashModule module, String sigName, ExprVar isExtends, List<ExprVar> sigParent, List<Decl> decls, Pos isAbstract, Pos isLone, Pos isOne, Pos isSome, Pos isPrivate) {
@@ -74,34 +82,6 @@ public class CoreDashToAlloy {
             createSemanticsAST(transition, module);
         }
     }
-    
-    /* Create the single input assumption */
-    static void createSingleStepFact(DashModule module)
-    {
-    	System.out.println("Adding in Single Step Fact.");
-        // Creating the following expression: all s: Snapshot | lone (s.events & EnvironmentEvent)
-    	
-        List<Decl> decls = new ArrayList<Decl>();
-        List<ExprVar> a = new ArrayList<ExprVar>();
-        
-        Expr snapshot = ExprUnary.Op.ONE.make(null, ExprVar.make(null, "Snapshot"));
-        Expr s = ExprVar.make(null, "s");
-        Expr expression = null; //This is the final expression to be stored in the Fact AST
-        
-        /* Creating the following expression: lone (s.events & EnvironmentEvent) */
-        Expr rightQT = null;
-        Expr join = ExprBadJoin.make(null, null, s, ExprVar.make(null, "events")); // s.events
-        Expr rightBinary = ExprBinary.Op.INTERSECT.make(null, null, join, ExprVar.make(null, "EnvironmentEvent")); // s'.events & InternalEvent
-        rightQT = ExprUnary.Op.LONE.make(null, rightBinary); // no (s'.events & InternalEvent)
-        
-        /* Creating the following expression: all s: Snapshot | lone (s.events & EnvironmentEvent) */
-        a.add((ExprVar) s);
-        decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s: Snapshot
-        expression = ExprQt.Op.ALL.make(null, null, new ArrayList<Decl>(decls), rightQT); //all s: Snapshot | lone (s.events & EnvironmentEvent)
-        
-        module.addFact(null, "", expression);
-    }
-
 
     /*
      * Taken from the Dash.cup file. It is used for handling difficult parsing
@@ -568,7 +548,6 @@ public class CoreDashToAlloy {
 
         }
 
-
         /*
          * Creating the following expression: s.stable = True => (s'.taken + transName)
          * else { )
@@ -841,7 +820,6 @@ public class CoreDashToAlloy {
         }
 
         addPredicateAST(module, "operation", "s", "s_next", null, null, expression);
-
     }
 
     /*
@@ -1073,6 +1051,187 @@ public class CoreDashToAlloy {
         for(Command command: module.commands) {
         	System.out.println("Command: " + command.toString());
         } 
+    }
+    
+    /* Create the single input assumption */
+    static void createSingleStepFact(DashModule module)
+    {
+        // Creating the following expression: all s: Snapshot | lone (s.events & EnvironmentEvent)
+    	
+        List<Decl> decls = new ArrayList<Decl>();
+        List<ExprVar> a = new ArrayList<ExprVar>();
+        
+        Expr snapshot = ExprUnary.Op.ONE.make(null, ExprVar.make(null, "Snapshot"));
+        Expr s = ExprVar.make(null, "s");
+        Expr expression = null; //This is the final expression to be stored in the Fact AST
+        
+        /* Creating the following expression: lone (s.events & EnvironmentEvent) */
+        Expr rightQT = null;
+        Expr join = ExprBadJoin.make(null, null, s, ExprVar.make(null, "events")); // s.events
+        Expr rightBinary = ExprBinary.Op.INTERSECT.make(null, null, join, ExprVar.make(null, "EnvironmentEvent")); // s'.events & InternalEvent
+        rightQT = ExprUnary.Op.LONE.make(null, rightBinary); // no (s'.events & InternalEvent)
+        
+        /* Creating the following expression: all s: Snapshot | lone (s.events & EnvironmentEvent) */
+        a.add((ExprVar) s);
+        decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s: Snapshot
+        expression = ExprQt.Op.ALL.make(null, null, new ArrayList<Decl>(decls), rightQT); //all s: Snapshot | lone (s.events & EnvironmentEvent)
+        
+        module.addFact(null, "", expression);
+    }
+    
+    static void createCTLFact(DashModule module) {
+    	// Creating the following expression:     
+        //	all s: Snapshot | s in BaseSnapshot
+        //	Step.next_step = nextState
+        //	Step.initial = initialState
+    	
+        List<Decl> decls = new ArrayList<Decl>();
+        List<ExprVar> a = new ArrayList<ExprVar>();
+        Expr s = ExprVar.make(null, "s");
+        Expr snapshot = ExprVar.make(null, "Snapshot");
+        Expr expression = null; //This is the final expression to be stored in the Fact AST
+        a.add((ExprVar) s);
+        decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s: Snapshot
+        
+        Expr sInBaseSnapshot = ExprBinary.Op.IN.make(null, null, s, ExprVar.make(null, "BaseSnapshot")); // s in BaseSnapshot
+        expression = ExprQt.Op.ALL.make(null, null, new ArrayList<Decl>(decls), sInBaseSnapshot); //Expr = all s: Snapshot | s in BaseSnapshot
+        
+        Expr StepJoinNextStep = ExprBadJoin.make(null, null, ExprVar.make(null, "Step"), ExprVar.make(null, "next_step"));
+        Expr equalsNextState = ExprBinary.Op.IN.make(null, null, StepJoinNextStep, ExprVar.make(null, "nextState")); // Step.next_step = nextState
+        expression = ExprBinary.Op.AND.make(null, null, expression, equalsNextState);
+        
+        Expr StepJoinInitial = ExprBadJoin.make(null, null, ExprVar.make(null, "Step"), ExprVar.make(null, "initial")); // Step.initial
+        Expr equalsInitial = ExprBinary.Op.IN.make(null, null, StepJoinInitial, ExprVar.make(null, "initialState")); // Step.initial = initialState
+        expression = ExprBinary.Op.AND.make(null, null, expression, equalsInitial);
+        
+        module.addFact(null, "", expression);
+    }
+    
+    static void createSignificanceAxiomAST(DashModule module)
+    {
+        List<Decl> decls = new ArrayList<Decl>();
+        List<ExprVar> a = new ArrayList<ExprVar>();
+        
+        Expr snapshot = ExprVar.make(null, "Snapshot");
+        Expr s = ExprVar.make(null, "s");
+        Expr reachabilityAxiomExpr = null; //This is the Reachability Axiom, all s : S | s in S .((Step.initial) <: * (Step.next_step) )
+        a.add((ExprVar) s);
+        
+        Expr stepJoinNextStep = ExprBadJoin.make(null, null, ExprVar.make(null, "Step"), ExprVar.make(null, "next_step")); //Step.next_step
+        Expr stepJoinInitial = ExprBadJoin.make(null, null, ExprVar.make(null, "Step"), ExprVar.make(null, "initial")); // Step.initial
+     
+        Expr reflexiveClosure = ExprUnary.Op.RCLOSURE.make(null, stepJoinNextStep); // * (Step.next_step)
+        Expr domain = ExprBinary.Op.DOMAIN.make(null, null, stepJoinInitial, reflexiveClosure); // ((Step.initial) <: * (Step.next_step) )
+        
+        Expr SJoinDomain = ExprBadJoin.make(null, null, snapshot, domain); // Snapshot. ((Step.initial) <: * (Step.next_step) )
+        Expr sInSJoinDomain = ExprBinary.Op.IN.make(null, null, s, SJoinDomain); // s in Snapshot. ((Step.initial) <: * (Step.next_step) )
+        
+        decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s: Snapshot
+        
+        reachabilityAxiomExpr = ExprQt.Op.ALL.make(null, null, new ArrayList<Decl>(decls), sInSJoinDomain); // all s: Snapshot | s in Snapshot. ((Step.initial) <: * (Step.next_step) )
+        addPredicateAST(module, "reachabilityAxiom", null, null, null, null, reachabilityAxiomExpr);
+    }
+    
+    static void createOperationsAxiomAST(DashModule module)
+    {
+        //This is the Operations Axiom, some s, s' : S | T[s, s] for every transition T
+        List<Decl> decls = new ArrayList<Decl>();
+        List<ExprVar> a = new ArrayList<ExprVar>();
+        
+        Expr snapshot = ExprVar.make(null, "Snapshot");
+        Expr s = ExprVar.make(null, "s");
+        Expr sNext = ExprVar.make(null, "s_next");
+        a.add((ExprVar) s);
+        a.add((ExprVar) sNext);
+        decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s, s': Snapshot
+        
+        Expr expression = null;
+        for (String transName: module.transitions.keySet())
+        {
+        	Expr sJoinTrans = ExprBadJoin.make(null, null, s, ExprVar.make(null, transName)); //T[s] or s.T
+        	Expr join = ExprBadJoin.make(null, null, sNext, sJoinTrans); // T[s, s'] or s'.s.T
+        	Expr quantified = ExprQt.Op.SOME.make(null, null, new ArrayList<Decl>(decls), join); // some s, s': Snapshot | T[s, s']
+        	
+        	if (expression == null)
+        		expression = quantified;
+        	else
+        		expression = ExprBinary.Op.AND.make(null, null, expression, quantified);
+        }
+        
+        addPredicateAST(module, "operationsAxiom", null, null, null, null, expression);
+    }
+    
+    /* Create Predicates which checks if every basic state is reachable */
+    private static void createReachabilityAST(DashModule module)
+    {
+    	//Creating the following expression(s): ctl_mc[ef[{s: Snapshot | s.stable = True and stateName in s.conf}]]
+    	//A new predicate is created for each basic state in the Dash model
+    	ArrayList<String> states = new ArrayList<String>();
+    
+        List<Decl> decls = new ArrayList<Decl>();
+        List<ExprVar> a = new ArrayList<ExprVar>();   
+        Expr snapshot = ExprVar.make(null, "Snapshot");
+        Expr s = ExprVar.make(null, "s");
+        
+        a.add((ExprVar) s); 
+        decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s: Snapshot
+        
+        Expr sJoinStable = ExprBinary.Op.JOIN.make(null, null, s, ExprVar.make(null, "stable")); //s.stable
+        Expr sJoinConf = ExprBinary.Op.JOIN.make(null, null, s, ExprVar.make(null, "conf")); // s.conf
+        Expr sStableTrue = ExprBinary.Op.EQUALS.make(null, null, sJoinStable, ExprVar.make(null, "True")); //  s.stable = True
+        
+        for (DashConcState concState : module.topLevelConcStates.values()) {
+        	if(concState.states.size() == 0 && concState.concStates.size() == 0)
+        		states.add(concState.modifiedName);
+        	
+        	states.addAll(getReachabilityStates(concState, module));
+        }         
+        
+        for (String state: states)
+        {
+        	Expr binaryIn = ExprBinary.Op.IN.make(null, null, ExprVar.make(null, state), sJoinConf); // state in s.conf
+        	Expr binaryAnd = ExprBinary.Op.AND.make(null, null, sStableTrue, binaryIn); //s.stable = True and state in s.conf
+        	Expr exprQT = ExprQt.Op.COMPREHENSION.make(null, null, new ArrayList<Decl>(decls), binaryAnd); // s: Snapshot | s.stable = True and state in s.conf
+        	Expr efCall = ExprBinary.Op.JOIN.make(null, null, exprQT, ExprVar.make(null, "ef")); //ef[s: Snapshot | s.stable = True and state in s.conf]
+        	Expr ctlmcCall = ExprBinary.Op.JOIN.make(null, null, efCall, ExprVar.make(null, "ctl_mc")); //ctl_mc[ef[s: Snapshot | s.stable = True and state in s.conf]]
+        	addPredicateAST(module, state + "_reachable", null, null, null, null, ctlmcCall);
+        }
+    }
+    
+    private static List<String> getReachabilityStates (DashConcState concState, DashModule module)
+    {
+    	List <String> states = new ArrayList<String>();
+        for (DashState state : concState.states) {
+        	if(state.states.size() == 0)
+        		states.add(state.modifiedName);
+        	
+            for(DashState innerState: state.states) {
+            	if(innerState.states.size() == 0)
+            		states.add(innerState.modifiedName);
+            	else 
+            		states.addAll(getReachabilityInnerStates(innerState, module));
+            }
+        }
+
+        for (DashConcState innerConcState : concState.concStates) {
+        	states.addAll(getReachabilityStates(innerConcState, module));
+        }
+        
+        return states;
+    }
+    
+    private static List<String> getReachabilityInnerStates (DashState state, DashModule module)
+    {
+    	List <String> states = new ArrayList<String>();
+
+        for(DashState innerState: state.states) {
+        	if(innerState.states.size() == 0)
+        		states.add(innerState.modifiedName);
+        	else 
+        		states.addAll(getReachabilityInnerStates(innerState, module));
+        }
+        
+        return states;
     }
     
     //Taken from the Dash.cup file for adding in commands
