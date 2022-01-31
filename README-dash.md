@@ -72,6 +72,11 @@ facts and commands needed to create an Alloy instance from the Alloy AST by pass
 Alloy makes use of a CompModule object to store the Alloy AST, but Dash uses a DashModule instead as functions 
 within a CompModule are inaccessible. 
 
+**org.alloytools.alloy.dash/src/test/java/org/alloytools/dash/org/DashModelsTest:** This contains the unit tests for the 
+Dash to Core Dash, Core Dash to Alloy and the DashModuleToString (converting an Alloy AST to a human-readable Alloy model) functionalities.
+The unit tests are run everytime the project is built using Gradle. Any failure of the unit tests will result in a failed build and the error message(s)
+from the a failed unit test will can be found in: '''org.alloytools.alloy.dash\target\reports\tests\test\index.html'''
+
 # Integration with Alloy Analyzer
 ---
 
@@ -97,24 +102,26 @@ The modifications to Alloy GUI files are described below:
 ---
 The Alloy Analyzer GUI consists of several new buttons and Syntax Coloring to assist in building Dash models:
 
-```New Dash Button```
-- This button is situated in the Toolbar beside the existing **New** button and in the Menubar under the **File** option. Pressing on this button will open a new tab with the .dsh extension and set the Alloy Analyzer to the **Dash Mode**. The **Dash Mode** is automatically activated whenever a file with a .dsh extension is used. A user can write Dash models in this new tab, and run the model using the **Execute** button on the Toolbar. This    will internally converted the Dash model to an Alloy model, and display any instances.
+**New Dash Button**
+- This button is situated in the Toolbar beside the existing ```New``` button and in the Menubar under the ```File``` option. Pressing on this button will open a new tab with the .dsh extension and set the Alloy Analyzer to the ```Dash Mode```. The ```Dash Mode``` is automatically activated whenever a file with a .dsh extension is used. A user can write Dash models in this new tab, and run the model using the ```Execute``` button on the Toolbar. This    will internally converted the Dash model to an Alloy model, and display any instances.
 
-```Translate Button```
-- If the user opens a file with a Dash model or opens an empty tab using the **New Dash** button, the **Translate** button will appear in the Toolbar. Clicking on this button will translate the Dash model that has been opened (or written by the user in a new tab) into Alloy and show it to the user in a new tab. The user may then modify the Alloy model as they wish or run it using the **Execute** button.
+**Translate Button**
+- If the user opens a file with a Dash model or opens an empty tab using the ```New Dash``` button, the ```Translate``` button will appear in the Toolbar. Clicking on this button will translate the Dash model that has been opened (or written by the user in a new tab) into Alloy and show it to the user in a new tab. The user may then modify the Alloy model as they wish or run it using the ```Execute``` button.
 
-```Dash Syntax Highlighting```
+**Dash Syntax Highlighting**
 - The set of keywords that are used by Dash and not included in Alloy will be highlighted in the GUI.
 
-```Dash Options```
-- If the user opens a file with a Dash model or opens an empty tab using the **New Dash** button, there will be new options under the **Option** button in the Menubar. These are:
+**Dash Options**
+- If the user opens a file with a Dash model or opens an empty tab using the ```New Dash``` button, there will be new options under the ```Option``` button in the Menubar. These are:
 
-- **Variables Unchanged**: If this option is set to **true**,  then any variables in a concurrent state that are not expected to change during a step will remain unchanged once a small step has been taken.
+- ```Variables Unchanged```: If this option is set to ```true```,  then any variables in a concurrent state that are not expected to change during a step will remain unchanged once a small step has been taken. This is set to ```On``` by default.
 
-- **Assume Single Input**:
+- ```Assume Single Input```: This option constrains the number of events that be present in a snapshot such that at most one environmental event can be present in every snapshot. This set to ```Off``` by default.
 
-In addition to the the modifications stated above, displaying an instance that has been created using the **Execute** button while the Analyzer is in **Dash Mode** will cause the instance to be displayed in a **Dash Theme**. Since the **Dash Theme** is used only when the Alloy Analyzer is in **Dash Mode**, Alloy models that have translated from a Dash model will not be displayed in the **Dash Theme**.
+- ```Generate Significance Axioms```: This option creates predicates that allows the user to check whether every transition is represented by a pair of snapshots in a transition 
+relation, and whether every basic state is reachable. This is set to ```On``` by default.
 
+- ```CTL Model Checking```: This option enables the automatic import of the ctl module and generates a fact that allows the user to perform model checking. This is set to ```On``` by default.
 
 
 # Building the project
