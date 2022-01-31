@@ -1,10 +1,9 @@
 # Dash: Declarative Abstract State hierarchy
 
 
-Dash is a new language for the formal specification of abstract behavioural 
-models, which combines the control-oriented constructs of statecharts with the 
+Dash is an extension of Alloy for modelling transition systems. It combines the control-oriented constructs of statecharts with the 
 declarative modelling of <a href="http://alloytools.org/" target="_blank">Alloy</a>.
-From statecharts, Dash inherits a means to specify hierarchy, concurrency, and 
+From Statecharts, Dash inherits a means to specify hierarchy, concurrency, and 
 communication, three useful aspects to describe the behaviour of reactive systems.
 From Alloy, Dash uses the expressiveness of relational logic and set theory to 
 abstractly and declaratively describe structures, data, and operations.
@@ -30,8 +29,7 @@ Please note that ```gradle build -x test``` will not run the unit tests.
 
 # Running the Alloy Analyzer GUI Extended with Dash
 
-
-If the user wishes to use the Alloy Analyzer to create or open Dash models, then the following command should be run:
+There is no change in the directions for how to run the Alloy Analyzer GUI extended with Dash.  These instructions are:
 
 ```java -jar org.alloytools.alloy.dist/target/org.alloytools.alloy.dist.jar```
 
@@ -39,7 +37,7 @@ If the user wishes to use the Alloy Analyzer to create or open Dash models, then
 # Running the Dash to Alloy Translator at the Command Line
 
 
-To run the Dash to Alloy Translator at the Command Line after the build is successful, use the following command:
+To run the Dash to Alloy Translator at the command line, use the following command:
 
 ```java -jar org.alloytools.alloy.dashbuild/target/org.alloytools.alloy.dashbuild.jar```
 
@@ -53,9 +51,9 @@ The Alloy Analyzer GUI has been extended to support editing, translating, and an
 
 **```New Dash``` Button and Editing Dash Models**
 
-- The ```New Dash``` button is situated in the Toolbar beside the existing `New` button and in the Menubar under the `File` option. Clicking this button will open a new tab with the .dsh extension and set the Alloy Analyzer to the `Dash Mode`. The `Dash Mode` is automatically activated whenever a tab with .dsh extension is the front tab. 
+- The ```New Dash``` button is situated in the Toolbar beside the existing `New` button and in the Menubar under the `File` option. Clicking this button will open a new tab with the .dsh extension and set the Alloy Analyzer to the Dash Mode. The Dash Mode is automatically activated whenever a tab with .dsh extension is the front tab. 
 
-- If a file is opened with a .dsh extension, it automatically goes into `Dash Mode` and puts the file in a Dash editing window.
+- If a file is opened with a .dsh extension, it automatically goes into Dash Mode and puts the file in a Dash editing window.
 
 - The set of keywords that are used by Dash and those used by Alloy are highlighted in the Dash editing window.
 
@@ -86,7 +84,7 @@ If the user opens a file with a Dash model or opens an empty tab using the ```Ne
 
 In creating this extension to the Alloy Analyzer, we have added files to support Dash and made very minor modifications to existing code.  
 
-The new Java files added to the Alloy API are described below:
+The new Java files added to the Alloy Analyzer are described below:
 
 **org.alloytools.alloy.dash/src/main/java/ca/uwaterloo/watform/parser/Dash.cup:** This is the grammar file
 for Dash. It is an extention to Alloy.cup (the grammar file for Alloy). The Dash.cup retains the grammar
@@ -125,7 +123,7 @@ an Alloy AST using a DashModule that is holding a CoreDash data structure. It wi
 ASTs such as signature, predicate, fact ASTs in order to tranform a CoreDash model to its respective Alloy model.
 It will additionally create a command AST that will be used to build Alloy instances using Kodkod.
 
-**org.alloytools.alloy.dash/src/main/java/ca/uwaterloo/watform/ast/* :** This folder contains several new Dash AST files.
+**org.alloytools.alloy.dash/src/main/java/ca/uwaterloo/watform/ast/ :** This folder contains several new Dash AST files.
 These are important for storing the required information regarding any parsed Dash model. These AST files will be
 used by the DashParser when parsing a Dash model.
 
@@ -141,10 +139,7 @@ Dash to Core Dash, Core Dash to Alloy and the DashModuleToString (converting an 
 The unit tests are run every time the project is built using Gradle. Any failure of the unit tests will result in a failed build and the error message(s)
 from the a failed unit test will can be found in: 'org.alloytools.alloy.dash\target\reports\tests\test\index.html'
 
-# Integration with Alloy Analyzer
-
-
-The modifications to Alloy GUI files are described below:
+The modifications to existing Alloy GUI files are described below:
 
 **org.alloytools.alloy.application/src/main/java/edu/mit/csail/sdg/alloy4whole/SimpleGUI:**
 - Added `doTranslate` to translate .dsh file and open a new tab with translated alloy. The corresponding translate button only appears when editing dash.
