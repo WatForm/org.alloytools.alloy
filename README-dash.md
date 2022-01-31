@@ -75,7 +75,7 @@ within a CompModule are inaccessible.
 **org.alloytools.alloy.dash/src/test/java/org/alloytools/dash/org/DashModelsTest:** This contains the unit tests for the 
 Dash to Core Dash, Core Dash to Alloy and the DashModuleToString (converting an Alloy AST to a human-readable Alloy model) functionalities.
 The unit tests are run everytime the project is built using Gradle. Any failure of the unit tests will result in a failed build and the error message(s)
-from the a failed unit test will can be found in: '''org.alloytools.alloy.dash\target\reports\tests\test\index.html'''
+from the a failed unit test will can be found in: 'org.alloytools.alloy.dash\target\reports\tests\test\index.html'
 
 # Integration with Alloy Analyzer
 ---
@@ -103,7 +103,7 @@ The modifications to Alloy GUI files are described below:
 The Alloy Analyzer GUI consists of several new buttons and Syntax Coloring to assist in building Dash models:
 
 **New Dash Button**
-- This button is situated in the Toolbar beside the existing ```New``` button and in the Menubar under the ```File``` option. Pressing on this button will open a new tab with the .dsh extension and set the Alloy Analyzer to the ```Dash Mode```. The ```Dash Mode``` is automatically activated whenever a file with a .dsh extension is used. A user can write Dash models in this new tab, and run the model using the ```Execute``` button on the Toolbar. This    will internally converted the Dash model to an Alloy model, and display any instances.
+- This button is situated in the Toolbar beside the existing `New` button and in the Menubar under the `File` option. Pressing on this button will open a new tab with the .dsh extension and set the Alloy Analyzer to the `Dash Mode`. The `Dash Mode` is automatically activated whenever a file with a .dsh extension is used. A user can write Dash models in this new tab, and run the model using the `Execute` button on the Toolbar. This will internally converted the Dash model to an Alloy model, and display any instances.
 
 **Translate Button**
 - If the user opens a file with a Dash model or opens an empty tab using the ```New Dash``` button, the ```Translate``` button will appear in the Toolbar. Clicking on this button will translate the Dash model that has been opened (or written by the user in a new tab) into Alloy and show it to the user in a new tab. The user may then modify the Alloy model as they wish or run it using the ```Execute``` button.
