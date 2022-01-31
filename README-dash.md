@@ -8,6 +8,8 @@ communication, three useful aspects to describe the behaviour of reactive system
 From Alloy, Dash uses the expressiveness of relational logic and set theory to 
 abstractly and declaratively describe structures, data, and operations.
 
+Examples of Dash models can be found at: https://github.com/WatForm/watform-models/tree/master/dash
+
 # Building the project
 
 
