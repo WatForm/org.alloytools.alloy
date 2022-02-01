@@ -59,10 +59,11 @@ public class CoreDashToAlloy {
         	createSingleStepFact(module);
         if (DashOptions.ctlModelChecking)
         	createCTLFact(module);
+        if (DashOptions.reachabilityCheck)
+        	createReachabilityAST(module);
         if (DashOptions.generateSigAxioms) {
         	createSignificanceAxiomAST(module);
         	createOperationsAxiomAST(module);
-        	createReachabilityAST(module);
         }
         
         return module;
@@ -1191,7 +1192,12 @@ public class CoreDashToAlloy {
         {
         	Expr binaryIn = ExprBinary.Op.IN.make(null, null, ExprVar.make(null, state), sJoinConf); // state in s.conf
         	Expr binaryAnd = ExprBinary.Op.AND.make(null, null, sStableTrue, binaryIn); //s.stable = True and state in s.conf
-        	Expr exprQT = ExprQt.Op.COMPREHENSION.make(null, null, new ArrayList<Decl>(decls), binaryAnd); // s: Snapshot | s.stable = True and state in s.conf
+        	Expr exprQT = null;
+        	if (module.stateHierarchy) 
+        		exprQT = ExprQt.Op.COMPREHENSION.make(null, null, new ArrayList<Decl>(decls), binaryAnd); // s: Snapshot | s.stable = True and state in s.conf
+        	else
+            	exprQT = ExprQt.Op.COMPREHENSION.make(null, null, new ArrayList<Decl>(decls), binaryIn);  // s: Snapshot | state in s.conf
+        	
         	Expr efCall = ExprBinary.Op.JOIN.make(null, null, exprQT, ExprVar.make(null, "ef")); //ef[s: Snapshot | s.stable = True and state in s.conf]
         	Expr ctlmcCall = ExprBinary.Op.JOIN.make(null, null, efCall, ExprVar.make(null, "ctl_mc")); //ctl_mc[ef[s: Snapshot | s.stable = True and state in s.conf]]
         	addPredicateAST(module, state + "_reachable", null, null, null, null, ctlmcCall);

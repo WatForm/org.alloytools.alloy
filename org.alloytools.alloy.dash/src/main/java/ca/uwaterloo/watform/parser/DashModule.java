@@ -268,7 +268,7 @@ public final class DashModule extends Browsable implements Module {
     private final Map<String,Macro>          macros      = new LinkedHashMap<String,Macro>();
 
     /** Each assertion name is mapped to its Expr. */
-    private final Map<String,Expr>           asserts     = new LinkedHashMap<String,Expr>();
+    public final Map<String,Expr>           asserts     = new LinkedHashMap<String,Expr>();
 
     /**
      * The list of facts; each fact is either an untypechecked Exp or a typechecked
@@ -280,9 +280,9 @@ public final class DashModule extends Browsable implements Module {
      * The list of (CommandName,Command,Expr) triples; NOTE: duplicate command names
      * are allowed.
      */
-    public final List<Command>              commands    = new ArrayList<Command>();
+    public final List<Command>              commands     = new ArrayList<Command>();
     
-    public CompModule         compModule      = null;
+    public CompModule         			    compModule   = null;
 
 
     //================================================DASH INTERNAL DATA STRUCTURE=================================================//

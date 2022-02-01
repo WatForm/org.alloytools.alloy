@@ -14,11 +14,13 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.StringJoiner;
+import edu.mit.csail.sdg.ast.ExprBinary;
 
 public class DashModuleToString {
 	
 	static int indent = 4;
     static int lineWidth = 120;
+    static String exprBinary = "EXPRBINARY";
 
     public static void toString(DashModule module) throws IOException {
 		BufferedWriter writer = new BufferedWriter(new FileWriter(DashOptions.outputDir + ".als"));
@@ -34,6 +36,8 @@ public class DashModuleToString {
 		printSigs(module, out);
 		printPreds(module, out);
 		printFacts(module, out);
+		printAsserts(module, out);
+		printCommands(module, out);
 		out.end().close();
 		return back.getString();
     }
@@ -95,6 +99,7 @@ public class DashModuleToString {
     private static void printPreds(DashModule module, DataLayouter<NoExceptions> out) {
     	for(ArrayList<Func> funcs: module.funcs.values()) {
 			for (Func func : funcs) {
+				printComments(cleanLabel(func.label), out);
 				out.print("pred " + cleanLabel(func.label));
 
 				if (func.decls.size() > 0)
@@ -114,8 +119,24 @@ public class DashModuleToString {
     	for(Pair<String,Expr> fact: module.facts) {
 			out.print("fact {").beginCInd().brk(1,0);
 			printExpr(fact.b,out);
-			out.brk(1,-indent).end().print("}").brk();
+			out.brk(1,-indent).end().print("}").brk().brk();
     	}
+    }
+    
+    private static void printAsserts(DashModule module, DataLayouter<NoExceptions> out) {
+    	for(String asserts: module.asserts.keySet()) {
+			out.print("assert").print(' ').print(asserts).print(" {").beginCInd().brk(1,0);
+			printExpr(module.asserts.get(asserts),out);
+			out.brk(1,-indent).end().print("}").brk().brk();
+    	}
+    }
+    
+    private static void printCommands(DashModule module, DataLayouter<NoExceptions> out) {
+    	for(Command command: module.commands) {
+    		out.print(command.toString().substring(0, 1).toLowerCase() + command.toString().substring(1));
+    		out.brk();
+    	}
+    	out.brk().brk();
     }
     
 	private static void printExpr(Expr expr, DataLayouter<NoExceptions> out) {
@@ -177,15 +198,27 @@ public class DashModuleToString {
 	private static void printExprBinary(ExprBinary expr, DataLayouter<NoExceptions> out) {
 		if (expr.op == ExprBinary.Op.ISSEQ_ARROW_LONE)
 			out.print("seq ");
-		else if (expr.op == ExprBinary.Op.JOIN) {
+		else if (expr.op == ExprBinary.Op.JOIN)
 			printExprBinaryJoin(expr, out);
-		}
-		else if(expr.right instanceof ExprBinary && !(((ExprBinary) expr.right).op == ExprBinary.Op.JOIN))
-		{
-			printExpr(expr.left, out);
-			out.print(' ').print(expr.op).print(' ').print('{').print(' ');
-			printExpr(expr.right, out);
-			out.print(' ').print("}");
+		// This used to ensure that binary expressions have proper braces around them
+		else if(exprType(expr.right).equals(exprBinary) || exprType(expr.left).equals(exprBinary)) {	
+			if (exprType(expr.left).equals(exprBinary) && !(exprOp(expr.left) == exprOp(expr)) && !(exprOp(expr.left) == ExprBinary.Op.JOIN)){	
+				out.print('{').print(' ');
+				printExpr(expr.left, out);
+				out.print(' ').print("}").print(' ').print(expr.op).print(' ');
+			}
+			else{
+				printExpr(expr.left, out);
+				out.print(' ').print(expr.op).print(' ');
+			}
+			if (exprType(expr.right).equals(exprBinary) && !(exprOp(expr.right) == exprOp(expr)) && !(exprOp(expr.right) == ExprBinary.Op.JOIN)){	
+				out.print('{').print(' ');
+				printExpr(expr.right, out);
+				out.print(' ').print("}");
+			}
+			else{
+				printExpr(expr.right, out);
+			}
 		}
 		else {
 			printExpr(expr.left, out);
@@ -327,6 +360,11 @@ public class DashModuleToString {
 				printExpr(expr.sub, out);
 				out.print(")");
 				return;
+			case NOT :
+				out.print("! {");
+				printExpr(expr.sub, out);
+				out.print("}");
+				return;
 			case NOOP :
 				break;
 			default :
@@ -374,5 +412,31 @@ public class DashModuleToString {
         }
         return label;
     }
-
+    
+    private static String exprType(Expr expr) {	
+    	if (expr instanceof ExprBinary)
+    		return exprBinary;
+    	return "";
+    }
+    
+    private static ExprBinary.Op exprOp (Expr expr) {
+    	if (expr instanceof ExprBinary)
+    		return ((ExprBinary) expr).op;
+    	return null;
+    }
+    
+    private static void printComments(String reference, DataLayouter<NoExceptions> out) {
+    	if (reference.contains("_reachable")) {
+    		String state = reference.substring(0, reference.indexOf("_reachable"));
+    		out.print("/* Check if state ").print(state).print(" is reachable */").brk();
+    	}
+    	if (reference.equals("reachabilityAxiom")) {
+    		out.print("/* This axiom ensures that all the snapshots considered during").brk(); 
+    		out.print("   analysis must be reachable from an initial snapshot */").brk(); 
+    	}
+    	if (reference.equals("operationsAxiom")) {
+    		out.print("/* This axiom states that every transition defined in a model is ").brk(); 
+    		out.print("   represented by a pair of snapshots in the transition relation */").brk(); 
+    	}
+    }
 }

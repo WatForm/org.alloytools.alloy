@@ -548,12 +548,12 @@ public class A4Preferences {
     /**
      * True if a Dash model should have their variables unchanged
      */
-    public static final BooleanPref           VariablesUnchanged     = new BooleanPref("VariablesUnchanged", "Variables Unchanged", false);
+    public static final BooleanPref           VariablesUnchanged     = new BooleanPref("VariablesUnchanged", "Variables Unchanged", true);
 
     /**
      * True if a Dash model assumes one event per step
      */
-    public static final BooleanPref           AssumeSingleInput      = new BooleanPref("AssumeSingleInput", "Assume Single Input", true);
+    public static final BooleanPref           AssumeSingleInput      = new BooleanPref("AssumeSingleInput", "Assume Single Input", false);
 
     /**
      * True if a Dash model will contain the Significance Axiom predicates
@@ -563,7 +563,13 @@ public class A4Preferences {
     /**
      * True if a Dash model will contain the Significance Axiom variable
      */
-    public static final BooleanPref           CTLModelChecking       = new BooleanPref("CTLModelChecking", "CTL Model Checking", true);
+    public static final BooleanPref           CTLModelChecking       = new BooleanPref("CTLModelChecking", "CTL TCMC", true);
+
+    /**
+     * True if a Dash model will contain the Reachability Checks for Basic States
+     */
+    public static final BooleanPref           ReachabilityCheck      = new BooleanPref("ReachabilityCheck", "Reachability Check", true);
+
 
     /**
      * The latest X coordinate of the Alloy Analyzer's main window.
