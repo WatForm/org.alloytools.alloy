@@ -61,7 +61,7 @@ The Alloy Analyzer GUI has been extended to support editing, translating, and an
 
 - When in Dash Mode, a new button called ```Translate``` appears which translates the Dash model to an Alloy model in an Alloy editing tab.  Translate is also a menu item in the Execute menu.  During translation, both Dash and Alloy validation checks are completed.
 
-- When in Dash Mode, the ```Execute``` button translates the Dash model to an Alloy model (displaying it in an Alloy tab), then executes the Alloy model and display any instances.
+- When in Dash Mode, the ```Execute``` button translates the Dash model to an Alloy model (displaying it in an Alloy tab), then executes the Alloy model and display any instances.  The instances are displayed in a particular theme that makes Snapshots the nodes and the edges the transitions.
 
 
 **Dash Options**
@@ -159,10 +159,21 @@ The modifications to existing Alloy GUI files are described below:
 **org.alloytools.alloy.core/src/main/java/edu/mit/csail/sdg/alloy4/OurTabbedSyntaxWidget:**
 - Modified `newTab()` function to create new `OurSyntaxWidgets` in "Dash Mode"
 
+# Credits
 
+The Dash language was created by Jose Serna. The integration of Dash within the Alloy Analyzer was completed by Tamjid Hossain.  Kai Hsiang Yang contributed to the integration with the GUI.  Nancy Day provided guidance on the development of the language and the implementation.  Information on Dash can be found in:
 
+* Jose Serna. Dash: Declarative Behavioural Modelling in Alloy. MMath thesis, University of Waterloo, David R. Cheriton School of Computer Science, 2019. [https://cs.uwaterloo.ca/~nday/pdf/theses/2019-01-jserna-mmath-thesis.pdf]
+* Jose Serna, Nancy A. Day, and Sabria Farheen. Dash: A new language for declarative behavioural requirements with control state hierarchy. In International Workshop on Model-Driven Requirements Engineering (MoDRE) @ IEEE International Requirements Engineering Conference (RE), pages 64--68. IEEE Computer Society, September 2017. [https://cs.uwaterloo.ca/~nday/pdf/refereed/2017-SeDaFa-modre.pdf]
+* Amin Bandali. A Comprehensive Study of Declarative Modelling Languages. MMath thesis, University of Waterloo, David R. Cheriton School of Computer Science, 2020. [https://cs.uwaterloo.ca/~nday/pdf/theses/2020-07-15-bandali-mmath-thesis.pdf]
+* Ali Abbassi, Amin Bandali, Nancy A. Day, and Jose Serna. A comparison of the declarative modelling languages B, Dash, and TLA+. In International Workshop on Model-Driven Requirements Engineering (MoDRE) @ IEEE International Requirements Engineering Conference (RE), pages 11--20. IEEE Computer Society, August 2018. [https://cs.uwaterloo.ca/~nday/pdf/refereed/2018-AbBa-modre.pdf]
 
+Dash continues to be developed.  Extensions to Dash are discussed in:
+* Tamjid Hossain and Nancy A. Day. Dash+: Extending alloy with hierarchical states and replicated processes for modelling transition systems. In International Workshop on Model-Driven Requirements Engineering (MoDRE) @ IEEE International Requirements Engineering Conference (RE). IEEE, September 2021.
 
+# Issues/Bugs	
+
+If you find problems with this implemenation or have feature suggestions, please make an issue in this repository.
 
 
 
