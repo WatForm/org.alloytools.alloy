@@ -173,7 +173,7 @@ Dash continues to be developed.  Extensions to Dash are discussed in:
 
 # Issues/Bugs	
 
-If you find problems with this implemenation or have feature suggestions, please make an issue in this repository. General comments can be sent to Nancy Day (nday@uwaerloo.ca) or Tamjid Hossaid (t7hossain@uwaterloo.ca). 
+If you find problems with this implemenation or have feature suggestions, please make an issue in this repository. General comments can be sent to Nancy Day (nday@uwaterloo.ca) or Tamjid Hossaid (t7hossain@uwaterloo.ca). 
 
 
 
