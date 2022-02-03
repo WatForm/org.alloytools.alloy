@@ -169,7 +169,7 @@ The Dash language was created by Jose Serna. The integration of Dash within the 
 * Ali Abbassi, Amin Bandali, Nancy A. Day, and Jose Serna. A comparison of the declarative modelling languages B, Dash, and TLA+. In International Workshop on Model-Driven Requirements Engineering (MoDRE) @ IEEE International Requirements Engineering Conference (RE), pages 11--20. IEEE Computer Society, August 2018. [https://cs.uwaterloo.ca/~nday/pdf/refereed/2018-AbBa-modre.pdf]
 
 Dash continues to be developed.  Extensions to Dash are discussed in:
-* Tamjid Hossain and Nancy A. Day. Dash+: Extending alloy with hierarchical states and replicated processes for modelling transition systems. In International Workshop on Model-Driven Requirements Engineering (MoDRE) @ IEEE International Requirements Engineering Conference (RE). IEEE, September 2021.
+* Tamjid Hossain and Nancy A. Day. Dash+: Extending alloy with hierarchical states and replicated processes for modelling transition systems. In International Workshop on Model-Driven Requirements Engineering (MoDRE) @ IEEE International Requirements Engineering Conference (RE). IEEE, September 2021. [https://cs.uwaterloo.ca/~nday/pdf/refereed/2021-HoDa-modre.pdf]
 
 # Issues/Bugs	
 
