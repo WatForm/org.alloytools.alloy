@@ -10,6 +10,8 @@ abstractly and declaratively describe structures, data, and operations.
 
 Examples of Dash models can be found at: https://github.com/WatForm/watform-models/tree/master/dash
 
+This repo contains an extension to the Alloy Analyzer to edit and analyze Dash models.  All regular functionality of the Alloy Analyzer is present plus the support for Dash (see below).
+
 The README.md for the original Alloy Analyzer can be found in README-alloy.md in this directory.
 
 # Building the project
