@@ -1,7 +1,7 @@
 # Dash: Declarative Abstract State hierarchy
 
 
-Dash is an extension of Alloy for modelling transition systems. It combines the control-oriented constructs of statecharts with the 
+Dash is an extension of Alloy for modelling transition systems. It combines the control-oriented constructs of Statecharts with the 
 declarative modelling of Alloy.
 From Statecharts, Dash inherits a means to specify hierarchy, concurrency, and 
 communication, three useful aspects to describe the behaviour of reactive systems.
