@@ -10,6 +10,8 @@ abstractly and declaratively describe structures, data, and operations.
 
 Examples of Dash models can be found at: https://github.com/WatForm/watform-models/tree/master/dash
 
+The README.md for the original Alloy Analyzer can be found in README-alloy.md in this directory.
+
 # Building the project
 
 
