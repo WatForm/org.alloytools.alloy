@@ -55,7 +55,7 @@ an output path where the Alloy model will be stored.
 
 The Alloy Analyzer GUI has been extended to support editing, translating, and analyzing Dash models.
 
-**```New Dash``` Button and Editing Dash Models**
+**New Buttons and Menu Items**
 
 - The ```New Dash``` button is situated in the Toolbar beside the existing `New` button and in the Menubar under the `File` option. Clicking this button will open a new tab with the .dsh extension and set the Alloy Analyzer to the Dash Mode. The Dash Mode is automatically activated whenever a tab with .dsh extension is the front tab. 
 
