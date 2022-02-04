@@ -839,12 +839,18 @@ State::= STATE:o 		        	Name:n LBRACE                  RBRACE {: RESULT= new
 
 	| DEFAULT STATE:o 		        Name:n LBRACE                  RBRACE {: RESULT= new DashState(o, n.label, null, true);   :}
 	| DEFAULT STATE:o 		        Name:n LBRACE StateItems:c     RBRACE {:  RESULT= new DashState(o, n.label, c, true);   :};
-
-Enter::= ENTER:o					LBRACE SuperP:v RBRACE			      {: RESULT= new DashEnter(o, v);  :};
-Exit ::= EXIT:o		    			LBRACE SuperP:v RBRACE			      {: RESULT= new DashExit(o, v);  :};
  
 StateItems::= State:x				{: RESULT=new ArrayList<Object>(); RESULT.add(x); :};
 StateItems::= State:x StateItems:y		{: RESULT=y; RESULT.add(0, x) ;			  :};
+
+Enter::= ENTER:o				LBRACE SuperP:v RBRACE			      {: RESULT= new DashEnter(o, v);  :};
+Exit ::= EXIT:o		    			LBRACE SuperP:v RBRACE			      {: RESULT= new DashExit(o, v);  :};
+
+StateItems::= Enter:x				{: RESULT=new ArrayList<Object>(); RESULT.add(x); :};
+StateItems::= Enter:x StateItems:y		{: RESULT=y; RESULT.add(0, x) ;			  :};
+
+StateItems::= Exit:x				{: RESULT=new ArrayList<Object>(); RESULT.add(x); :};
+StateItems::= Exit:x StateItems:y		{: RESULT=y; RESULT.add(0, x) ;			  :};
 
 //Transition Declaration
 Trans ::= TRANS:o				    Name:n LBRACE TransItems:c RBRACE {: RESULT = new DashTrans(o, n.label, c);  :}

@@ -1363,6 +1363,9 @@ public final class DashModule extends Browsable implements Module {
         topLevelConcStates.put(topLevelConcState.modifiedName, topLevelConcState);
         concStates.put(topLevelConcState.modifiedName, topLevelConcState);
         concStateNames.add(topLevelConcState.modifiedName);
+        
+        if(topLevelConcStates.values().size() > 1)
+        	stateHierarchy = true;
 
         for (Object item : stateItems) {
             if (item instanceof DashConcState) {
@@ -1388,33 +1391,36 @@ public final class DashModule extends Browsable implements Module {
         }
     }
 
-    /*
-     * This is responsible for adding a conc state to the internal data structure.
-     * Once it adds a conc state object to the hashmap responsible for holding conc
-     * states, it will iterate through the items in the conc state and look for
-     * states and transitions in the concurrent state and call respective functions
-     * for adding these items to the DASH Internal Data Structure
-     */
-    public void addConcState(DashConcState parent, DashConcState concState) {
-        concState.modifiedName = parent.modifiedName + '_' + concState.name;
-        concState.parent = parent;
-
-        concStates.put(concState.modifiedName, concState);
-        concStateNames.add(concState.modifiedName);
-
-        for (DashState state : concState.states)
-            addState(concState, state);
-        for (DashEvent event : concState.events)
-            addEvent(concState, event);
-        for (DashInit init : concState.init)
-            addInitCondition(init, concState);
-        for (DashAction action : concState.action)
-            addAction(action, concState);
-        for (DashInvariant invariant : concState.invariant)
-            addInvariant(invariant, concState);
-        for (Decl decl : concState.decls)
-            readVariablesDeclared(decl, concState);
-    }
+    /*	
+	 * This is responsible for adding a conc state to the internal data structure.	
+	 * Once it adds a conc state object to the hashmap responsible for holding conc	
+	 * states, it will iterate through the items in the conc state and look for	
+	 * states and transitions in the concurrent state and call respective functions	
+	 * for adding these items to the DASH Internal Data Structure	
+	 */	
+	public void addConcState(DashConcState parent, DashConcState concState) {	
+	    concState.modifiedName = parent.modifiedName + '_' + concState.name;	
+	    concState.parent = parent;	
+	    concStates.put(concState.modifiedName, concState);	
+	    concStateNames.add(concState.modifiedName);	
+		
+	    for(DashConcState innerConcState: concState.concStates)	
+	    	addConcState(concState, innerConcState);	
+	    for (DashState state : concState.states)	
+	        addState(concState, state);	
+	    for (DashEvent event : concState.events)	
+	        addEvent(concState, event);	
+	    for (DashInit init : concState.init)	
+	        addInitCondition(init, concState);	
+	    for (DashAction action : concState.action)	
+	        addAction(action, concState);	
+	    for (DashCondition condition : concState.condition)	
+	    	conditions.put(condition.name, condition);	
+	    for (DashInvariant invariant : concState.invariant)	
+	        addInvariant(invariant, concState);	
+	    for (Decl decl : concState.decls)	
+	        readVariablesDeclared(decl, concState);	
+	}
 
     public void addInitCondition(DashInit init, DashConcState parent) {
         init.parent = parent;
@@ -1532,6 +1538,7 @@ public final class DashModule extends Browsable implements Module {
 
     public void addEvent(DashConcState parent, DashEvent event) {
         String modifiedName = parent.modifiedName + "_" + event.name;
+        event.modifiedName = modifiedName;
         event.parentName = parent.name;
 
         if (event.type.equals("env event") || event.type.equals("event")) {
