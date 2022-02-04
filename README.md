@@ -65,7 +65,9 @@ The Alloy Analyzer GUI has been extended to support editing, translating, and an
 
 - When in Dash Mode, a new button called ```Translate``` appears which translates the Dash model to an Alloy model in an Alloy editing tab.  Translate is also a menu item in the Execute menu.  During translation, both Dash and Alloy validation checks are completed.
 
-- Note that the predicates and check/run commands may not appear in the Alloy file in the same order that they appear in the Dash file.
+- Notes about the translation: 
+1) the predicates and check/run commands may not appear in the Alloy file in the same order that they appear in the Dash file.
+2) any user-created comments in Dash will not appear in the Alloy file.  The translation adds some comments but the user-created comments are lost at parsing.
 
 - When in Dash Mode, the ```Execute``` button translates the Dash model to an Alloy model (displaying it in an Alloy tab), then executes the Alloy model and displays any instance.  The instances are displayed in a particular theme that makes Snapshots the nodes and the edges the transitions.
 
