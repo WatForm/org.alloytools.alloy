@@ -95,14 +95,6 @@ public class DashValidation {
     static List<String>                    concStateNames         = new ArrayList<String>();
     //A modified name is the name of a Dash item as it would appear in an Alloy model
     static List<String>                    concStateNamesModified = new ArrayList<String>();
-    
-    /*
-     * A list of all the condition names in the DASH model. This is used for validation
-     * purposes.
-     */
-    public static Map<String,List<String>> conditionNames             = new LinkedHashMap<String,List<String>>();
-
-    
 
     /*
      * A list of all the state names in the DASH model. This is used for validation
@@ -192,17 +184,6 @@ public class DashValidation {
                 throw new ErrorSyntax(pos, "Could not resolve reference to: " + ref);
         }
     }
-
-    /* Store variables that have been declared in the concurrent state */
-    static List<String> readVariablesDeclared(List<Decl> decls, List<String> names) {
-        /* Store the names of each variable inside decls in ConcState */
-        for (Decl decl : decls) {
-            for (Object name : decl.names)
-                names.add(name.toString());
-        }
-        return names;
-    }
-
 
     static void validateExprVar(DashConcState concState) {
         for (Expr expr : expressions.get(concState.modifiedName)) {
@@ -399,20 +380,9 @@ public class DashValidation {
         	variable = variable.substring(variable.indexOf("/") + 1);
         }
         
-        if (resolveReference(concStateToCheck, variable)) {
+        if (!declarationNames.get(concStateToCheck).contains(variable) && !eventNames.get(concStateToCheck).contains(variable) && !declarationNames.get(concStateParName).contains(variable) && !keywords.contains(variable) && !quantifierVars.contains(variable) && !sigNames.contains(variable) && !funcNames.contains(variable)) {
             throw new ErrorSyntax(var.pos, "Could not resolve reference to: " + variable);
         }
-    }
-    
-    private static Boolean resolveReference(String concState, String variable)
-    {
-    	if (!conditionNames.get(concState).contains(variable) && !declarationNames.get(concState).contains(variable) && 
-    		!eventNames.get(concState).contains(variable) && !declarationNames.get(concState).contains(variable) && 
-    		!keywords.contains(variable) && !quantifierVars.contains(variable) && !sigNames.contains(variable) && 
-    		funcNames.contains(variable)) {
-    		return true;
-    	}
-    	return false;
     }
 
     /* Ensure that conc states have a default state */
@@ -555,6 +525,52 @@ public class DashValidation {
 
         return events;
     }
+    
+    /* Store variables that have been declared in the concurrent state */
+    static void readVariablesDeclared(String concStateName, DashModule module) 
+    {
+    	DashConcState concState = module.concStates.get(concStateName);
+    	List<String> names = new ArrayList<String>();
+    	
+    	while (concState != null)
+    	{
+            /* Store the names of each variable inside decls in ConcState */
+            for (Decl decl : concState.decls) {
+                for (Object name : decl.names) 
+                    names.add(name.toString());
+            }
+            
+            concState = concState.parent;
+    	}
+
+        declarationNames.put(concStateName, new ArrayList<String>(names));
+    }
+    
+    public static void getEventNames(String concStateName, DashModule dashModule)
+    {
+    	DashConcState concState = dashModule.concStates.get(concStateName);
+    	List<String> names = new ArrayList<String>();
+    	
+    	while (concState != null)
+    	{
+            /* Stores the names for each event in the current conc state */
+            for (DashEvent event : concState.events) {
+                if (event.type.equals("env")) {
+                    //If we have an event such as env in_m1, in_m2: lone Patient, we
+                    //need to store in_m1, in_m2 as event names
+                    for (Object name : event.decl.names) {
+                        names.add(name.toString());
+                    }
+                } else {
+                    names.add(event.name);
+                }
+            }
+            
+            concState = concState.parent;
+    	}  
+    	
+    	eventNames.put(concStateName, new ArrayList<String>(names));
+    }
 
     public static void initializeNameContainers(String concStateName, DashModule dashModule) {
         List<String> names = new ArrayList<String>();
@@ -569,45 +585,23 @@ public class DashValidation {
             getExprFromStateTrans(concStateName, state.modifiedName, dashModule);
             names.add(state.name);
         }
-        
-        List<String> conditions = new ArrayList<String>();
-        for (DashCondition cond : dashModule.concStates.get(concStateName).condition) {
-            conditions.add(cond.name);
-        }
-        conditionNames.put(concStateName, conditions);
 
         stateNames.put(concStateName, new ArrayList<String>(names));
         names.clear();
-
-        /* Stores the names for each func/pred in the current conc state */
-        for (String key : dashModule.funcs.keySet()) {
-        }
 
         /* Stores the names for each action template in the current conc state */
         for (DashAction action : dashModule.concStates.get(concStateName).action)
             funcNames.add(action.name);
         
+        /* Stores the names for each condition template in the current conc state */
+        for (DashCondition condition : dashModule.concStates.get(concStateName).condition)
+            funcNames.add(condition.name);
+        
         /* Stores the names for each event in the current conc state */
-        for (DashEvent event : dashModule.concStates.get(concStateName).events) {
-            if (event.type.equals("env")) {
-                //If we have an event such as env in_m1, in_m2: lone Patient, we
-                //need to store in_m1, in_m2 as event names
-                for (Object name : event.decl.names) {
-                	System.out.println(" Name: " + name.toString());
-                    names.add(name.toString());
-                }
-            } else {
-                names.add(event.name);
-            }
-        }
-
-        eventNames.put(concStateName, new ArrayList<String>(names));
-        names.clear();
+        getEventNames(concStateName, dashModule);
 
         /* Stores the names for each variable in the current conc state */
-        names = readVariablesDeclared(dashModule.concStates.get(concStateName).decls, names);
-        declarationNames.put(concStateName, new ArrayList<String>(names));
-        names.clear();
+        readVariablesDeclared(concStateName, dashModule);
 
         expressionList = new ArrayList<Expr>(expressions.get(concStateName));
         for (DashTrans trans : dashModule.concStates.get(concStateName).transitions) {
@@ -688,10 +682,10 @@ public class DashValidation {
             for (DashInit init : currentConcState.init)
                 localExpressions.add(init.expr);
         }
-        if (currentConcState.invariant.size() > 0) {
-            for (DashInvariant invariant : currentConcState.invariant)
-                localExpressions.add(invariant.expr);
-        }
+        //if (currentConcState.invariant.size() > 0) {
+        //    for (DashInvariant invariant : currentConcState.invariant)
+                //localExpressions.add(invariant.expr);
+        //}
         if (currentConcState.action.size() > 0) {
             for (DashAction action : currentConcState.action)
                 localExpressions.add(action.expr);
@@ -724,3 +718,5 @@ public class DashValidation {
         expressions = new HashMap<String,List<Expr>>();
     }
 }
+
+

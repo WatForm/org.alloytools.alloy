@@ -369,7 +369,6 @@ public class DashToCoreDash {
     
     static Boolean checkForEvent(DashConcState concState, String eventName) {
     	for (DashEvent event: concState.events) {
-    		System.out.println("Event: " + event.name);
     		if (event.name.equals(eventName)) 
     			return true;
     		
