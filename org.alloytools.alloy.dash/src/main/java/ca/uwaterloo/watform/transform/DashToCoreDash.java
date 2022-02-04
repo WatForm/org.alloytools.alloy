@@ -44,7 +44,7 @@ public class DashToCoreDash {
         for (DashTrans trans : module.transitions.values()) {
             trans.fromExpr = new DashFrom(completeFromCommand(trans, module), false);
             trans.gotoExpr = new DashGoto(completeGoToCommand(trans, module));
-            trans.onExpr = new DashOn(null, completeOnCommand(trans, module));
+            trans.onExpr = new DashOn(null, completeOnCommand(trans, module), checkInternalEvent(trans, module));
             trans.sendExpr = new DashSend(null, completeSendCommand(trans, module));
             trans.doExpr = addAction(trans.doExpr, module);
             trans.whenExpr = addCondition(trans.whenExpr, module);
@@ -186,9 +186,9 @@ public class DashToCoreDash {
         //to that of the argument
         if (transTemplate.onExpr != null) {
             if (declNames.indexOf(transTemplate.onExpr.name) != -1)
-                trans.onExpr = new DashOn(null, templateCall.templateParam.get(declNames.indexOf(transTemplate.onExpr.name)));
+                trans.onExpr = new DashOn(null, templateCall.templateParam.get(declNames.indexOf(transTemplate.onExpr.name)), checkInternalEvent(trans, module));
             else
-                trans.onExpr = new DashOn(null, transTemplate.onExpr.name);
+                trans.onExpr = new DashOn(null, transTemplate.onExpr.name, checkInternalEvent(trans, module));
         }
 
         //If we have a From command, check if it matches an argument. If it does, then set the From Command
@@ -365,6 +365,26 @@ public class DashToCoreDash {
         }
         
         return sendCommand;
+    }
+    
+    static Boolean checkInternalEvent(DashTrans trans, DashModule module)
+    {
+        if (trans.onExpr == null)
+            return false;
+    	
+        String onCommand = trans.onExpr.name;
+
+        if (onCommand.contains("/")) 
+            onCommand = onCommand.substring(onCommand.indexOf('/') + 1);
+
+        for(DashConcState concState: module.concStates.values()) {
+        	for(DashEvent event: concState.events) {
+        		if(event.type.equals("event"))
+        			return true;
+        	}
+        }
+
+        return false;
     }
     
     static Boolean checkForEvent(DashConcState concState, String eventName) {

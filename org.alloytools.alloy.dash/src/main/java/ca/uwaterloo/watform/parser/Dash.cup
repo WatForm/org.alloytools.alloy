@@ -866,7 +866,7 @@ StateItems::= Trans:x StateItems:y		{: RESULT=y; RESULT.add(0, x) ;			  :};
 
 From::=FROM:o					Names:n  {: RESULT=new DashFrom(o, n, false);                                          :}
 	| FROM:o				    STAR {: RESULT=new DashFrom(o, new ArrayList<ExprVar>(), true);                        :};
-On::= ON:o					    Name:n   {: RESULT=new DashOn(o, n.label);                                             :};
+On::= ON:o					    Name:n   {: RESULT=new DashOn(o, n.label, false);                                             :};
 WhenA::= WHEN:o					SuperP:v {:  RESULT=new DashWhenExpr(o, v);                                            :};
 DoA::= DO:o					    SuperP:v  {:  RESULT=new DashDoExpr(o, v);                                             :};
 GoTo::= GOTO:o					Names:n   {: RESULT=new DashGoto(o, n);                                                :};

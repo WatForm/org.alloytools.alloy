@@ -1429,8 +1429,13 @@ public final class SimpleGUI implements ComponentListener, Listener {
             if (directory.toString() != null)
                 DashOptions.dashModelLocation = directory.toString();
             DashModule dash;
+            DashOptions.variablesUnchanged = VariablesUnchanged.get();
+            DashOptions.assumeSingleInput = AssumeSingleInput.get();
+            DashOptions.generateSigAxioms = GenerateSigAxiom.get();
+            DashOptions.ctlModelChecking = CTLModelChecking.get();
+            DashOptions.reachabilityCheck = ReachabilityCheck.get();
             if (text.get().isFile()) {
-                dash = DashUtil.parseEverything_fromFileDash(A4Reporter.NOP, null, actual);
+                dash = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, text.get().getText());
             } else {
                 dash = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, text.get().getText());
             }
