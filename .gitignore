@@ -37,3 +37,6 @@ enroute.zip
 
 .idea
 *.iml
+
+# Java version from jenv <http://jenv.be>
+.java-version
