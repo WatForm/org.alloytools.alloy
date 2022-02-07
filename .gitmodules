@@ -1,0 +1,3 @@
+[submodule "org.alloytools.fortress.core/fortress"]
+	path = org.alloytools.fortress.core/fortress
+	url = git@github.com:WatForm/fortress.git

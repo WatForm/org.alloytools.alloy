@@ -1,0 +1,28 @@
+def fortressVersion = '0.1.0'
+
+task buildFortress(type: Exec) {
+    workingDir = './fortress'
+    executable = 'sbt'
+    args 'dist'
+    outputs.dir file('fortress/core/target/universal')
+}
+
+task copyFortressJars(type: Copy) {
+    dependsOn buildFortress
+    from (zipTree(file("fortress/core/target/universal/fortresscore-${fortressVersion}.zip"))) {
+        include "fortresscore-${fortressVersion}/lib/*.jar"
+        eachFile { fcd ->
+            // move the jars to the root of the libs directory
+            fcd.relativePath = new RelativePath(true, fcd.relativePath.segments.drop(2))
+        }
+    }
+    into file('libs')
+}
+
+compileJava.dependsOn(copyFortressJars)
+
+task cleanFortressLibs(type: Delete) {
+    delete file('libs')
+}
+
+clean.dependsOn(cleanFortressLibs)

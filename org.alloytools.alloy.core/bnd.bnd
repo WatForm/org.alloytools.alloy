@@ -7,6 +7,7 @@
 -buildpath: \
 	org.alloytools:pardinus.core;version=1.3.0,\
 	org.alloytools:pardinus.nativesat;version=1.3.0,\
+	org.alloytools.fortress.core;version=latest,\
 	org.eclipse.jdt.annotation
 
 -testpath: \

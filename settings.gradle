@@ -18,3 +18,5 @@ pluginManagement {
 plugins {
   id 'biz.aQute.bnd.workspace'
 }
+
+include ':org.alloytools.fortress.core:fortress'
