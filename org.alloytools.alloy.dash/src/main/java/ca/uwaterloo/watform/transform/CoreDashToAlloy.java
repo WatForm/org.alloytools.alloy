@@ -281,6 +281,7 @@ public class CoreDashToAlloy {
             Expr rightBinary = ExprBinary.Op.INTERSECT.make(null, null, rightJoin, ExprVar.make(null, "EnvironmentEvent")); // s.events & EnvironmentEvent
             binaryOn = ExprBinary.Op.IN.make(null, null, left, mult(rightBinary)); //onExprName in (s.events & EnvironmentEvent)         
         }
+        
         if (transition.onExpr.name != null && transition.onExpr.isInternal && DashOptions.isEnvEventModel && module.stateHierarchy) {
         	Expr sStableTrue = ExprBinary.Op.EQUALS.make(null, null, ExprBadJoin.make(null, null, ExprVar.make(null, "s"), ExprVar.make(null, "stable")), ExprVar.make(null, "True")); //s.stable = True
         	Expr notSStableTrue = ExprUnary.Op.NOT.make(null, sStableTrue); // !(s.stable = True)
@@ -1182,9 +1183,6 @@ public class CoreDashToAlloy {
 		scopes.add(sigScope);
         
         c(false,ExprVar.make(null, "r"), null , ExprVar.make(null, "path") ,null, scopes, null, module);
-        
-        //for(Command command: module.commands)
-        	//System.out.println("Command: " + command.toString());
     }
     
     //Taken from the Dash.cup file for adding in commands

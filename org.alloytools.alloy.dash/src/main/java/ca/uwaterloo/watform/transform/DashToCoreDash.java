@@ -375,15 +375,15 @@ public class DashToCoreDash {
         String onCommand = trans.onExpr.name;
 
         if (onCommand.contains("/")) 
-            onCommand = onCommand.substring(onCommand.indexOf('/') + 1);
+            onCommand = onCommand.substring(onCommand.lastIndexOf('/') + 1);
 
         for(DashConcState concState: module.concStates.values()) {
         	for(DashEvent event: concState.events) {
-        		if(event.type.equals("event"))
+        		if(event.type.equals("event") && event.name.equals(onCommand)) {
         			return true;
+        		}
         	}
-        }
-
+        }  
         return false;
     }
     

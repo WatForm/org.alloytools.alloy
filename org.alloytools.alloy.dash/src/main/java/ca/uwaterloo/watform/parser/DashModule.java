@@ -42,6 +42,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.StringJoiner;
 
 import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.alloy4.ConstList;
@@ -1621,6 +1622,7 @@ public final class DashModule extends Browsable implements Module {
     }
     
     // =============================================DASH MODULE TO STRING FUNCTIONS ============================================//
+    
     
     public void moduleToString() throws IOException {
 

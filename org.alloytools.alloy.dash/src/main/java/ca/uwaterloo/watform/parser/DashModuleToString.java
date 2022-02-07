@@ -288,14 +288,25 @@ public class DashModuleToString {
 	}
 
 	private static void printExprList(ExprList expr, DataLayouter<NoExceptions> out) {
-        if (expr.op == ExprList.Op.AND || expr.op == ExprList.Op.OR) {
-            String op = expr.op == ExprList.Op.AND ? " and" : " or";
+        if (expr.op == ExprList.Op.AND ) {
+            String op = " and";
             for (int i = 0; i < expr.args.size(); i++) {
                 if (i > 0)
                     out.print(op).brk(1,0);
                 printExpr(expr.args.get(i), out);
             }
-        } else {
+        }
+        else if (expr.op == ExprList.Op.OR) {
+            String op = " or";
+            out.print("{ ");
+            for (int i = 0; i < expr.args.size(); i++) {
+                if (i > 0)
+                    out.print(op).brk(1,0);
+                printExpr(expr.args.get(i), out);
+            }
+            out.print(" }");
+        }
+        else {
             out.print(expr.op).print("[").beginCInd().brk(1,0);
             for (int i = 0; i < expr.args.size(); i++) {
                 if (i > 0)

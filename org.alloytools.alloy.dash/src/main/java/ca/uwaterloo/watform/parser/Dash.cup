@@ -694,7 +694,7 @@ nonterminal                            TemplateCall;
 
 //===========================================================================//
 
-File ::= Spec {: parser.dashmodule.doneParsing(); if (!DashOptions.doneParsing){ DashOptions.doneParsing = true; System.out.println("Done"); } :};
+File ::= Spec {: parser.dashmodule.doneParsing(); if (!DashOptions.doneParsing){ DashOptions.doneParsing = true; } :};
 
 Spec ::= Spec MODULE:o Name:n                                                  {: nod(n);         parser.dashmodule.addModelName(o.merge(n.pos) , n.label , new ArrayList<ExprVar>()); :};
 Spec ::= Spec MODULE:o Name:n LBRACKET Namex:b RBRACKET:r                      {: nod(n); nod(b); parser.dashmodule.addModelName(o.merge(r)     , n.label , b                       ); :};
