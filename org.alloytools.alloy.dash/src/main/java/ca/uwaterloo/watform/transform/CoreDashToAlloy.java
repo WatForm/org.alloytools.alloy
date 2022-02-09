@@ -808,7 +808,7 @@ public class CoreDashToAlloy {
      */
     static void createStableAST(DashModule module) {
         Expr sStable = ExprBadJoin.make(null, null, ExprVar.make(null, "s"), ExprVar.make(null, "stable"));
-        Expr sStableEqualsTrue = ExprBinary.Op.IN.make(null, null, sStable, ExprVar.make(null, "True"));
+        Expr sStableEqualsTrue = ExprBinary.Op.EQUALS.make(null, null, sStable, ExprVar.make(null, "True"));
         if (module.stateHierarchy) {
         	addPredicateAST(module, "stable", "s", null, null, null, sStableEqualsTrue);
         }

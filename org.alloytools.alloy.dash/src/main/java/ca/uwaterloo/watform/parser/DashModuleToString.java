@@ -457,7 +457,7 @@ public class DashModuleToString {
     		out.print("// Snapshot Definition").brk(); 
     	}
     	if (reference.contains("pre_")) {
-    		out.print("// Pre-Condition, Post-Condition, Semantics for the " + reference.substring(reference.indexOf('_'))).brk(); 
+    		out.print("// Pre-Condition, Post-Condition, Semantics for the " + reference.substring(reference.indexOf('_')) + " transition.").brk(); 
     	}
     	if (reference.equals("this/init")) {
     		out.print("/****************************** INITIAL CONDITIONS ****************************/").brk(); 
@@ -483,8 +483,8 @@ public class DashModuleToString {
     	}
     	if (reference.contains("AND[(all s | s in stepUtil/initial <=> this/init[s]), (all s,s_next | s -> s_next in stepUtil/nextStep <=> this/small_step[s, s_next])")) {
     		out.print("/* This fact defines the following: ").brk();
-    		out.print("   Snapshots that satifiy the initial conditions can only be in the set of initial snapshots").brk();
-    		out.print("   Pairs of snapshots that satisfy the small_step predicate conform the next step relation").brk(); 
+    		out.print("   Snapshots that satifiy the initial conditions can only be in the set of initial snapshots,").brk();
+    		out.print("   Pairs of snapshots that satisfy the small_step predicate conform the next step relation,").brk(); 
     		out.print("   An unstable snapshot cannot be the last one of a trace */").brk(); 
     	}
     	if (reference.contains("AND[(all s | s in stepUtil/BaseSnapshot), stepUtil/Step . (stepUtil/Step <: next_step) in ctl/nextState")) {
