@@ -20,6 +20,8 @@ public class DashModuleToString {
 	
 	static int indent = 4;
     static int lineWidth = 120;
+    static Boolean transitionLabelPrinted = false;
+    static Boolean eventLabelPrinted = false;
     static String exprBinary = "EXPRBINARY";
 
     public static void toString(DashModule module) throws IOException {
@@ -64,11 +66,13 @@ public class DashModuleToString {
 
     private static void printSigs(DashModule module, DataLayouter<NoExceptions> out) {
     	for(Sig sig: module.sigs.values()) {
+    		printComments(((PrimSig) sig).parent.label, out);
+    		
     		if(sig.isAbstract != null)
     			out.print("abstract ");
     		if(sig.isOne != null)
     			out.print("one ");
-    		
+
             out.print("sig ");
 			printSig(sig, out);
 			out.print(" extends ");
@@ -99,7 +103,7 @@ public class DashModuleToString {
     private static void printPreds(DashModule module, DataLayouter<NoExceptions> out) {
     	for(ArrayList<Func> funcs: module.funcs.values()) {
 			for (Func func : funcs) {
-				printComments(cleanLabel(func.label), out);
+				printComments(func.label, out);
 				out.print("pred " + cleanLabel(func.label));
 
 				if (func.decls.size() > 0)
@@ -117,6 +121,7 @@ public class DashModuleToString {
     
     private static void printFacts(DashModule module, DataLayouter<NoExceptions> out) {
     	for(Pair<String,Expr> fact: module.facts) {
+			printComments(fact.b.toString(), out);
 			out.print("fact {").beginCInd().brk(1,0);
 			printExpr(fact.b,out);
 			out.brk(1,-indent).end().print("}").brk().brk();
@@ -437,17 +442,53 @@ public class DashModuleToString {
     }
     
     private static void printComments(String reference, DataLayouter<NoExceptions> out) {
-    	if (reference.contains("_reachable")) {
-    		String state = reference.substring(0, reference.indexOf("_reachable"));
-    		out.print("/* Check if state ").print(state).print(" is reachable */").brk();
+    	if (reference.equals("stepUtil/StateLabel")) {
+    		out.brk().print("/***************************** STATE SPACE ************************************/").brk(); 
     	}
-    	if (reference.equals("reachabilityAxiom")) {
+    	if ((reference.equals("stepUtil/EnvironmentEvent") || (reference.equals("stepUtil/InternalEvent")))  && !eventLabelPrinted) {
+    		out.brk().print("/***************************** EVENTS SPACE ************************************/").brk(); 
+    		eventLabelPrinted = true;
+    	}
+    	if (reference.equals("stepUtil/TransitionLabel") && !transitionLabelPrinted) {
+    		out.brk().print("/***************************** TRANSITION SPACE ************************************/").brk(); 
+    		transitionLabelPrinted = true;
+    	}
+    	if (reference.equals("stepUtil/BaseSnapshot")) {
+    		out.print("// Snapshot Definition").brk(); 
+    	}
+    	if (reference.contains("pre_")) {
+    		out.print("// Pre-Condition, Post-Condition, Semantics for the " + reference.substring(reference.indexOf('_'))).brk(); 
+    	}
+    	if (reference.equals("this/init")) {
+    		out.print("/****************************** INITIAL CONDITIONS ****************************/").brk(); 
+    	}
+    	if (reference.equals("this/operation")) {
+    		out.print("/***************************** MODEL DEFINITION *******************************/").brk(); 
+    	}
+    	if (reference.equals("this/isEnabled")) {
+    		out.print("// Test whether any transitions are enabled. A transition is enabled if the Snapshot satisfies its pre-condition").brk(); 
+    	}
+    	if (reference.equals("this/testIfNextStable")) {
+    		out.print("// Evaluates to true if the next Snapshot is stable. The next Snapshot will be stable if no more transitions will").brk();
+    		out.print("// be enabled after taking the current transition ").brk(); 
+    	}
+    	if (reference.equals("this/reachabilityAxiom")) {
+    		out.print("/****************************** SIGNIFICANCE AXIOMS ****************************/").brk().brk(); 
     		out.print("/* This axiom ensures that all the snapshots considered during").brk(); 
     		out.print("   analysis must be reachable from an initial snapshot */").brk(); 
     	}
-    	if (reference.equals("operationsAxiom")) {
+    	if (reference.equals("this/operationsAxiom")) {
     		out.print("/* This axiom states that every transition defined in a model is ").brk(); 
     		out.print("   represented by a pair of snapshots in the transition relation */").brk(); 
+    	}
+    	if (reference.contains("AND[(all s | s in stepUtil/initial <=> this/init[s]), (all s,s_next | s -> s_next in stepUtil/nextStep <=> this/small_step[s, s_next])")) {
+    		out.print("/* This fact defines the following: ").brk();
+    		out.print("   Snapshots that satifiy the initial conditions can only be in the set of initial snapshots").brk();
+    		out.print("   Pairs of snapshots that satisfy the small_step predicate conform the next step relation").brk(); 
+    		out.print("   An unstable snapshot cannot be the last one of a trace */").brk(); 
+    	}
+    	if (reference.contains("AND[(all s | s in stepUtil/BaseSnapshot), stepUtil/Step . (stepUtil/Step <: next_step) in ctl/nextState")) {
+    		out.print("/* This connects the model to the CTL module to allow for CTL TCMC */").brk();
     	}
     }
 }

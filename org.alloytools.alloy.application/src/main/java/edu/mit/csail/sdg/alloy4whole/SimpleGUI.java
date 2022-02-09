@@ -1601,7 +1601,7 @@ public final class SimpleGUI implements ComponentListener, Listener {
                 addToMenu(optmenu, AssumeSingleInput);
                 addToMenu(optmenu, GenerateSigAxiom);
                 addToMenu(optmenu, CTLModelChecking);
-                addToMenu(optmenu, ReachabilityCheck);
+                //addToMenu(optmenu, ReachabilityCheck);
             }
 
         } finally {

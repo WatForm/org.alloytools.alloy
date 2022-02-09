@@ -677,17 +677,21 @@ public class DashModelsTest {
         module = DashModule.resolveAll(rep == null ? A4Reporter.NOP : rep, module);
         String actualOutput = DashModuleToString.getString(module);
 
-        String expectedOutput = "sig Snapshot extends BaseSnapshot { stable: one Bool, events: set EventLabel, concState_var_one: one EventLabel }\n" + 
+        String expectedOutput = "Snapshot Definition\n" +
+                "sig Snapshot extends BaseSnapshot { stable: one Bool, events: set EventLabel, concState_var_one: one EventLabel }\n\n" + 
+                "/***************************** STATE SPACE ************************************/\n" +
         		"abstract sig SystemState extends StateLabel {}\n" + 
         		"abstract sig concState extends SystemState {}\n" + 
         		"abstract sig concState_inner extends concState {}\n" + 
-        		"one sig concState_inner_stateA extends concState_inner {}\n" + 
-        		"one sig concState_envA extends InternalEvent {}\n" + 
+        		"one sig concState_inner_stateA extends concState_inner {}\n\n" + 
+                "/***************************** EVENTS SPACE ************************************/\n" +
+        		"one sig concState_envA extends InternalEvent {}\n\n" + 
+                "/***************************** TRANSITION SPACE ************************************/\n" +
         		"one sig concState_inner_A extends TransitionLabel {}\n" + 
         		"one sig concState_inner_B extends TransitionLabel {}";
-        
+    
         if (!actualOutput.contains(expectedOutput))
-            throw new Exception("The Signatures are not being printed as expected. There is either an issue with the DashModuleToString class or the Alloy internal data structure.");
+            throw new Exception("The Signatures are not being printed as expected. There is either an issue with the DashModuleToString class or the Alloy internal data structure." + actualOutput);
 
         DashValidation.clearContainers();
     }

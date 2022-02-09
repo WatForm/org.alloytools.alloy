@@ -57,20 +57,21 @@ public class CoreDashToAlloy {
         createTestIfStableAST(module);
         createIsEnabledAST(module);
         createEqualsAST(module);
-        createPathAST(module);
+        createStableAST(module);
         createModelDefFact(module);
-        createInvariantFact(module);
-        
-        if (DashOptions.hasEvents && DashOptions.assumeSingleInput) 
-        	createSingleStepFact(module);
-        if (DashOptions.ctlModelChecking)
-        	createCTLFact(module);
-        if (DashOptions.reachabilityCheck)
-        	createReachabilityAST(module);
+        createPathAST(module);
         if (DashOptions.generateSigAxioms) {
         	createSignificanceAxiomAST(module);
         	createOperationsAxiomAST(module);
         }
+        if (DashOptions.ctlModelChecking)
+        	createCTLFact(module);
+        createInvariantFact(module);
+        
+        if (DashOptions.hasEvents && DashOptions.assumeSingleInput) 
+        	createSingleStepFact(module);
+        //if (DashOptions.reachabilityCheck)
+        	//createReachabilityAST(module);
         
         return module;
     }
@@ -798,6 +799,18 @@ public class CoreDashToAlloy {
             expr = ExprBinary.Op.AND.make(null, null, expr, ExprITE.make(null, ifCond, ifExpr, elseExpr));
             
             addPredicateAST(module, "enabledAfterStep_" + transition.modifiedName, "_s", "s", "t", "genEvents", expr);
+        }
+    }
+    
+    /*
+     * This function creates an AST for the following predicate: pred stable[s] {
+     * s.stable }
+     */
+    static void createStableAST(DashModule module) {
+        Expr sStable = ExprBadJoin.make(null, null, ExprVar.make(null, "s"), ExprVar.make(null, "stable"));
+        Expr sStableEqualsTrue = ExprBinary.Op.IN.make(null, null, sStable, ExprVar.make(null, "True"));
+        if (module.stateHierarchy) {
+        	addPredicateAST(module, "stable", "s", null, null, null, sStableEqualsTrue);
         }
     }
     
