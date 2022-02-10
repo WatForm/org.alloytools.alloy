@@ -503,26 +503,28 @@ public class CoreDashToAlloy {
             Expr sPrimeStableTrue = ExprBinary.Op.EQUALS.make(null, null, sPrimeStable, ExprVar.make(null, "True")); //s_next.stable = True
             Expr sPrimeStableFalse = ExprBinary.Op.EQUALS.make(null, null, sPrimeStable, ExprVar.make(null, "False")); //s_next.stable = False
             Expr sStableTrue = ExprBinary.Op.EQUALS.make(null, null, sStable, ExprVar.make(null, "True")); //s.stable = True
-            Expr sPrimeEnvAndIntEvn = ExprBinary.Op.INTERSECT.make(null, null, sPrimeEvents, intEvent); //s_nextevents & InternalEvent
-            if(transition.sendExpr != null && transition.sendExpr.name != null)
-            	sPrimeEnvAndIntEvn = ExprBinary.Op.MINUS.make(null, null, sPrimeEnvAndIntEvn, ExprVar.make(null, transition.sendExpr.name)); //s_nextevents & InternalEvent - sendEvent
-            
             Expr sEnvAndIntEvn = ExprBinary.Op.INTERSECT.make(null, null, intEvent, sEvents); //s.events & InternalEvent
-            Expr noSPrimeEnvAndIntEvn = ExprUnary.Op.NO.make(null, sPrimeEnvAndIntEvn); //no (s_nextevents & InternalEvent)
-            
-            Expr noSPrimeEnvAndIntEvnMinus = null; 
-            if(transition.sendExpr != null && transition.sendExpr.name != null) //If there is a send command
-            	noSPrimeEnvAndIntEvnMinus= ExprUnary.Op.NO.make(null, ExprBinary.Op.PLUS.make(null, null, sPrimeEnvAndIntEvn, sEnvAndIntEvn)); // no ((s_nextevents & InternalEvent) - sendEvent + (s.events & InternalEvent))
+            Expr sPrimeEnvAndIntEvn = ExprBinary.Op.INTERSECT.make(null, null, sPrimeEvents, intEvent); //s_nextevents & InternalEvent
+            Expr sPrimeEnvAndIntEvnEquals = null;
+            if(transition.sendExpr != null && transition.sendExpr.name != null)
+            	sPrimeEnvAndIntEvnEquals = ExprBinary.Op.EQUALS.make(null, null, sPrimeEnvAndIntEvn, ExprVar.make(null, transition.sendExpr.name)); //s_nextevents & InternalEvent = sendEvent
             else
-            	noSPrimeEnvAndIntEvnMinus= ExprUnary.Op.NO.make(null, ExprBinary.Op.MINUS.make(null, null, sPrimeEnvAndIntEvn, sEnvAndIntEvn)); // no ((s_nextevents & InternalEvent) - (s.events & InternalEvent))
+            	sPrimeEnvAndIntEvnEquals = ExprBinary.Op.EQUALS.make(null, null, sPrimeEnvAndIntEvn, ExprVar.make(null, "none")); // (s_nextevents & InternalEvent) = {none}
             
-            Expr ifLowerExpr = ExprITE.make(null, sStableTrue, noSPrimeEnvAndIntEvn, noSPrimeEnvAndIntEvnMinus);
+            Expr sendEvnPlusSEvnAndIntEvn = null; 
+            if(transition.sendExpr != null && transition.sendExpr.name != null) //If there is a send command
+            	sendEvnPlusSEvnAndIntEvn= ExprBinary.Op.PLUS.make(null, null, ExprVar.make(null, transition.sendExpr.name), sEnvAndIntEvn); // {sendExpr} + {InternalEvent & s.events}
+            else
+            	sendEvnPlusSEvnAndIntEvn= ExprBinary.Op.PLUS.make(null, null, ExprVar.make(null, "none"), sEnvAndIntEvn); // {none} + {InternalEvent & s.events}
+            Expr equalsPlus = ExprBinary.Op.EQUALS.make(null, null, sPrimeEnvAndIntEvn, sendEvnPlusSEvnAndIntEvn); //s_nextevents & InternalEvent = {none/send} + {InternalEvent & s.events}
+            
+            Expr ifLowerExpr = ExprITE.make(null, sStableTrue, sPrimeEnvAndIntEvnEquals, equalsPlus);
 
             ifLowerExpr = ExprBinary.Op.AND.make(null, null, sPrimeStableTrue, ifLowerExpr);
 
             Expr elseLowerExprIf = null;
             if(transition.sendExpr != null && transition.sendExpr.name != null) //If there is a send command
-            	elseLowerExprIf = ExprBinary.Op.EQUALS.make(null, null, ((ExprBinary) sPrimeEnvAndIntEvn).left, ExprVar.make(null, transition.sendExpr.name)); //s_next.events & InternalEvent = {sendEvent}
+            	elseLowerExprIf = ExprBinary.Op.EQUALS.make(null, null, sPrimeEnvAndIntEvn, ExprVar.make(null, transition.sendExpr.name)); //s_next.events & InternalEvent = {sendEvent}
             else
             	elseLowerExprIf = ExprBinary.Op.EQUALS.make(null, null, sPrimeEnvAndIntEvn, ExprVar.make(null, "none")); //s_next.events & InternalEvent = {none}
              

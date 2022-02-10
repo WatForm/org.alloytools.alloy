@@ -389,7 +389,7 @@ public class DashModelsTest {
                 funcs = module.funcs.get(name);
         }
 
-        String expectedOutput = "AND[s_next.conf = s.conf - concState_inner_stateA + concState_inner_stateA, s_next.concState_var_one = s.concState_var_one, (none.concState_inner_A.s_next.s.testIfNextStable => AND[s_next.stable = True, (s.stable = True => no s_next.events & InternalEvent else no s_next.events & InternalEvent - InternalEvent & s.events)] else AND[s_next.stable = False, (s.stable = True => AND[s_next.events & InternalEvent = none, s_next.events & EnvironmentEvent = s.events & EnvironmentEvent] else s_next.events = s.events + none)])]";
+        String expectedOutput = "AND[s_next.conf = s.conf - concState_inner_stateA + concState_inner_stateA, s_next.concState_var_one = s.concState_var_one, (none.concState_inner_A.s_next.s.testIfNextStable => AND[s_next.stable = True, (s.stable = True => s_next.events & InternalEvent = none else s_next.events & InternalEvent = none + InternalEvent & s.events)] else AND[s_next.stable = False, (s.stable = True => AND[s_next.events & InternalEvent = none, s_next.events & EnvironmentEvent = s.events & EnvironmentEvent] else s_next.events = s.events + none)])]";
         
         if (!expectedOutput.equals(funcs.get(0).getBody().toString())) {
             throw new Exception("Post-Conditions Not Stored Properly. Expected: " + expectedOutput + " Actual: " + funcs.get(0).getBody().toString());
