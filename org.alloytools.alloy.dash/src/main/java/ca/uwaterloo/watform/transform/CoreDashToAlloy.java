@@ -40,7 +40,7 @@ public class CoreDashToAlloy {
 	static boolean isCreatingEnabledAfterPred = false;
  
     public static DashModule convertToAlloyAST(DashModule module) {	
-    	createCommand(module);
+    	//createCommand(module);
     	
         createSnapshotSigAST(module);
         createStateSpaceAST(module);
@@ -284,7 +284,7 @@ public class CoreDashToAlloy {
         }
         
         if (transition.onExpr.name != null && transition.onExpr.isInternal && DashOptions.isEnvEventModel && module.stateHierarchy) {
-        	Expr sStableTrue = ExprBinary.Op.EQUALS.make(null, null, ExprBadJoin.make(null, null, ExprVar.make(null, "s"), ExprVar.make(null, "stable")), ExprVar.make(null, "True")); //s.stable = True
+        	Expr sStableTrue = ExprBadJoin.make(null, null, ExprVar.make(null, "s"), ExprVar.make(null, "stable")); // stable[s] or s.stable = True
         	Expr notSStableTrue = ExprUnary.Op.NOT.make(null, sStableTrue); // !(s.stable = True)
             Expr left = ExprVar.make(null, transition.onExpr.name.replace('/', '_'));
             Expr rightJoin = ExprBadJoin.make(null, null, ExprVar.make(null, "s"), ExprVar.make(null, "events")); // s.events
@@ -292,7 +292,7 @@ public class CoreDashToAlloy {
             binaryOn = ExprBinary.Op.OR.make(null, null, notSStableTrue, eventInSEvents); // !(s.stable = True) or onExprName in (s.events)          
         }
         else if (transition.onExpr.name != null && DashOptions.isEnvEventModel && module.stateHierarchy) {
-        	Expr sStableTrue = ExprBinary.Op.EQUALS.make(null, null, ExprBadJoin.make(null, null, ExprVar.make(null, "s"), ExprVar.make(null, "stable")), ExprVar.make(null, "True"));
+        	Expr sStableTrue = ExprBadJoin.make(null, null, ExprVar.make(null, "s"), ExprVar.make(null, "stable")); // stable[s] or s.stable = True
             Expr left = ExprVar.make(null, transition.onExpr.name.replace('/', '_'));
             Expr rightJoin = ExprBadJoin.make(null, null, ExprVar.make(null, "s"), ExprVar.make(null, "events")); // s.events
             Expr rightBinary = ExprBinary.Op.INTERSECT.make(null, null, rightJoin, ExprVar.make(null, "EnvironmentEvent")); // s.events & EnvironmentEvent
@@ -470,8 +470,8 @@ public class CoreDashToAlloy {
          * Mutex_Process1_wait] => { s_next.stable = True } else { s_next.stable = False }
          */
         if (module.stateHierarchy && !DashOptions.isEnvEventModel) {
-            Expr ifExpr = ExprBinary.Op.EQUALS.make(null, null, ExprBadJoin.make(null, null, ExprVar.make(null, "s_next"), ExprVar.make(null, "stable")), ExprVar.make(null, "True"));
-            Expr ElseExpr = ExprBinary.Op.EQUALS.make(null, null, ExprBadJoin.make(null, null, ExprVar.make(null, "s_next"), ExprVar.make(null, "stable")), ExprVar.make(null, "False"));
+            Expr ifExpr = ExprBadJoin.make(null, null, ExprVar.make(null, "s_next"), ExprVar.make(null, "stable"));
+            Expr ElseExpr = ExprUnary.Op.NOT.make(null, ExprBadJoin.make(null, null, ExprVar.make(null, "s_next"), ExprVar.make(null, "stable")));
             Expr ifCond = ExprBadJoin.make(null, null, ExprVar.make(null, "s"), ExprVar.make(null, "testIfNextStable"));
             ifCond = ExprBadJoin.make(null, null, ExprVar.make(null, "s_next"), ifCond);
             ifCond = ExprBadJoin.make(null, null, ExprVar.make(null, transition.modifiedName), ifCond);
@@ -500,9 +500,9 @@ public class CoreDashToAlloy {
          * & EnvironmentEvent } else { s_next.events = s.events + {none}/sendExpr } }
          */
         if (module.stateHierarchy && DashOptions.isEnvEventModel) {
-            Expr sPrimeStableTrue = ExprBinary.Op.EQUALS.make(null, null, sPrimeStable, ExprVar.make(null, "True")); //s_next.stable = True
-            Expr sPrimeStableFalse = ExprBinary.Op.EQUALS.make(null, null, sPrimeStable, ExprVar.make(null, "False")); //s_next.stable = False
-            Expr sStableTrue = ExprBinary.Op.EQUALS.make(null, null, sStable, ExprVar.make(null, "True")); //s.stable = True
+            Expr sPrimeStableTrue = sPrimeStable; //s_next.stable or stable[s_next]
+            Expr sPrimeStableFalse = ExprUnary.Op.NOT.make(null, ExprBadJoin.make(null, null, ExprVar.make(null, "s_next"), ExprVar.make(null, "stable"))); //! stable [s_next] or s_next.stable = False
+            Expr sStableTrue = sStable; // stable [s] or s.stable = True
             Expr sEnvAndIntEvn = ExprBinary.Op.INTERSECT.make(null, null, intEvent, sEvents); //s.events & InternalEvent
             Expr sPrimeEnvAndIntEvn = ExprBinary.Op.INTERSECT.make(null, null, sPrimeEvents, intEvent); //s_nextevents & InternalEvent
             Expr sPrimeEnvAndIntEvnEquals = null;
@@ -675,7 +675,7 @@ public class CoreDashToAlloy {
          */
         Expr ifElseExpr = null;
         if (module.stateHierarchy) {
-            Expr ifCond = ExprBinary.Op.EQUALS.make(null, null, ExprBadJoin.make(null, null, ExprVar.make(null, "s"), ExprVar.make(null, "stable")), ExprVar.make(null, "True")); //s.stable = True
+            Expr ifCond = ExprBadJoin.make(null, null, ExprVar.make(null, "s"), ExprVar.make(null, "stable")); //s.stable = True
             Expr ifExpr = ExprBinary.Op.EQUALS.make(null, null, sTakenPrime, ExprVar.make(null, transition.modifiedName)); //s_next.taken = currentTrans
             Expr ElseExprLeft = ExprBinary.Op.EQUALS.make(null, null, sTakenPrime, ExprBinary.Op.PLUS.make(null, null, sTaken, ExprVar.make(null, transition.modifiedName))); // s_next.taken = s.taken + transName
             Expr ElseExprRight = null;
@@ -755,7 +755,7 @@ public class CoreDashToAlloy {
         if (module.stateHierarchy) {
             expr = getPreCondForEnabled(transition, module); //Store all the pre-conditions
 
-            Expr ifCond = ExprBinary.Op.EQUALS.make(null, null, ExprBadJoin.make(null, null, ExprVar.make(null, "_s"), ExprVar.make(null, "stable")), ExprVar.make(null, "True")); //s.stable = True
+            Expr ifCond = ExprBadJoin.make(null, null, ExprVar.make(null, "_s"), ExprVar.make(null, "stable")); // stable [_s] or _s.stable = True
             Expr ifExprLeft = ExprVar.make(null, "t");
             Expr ifExprRight = null;
             for (DashTrans trans : module.transitions.values()) {
@@ -913,7 +913,7 @@ public class CoreDashToAlloy {
         decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s_next: Snapshot
         Expr qtExpr = ExprQt.Op.NO.make(null, null, decls, smallStepCall);// no s_next: Snapshot | small_step[s, s_next]
         Expr iffLeft = ExprBinary.Op.AND.make(null, null, isEnabledCall, qtExpr); //(isEnabled[s] && no s_next: Snapshot | small_step[s, s_next])
-        Expr iffRight = ExprBinary.Op.EQUALS.make(null, null, ExprBadJoin.make(null, null, s, ExprVar.make(null, "stable")), ExprVar.make(null, "False")); //s.stable = False
+        Expr iffRight = ExprUnary.Op.NOT.make(null, ExprBadJoin.make(null, null, s, ExprVar.make(null, "stable"))); // ! stable[s] or s.stable = False
         Expr iffExpr = ExprBinary.Op.IMPLIES.make(null, null, iffLeft, iffRight); //(isEnabled[s] && no s_next: Snapshot | small_step[s, s_next]) => s.stable = False
         a.clear();
         decls.clear();
@@ -927,7 +927,7 @@ public class CoreDashToAlloy {
          * Creating the following expression: all s: Snapshot | s.stable = False => some
          * s.nextStep
          */
-        iffLeft = ExprBinary.Op.EQUALS.make(null, null, ExprBadJoin.make(null, null, s, ExprVar.make(null, "stable")), ExprVar.make(null, "False")); //s.stable = False
+        iffLeft = ExprUnary.Op.NOT.make(null, ExprBadJoin.make(null, null, s, ExprVar.make(null, "stable"))); // ! stable[s] or s.stable = False
         iffRight = ExprUnary.Op.SOME.make(null, ExprBadJoin.make(null, null, s, ExprVar.make(null, "nextStep")));
         iffExpr = ExprBinary.Op.IMPLIES.make(null, null, iffLeft, iffRight);
         expr = ExprQt.Op.ALL.make(null, null, decls, iffExpr);
@@ -1098,7 +1098,7 @@ public class CoreDashToAlloy {
         }
         
         if(module.stateHierarchy) {
-        	Expr sStableTrue = ExprBinary.Op.EQUALS.make(null, null, ExprBadJoin.make(null, null, s, stable), ExprVar.make(null, "True")); //s.stable = True
+        	Expr sStableTrue = ExprBadJoin.make(null, null, s, stable); // stable[s] or s.stable = True
         	expression = ExprBinary.Op.AND.make(null, null, expression, sStableTrue);
         }
  
