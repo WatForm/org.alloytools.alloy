@@ -472,6 +472,10 @@ public class DashModuleToString {
     		out.print("// Evaluates to true if the next Snapshot is stable. The next Snapshot will be stable if no more transitions will").brk();
     		out.print("// be enabled after taking the current transition ").brk(); 
     	}
+    	if (reference.equals("this/equals")) {
+    		out.print("// Test whether two consequtive Snapshots are equal. Two Snapshots are equal if they have the same set of active").brk();
+    		out.print("// control states, events generated, transitions taken in the big step, and system variables ").brk(); 
+    	}
     	if (reference.equals("this/reachabilityAxiom")) {
     		out.print("/****************************** SIGNIFICANCE AXIOMS ****************************/").brk().brk(); 
     		out.print("/* This axiom ensures that all the snapshots considered during").brk(); 
@@ -485,6 +489,7 @@ public class DashModuleToString {
     		out.print("/* This fact defines the following: ").brk();
     		out.print("   Snapshots that satifiy the initial conditions can only be in the set of initial snapshots,").brk();
     		out.print("   Pairs of snapshots that satisfy the small_step predicate conform the next step relation,").brk(); 
+    		out.print("   Consequtive snapshots that have the same set of active control states, events generated, transitions taken in the big step, and system variables are equal,").brk(); 
     		out.print("   An unstable snapshot cannot be the last one of a trace */").brk(); 
     	}
     	if (reference.contains("AND[(all s | s in stepUtil/BaseSnapshot), stepUtil/Step . (stepUtil/Step <: next_step) in ctl/nextState")) {
@@ -492,3 +497,5 @@ public class DashModuleToString {
     	}
     }
 }
+
+//// Test whether a Snapshot and its next Snapshot are equal. Two Snapshots are equal
