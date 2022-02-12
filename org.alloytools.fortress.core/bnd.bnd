@@ -1,1 +1,3 @@
--includeresource @libs/ca.uwaterloo.watform.fortresscore-0.1.0.jar
+-includeresource \
+    @libs/ca.uwaterloo.watform.fortresscore-0.1.0.jar, \
+    @libs/org.scala-lang.scala-library-2.13.2.jar,
