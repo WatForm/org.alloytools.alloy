@@ -211,6 +211,9 @@ The modifications to existing Alloy GUI files are described below:
 **org.alloytools.alloy.core/src/main/java/edu/mit/csail/sdg/alloy4/OurTabbedSyntaxWidget:**
 - Modified `newTab()` function to create new `OurSyntaxWidgets` in "Dash Mode"
 
+Tamjid - pls add something where the code changes are for the options
+
+
 # Credits
 
 The Dash language was created by Jose Serna and Nancy Day. The integration of Dash within the Alloy Analyzer was completed by Tamjid Hossain.  Kai Hsiang Yang contributed to the integration with the GUI.  Nancy Day provided guidance on the implementation.  Information on Dash can be found in:
