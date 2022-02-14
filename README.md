@@ -85,7 +85,52 @@ If the user opens a file with a Dash model or opens an empty tab using the ```Ne
 
 - `CTL TCMC`: This option enables the automatic import of the ctl module for transitive-closure-based model checking (TCMC) and generates a fact that allows the user to perform model checking. This is set to ``On`` by default.  ctl.als is included in the util files.
 
+# Using Dash
 
+Dash extends Alloy with keywords to describe transitions in a hierarchical, concurrent state machines (similar to Statecharts).  Here is a small example:
+'''
+conc state A {
+
+	env event ev1
+	env event ev2 
+	v1,v2: int
+
+	state A1 {
+		trans t1 {
+			from A1
+			goto A2
+			on ev1
+			when v2 = v1 
+			do {
+				v1' = v1 + 1
+			}
+			send ev2
+		}
+	}
+	state A2 {
+		trans t2 {
+			from A2
+			goto A1
+			on ev2
+			do {
+				v2' = v2 + 1
+			}
+			send ev1
+		}
+
+	}
+}
+'''
+More details can be found in: * Jose Serna. Dash: Declarative Behavioural Modelling in Alloy. MMath thesis, University of Waterloo, David R. Cheriton School of Computer Science, 2019. [https://cs.uwaterloo.ca/~nday/pdf/theses/2019-01-jserna-mmath-thesis.pdf]
+
+To write properties of Dash models to run/check, it is important to know a little bit about how Dash is translated to Alloy:
+- the signature of system states is called 'Snapshot' (which is an extension of 'BaseSnapshot')
+- elements of the transition system are prefixed by the sequence of labelled parent states, e.g., for the above model
+	+ A_A1 is basic state A1 (which can be compared to s.conf where s is a Snapshot to see if A1 is in the set of states of this Snapshot)
+	+ A_A1_t1 is transition t1 (which can be compared with s.taken where s is a Snapshot to see if A1 is in the set of transitions taken so far in this big step) 
+	+ A_A1_v1 is the value of variable v1 
+	+ A_ev1 is ev1, which can be compared to s.events where s is a Snapshot
+- to only check the property at stable snapshots, use the boolean s.stable where s is a snapshot
 
 
 # Code Modifications
@@ -178,7 +223,7 @@ The Dash language was created by Jose Serna and Nancy Day. The integration of Da
 Dash continues to be developed.  Extensions to Dash are discussed in:
 * Tamjid Hossain and Nancy A. Day. Dash+: Extending alloy with hierarchical states and replicated processes for modelling transition systems. In International Workshop on Model-Driven Requirements Engineering (MoDRE) @ IEEE International Requirements Engineering Conference (RE). IEEE, September 2021. [https://cs.uwaterloo.ca/~nday/pdf/refereed/2021-HoDa-modre.pdf]
 
-# Issues/Bugs	
+# Issues/Bugs
 
 If you find problems with this implemenation or have feature suggestions, please make an issue in this repository. General comments can be sent to Nancy Day (nday@uwaterloo.ca) or Tamjid Hossaid (t7hossain@uwaterloo.ca). 
 
