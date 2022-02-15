@@ -13,6 +13,7 @@ import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.ast.VisitReturn;
+import fortress.msfol.Sort;
 import fortress.msfol.Term;
 
 import java.util.UUID;
@@ -107,13 +108,15 @@ abstract class BaseTranslator implements Translator {
      * Translate an Alloy signature.
      * For sigs and other Exprs that do not have values, the return value should be Top if
      * successful, and the context should be updated.
+     * Implementations must call {@link TranslationContext#setSigSort(Sig, Sort)} on the sig
+     * to set its sort.
      */
-    public Term translate(Sig expr, TranslationContext context) {
+    public Term translate(Sig sig, TranslationContext context) {
         return null;
     }
 
     /** Translate an Alloy field. */
-    public Term translate(Sig.Field expr, TranslationContext context) {
+    public Term translate(Sig.Field field, TranslationContext context) {
         return null;
     }
 

@@ -1,6 +1,7 @@
 package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.A4Reporter;
+import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.modelfind.ModelFinder;
 import fortress.msfol.AnnotatedVar;
@@ -28,8 +29,12 @@ final class TranslationContext {
     // The current theory. Mutable.
     private Theory theory = Theory.empty();
 
+    // Scopes for each sort.
     // Invariant: the sorts in the theory are exactly the keys of the scopes map.
     private final Map<Sort, Integer> scopes = new HashMap<>();
+
+    // The sort that members of each sig are mapped to.
+    private final Map<Sig, Sort> sigsToSorts = new HashMap<>();
 
     public TranslationContext(A4Reporter reporter, ScopeComputer scoper) {
         this.reporter = (reporter == null) ? A4Reporter.NOP : reporter;
@@ -52,6 +57,16 @@ final class TranslationContext {
 
     public void addFunctionDeclaration(FuncDecl funcDecl) {
         theory = theory.withFunctionDeclaration(funcDecl);
+    }
+
+    /** Set the sort that members of this sig belong to. */
+    public void setSigSort(Sig sig, Sort sort) {
+        sigsToSorts.put(sig, sort);
+    }
+
+    /** Get the sort that members of this sig belong to, or null if not set. */
+    public Sort getSigSort(Sig sig) {
+        return sigsToSorts.get(sig);
     }
 
     /** Configure a model finder's theory and scopes to check this translation. */

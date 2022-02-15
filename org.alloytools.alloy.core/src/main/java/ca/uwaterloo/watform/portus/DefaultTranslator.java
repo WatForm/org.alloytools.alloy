@@ -20,8 +20,8 @@ import java.util.function.Function;
  */
 final class DefaultTranslator extends BaseTranslator {
 
-    // this should go in the problem probably... do we want this to hold state?
     private final Map<Sig, Function<Var, Term>> sigMemberPredicates = new HashMap<>();
+    private final Map<Sig, Sort> sigsToScopes = new HashMap<>();
 
     public DefaultTranslator(Translator topLevelTranslator) {
         super(topLevelTranslator);
@@ -43,10 +43,22 @@ final class DefaultTranslator extends BaseTranslator {
             throw new ErrorFatal("Internal error: seen sig " + sig.label + " before");
         }
 
-        // Create the sort. - TODO only for if top level sig, else find a way to get the sort
-        Sort sort = Sort.mkSortConst(makeUniqueName(sig.label));
-        int scope = context.scoper.sig2scope(sig);
-        context.addSort(sort, scope);
+        // Find the sort corresponding to this sig.
+        Sort sort;
+        if (sig.isTopLevel()) {
+            // Top-level sig: make a new sort.
+            sort = Sort.mkSortConst(makeUniqueName(sig.label));
+            int scope = context.scoper.sig2scope(sig);
+            context.addSort(sort, scope);
+        } else {
+            // Not top-level: its parent's sort should have been set before.
+            sort = context.getSigSort(sig.parent);
+            if (sort == null) {
+                // It wasn't set: violation of the translate(Sig, TranslationContext) contract.
+                throw new ErrorFatal("Sig " + sig.label + "'s parent had no SMT sort set.");
+            }
+        }
+        context.setSigSort(sig, sort);
 
         // Make a new predicate for membership.
         String memPredName = makeUniqueName("in" + sig.label);

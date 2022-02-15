@@ -46,18 +46,18 @@ public final class TranslateAlloyToFortress {
         // 1. Each top-level PrimSig; translators should translate child PrimSigs.
         // 2. All SubsetSigs, in such an order that for each SubsetSig, all of its parent SubsetSigs
         // have been translated before it is translated.
-        Set<String> sigNamesSeen = new HashSet<>();
 
-        // 1. PrimSig trees. TODO actually translate PrimSig trees
+        // 1. Each top-level PrimSig.
         for (Sig sig : sigs) {
             // TODO: can this be UNIV or other built-in sigs?
             if (sig instanceof Sig.PrimSig && sig.isTopLevel()) {
-                translatePrimSigTree((Sig.PrimSig) sig, sigNamesSeen, translator, context);
+                translator.translate(sig, context);
             }
         }
 
         // 2. SubsetSigs, in the specified order.
         // If this becomes a performance bottleneck, consider a topological sort instead.
+        Set<String> sigNamesSeen = new HashSet<>();
         boolean changed;
         do {
             changed = false;
@@ -66,7 +66,8 @@ public final class TranslateAlloyToFortress {
                     Sig.SubsetSig subsetSig = (Sig.SubsetSig) sig;
 
                     // Have all the parents been translated?
-                    if (subsetSig.parents.stream().allMatch(p -> sigNamesSeen.contains(p.label))) {
+                    if (subsetSig.parents.stream().allMatch(
+                            p -> p instanceof Sig.PrimSig || sigNamesSeen.contains(p.label))) {
                         translator.translate(subsetSig, context);
                         sigNamesSeen.add(sig.label);
                         changed = true;
@@ -78,20 +79,6 @@ public final class TranslateAlloyToFortress {
         if (sigNamesSeen.size() != sigs.size()) {
             // If there's anything left, there's a cycle somewhere. Should be caught by parser.
             throw new ErrorFatal("Cyclic inheritance in subset sigs!");
-        }
-    }
-
-    private void translatePrimSigTree(
-            Sig.PrimSig sig, Set<String> sigNamesSeen, Translator translator, TranslationContext context) {
-        if (sigNamesSeen.contains(sig.label)) {
-            throw new ErrorFatal("Cyclic inheritance!"); // should be caught by parser
-        }
-        sigNamesSeen.add(sig.label);
-
-        // Pre-order: translate the sig before its children.
-        translator.translate(sig, context);
-        for (Sig.PrimSig child : sig.children()) {
-            translatePrimSigTree(sig, sigNamesSeen, translator, context);
         }
     }
 
