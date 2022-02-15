@@ -200,9 +200,9 @@ The modifications to existing Alloy GUI files are described below:
 - Added `doNewDash()` for opening new tab in "dash mode" (currently unused)
 - Modified `doRefreshRun()` to only display dash options in the run menu, and appropriately parse dash and log errors.
 - Misc changes to add .dsh option when opening and saving files.
-- Added doUnchangedVariables(), doAssumeSingleInput(), doGenerateSigAxiom(), doCTLModelChecking() for toggling the Dash Options in the Options menu.
-- Modified finishInit() to keep track of when a Dash Option is changed by the user.
-- Modified doRun() to fetch the value for the Dash Options before a model is executed.
+- Added `doUnchangedVariables()`, `doAssumeSingleInput()`, `doGenerateSigAxiom()`, `doCTLModelChecking()` for toggling the Dash Options in the Options menu.
+- Modified `finishInit()` to keep track of when a Dash Option is changed by the user.
+- Modified `doRun()` to fetch the value for the Dash Options before a model is executed.
 
 **org.alloytools.alloy.application/src/main/java/edu/mit/csail/sdg/alloy4whole/SimpleReporter:**
 - Modified `SimpleTask1`'s run function to handle dash code.
