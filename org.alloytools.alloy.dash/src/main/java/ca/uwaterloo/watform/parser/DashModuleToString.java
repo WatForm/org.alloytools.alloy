@@ -66,7 +66,7 @@ public class DashModuleToString {
 
     private static void printSigs(DashModule module, DataLayouter<NoExceptions> out) {
     	for(Sig sig: module.sigs.values()) {
-    		printComments(((PrimSig) sig).parent.label, out);
+    		printComments(module, ((PrimSig) sig).parent.label, out);
     		
     		if(sig.isAbstract != null)
     			out.print("abstract ");
@@ -103,7 +103,7 @@ public class DashModuleToString {
     private static void printPreds(DashModule module, DataLayouter<NoExceptions> out) {
     	for(ArrayList<Func> funcs: module.funcs.values()) {
 			for (Func func : funcs) {
-				printComments(func.label, out);
+				printComments(module, func.label, out);
 				out.print("pred " + cleanLabel(func.label));
 
 				if (func.decls.size() > 0)
@@ -121,7 +121,7 @@ public class DashModuleToString {
     
     private static void printFacts(DashModule module, DataLayouter<NoExceptions> out) {
     	for(Pair<String,Expr> fact: module.facts) {
-			printComments(fact.b.toString(), out);
+			printComments(module, fact.b.toString(), out);
 			out.print("fact {").beginCInd().brk(1,0);
 			printExpr(fact.b,out);
 			out.brk(1,-indent).end().print("}").brk().brk();
@@ -444,7 +444,7 @@ public class DashModuleToString {
     	return null;
     }
     
-    private static void printComments(String reference, DataLayouter<NoExceptions> out) {
+    private static void printComments(DashModule module, String reference, DataLayouter<NoExceptions> out) {
     	if (reference.equals("stepUtil/StateLabel")) {
     		out.brk().print("/***************************** STATE SPACE ************************************/").brk(); 
     	}
@@ -491,9 +491,12 @@ public class DashModuleToString {
     	if (reference.contains("AND[(all s | s in stepUtil/initial <=> this/init[s]), (all s,s_next | s -> s_next in stepUtil/nextStep <=> this/small_step[s, s_next])")) {
     		out.print("/* This fact defines the following: ").brk();
     		out.print("   Snapshots that satifiy the initial conditions can only be in the set of initial snapshots,").brk();
-    		out.print("   Pairs of snapshots that satisfy the small_step predicate conform the next step relation,").brk(); 
+    		out.print("   Pair of snapshots that satisfy the small_step predicate conform to the next step relation,").brk(); 
     		out.print("   Consequtive snapshots that have the same set of active control states, events generated, transitions taken in the big step, and system variables are equal,").brk(); 
-    		out.print("   An unstable snapshot cannot be the last one of a trace */").brk(); 
+    		if (module.stateHierarchy)
+    			out.print("   An unstable snapshot cannot be the last one of a trace */").brk();
+    		else
+    			out.print("   */").brk();
     	}
     	if (reference.contains("AND[(all s | s in stepUtil/BaseSnapshot), stepUtil/Step . (stepUtil/Step <: next_step) in ctl/nextState")) {
     		out.print("/* This connects the model to the CTL module to allow for CTL TCMC */").brk();
