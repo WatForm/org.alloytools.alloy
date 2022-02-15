@@ -70,6 +70,8 @@ The Alloy Analyzer GUI has been extended to support editing, translating, and an
 - Notes about the translation: 
 1) The predicates and check/run commands may not appear in the Alloy file in the same order that they appear in the Dash file.
 2) Any user-created comments in Dash will not appear in the Alloy file.  The translation adds some comments but the user-created comments are lost at parsing.
+3) Properties defined by the user are parsed and then printed out using the `DashModuleToString()` class. As a result, it may appear slighlty different once translated.
+4) Fields defined in the translated Alloy model will be domain restricted to the Signature in which they appear in order to avoid ambiguities.
 
 **Dash Options**
 
