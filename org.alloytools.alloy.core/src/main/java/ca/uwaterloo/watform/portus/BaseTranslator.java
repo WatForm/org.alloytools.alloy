@@ -1,6 +1,5 @@
 package ca.uwaterloo.watform.portus;
 
-import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.alloy4.Err;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprBinary;
@@ -14,7 +13,9 @@ import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.ast.VisitReturn;
-import fortress.msfol.Theory;
+import fortress.msfol.Term;
+
+import java.util.UUID;
 
 /**
  * A convenience base implementation of Translator. Immutable.
@@ -24,24 +25,19 @@ import fortress.msfol.Theory;
  */
 abstract class BaseTranslator implements Translator {
 
-    // A reporter that subclasses can use to log output.
-    protected final A4Reporter reporter;
-
     // The Translator used for recursive translation.
     // We can't just call translate() because that wouldn't give other translators
     // the chance to translate.
     private final Translator topLevelTranslator;
-    
+
     private final Visitor visitor = new Visitor();
 
     /**
      * Create a translator with some convenience fields.
-     * @param reporter A reporter subclasses can use to log output (can be null).
      * @param topLevel The top-level translator that recursive translate() calls
      *                 from this translator will delegate to.
      */
-    public BaseTranslator(A4Reporter reporter, Translator topLevel) {
-        this.reporter = (reporter == null) ? A4Reporter.NOP : reporter;
+    public BaseTranslator(Translator topLevel) {
         this.topLevelTranslator = topLevel;
     }
 
@@ -49,150 +45,163 @@ abstract class BaseTranslator implements Translator {
      * Translate an expression. This method *must* be used when recursively
      * translating from within a translator in order to let the top-level
      * translator manage the translation.
+     *
+     * @param expr The Alloy expression to recursively translate.
+     * @param context The context for the translation as updated so far.
+     * @return The Fortress translation for the expression.
      */
-    protected Theory recursivelyTranslate(Expr expr, Theory base) {
-        return topLevelTranslator.translate(expr, base);
+    protected Term recursivelyTranslate(
+            Expr expr, TranslationContext context) {
+        return topLevelTranslator.translate(expr, context);
     }
 
     // The following are convenience methods for translating particular Expr subclasses.
     // Calls to translate() will automatically be routed to one of these methods.
 
     /** Translate an ExprBinary Alloy node. */
-    public Theory translate(ExprBinary expr, Theory base) {
+    public Term translate(ExprBinary expr, TranslationContext context) {
         return null;
     }
 
     /** Translate an ExprList Alloy node. */
-    public Theory translate(ExprList expr, Theory base) {
+    public Term translate(ExprList expr, TranslationContext context) {
         return null;
     }
 
     /** Translate an ExprCall Alloy node. */
-    public Theory translate(ExprCall expr, Theory base) {
+    public Term translate(ExprCall expr, TranslationContext context) {
         return null;
     }
 
     /** Translate an ExprConstant Alloy node. */
-    public Theory translate(ExprConstant expr, Theory base) {
+    public Term translate(ExprConstant expr, TranslationContext context) {
         return null;
     }
 
     /** Translate an ExprITE Alloy node. */
-    public Theory translate(ExprITE expr, Theory base) {
+    public Term translate(ExprITE expr, TranslationContext context) {
         return null;
     }
 
     /** Translate an ExprLet Alloy node. */
-    public Theory translate(ExprLet expr, Theory base) {
+    public Term translate(ExprLet expr, TranslationContext context) {
         return null;
     }
 
     /** Translate an ExprQt Alloy node. */
-    public Theory translate(ExprQt expr, Theory base) {
+    public Term translate(ExprQt expr, TranslationContext context) {
         return null;
     }
 
     /** Translate an ExprUnary Alloy node. */
-    public Theory translate(ExprUnary expr, Theory base) {
+    public Term translate(ExprUnary expr, TranslationContext context) {
         return null;
     }
 
     /** Translate an ExprVar Alloy node. */
-    public Theory translate(ExprVar expr, Theory base) {
-        return null;
-    }
-
-    /** Translate an Alloy signature. */
-    public Theory translate(Sig expr, Theory base) {
-        return null;
-    }
-
-    /** Translate an Alloy field. */
-    public Theory translate(Sig.Field expr, Theory base) {
+    public Term translate(ExprVar expr, TranslationContext context) {
         return null;
     }
 
     /**
-     * Translate an Alloy expression to a Fortress theory.
+     * Translate an Alloy signature.
+     * For sigs and other Exprs that do not have values, the return value should be Top if
+     * successful, and the context should be updated.
+     */
+    public Term translate(Sig expr, TranslationContext context) {
+        return null;
+    }
+
+    /** Translate an Alloy field. */
+    public Term translate(Sig.Field expr, TranslationContext context) {
+        return null;
+    }
+
+    /**
+     * Translate an Alloy expression to a Fortress context.
      *
      * Do not call this recursively from subclasses! Instead, use
-     * {@link #recursivelyTranslate(Expr, Theory)} to give other translators
+     * {@link #recursivelyTranslate(Expr, TranslationContext)} to give other translators
      * a chance to run.
      */
     @Override
-    public final Theory translate(Expr expr, Theory base) {
-        // TODO delegate to above
-        return visitor.delegate(expr, base);
+    public final Term translate(Expr expr, TranslationContext context) {
+        return visitor.delegate(expr, context);
     }
 
     // Helper for delegating based on type of expression.
     // TODO: any advantage over just a switch statement? perf cost?
-    private final class Visitor extends VisitReturn<Theory> {
+    private final class Visitor extends VisitReturn<Term> {
 
-        private Theory theory = null;
+        private TranslationContext context = null;
 
-        Theory delegate(Expr expr, Theory theory) {
-            this.theory = theory;
-            Theory result = visitThis(expr);
-            this.theory = null;
+        Term delegate(Expr expr, TranslationContext context) {
+            this.context = context;
+            Term result = visitThis(expr);
+            this.context = null;
             return result;
         }
 
         @Override
-        public Theory visit(ExprBinary expr) throws Err {
-            return translate(expr, theory);
+        public Term visit(ExprBinary expr) throws Err {
+            return translate(expr, context);
         }
 
         @Override
-        public Theory visit(ExprList expr) throws Err {
-            return translate(expr, theory);
+        public Term visit(ExprList expr) throws Err {
+            return translate(expr, context);
         }
 
         @Override
-        public Theory visit(ExprCall expr) throws Err {
-            return translate(expr, theory);
+        public Term visit(ExprCall expr) throws Err {
+            return translate(expr, context);
         }
 
         @Override
-        public Theory visit(ExprConstant expr) throws Err {
-            return translate(expr, theory);
+        public Term visit(ExprConstant expr) throws Err {
+            return translate(expr, context);
         }
 
         @Override
-        public Theory visit(ExprITE expr) throws Err {
-            return translate(expr, theory);
+        public Term visit(ExprITE expr) throws Err {
+            return translate(expr, context);
         }
 
         @Override
-        public Theory visit(ExprLet expr) throws Err {
-            return translate(expr, theory);
+        public Term visit(ExprLet expr) throws Err {
+            return translate(expr, context);
         }
 
         @Override
-        public Theory visit(ExprQt expr) throws Err {
-            return translate(expr, theory);
+        public Term visit(ExprQt expr) throws Err {
+            return translate(expr, context);
         }
 
         @Override
-        public Theory visit(ExprUnary expr) throws Err {
-            return translate(expr, theory);
+        public Term visit(ExprUnary expr) throws Err {
+            return translate(expr, context);
         }
 
         @Override
-        public Theory visit(ExprVar expr) throws Err {
-            return translate(expr, theory);
+        public Term visit(ExprVar expr) throws Err {
+            return translate(expr, context);
         }
 
         @Override
-        public Theory visit(Sig expr) throws Err {
-            return translate(expr, theory);
+        public Term visit(Sig expr) throws Err {
+            return translate(expr, context);
         }
 
         @Override
-        public Theory visit(Sig.Field expr) throws Err {
-            return translate(expr, theory);
+        public Term visit(Sig.Field expr) throws Err {
+            return translate(expr, context);
         }
 
+    }
+
+    /** Create a unique name for a Fortress symbol. */
+    public String makeUniqueName(String name) {
+        return name + "$" + UUID.randomUUID();
     }
 
 }

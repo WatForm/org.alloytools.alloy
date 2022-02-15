@@ -74,8 +74,10 @@ import edu.mit.csail.sdg.parser.CompUtil;
  *           state, thus the atom may change; also, scopes for such sigs are not
  *           made exact; new syntax error, setting trace scope for static models
  *
+ * @modified [portus] made public
+ *
  */
-final class ScopeComputer {
+public final class ScopeComputer {
 
     // It calls A4Solution's constructor
 
