@@ -52,14 +52,6 @@ open util/ctl[S]
 
 /************************* Significance Axioms ********************************/
 
-    pred reachabilityAxiom {
-        all s : S | s in S .((Step.initial) <: * (Step.next_step) )
-    }
-
-    pred equalityAxiom {
-        all s, s': S |  s->s' in Step.equality => s = s'
-    }
-
     // The system is always in some state
     assert check_some_conf {
         ctl_mc[ag[{s: S | some s.conf}]]

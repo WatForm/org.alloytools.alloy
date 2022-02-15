@@ -419,6 +419,9 @@ public class DashModuleToString {
 
 	// Helper method to change "{path/label}" to "label"
     private static String cleanLabel(String label) {
+    	if (label.contains("integer/")) {
+    		return label;
+    	}
 		if (label.endsWith("}") && label.startsWith("{")){
 			label = label.substring(1,label.length()-1);
 		}
@@ -497,5 +500,3 @@ public class DashModuleToString {
     	}
     }
 }
-
-//// Test whether a Snapshot and its next Snapshot are equal. Two Snapshots are equal

@@ -466,7 +466,6 @@ public class DashValidation {
 
     /* Accessed by the DashParser */
     public static void importModule(String fileName) {
-    	System.out.println("File Name: " + fileName);
     	if(fileName.contains("/"))
     		fileName = fileName.substring(fileName.indexOf("/") + 1);
         File utilFolder = new File(DashOptions.dashModelLocation + "/util/" + fileName + ".als"); 
