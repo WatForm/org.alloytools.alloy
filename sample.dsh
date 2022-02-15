@@ -32,3 +32,12 @@ conc state A { // root state is always 'concurrent'
 		}
 	}
 }
+
+// check a property of the model
+// if ev1 happens when the variables have the same 
+assert t1_is_taken {
+    all s: Snapshot | A_ev1 in s.events and A_v1 = A_v2 =>
+        some s_next: s.*nextStep | s_next.stable = True and
+                    (A_A1_t1 in s_next.taken)
+}
+check t1_is_taken for 7 Snapshot, exactly 2 EventLabel expect 0
