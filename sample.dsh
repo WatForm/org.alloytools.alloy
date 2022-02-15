@@ -1,0 +1,34 @@
+sig Value {}
+
+conc state A { // root state is always 'concurrent'
+
+	env event ev1 {} // env = environmental
+	env event ev2 {}
+	v1,v2: Value  // variables declared within a state are dynamic
+
+	default state A1 {
+		trans t1 {
+			from A1 // src state
+			goto A2  // dest state
+			on ev1 // guarding event
+			when v2 = v1 // guarding condition: Alloy formula
+			do {
+				v1' = v1  // Alloy formula
+				// refer to next value of a variable using primed variable
+			}
+			send ev2 // event sent
+		}
+	}
+	state A2 {
+		// parts of the transition may be omitted
+		trans t2 {
+			from A2
+			goto A1
+			on ev2
+			do {
+				v2' = v2
+			}
+			send ev1
+		}
+	}
+}
