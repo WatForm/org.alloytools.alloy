@@ -1,43 +1,50 @@
 sig Value {}
 
-conc state A { // root state is always 'concurrent'
-
-	env event ev1 {} // env = environmental
-	env event ev2 {}
+conc state Top { // root state is always concurrent
+	event ev1 {} 
+	event ev2 {}
 	v1,v2: Value  // variables declared within a state are dynamic
 
-	default state A1 {
-		trans t1 {
-			from A1 // src state
-			goto A2  // dest state
-			on ev1 // guarding event
-			when v2 = v1 // guarding condition: Alloy formula
-			do {
-				v1' = v1  // Alloy formula
-				// refer to next value of a variable using primed variable
+	conc state A { 
+		default state A1 {
+			trans t1 {
+				from A1 // src state
+				goto A2  // dest state
+				on ev1 // guarding event
+				when v2 = v1 // guarding condition: Alloy formula
+				do {
+					v1' = v1  // Alloy formula
+					// refer to next value of a variable using primed variable
+				}
+				send ev2 // event sent
 			}
-			send ev2 // event sent
+		}
+		state A2 {
+			// parts of the transition may be omitted
+			trans t2 {
+				goto A1
+				on ev2
+				do {
+					v2' = v2
+				}
+				send ev1
+			}
 		}
 	}
-	state A2 {
-		// parts of the transition may be omitted
-		trans t2 {
-			from A2
-			goto A1
+	conc state B {
+		trans t3 {
 			on ev2
 			do {
-				v2' = v2
+				v1' = v2
 			}
-			send ev1
 		}
 	}
 }
-
 // check a property of the model
 // if ev1 happens when the variables have the same 
 assert t1_is_taken {
-    all s: Snapshot | A_ev1 in s.events and A_v1 = A_v2 =>
-        some s_next: s.*nextStep | s_next.stable = True and
-                    (A_A1_t1 in s_next.taken)
+    all s: Snapshot | Top_ev1 in s.events and Top_v1 = Top_v2 =>
+        some s_next: s.*nextStep |
+                    (Top_A_A1_t1 in s_next.taken)
 }
-check t1_is_taken for 7 Snapshot, exactly 2 EventLabel expect 0
+check t1_is_taken for 3 Snapshot, 4 Value, 2 EventLabel, 3 StateLabel

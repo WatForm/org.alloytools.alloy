@@ -70,7 +70,7 @@ The Alloy Analyzer GUI has been extended to support editing, translating, and an
 - Notes about the translation: 
 1) The predicates and check/run commands may not appear in the Alloy file in the same order that they appear in the Dash file.
 2) Any user-created comments in Dash will not appear in the Alloy file.  The translation adds some comments but the user-created comments are lost at parsing.
-3) Properties defined by the user are parsed and then printed out using the `DashModuleToString()` class. As a result, it may appear slighlty different once translated.
+3) Properties defined by the user are parsed and then printed out using the `DashModuleToString()` class. As a result, it may appear slightly different once translated.
 4) Fields defined in the translated Alloy model will be domain restricted to the Signature in which they appear in order to avoid ambiguities.
 
 **Dash Options**
@@ -132,7 +132,8 @@ To write properties of Dash models to run/check, it is important to know a littl
 	+ A_A1_t1 is transition t1 (which can be compared with s.taken where s is a Snapshot to see if A1 is in the set of transitions taken so far in this big step) 
 	+ A_A1_v1 is the value of variable v1 
 	+ A_ev1 is ev1, which can be compared to s.events where s is a Snapshot
-- to only check the property at stable snapshots, use the boolean s.stable where s is a snapshot
+- to only check the property at stable snapshots, use the boolean s.stable where s is a snapshot (stable is only relevant if there are concurrent states)
+- if you need a scope for the EventLabel, count the number of events declared in the model. If you need a scope for the StateLabel, count the number of basic states declared in the model.
 
 
 # Code Modifications
