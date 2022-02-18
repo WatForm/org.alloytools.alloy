@@ -91,39 +91,52 @@ If the user opens a file with a Dash model or opens an empty tab using the ```Ne
 
 Dash extends Alloy with keywords to describe transitions in a hierarchical, concurrent state machines (similar to Statecharts).  Here is a small example:
 '''
-conc state A {
+sig Value {}
 
-	env event ev1
-	env event ev2 
-	v1,v2: int
+conc state Top { // root state is always concurrent
+	event ev1 {} 
+	event ev2 {}
+	v1,v2: Value  // variables declared within a state are dynamic
 
-	state A1 {
-		trans t1 {
-			from A1
-			goto A2
-			on ev1
-			when v2 = v1 
-			do {
-				v1' = v1 + 1
+	conc state A { 
+		default state A1 {
+			trans t1 {
+				from A1 // src state
+				goto A2  // dest state
+				on ev1 // guarding event
+				when v2 = v1 // guarding condition: Alloy formula
+				do {
+					v1' = v1  // Alloy formula
+					// refer to next value of a variable using primed variable
+				}
+				send ev2 // event sent
 			}
-			send ev2
+		}
+		state A2 {
+			// parts of the transition may be omitted
+			trans t2 {
+				goto A1
+				on ev2
+				do {
+					v2' = v2
+				}
+				send ev1
+			}
 		}
 	}
-	state A2 {
-		trans t2 {
-			from A2
-			goto A1
+	conc state B {
+		trans t3 {
 			on ev2
 			do {
-				v2' = v2 + 1
+				v1' = v2
 			}
-			send ev1
 		}
-
 	}
 }
 '''
-More details can be found in: * Jose Serna. Dash: Declarative Behavioural Modelling in Alloy. MMath thesis, University of Waterloo, David R. Cheriton School of Computer Science, 2019. [https://cs.uwaterloo.ca/~nday/pdf/theses/2019-01-jserna-mmath-thesis.pdf]
+More details can be found in: 
+* Jose Serna. Dash: Declarative Behavioural Modelling in Alloy. MMath thesis, University of Waterloo, David R. Cheriton School of Computer Science, 2019. [https://cs.uwaterloo.ca/~nday/pdf/theses/2019-01-jserna-mmath-thesis.pdf]
+* The above example is available in the file sample.dsh in the root directory.
 
 To write properties of Dash models to run/check, it is important to know a little bit about how Dash is translated to Alloy:
 - the signature of system states is called 'Snapshot' (which is an extension of 'BaseSnapshot')
