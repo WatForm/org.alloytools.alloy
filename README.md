@@ -134,6 +134,7 @@ conc state Top { // root state is always concurrent
 	}
 }
 '''
+
 More details can be found in: 
 * Jose Serna. Dash: Declarative Behavioural Modelling in Alloy. MMath thesis, University of Waterloo, David R. Cheriton School of Computer Science, 2019. [https://cs.uwaterloo.ca/~nday/pdf/theses/2019-01-jserna-mmath-thesis.pdf]
 * The above example is available in the file sample.dsh in the root directory.
