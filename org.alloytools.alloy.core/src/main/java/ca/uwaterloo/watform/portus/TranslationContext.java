@@ -77,4 +77,20 @@ final class TranslationContext {
         }
     }
 
+    /**
+     * Get the theory being built. This is mainly for testing; for production use prefer
+     * {@link #configureModelFinder(ModelFinder)}.
+     */
+    Theory getTheory() {
+        return theory;
+    }
+
+    /**
+     * Get the registered scope of the given sort. Again, mainly for testing.
+     * Returns a boxed Integer so that we return null if the sort doesn't have a registered scope.
+     */
+    Integer getSortScope(Sort sort) {
+        return scopes.get(sort);
+    }
+
 }

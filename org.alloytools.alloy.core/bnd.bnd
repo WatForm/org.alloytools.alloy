@@ -16,6 +16,9 @@
     src/main/resources;version=file, \
     slf4j.api, \
     org.sat4j.core, \
+    org.mockito:mockito-core;version=latest, \
+    net.bytebuddy:byte-buddy;version=latest, \
+    org.objenesis:objenesis;version=latest
 
 Export-Package: \
 	edu.mit.csail.sdg.alloy4,\

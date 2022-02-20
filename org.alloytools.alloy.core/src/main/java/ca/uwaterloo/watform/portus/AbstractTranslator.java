@@ -24,7 +24,7 @@ import java.util.UUID;
  * recursively translating expressions, and subclass-specific translate() overloads.
  * Most translators should extend this class.
  */
-abstract class BaseTranslator implements Translator {
+abstract class AbstractTranslator implements Translator {
 
     // The Translator used for recursive translation.
     // We can't just call translate() because that wouldn't give other translators
@@ -38,7 +38,7 @@ abstract class BaseTranslator implements Translator {
      * @param topLevel The top-level translator that recursive translate() calls
      *                 from this translator will delegate to.
      */
-    public BaseTranslator(Translator topLevel) {
+    public AbstractTranslator(Translator topLevel) {
         this.topLevelTranslator = topLevel;
     }
 

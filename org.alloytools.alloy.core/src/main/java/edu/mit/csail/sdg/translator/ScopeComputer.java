@@ -77,7 +77,7 @@ import edu.mit.csail.sdg.parser.CompUtil;
  * @modified [portus] made public
  *
  */
-public final class ScopeComputer {
+public class ScopeComputer {
 
     // It calls A4Solution's constructor
 

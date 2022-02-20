@@ -7,7 +7,6 @@ import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.modelfind.ModelFinder;
 import fortress.modelfind.ModelFinderResult;
-import fortress.msfol.Sort;
 
 import java.io.IOException;
 import java.util.HashSet;

@@ -18,10 +18,9 @@ import java.util.function.Function;
 /**
  * The basic translator that provides unoptimized translations of every supported node.
  */
-final class DefaultTranslator extends BaseTranslator {
+final class DefaultTranslator extends AbstractTranslator {
 
     private final Map<Sig, Function<Var, Term>> sigMemberPredicates = new HashMap<>();
-    private final Map<Sig, Sort> sigsToScopes = new HashMap<>();
 
     public DefaultTranslator(Translator topLevelTranslator) {
         super(topLevelTranslator);
