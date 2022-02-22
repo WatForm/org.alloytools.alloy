@@ -136,7 +136,7 @@ final class DefaultTranslator extends AbstractTranslator {
     /** Create an axiom that the child subsig has an exact scope of `scope`. */
     private Term makeExactSubsigScopeAxiom(Sig child, Sort sort, int scope, TranslationContext context) {
         // Fortress: "exists x1, ..., xn: sort . forall x: sort . !(x1 = x2) && ...
-        // && !(x1 = xn) && !(x2 = x3) && ... && !(x{n-1} = xn) && ([[x \in child]] => x = x1
+        // && !(x1 = xn) && !(x2 = x3) && ... && !(x{n-1} = xn) && ([[x \in child]] <=> x = x1
         // || ... || x = xn)" (KT 4.3)
         Var[] vars = new Var[scope];
         for (int i = 0; i < vars.length; i++) {
@@ -159,7 +159,7 @@ final class DefaultTranslator extends AbstractTranslator {
 
         // construct the last conjunct
         Term xInChild = recursivelyTranslate(ExprElementOf.make(x, child), context);
-        Term implication = Term.mkImp(xInChild, Term.mkOr(eqDisjuncts));
+        Term implication = Term.mkIff(xInChild, Term.mkOr(eqDisjuncts));
         conjuncts.add(implication);
 
         // construct the decls

@@ -10,6 +10,7 @@ import fortress.msfol.Sort;
 import fortress.msfol.Term;
 import fortress.msfol.Theory;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -42,6 +43,7 @@ final class TranslationContext {
     }
 
     public void addAxiom(Term axiom) {
+        System.out.println(axiom + " -> " + Arrays.toString(Thread.currentThread().getStackTrace()));
         theory = theory.withAxiom(axiom);
     }
 

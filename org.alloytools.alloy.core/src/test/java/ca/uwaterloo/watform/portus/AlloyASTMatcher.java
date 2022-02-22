@@ -159,9 +159,9 @@ public class AlloyASTMatcher extends TypeSafeMatcher<Expr> {
                 List<? extends ExprHasName> yNames = y.decls.get(i).names;
                 if (xNames.size() != yNames.size()) return false;
                 for (int j = 0; j < xNames.size(); j++) {
-                    boundVarMap.put(xNames.get(i).label, yNames.get(i).label);
-                    boundVarsA.add(xNames.get(i).label);
-                    boundVarsB.add(yNames.get(i).label);
+                    boundVarMap.put(xNames.get(j).label, yNames.get(j).label);
+                    boundVarsA.add(xNames.get(j).label);
+                    boundVarsB.add(yNames.get(j).label);
                 }
             }
 
