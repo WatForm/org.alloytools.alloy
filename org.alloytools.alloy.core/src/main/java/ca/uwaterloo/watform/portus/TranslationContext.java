@@ -43,7 +43,6 @@ final class TranslationContext {
     }
 
     public void addAxiom(Term axiom) {
-        System.out.println(axiom + " -> " + Arrays.toString(Thread.currentThread().getStackTrace()));
         theory = theory.withAxiom(axiom);
     }
 

@@ -3,7 +3,9 @@ package ca.uwaterloo.watform.portus;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
+import edu.mit.csail.sdg.ast.ExprBinary;
 import edu.mit.csail.sdg.ast.ExprConstant;
+import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.Sig;
 import fortress.msfol.AnnotatedVar;
 import fortress.msfol.FuncDecl;
@@ -25,6 +27,7 @@ import java.util.stream.Collectors;
  */
 final class DefaultTranslator extends AbstractTranslator {
 
+    // Membership predicates for each signature (see KT 4.2).
     private final Map<Sig, Function<Var, Term>> sigMemberPredicates = new HashMap<>();
 
     public DefaultTranslator(Translator topLevelTranslator) {
@@ -200,6 +203,48 @@ final class DefaultTranslator extends AbstractTranslator {
                 .map(var -> var.of(sort))
                 .collect(Collectors.toList());
         return Term.mkForall(decls, Term.mkImp(conjunction, disjunction));
+    }
+
+    /** Translate an ExprBinary formula. */
+    @Override
+    public Term translate(ExprBinary expr, TranslationContext context) {
+        switch (expr.op) {
+            case AND:
+                return Term.mkAnd(
+                        recursivelyTranslate(expr.left, context),
+                        recursivelyTranslate(expr.right, context));
+            case OR:
+                return Term.mkOr(
+                        recursivelyTranslate(expr.left, context),
+                        recursivelyTranslate(expr.right, context));
+            case IMPLIES:
+                return Term.mkImp(
+                        recursivelyTranslate(expr.left, context),
+                        recursivelyTranslate(expr.right, context));
+            case IFF:
+                return Term.mkIff(
+                        recursivelyTranslate(expr.left, context),
+                        recursivelyTranslate(expr.right, context));
+            default:
+                // others are either not supported or not formulas
+                throw new ErrorFatal("Unsupported ExprBinary formula: " + expr.op);
+        }
+    }
+
+    /** Translate an ExprUnary formula. */
+    @Override
+    public Term translate(ExprUnary expr, TranslationContext context) {
+        switch (expr.op) {
+            case NOT:
+                return Term.mkNot(
+                        recursivelyTranslate(expr.sub, context));
+            case NO:
+                // see KT figure 4.8
+                // TODO along with some and the rest
+            default:
+                // others are either not supported or not formulas
+                throw new ErrorFatal("Unsupported ExprUnary formula: " + expr.op);
+        }
     }
 
 }

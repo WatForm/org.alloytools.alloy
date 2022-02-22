@@ -63,8 +63,13 @@ abstract class AbstractTranslator implements Translator {
     // The following are convenience methods for translating particular Expr subclasses.
     // Calls to translate() will automatically be routed to one of these methods.
 
-    /** Translate "tuple \in expr", where expr is an ExprBinary. */
+    /** Translate "tuple \in expr", where expr is an ExprBinary term. */
     public Term translate(ConstList<Var> tuple, ExprBinary expr, TranslationContext context) {
+        return null;
+    }
+
+    /** Translate an ExprBinary Alloy formula. */
+    public Term translate(ExprBinary expr, TranslationContext context) {
         return null;
     }
 
@@ -113,6 +118,11 @@ abstract class AbstractTranslator implements Translator {
 
     /** Translate "tuple \in expr", where expr is an ExprUnary. Arities must match. */
     public Term translate(ConstList<Var> tuple, ExprUnary expr, TranslationContext context) {
+        return null;
+    }
+
+    /** Translate an ExprUnary Alloy formula. */
+    public Term translate(ExprUnary expr, TranslationContext context) {
         return null;
     }
 
@@ -216,6 +226,7 @@ abstract class AbstractTranslator implements Translator {
 
         @Override
         public Term visit(ExprBinary expr) throws Err {
+            // assume it's a formula
             return translate(expr, context);
         }
 
@@ -246,6 +257,7 @@ abstract class AbstractTranslator implements Translator {
 
         @Override
         public Term visit(ExprLet expr) throws Err {
+            // assume it's a formula
             return translate(expr, context);
         }
 
@@ -256,8 +268,8 @@ abstract class AbstractTranslator implements Translator {
 
         @Override
         public Term visit(ExprUnary expr) throws Err {
-            // not a formula: must wrap it to pass down contextual info
-            throw new ErrorFatal("ExprUnary must be wrapped with ExprElementOf");
+            // assume it's a formula
+            return translate(expr, context);
         }
 
         @Override
