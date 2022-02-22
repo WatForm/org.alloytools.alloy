@@ -1,5 +1,6 @@
 package ca.uwaterloo.watform.portus;
 
+import edu.mit.csail.sdg.alloy4.ConstList;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
@@ -205,10 +206,35 @@ final class DefaultTranslator extends AbstractTranslator {
         return Term.mkForall(decls, Term.mkImp(conjunction, disjunction));
     }
 
+    /** Translate "tuple \in expr", where expr is an ExprBinary term. */
+    @Override
+    public Term translate(ConstList<Var> tuple, ExprBinary expr, TranslationContext context) {
+        switch (expr.op) {
+            // see KT figure 4.10
+            case PLUS: // union
+                return Term.mkOr(
+                        recursivelyTranslate(ExprElementOf.make(tuple, expr.left), context),
+                        recursivelyTranslate(ExprElementOf.make(tuple, expr.right), context));
+            case INTERSECT:
+                return Term.mkAnd(
+                        recursivelyTranslate(ExprElementOf.make(tuple, expr.left), context),
+                        recursivelyTranslate(ExprElementOf.make(tuple, expr.right), context));
+            case MINUS: // set difference
+                return Term.mkAnd(
+                        recursivelyTranslate(ExprElementOf.make(tuple, expr.left), context),
+                        Term.mkNot(
+                                recursivelyTranslate(ExprElementOf.make(tuple, expr.right), context)));
+            default:
+                // others are either not supported or not terms
+                throw new ErrorFatal("Unsupported ExprBinary term: " + expr.op);
+        }
+    }
+
     /** Translate an ExprBinary formula. */
     @Override
     public Term translate(ExprBinary expr, TranslationContext context) {
         switch (expr.op) {
+            // see KT figure 4.6
             case AND:
                 return Term.mkAnd(
                         recursivelyTranslate(expr.left, context),
@@ -236,11 +262,9 @@ final class DefaultTranslator extends AbstractTranslator {
     public Term translate(ExprUnary expr, TranslationContext context) {
         switch (expr.op) {
             case NOT:
+                // see KT figure 4.6
                 return Term.mkNot(
                         recursivelyTranslate(expr.sub, context));
-            case NO:
-                // see KT figure 4.8
-                // TODO along with some and the rest
             default:
                 // others are either not supported or not formulas
                 throw new ErrorFatal("Unsupported ExprUnary formula: " + expr.op);
