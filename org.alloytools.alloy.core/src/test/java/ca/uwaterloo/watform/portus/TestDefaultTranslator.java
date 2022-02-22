@@ -22,6 +22,7 @@ import java.util.Set;
 
 import static ca.uwaterloo.watform.portus.AlloyASTMatcher.isAlphaEquivalent;
 import static ca.uwaterloo.watform.portus.FortressASTMatcher.isAlphaEquivalentTerm;
+import static ca.uwaterloo.watform.portus.IsSameMatcher.isSameAs;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.hasSize;
@@ -32,6 +33,7 @@ import static org.junit.Assert.assertEquals;
 import static org.mockito.AdditionalMatchers.or;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -62,6 +64,14 @@ public class TestDefaultTranslator {
     // Fortress flag constants are used as mock return values of translations.
     private Var makeFlagConstant(String label) {
         return Term.mkVar(label);
+    }
+
+    // Delegate to the real translator for any translation.
+    // This should go before other when() calls so it can be overriden for specific arguments.
+    // Also, you must use doReturn(...).when(...) for overrides: https://stackoverflow.com/a/34172381.
+    private void delegateToRealTranslator() {
+        when(mockRoot.translate(any(), any())).then(
+                ctx -> translator.translate(ctx.getArgument(0), ctx.getArgument(1)));
     }
 
     // Assert that a function declaration is a membership predicate for the given sort.
@@ -435,6 +445,95 @@ public class TestDefaultTranslator {
         when(mockRoot.translate(eq(x), any())).thenReturn(flagX);
         Term result = translator.translate(x.not(), context);
         assertEquals(Term.mkNot(flagX), result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_union_twoSets() {
+        // test [[x \in e1 + e2]] := [[x \in e1]] || [[x \in e2]]
+        ExprVar e1 = makeTestVariable("e1"), e2 = makeTestVariable("e2");
+        Var flag1 = makeFlagConstant("xInE1"), flag2 = makeFlagConstant("xInE2");
+        Var x = makeFlagConstant("x");
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(x, e1))), any()))
+                .thenReturn(flag1);
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(x, e2))), any()))
+                .thenReturn(flag2);
+        Term result = translator.translate(ExprElementOf.make(x, e1.plus(e2)), context);
+        assertEquals(Term.mkOr(flag1, flag2), result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_union_threeSets() {
+        // test [[x \in e1 + e2 + e3]] := [[x \in e1]] || [[x \in e2]] || [[x \in e3]]
+        ExprVar e1 = makeTestVariable("e1"), e2 = makeTestVariable("e2"),
+                e3 = makeTestVariable("e3");
+        Var flag1 = makeFlagConstant("xInE1"), flag2 = makeFlagConstant("xInE2"),
+                flag3 = makeFlagConstant("xInE3");
+        Var x = makeFlagConstant("x");
+
+        // delegate back to the mocked object for others
+        delegateToRealTranslator();
+        doReturn(flag1).when(mockRoot).translate(argThat(isSameAs(ExprElementOf.make(x, e1))), any());
+        doReturn(flag2).when(mockRoot).translate(argThat(isSameAs(ExprElementOf.make(x, e2))), any());
+        doReturn(flag3).when(mockRoot).translate(argThat(isSameAs(ExprElementOf.make(x, e3))), any());
+
+        Term result = translator.translate(ExprElementOf.make(x, e1.plus(e2).plus(e3)), context);
+
+        // we translate into nested OrLists, oh well...
+        assertEquals(Term.mkOr(Term.mkOr(flag1, flag2), flag3), result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_intersect_twoSets() {
+        // test [[x \in e1 & e2]] := [[x \in e1]] && [[x \in e2]]
+        ExprVar e1 = makeTestVariable("e1"), e2 = makeTestVariable("e2");
+        Var flag1 = makeFlagConstant("xInE1"), flag2 = makeFlagConstant("xInE2");
+        Var x = makeFlagConstant("x");
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(x, e1))), any()))
+                .thenReturn(flag1);
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(x, e2))), any()))
+                .thenReturn(flag2);
+        Term result = translator.translate(ExprElementOf.make(x, e1.intersect(e2)), context);
+        assertEquals(Term.mkAnd(flag1, flag2), result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_intersect_threeSets() {
+        // test [[x \in e1 & e2 & e3]] := [[x \in e1]] && [[x \in e2]] && [[x \in e3]]
+        ExprVar e1 = makeTestVariable("e1"), e2 = makeTestVariable("e2"),
+                e3 = makeTestVariable("e3");
+        Var flag1 = makeFlagConstant("xInE1"), flag2 = makeFlagConstant("xInE2"),
+                flag3 = makeFlagConstant("xInE3");
+        Var x = makeFlagConstant("x");
+
+        // delegate back to the mocked object for others
+        delegateToRealTranslator();
+        doReturn(flag1).when(mockRoot).translate(argThat(isSameAs(ExprElementOf.make(x, e1))), any());
+        doReturn(flag2).when(mockRoot).translate(argThat(isSameAs(ExprElementOf.make(x, e2))), any());
+        doReturn(flag3).when(mockRoot).translate(argThat(isSameAs(ExprElementOf.make(x, e3))), any());
+
+        Term result = translator.translate(ExprElementOf.make(x, e1.intersect(e2).intersect(e3)), context);
+
+        // we translate into nested AndLists, oh well...
+        assertEquals(Term.mkAnd(Term.mkAnd(flag1, flag2), flag3), result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_setDifference() {
+        // test [[x \in e1 - e2]] := [[x \in e1]] && ![[x \in e2]]
+        ExprVar e1 = makeTestVariable("e1"), e2 = makeTestVariable("e2");
+        Var flag1 = makeFlagConstant("xInE1"), flag2 = makeFlagConstant("xInE2");
+        Var x = makeFlagConstant("x");
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(x, e1))), any()))
+                .thenReturn(flag1);
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(x, e2))), any()))
+                .thenReturn(flag2);
+        Term result = translator.translate(ExprElementOf.make(x, e1.minus(e2)), context);
+        assertEquals(Term.mkAnd(flag1, Term.mkNot(flag2)), result);
         assertContextEmpty();
     }
 

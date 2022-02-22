@@ -8,6 +8,7 @@ import edu.mit.csail.sdg.alloy4.ErrorWarning;
 import edu.mit.csail.sdg.alloy4.JoinableList;
 import edu.mit.csail.sdg.ast.Browsable;
 import edu.mit.csail.sdg.ast.Expr;
+import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.Type;
 import edu.mit.csail.sdg.ast.VisitReturn;
 import fortress.msfol.Var;
@@ -70,6 +71,17 @@ final class ExprElementOf extends Expr {
     public Expr resolve(Type t, Collection<ErrorWarning> warnings) {
         Expr sub = this.sub.resolve(this.sub.type(), warnings);
         return make(tuple, sub);
+    }
+
+    @Override
+    public boolean isSame(Expr obj) {
+        while (obj instanceof ExprUnary && ((ExprUnary) obj).op == ExprUnary.Op.NOOP) {
+            obj = ((ExprUnary) obj).sub;
+        }
+        if (obj == this) return true;
+        if (!(obj instanceof ExprElementOf)) return false;
+        ExprElementOf x = (ExprElementOf) obj;
+        return tuple.equals(x.tuple) && sub.isSame(x.sub);
     }
 
     @Override
