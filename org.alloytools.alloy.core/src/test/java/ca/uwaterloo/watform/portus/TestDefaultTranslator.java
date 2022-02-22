@@ -5,11 +5,13 @@ import edu.mit.csail.sdg.ast.Attr;
 import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprQt;
+import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.msfol.FuncDecl;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
+import fortress.msfol.Theory;
 import fortress.msfol.Var;
 import org.junit.Before;
 import org.junit.Test;
@@ -26,6 +28,7 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.startsWith;
+import static org.junit.Assert.assertEquals;
 import static org.mockito.AdditionalMatchers.or;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -51,16 +54,27 @@ public class TestDefaultTranslator {
         context = new TranslationContext(A4Reporter.NOP, mockScoper);
     }
 
-    // Flag constants are used as mock return values of translations.
-    private Term makeFlagConstant(String label) {
+    // Alloy test variables are used as placeholders in Alloy test expressions.
+    private ExprVar makeTestVariable(String label) {
+        return ExprVar.make(null, label);
+    }
+
+    // Fortress flag constants are used as mock return values of translations.
+    private Var makeFlagConstant(String label) {
         return Term.mkVar(label);
     }
 
+    // Assert that a function declaration is a membership predicate for the given sort.
     private void assertIsMembershipPredicate(FuncDecl func, Sort sort, String name) {
         assertThat(func.name(), startsWith(name));
         assertThat(func.arity(), is(1));
         assertThat(func.argSorts().head(), is(sort));
         assertThat(func.resultSort(), is(Sort.Bool()));
+    }
+
+    // Assert that nothing has been added to the context.
+    private void assertContextEmpty() {
+        assertThat(context.getTheory(), is(Theory.empty()));
     }
 
     @Test
@@ -333,6 +347,95 @@ public class TestDefaultTranslator {
         // should have no constants
         assertThat(context.getTheory().constants().size(), is(0));
         assertThat(context.getTheory().enumConstants().size(), is(0));
+    }
+
+    @Test
+    public void testTranslate_and_twoConjuncts() {
+        // test [[x1 and x2]] := [[x1]] && [[x2]]
+        ExprVar x1 = makeTestVariable("x1"), x2 = makeTestVariable("x2");
+        Var flagX1 = makeFlagConstant("x1"), flagX2 = makeFlagConstant("x2");
+        when(mockRoot.translate(eq(x1), any())).thenReturn(flagX1);
+        when(mockRoot.translate(eq(x2), any())).thenReturn(flagX2);
+        Term result = translator.translate(x1.and(x2), context);
+        assertEquals(Term.mkAnd(flagX1, flagX2), result);
+        assertContextEmpty(); // shouldn't change context
+    }
+
+    @Test
+    public void testTranslate_and_threeConjuncts() {
+        // test [[x1 and x2 and x3]] := [[x1]] && [[x2]] && [[x3]]
+        ExprVar x1 = makeTestVariable("x1"), x2 = makeTestVariable("x2"),
+                x3 = makeTestVariable("x3");
+        Var flagX1 = makeFlagConstant("x1"), flagX2 = makeFlagConstant("x2"),
+                flagX3 = makeFlagConstant("x3");
+        when(mockRoot.translate(eq(x1), any())).thenReturn(flagX1);
+        when(mockRoot.translate(eq(x2), any())).thenReturn(flagX2);
+        when(mockRoot.translate(eq(x3), any())).thenReturn(flagX3);
+        Term result = translator.translate(x1.and(x2).and(x3), context);
+        assertEquals(Term.mkAnd(flagX1, flagX2, flagX3), result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_or_twoDisjuncts() {
+        // test [[x1 or x2]] := [[x1]] || [[x2]]
+        ExprVar x1 = makeTestVariable("x1"), x2 = makeTestVariable("x2");
+        Var flagX1 = makeFlagConstant("x1"), flagX2 = makeFlagConstant("x2");
+        when(mockRoot.translate(eq(x1), any())).thenReturn(flagX1);
+        when(mockRoot.translate(eq(x2), any())).thenReturn(flagX2);
+        Term result = translator.translate(x1.or(x2), context);
+        assertEquals(Term.mkOr(flagX1, flagX2), result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_or_threeDisjuncts() {
+        // test [[x1 or x2 or x3]] := [[x1]] || [[x2]] || [[x3]]
+        ExprVar x1 = makeTestVariable("x1"), x2 = makeTestVariable("x2"),
+                x3 = makeTestVariable("x3");
+        Var flagX1 = makeFlagConstant("x1"), flagX2 = makeFlagConstant("x2"),
+                flagX3 = makeFlagConstant("x3");
+        when(mockRoot.translate(eq(x1), any())).thenReturn(flagX1);
+        when(mockRoot.translate(eq(x2), any())).thenReturn(flagX2);
+        when(mockRoot.translate(eq(x3), any())).thenReturn(flagX3);
+        Term result = translator.translate(x1.or(x2).or(x3), context);
+        assertEquals(Term.mkOr(flagX1, flagX2, flagX3), result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_implies() {
+        // test [[x1 implies x2]] := [[x1]] => [[x2]]
+        ExprVar x1 = makeTestVariable("x1"), x2 = makeTestVariable("x2");
+        Var flagX1 = makeFlagConstant("x1"), flagX2 = makeFlagConstant("x2");
+        when(mockRoot.translate(eq(x1), any())).thenReturn(flagX1);
+        when(mockRoot.translate(eq(x2), any())).thenReturn(flagX2);
+        Term result = translator.translate(x1.implies(x2), context);
+        assertEquals(Term.mkImp(flagX1, flagX2), result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_iff() {
+        // test [[x1 iff x2]] := [[x1]] <=> [[x2]]
+        ExprVar x1 = makeTestVariable("x1"), x2 = makeTestVariable("x2");
+        Var flagX1 = makeFlagConstant("x1"), flagX2 = makeFlagConstant("x2");
+        when(mockRoot.translate(eq(x1), any())).thenReturn(flagX1);
+        when(mockRoot.translate(eq(x2), any())).thenReturn(flagX2);
+        Term result = translator.translate(x1.iff(x2), context);
+        assertEquals(Term.mkIff(flagX1, flagX2), result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_not() {
+        // test [[not x]] := ![[x]]
+        ExprVar x = makeTestVariable("x");
+        Var flagX = makeFlagConstant("x");
+        when(mockRoot.translate(eq(x), any())).thenReturn(flagX);
+        Term result = translator.translate(x.not(), context);
+        assertEquals(Term.mkNot(flagX), result);
+        assertContextEmpty();
     }
 
 }

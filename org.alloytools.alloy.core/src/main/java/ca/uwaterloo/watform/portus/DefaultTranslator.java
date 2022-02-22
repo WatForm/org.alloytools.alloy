@@ -6,6 +6,7 @@ import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprBinary;
 import edu.mit.csail.sdg.ast.ExprConstant;
+import edu.mit.csail.sdg.ast.ExprList;
 import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.Sig;
 import fortress.msfol.AnnotatedVar;
@@ -235,14 +236,6 @@ final class DefaultTranslator extends AbstractTranslator {
     public Term translate(ExprBinary expr, TranslationContext context) {
         switch (expr.op) {
             // see KT figure 4.6
-            case AND:
-                return Term.mkAnd(
-                        recursivelyTranslate(expr.left, context),
-                        recursivelyTranslate(expr.right, context));
-            case OR:
-                return Term.mkOr(
-                        recursivelyTranslate(expr.left, context),
-                        recursivelyTranslate(expr.right, context));
             case IMPLIES:
                 return Term.mkImp(
                         recursivelyTranslate(expr.left, context),
@@ -251,6 +244,10 @@ final class DefaultTranslator extends AbstractTranslator {
                 return Term.mkIff(
                         recursivelyTranslate(expr.left, context),
                         recursivelyTranslate(expr.right, context));
+            case AND:
+            case OR:
+                // confusingly, AND and OR aren't real ExprBinary ops
+                throw new ErrorFatal("AND and OR should be ExprLists!");
             default:
                 // others are either not supported or not formulas
                 throw new ErrorFatal("Unsupported ExprBinary formula: " + expr.op);
@@ -268,6 +265,26 @@ final class DefaultTranslator extends AbstractTranslator {
             default:
                 // others are either not supported or not formulas
                 throw new ErrorFatal("Unsupported ExprUnary formula: " + expr.op);
+        }
+    }
+
+    /** Translate an ExprList formula */
+    @Override
+    public Term translate(ExprList expr, TranslationContext context) {
+        // first, just translate all the args
+        List<Term> translatedArgs = expr.args.stream()
+                .map(arg -> recursivelyTranslate(arg, context))
+                .collect(Collectors.toList());
+
+        switch (expr.op) {
+            // see KT figure 4.6, extended to any number of ops
+            case AND:
+                return Term.mkAnd(translatedArgs);
+            case OR:
+                return Term.mkOr(translatedArgs);
+            default:
+                // we don't yet support DISJOINT or TOTALORDER
+                throw new ErrorFatal("Unsupported ExprList formula: " + expr.op);
         }
     }
 
