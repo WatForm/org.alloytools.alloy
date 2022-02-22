@@ -125,7 +125,7 @@ public abstract class Expr extends Browsable {
      * @param errors - the list of errors associated with this Expr node (can be
      *            null if there are none)
      */
-    Expr(Pos pos, Pos closingBracket, boolean ambiguous, Type type, int mult, long weight, JoinableList<Err> errors) {
+    protected Expr(Pos pos, Pos closingBracket, boolean ambiguous, Type type, int mult, long weight, JoinableList<Err> errors) {
         this.pos = (pos == null ? Pos.UNKNOWN : pos);
         this.closingBracket = (closingBracket == null ? Pos.UNKNOWN : closingBracket);
         this.ambiguous = ambiguous;

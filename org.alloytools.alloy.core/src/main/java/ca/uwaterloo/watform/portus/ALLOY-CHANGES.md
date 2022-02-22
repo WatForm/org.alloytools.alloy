@@ -6,3 +6,4 @@
 - Made the `ScopeComputer` class public so Portus's translation process can use it, and made it not final 
   so it can be mocked in unit tests.
 - Added Mockito 4.3.1 as a test dependency, as well as its dependencies ByteBuddy and Objenesis.
+- Made Expr's primary constructor protected so `ExprElementOf` can call it.
