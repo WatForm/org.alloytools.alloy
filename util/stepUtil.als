@@ -9,28 +9,12 @@
 
 module util/stepUtil[S]
 
-open util/ctl[S]
-
     one sig Step {
         initial: some S,
         next_step: S -> S,
         equality:  S -> S
     }
 
-    // A snapshot is a set of control states, a variable evaluation, and a set
-    // of events.
-    abstract sig BaseSnapshot {
-        /** Label control states */
-        conf: set StateLabel,
-        /** Semantics consistency */
-        taken: set TransitionLabel
-    }
-
-    fact {
-        all s: S | s in BaseSnapshot
-        Step.next_step = nextState
-        Step.initial = initialState
-    }
 
     // These functions must be defined by the calling code
     /** Define the elements that represent the initial state of the system */
@@ -44,16 +28,4 @@ open util/ctl[S]
     abstract sig EventLabel {}
     abstract sig EnvironmentEvent, InternalEvent extends EventLabel {}
 
-/****************************** STATE SPACE ***********************************/
-    abstract sig StateLabel {}
 
-/***************************** TRANSITIONS ************************************/
-    abstract sig TransitionLabel {}
-
-/************************* Significance Axioms ********************************/
-
-    // The system is always in some state
-    assert check_some_conf {
-        ctl_mc[ag[{s: S | some s.conf}]]
-    }
-    check check_some_conf for 10 expect 0

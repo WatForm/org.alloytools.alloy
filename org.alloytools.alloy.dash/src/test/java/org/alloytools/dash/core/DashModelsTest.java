@@ -641,7 +641,7 @@ public class DashModelsTest {
 
         String expectedOutput = "AND[(all s | s in initial <=> s.init), (all s,s_next | s -> s_next in nextStep <=> s_next.s.small_step), (all s,s_next | s_next.s.equals => s = s_next), path]";
 
-        if (!expectedOutput.equals(module.facts.get(0).b.toString()))
+        if (!expectedOutput.equals(module.facts.get(2).b.toString()))
             throw new Exception("Fact Not Stored Properly.");
 
         DashValidation.clearContainers();
@@ -668,63 +668,5 @@ public class DashModelsTest {
 
         DashValidation.clearContainers();
     }
-    */
-    
-    @Test
-    public void testSigOutput() throws Exception {
-        String dashModel = "conc state concState { var_one: one EventLabel event envA {} conc state inner{ default state stateA{} trans A {from stateA on envA when var_one = none}  trans B {from stateA on envA do var_one' = none} } }";
-        DashOptions.outputDir = "test.dsh";
-
-        DashModule module = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
-        DashToCoreDash.transformToCoreDash(module);
-        DashValidation.validateDashModel(module);
-        CoreDashToAlloy.convertToAlloyAST(module);
-        
-        A4Reporter rep = new A4Reporter();
-        module = DashModule.resolveAll(rep == null ? A4Reporter.NOP : rep, module);
-        String actualOutput = DashModuleToString.getString(module);
-
-        String expectedOutput = "Snapshot Definition\n" +
-                "sig Snapshot extends BaseSnapshot { stable: one Bool, events: set EventLabel, concState_var_one: one EventLabel }\n\n" + 
-                "/***************************** STATE SPACE ************************************/\n" +
-        		"abstract sig SystemState extends StateLabel {}\n" + 
-        		"abstract sig concState extends SystemState {}\n" + 
-        		"abstract sig concState_inner extends concState {}\n" + 
-        		"one sig concState_inner_stateA extends concState_inner {}\n\n" + 
-                "/***************************** EVENTS SPACE ************************************/\n" +
-        		"one sig concState_envA extends InternalEvent {}\n\n" + 
-                "/***************************** TRANSITION SPACE ************************************/\n" +
-        		"one sig concState_inner_A extends TransitionLabel {}\n" + 
-        		"one sig concState_inner_B extends TransitionLabel {}";
-    
-        if (!actualOutput.contains(expectedOutput))
-            throw new Exception("The Signatures are not being printed as expected. There is either an issue with the DashModuleToString class or the Alloy internal data structure." + actualOutput);
-
-        DashValidation.clearContainers();
-    }
-    
-    @Test
-    public void testImports() throws Exception {
-        String dashModel = "conc state concState { var_one: one EventLabel event envA {} conc state inner{ default state stateA{} trans A {from stateA on envA when var_one = none}  trans B {from stateA on envA do var_one' = none} } }";
-        DashOptions.outputDir = "test.dsh";
-
-        DashModule module = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
-        DashToCoreDash.transformToCoreDash(module);
-        DashValidation.validateDashModel(module);
-        CoreDashToAlloy.convertToAlloyAST(module);
-        
-        A4Reporter rep = new A4Reporter();
-        module = DashModule.resolveAll(rep == null ? A4Reporter.NOP : rep, module);
-        String actualOutput = DashModuleToString.getString(module);
-
-        String expectedOutput = "open util/ordering[Snapshot]\n" + 
-        		"open util/stepUtil[Snapshot]\n" + 
-        		"open util/boolean\n" + 
-        		"open util/integer";
-        
-        if (!actualOutput.contains(expectedOutput))
-            throw new Exception("There is an issue with the imports." + actualOutput);
-
-        DashValidation.clearContainers();
-    }
+	*/
 }

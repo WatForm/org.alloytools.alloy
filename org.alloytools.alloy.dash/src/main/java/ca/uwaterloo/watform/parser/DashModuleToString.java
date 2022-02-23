@@ -66,7 +66,7 @@ public class DashModuleToString {
 
     private static void printSigs(DashModule module, DataLayouter<NoExceptions> out) {
     	for(Sig sig: module.sigs.values()) {
-    		printComments(module, ((PrimSig) sig).parent.label, out);
+    		printComments(module, sig.label, out);
     		
     		if(sig.isAbstract != null)
     			out.print("abstract ");
@@ -121,8 +121,13 @@ public class DashModuleToString {
     
     private static void printFacts(DashModule module, DataLayouter<NoExceptions> out) {
     	for(Pair<String,Expr> fact: module.facts) {
+    		printComments(module, fact.a, out);
 			printComments(module, fact.b.toString(), out);
-			out.print("fact {").beginCInd().brk(1,0);
+			out.print("fact ");
+			if (!fact.a.contains("$")) {
+				out.print(fact.a);
+			}
+            out.print(" {").beginCInd().brk(1,0);
 			printExpr(fact.b,out);
 			out.brk(1,-indent).end().print("}").brk().brk();
     	}
@@ -445,14 +450,14 @@ public class DashModuleToString {
     }
     
     private static void printComments(DashModule module, String reference, DataLayouter<NoExceptions> out) {
-    	if (reference.equals("stepUtil/StateLabel")) {
+    	if (reference.equals("this/StateLabel")) {
     		out.brk().print("/***************************** STATE SPACE ************************************/").brk(); 
     	}
     	if ((reference.equals("stepUtil/EnvironmentEvent") || (reference.equals("stepUtil/InternalEvent")))  && !eventLabelPrinted) {
     		out.brk().print("/***************************** EVENTS SPACE ************************************/").brk(); 
     		eventLabelPrinted = true;
     	}
-    	if (reference.equals("stepUtil/TransitionLabel") && !transitionLabelPrinted) {
+    	if (reference.equals("this/TransitionLabel") && !transitionLabelPrinted) {
     		out.brk().print("/***************************** TRANSITION SPACE ************************************/").brk(); 
     		transitionLabelPrinted = true;
     	}
@@ -488,6 +493,14 @@ public class DashModuleToString {
     		out.print("/* This axiom states that every transition defined in a model is ").brk(); 
     		out.print("   represented by a pair of snapshots in the transition relation */").brk(); 
     	}
+    	if (reference.equals("traces")) {
+    		out.print("/* Create a Trace for the Model */").brk();
+    	}
+    	if (reference.equals("different_atoms")) {
+    		out.print("/* This fact defines the following:").brk();
+    		out.print("   Consequtive snapshots that have the same set of active control states, events generated, transitions taken in the big step, and system variables are equal").brk();
+    		out.print("*/").brk();
+    	}
     	if (reference.contains("AND[(all s | s in stepUtil/initial <=> this/init[s]), (all s,s_next | s -> s_next in stepUtil/nextStep <=> this/small_step[s, s_next])")) {
     		out.print("/* This fact defines the following: ").brk();
     		out.print("   Snapshots that satifiy the initial conditions can only be in the set of initial snapshots,").brk();
@@ -498,7 +511,7 @@ public class DashModuleToString {
     		else
     			out.print("   */").brk();
     	}
-    	if (reference.contains("AND[(all s | s in stepUtil/BaseSnapshot), stepUtil/Step . (stepUtil/Step <: next_step) in ctl/nextState")) {
+    	if (reference.contains("AND[(all s | s in stepUtil/BaseSnapshot), stepUtil/Step . (stepUtil/Step <: next_step) in ctl/ks_sigma")) {
     		out.print("/* This connects the model to the CTL module to allow for CTL TCMC */").brk();
     	}
     }
