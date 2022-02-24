@@ -61,7 +61,7 @@ public class CoreDashToAlloy {
         createTracesFact(module);
         createDifferentAtomsFact(module);
         createModelDefFact(module);
-        createPathAST(module);
+        //createPathAST(module);
         if (DashOptions.generateSigAxioms) {
         	createSignificanceAxiomAST(module);
         	createOperationsAxiomAST(module);
@@ -916,7 +916,9 @@ public class CoreDashToAlloy {
         Expr iffExpr = ExprBinary.Op.IMPLIES.make(null, null, iffLeft, iffRight);
     	decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s: Snapshot
         Expr quant = ExprQt.Op.ALL.make(null, null, decls, iffExpr); // all s: Snapshot | !stable[s] => some s.nextStep
-        expression = ExprBinary.Op.AND.make(null, null, expression, quant);
+        
+        if (module.stateHierarchy)
+        	expression = ExprBinary.Op.AND.make(null, null, expression, quant);
     	
         module.addFact(null, "traces", expression);
     }
