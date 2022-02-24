@@ -605,31 +605,6 @@ public class DashModelsTest {
     }
 
     @Test
-    public void testPathPred() throws Exception {
-        String dashModel = "conc state concState { var_one: some EventLabel event envA {} trans A {from stateA on envA when var_one = none} default state stateA {}}";
-        DashOptions.outputDir = "test.dsh";
-
-        DashModule module = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
-        DashToCoreDash.transformToCoreDash(module);
-        DashValidation.validateDashModel(module);
-        CoreDashToAlloy.convertToAlloyAST(module);
-
-        List<Func> funcs = new ArrayList<Func>();
-
-        for (String name : module.funcs.keySet()) {
-            if (name.equals("path"))
-                funcs = module.funcs.get(name);
-        }
-
-        String expectedOutput = "AND[(all s,s_next | s_next.s.operation), first.init]";
-
-        if (!expectedOutput.equals(funcs.get(0).getBody().toString()))
-            throw new Exception("Path Predicate Not Stored Properly.");
-
-        DashValidation.clearContainers();
-    }
-
-    @Test
     public void testModelFact() throws Exception {
         String dashModel = "conc state concState { var_one: some EventLabel event envA {} trans A {from stateA on envA when var_one = none} default state stateA {}}";
         DashOptions.outputDir = "test.dsh";
