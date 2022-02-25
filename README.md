@@ -94,6 +94,7 @@ If the user opens a file with a Dash model or opens an empty tab using the ```Ne
 # Using Dash
 
 Dash extends Alloy with keywords to describe transitions in a hierarchical, concurrent state machines (similar to Statecharts).  Here is a small example:
+
 '''
 sig Value {}
 
