@@ -424,7 +424,7 @@ public class DashModuleToString {
 
 	// Helper method to change "{path/label}" to "label"
     private static String cleanLabel(String label) {
-    	if (label.contains("integer/")) {
+    	if (label.contains("integer/") || label.contains("ordering/")) {
     		return label;
     	}
 		if (label.endsWith("}") && label.startsWith("{")){
@@ -465,10 +465,13 @@ public class DashModuleToString {
     		out.print("// Snapshot Definition").brk(); 
     	}
     	if (reference.contains("pre_")) {
-    		out.print("// Pre-Condition, Post-Condition, Semantics for the " + reference.substring(reference.indexOf('_')) + " transition.").brk(); 
+    		out.print("// // Predicates for the " + reference.substring(reference.indexOf('_')) + " transition.").brk(); 
     	}
     	if (reference.equals("this/init")) {
-    		out.print("/****************************** INITIAL CONDITIONS ****************************/").brk(); 
+    		out.print("/* Overview ").brk(); 
+    		out.print(" * init[] determines whether a snapshot is initial,").brk();
+    		out.print(" * small_step [s,s_next] determines if a pair of Snapshots is a small step,").brk();
+    		out.print("*/").brk();
     	}
     	if (reference.equals("this/operation")) {
     		out.print("/***************************** MODEL DEFINITION *******************************/").brk(); 
@@ -501,17 +504,7 @@ public class DashModuleToString {
     		out.print("   Consequtive snapshots that have the same set of active control states, events generated, transitions taken in the big step, and system variables are equal").brk();
     		out.print("*/").brk();
     	}
-    	if (reference.contains("AND[(all s | s in this/step . (this/step <: initial) <=> this/init[s]), (all s,s_next | s -> s_next in this/step . (this/step <: next_step) <=> this/small_step[s, s_next])]")) {
-    		out.print("/* This fact defines the following: ").brk();
-    		out.print("   Snapshots that satifiy the initial conditions can only be in the set of initial snapshots,").brk();
-    		out.print("   Pair of snapshots that satisfy the small_step predicate conform to the next step relation,").brk(); 
-    		//out.print("   Consequtive snapshots that have the same set of active control states, events generated, transitions taken in the big step, and system variables are equal,").brk(); 
-    		//if (module.stateHierarchy)
-    		//	out.print("   An unstable snapshot cannot be the last one of a trace */").brk();
-    		//else
-    			out.print("*/").brk();
-    	}
-    	if (reference.contains("AND[this/step . (this/step <: next_step) = ctl/ks_sigma, this/step . (this/step <: initial) = ctl/ks_s0]")) {
+    	if (reference.equals("tcmc")) {
     		out.print("/* This connects the model to the CTL module to allow for CTL TCMC */").brk();
     	}
     }

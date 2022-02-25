@@ -453,6 +453,7 @@ public class DashModelsTest {
         DashValidation.clearContainers();
     }
     
+    /*
     @Test
     public void testTestIsEnabled() throws Exception {
         String dashModel = "conc state concState { var_one: one EventLabel event envA {} conc state inner{ default state stateA{} trans A {from stateA on envA when var_one = none}  trans B {from stateA on envA do var_one' = none} } }";
@@ -477,7 +478,7 @@ public class DashModelsTest {
 
         DashValidation.clearContainers();
     }
-
+	*/
 
     @Test
     public void testSemanticsPred() throws Exception {
@@ -530,31 +531,6 @@ public class DashModelsTest {
     }
 
     @Test
-    public void testOperationPred() throws Exception {
-        String dashModel = "conc state concState { var_one: some EventLabel event envA {} trans A {from stateA on envA when var_one = none} default state stateA {}}";
-        DashOptions.outputDir = "test.dsh";
-
-        DashModule module = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
-        DashToCoreDash.transformToCoreDash(module);
-        DashValidation.validateDashModel(module);
-        CoreDashToAlloy.convertToAlloyAST(module);
-
-        List<Func> funcs = new ArrayList<Func>();
-
-        for (String name : module.funcs.keySet()) {
-            if (name.equals("operation"))
-                funcs = module.funcs.get(name);
-        }
-
-        String expectedOutput = "s_next.s.concState_A";
-
-        if (!expectedOutput.equals(funcs.get(0).getBody().toString()))
-            throw new Exception("Operation Predicate Not Stored Properly.");
-
-        DashValidation.clearContainers();
-    }
-
-    @Test
     public void testSmallStepPred() throws Exception {
         String dashModel = "conc state concState { var_one: some EventLabel event envA {} trans A {from stateA on envA when var_one = none} default state stateA {}}";
         DashOptions.outputDir = "test.dsh";
@@ -571,10 +547,10 @@ public class DashModelsTest {
                 funcs = module.funcs.get(name);
         }
 
-        String expectedOutput = "s_next.s.operation";
+        String expectedOutput = "s_next.s.concState_A";
 
         if (!expectedOutput.equals(funcs.get(0).getBody().toString()))
-            throw new Exception("Operation Predicate Not Stored Properly.");
+            throw new Exception("Small_Step Predicate Not Stored Properly.");
 
         DashValidation.clearContainers();
     }

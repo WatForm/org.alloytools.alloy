@@ -42,25 +42,26 @@ public class CoreDashToAlloy {
     	//createCommand(module);
     	
         createSnapshotSigAST(module);
-        createStepSigAST(module);
+        //createStepSigAST(module);
         createStateSpaceAST(module);
         createEventSpaceAST(module);
         createTransitionSpaceAST(module);
+        
+        createStableAST(module);
         createTransitionsAST(module);
 
         createEnterPredAST(module);
         createExitPredAST(module);
         
         createInitAST(module);
-        createOperationAST(module);
-        createSmallStepAST(module);
+        //createOperationAST(module);
         createTestIfStableAST(module);
-        createIsEnabledAST(module);
+        createSmallStepAST(module);
         createEqualsAST(module);
-        createStableAST(module);
-        createTracesFact(module);
+        //createIsEnabledAST(module);
         createDifferentAtomsFact(module);
-        createModelDefFact(module);
+        createTracesFact(module);
+        //createModelDefFact(module);
         //createPathAST(module);
         if (DashOptions.generateSigAxioms) {
         	createSignificanceAxiomAST(module);
@@ -107,9 +108,9 @@ public class CoreDashToAlloy {
         for (DashTrans transition : module.transitions.values()) {
             createPreConditionAST(transition, module);
             createPostConditionAST(transition, module);
+            createSemanticsAST(transition, module);
             createTransCallAST(transition, module);
             createEnabledNextStepAST(transition, module);
-            createSemanticsAST(transition, module);
         }
     }
 
@@ -857,14 +858,24 @@ public class CoreDashToAlloy {
     }
     
     /*
-     * This function creates an AST for the following predicate: pred small_step[s,
-     * s_next: Snapshot] { operation[s, s_next] }
-     */
+    *  This function creates an AST for the following predicate: pred operation[s,
+    *  s_next: Snapshot] { expressions }
+    */
     static void createSmallStepAST(DashModule module) {
-        Expr operationCall = ExprBadJoin.make(null, null, ExprVar.make(null, "s"), ExprVar.make(null, "operation"));
-        operationCall = ExprBadJoin.make(null, null, ExprVar.make(null, "s_next"), operationCall);
+        Expr expression = null;
 
-        addPredicateAST(module, "small_step", "s", "s_next", null, null, operationCall);
+        for (String key : module.transitions.keySet()) {
+            if (expression == null) {
+                Expr expr = ExprBadJoin.make(null, null, ExprVar.make(null, "s"), ExprVar.make(null, key));
+                expression = ExprBadJoin.make(null, null, ExprVar.make(null, "s_next"), expr);
+            } else {
+                Expr expr = ExprBadJoin.make(null, null, ExprVar.make(null, "s"), ExprVar.make(null, key));
+                expr = ExprBadJoin.make(null, null, ExprVar.make(null, "s_next"), expr);
+                expression = ExprBinary.Op.OR.make(null, null, expression, expr);
+            }
+        }
+
+        addPredicateAST(module, "small_step", "s", "s_next", null, null, expression);
     }
 
     static void createPathAST(DashModule module) {
@@ -912,7 +923,7 @@ public class CoreDashToAlloy {
     	decls.clear();
     	
         Expr iffLeft = ExprUnary.Op.NOT.make(null, ExprBadJoin.make(null, null, s, ExprVar.make(null, "stable"))); // ! stable[s] or s.stable = False
-        Expr iffRight = ExprUnary.Op.SOME.make(null, ExprBadJoin.make(null, null, s, ExprBinary.Op.JOIN.make(null, null, ExprVar.make(null, "step"), ExprVar.make(null, "next_step"))));
+        Expr iffRight = ExprUnary.Op.SOME.make(null, ExprBadJoin.make(null, null, s, ExprVar.make(null, "ordering/next")));
         Expr iffExpr = ExprBinary.Op.IMPLIES.make(null, null, iffLeft, iffRight);
     	decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s: Snapshot
         Expr quant = ExprQt.Op.ALL.make(null, null, decls, iffExpr); // all s: Snapshot | !stable[s] => some s.nextStep
@@ -1033,7 +1044,7 @@ public class CoreDashToAlloy {
     /*
      * This function creates an AST for the following predicate: pred operation[s,
      * s_next: Snapshot] { expressions }
-     */
+
     static void createOperationAST(DashModule module) {
         Expr expression = null;
 
@@ -1050,6 +1061,7 @@ public class CoreDashToAlloy {
 
         addPredicateAST(module, "operation", "s", "s_next", null, null, expression);
     }
+    */
 
     /*
      * This function creates an AST for the following predicate: pred
@@ -1864,29 +1876,32 @@ public class CoreDashToAlloy {
     
     static void createCTLFact(DashModule module) {
     	// Creating the following expression:     
-        //	Step.next_step = ks_sigma
+        //	all s, s_next | small_step[s, s_next] => s->s_next = ks_sigma
         //	Step.initial = ks_s0
     	
         List<Decl> decls = new ArrayList<Decl>();
         List<ExprVar> a = new ArrayList<ExprVar>();
-        Expr s = ExprVar.make(null, "s");
+        ExprVar s = ExprVar.make(null, "s");
+        ExprVar sNext = ExprVar.make(null, "s_next");
         Expr snapshot = ExprVar.make(null, "Snapshot");
         Expr expression = null; //This is the final expression to be stored in the Fact AST
-        a.add((ExprVar) s);
-        decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s: Snapshot
+        a.add(s);
+        a.add(sNext);
+        decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s, s_next: Snapshot 
         
-        //Expr sInBaseSnapshot = ExprBinary.Op.IN.make(null, null, s, ExprVar.make(null, "BaseSnapshot")); // s in BaseSnapshot
-        //expression = ExprQt.Op.ALL.make(null, null, new ArrayList<Decl>(decls), sInBaseSnapshot); //Expr = all s: Snapshot | s in BaseSnapshot
+        Expr smallStepCall = ExprBadJoin.make(null, null, s, ExprVar.make(null, "small_step"));//s_next.small_step
+        smallStepCall = ExprBadJoin.make(null, null, sNext, smallStepCall); //s.s_next.small_step
+        Expr arrow = ExprBinary.Op.ARROW.make(null, null, s, sNext); // s->s_next
+        Expr sSNextInSigma = ExprBinary.Op.IN.make(null, null, arrow, ExprVar.make(null, "ks_sigma")); // s->s_next = ks_sigma
+        Expr implesEqualsSigma = ExprBinary.Op.IFF.make(null, null, sSNextInSigma, smallStepCall); // ->s_next = ks_sigma iff small_step[s, s_next]
+        Expr quantified = ExprQt.Op.ALL.make(null, null, decls, implesEqualsSigma);
+        expression = quantified;
         
-        Expr StepJoinNextStep = ExprBadJoin.make(null, null, ExprVar.make(null, "step"), ExprVar.make(null, "next_step"));
-        Expr equalsNextState = ExprBinary.Op.EQUALS.make(null, null, StepJoinNextStep, ExprVar.make(null, "ks_sigma")); // Step.next_step = ks_sigma
-        expression = equalsNextState;
-        
-        Expr StepJoinInitial = ExprBadJoin.make(null, null, ExprVar.make(null, "step"), ExprVar.make(null, "initial")); // Step.initial
-        Expr equalsInitial = ExprBinary.Op.EQUALS.make(null, null, StepJoinInitial, ExprVar.make(null, "ks_s0")); // Step.initial = ks_s0
+        Expr StepJoinInitial = ExprVar.make(null, "ordering/first"); // ordering/first
+        Expr equalsInitial = ExprBinary.Op.EQUALS.make(null, null, StepJoinInitial, ExprVar.make(null, "ks_s0")); // ordering/first = ks_s0
         expression = ExprBinary.Op.AND.make(null, null, expression, equalsInitial);
         
-        module.addFact(null, "", expression);
+        module.addFact(null, "tcmc", expression);
     }
     
     static void createSignificanceAxiomAST(DashModule module)
@@ -1896,17 +1911,17 @@ public class CoreDashToAlloy {
         
         Expr snapshot = ExprVar.make(null, "Snapshot");
         Expr s = ExprVar.make(null, "s");
-        Expr reachabilityAxiomExpr = null; //This is the Reachability Axiom, all s : S | s in S .((Step.initial) <: * (Step.next_step) )
+        Expr reachabilityAxiomExpr = null; //This is the Reachability Axiom, all s : Snapshot | s in S .((Step.initial) <: * (Step.next_step) )
         a.add((ExprVar) s);
         
-        Expr stepJoinNextStep = ExprBadJoin.make(null, null, ExprVar.make(null, "step"), ExprVar.make(null, "next_step")); //Step.next_step
-        Expr stepJoinInitial = ExprBadJoin.make(null, null, ExprVar.make(null, "step"), ExprVar.make(null, "initial")); // Step.initial
+        Expr next = ExprVar.make(null, "ordering/next"); //next
+        Expr initFirst = ExprVar.make(null, "ordering/first"); // ordering/first
      
-        Expr reflexiveClosure = ExprUnary.Op.RCLOSURE.make(null, stepJoinNextStep); // * (Step.next_step)
-        Expr domain = ExprBinary.Op.DOMAIN.make(null, null, stepJoinInitial, reflexiveClosure); // ((Step.initial) <: * (Step.next_step) )
+        Expr reflexiveClosure = ExprUnary.Op.RCLOSURE.make(null, next); // * (next)
+        Expr domain = ExprBinary.Op.DOMAIN.make(null, null, initFirst, reflexiveClosure); // (ordering/first <: * (next))
         
-        Expr SJoinDomain = ExprBadJoin.make(null, null, snapshot, domain); // Snapshot. ((Step.initial) <: * (Step.next_step) )
-        Expr sInSJoinDomain = ExprBinary.Op.IN.make(null, null, s, SJoinDomain); // s in Snapshot. ((Step.initial) <: * (Step.next_step) )
+        Expr SJoinDomain = ExprBadJoin.make(null, null, snapshot, domain); // Snapshot. (ordering/first <: * (next))
+        Expr sInSJoinDomain = ExprBinary.Op.IN.make(null, null, s, SJoinDomain); // s in Snapshot. (ordering/first <: * (next))
         
         decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s: Snapshot
         
