@@ -701,7 +701,7 @@ final class SimpleReporter extends A4Reporter {
         public boolean            bundleAssumeSingleInput;
         public boolean            bundleGenerateSigAxiom;
         public boolean            bundleCTLModelChecking;
-        public boolean            bundleReachabilityCheck;
+        public boolean            bundleGenerateTraces;
         public int                bundleIndex;
         public int                resolutionMode;
         public Map<String,String> map;

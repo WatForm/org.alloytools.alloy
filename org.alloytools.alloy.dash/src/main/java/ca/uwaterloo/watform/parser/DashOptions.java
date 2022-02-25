@@ -14,5 +14,5 @@ public class DashOptions {
     public static boolean assumeSingleInput  = false;
     public static boolean generateSigAxioms  = true;
     public static boolean ctlModelChecking   = true;
-    public static boolean reachabilityCheck   = true;
+    public static boolean generateTraces   = true;
 }

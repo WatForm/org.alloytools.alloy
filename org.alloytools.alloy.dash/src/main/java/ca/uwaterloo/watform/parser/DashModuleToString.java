@@ -427,7 +427,7 @@ public class DashModuleToString {
 
 	// Helper method to change "{path/label}" to "label"
     private static String cleanLabel(String label) {
-    	if (label.contains("integer/") || label.contains("ordering/")) {
+    	if (!label.contains("this/")) {
     		return label;
     	}
 		if (label.endsWith("}") && label.startsWith("{")){
@@ -500,7 +500,12 @@ public class DashModuleToString {
     		out.print("   represented by a pair of snapshots in the transition relation */").brk(); 
     	}
     	if (reference.equals("traces")) {
-    		out.print("/* Create a Trace for the Model */").brk();
+    		out.print("/* Create a Trace for the Model. This fact defines the following: ").brk();
+    		out.print("   The first Snapshot in the ordering module should conforn to the initial conditions.").brk();
+    		out.print("   A small step must be taken by consequetive Snapshots in the ordering module.").brk();
+    		out.print("   A Snapshot that has not completed a big step (i.e. is not stable) must take a next step.").brk();
+    		out.print("   The last Snapshot in a trace must be stable.").brk();
+    		out.print("*/").brk();
     	}
     	if (reference.equals("different_atoms")) {
     		out.print("/* This fact defines the following:").brk();

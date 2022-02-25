@@ -60,7 +60,8 @@ public class CoreDashToAlloy {
         createEqualsAST(module);
         createIsEnabledAST(module);
         createDifferentAtomsFact(module);
-        createTracesFact(module);
+        if(DashOptions.generateTraces)
+        	createTracesFact(module);
         //createModelDefFact(module);
         //createPathAST(module);
         if (DashOptions.generateSigAxioms) {
