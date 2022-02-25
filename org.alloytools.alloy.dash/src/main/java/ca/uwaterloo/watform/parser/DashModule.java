@@ -339,6 +339,11 @@ public final class DashModule extends Browsable implements Module {
      */
     public Map<String,Expr>              variable2Expression    = new LinkedHashMap<String,Expr>();
     public Map<String,Expr>              envVariable2Expression = new LinkedHashMap<String,Expr>();
+    
+    /**
+     * Each variable name is mapped to the Conc State in which it was declared
+     */
+    public Map<String,DashConcState>              variable2ConcState     = new LinkedHashMap<String, DashConcState>();
 
     /**
      * Each transition name is mapped to its respective Transiton AST
@@ -1566,6 +1571,7 @@ public final class DashModule extends Browsable implements Module {
             //Set variable name to as it would appear in the Alloy model and map it to its
             //respective expression i.e in_p: lone Patient, in_p is the var name, lone Patient is the expression
             variable2Expression.put(concState.name + "_" + name.toString(), decl.expr);
+            variable2ConcState.put(concState.name + "_" + name.toString(), concState);
         }
 
         for (String var : variables) {
@@ -1616,10 +1622,8 @@ public final class DashModule extends Browsable implements Module {
     		addOpen(null, null, ExprVar.make(null, "util/ctl"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "Snapshot"))), null);
     	if (DashOptions.generateTraces || DashOptions.ctlModelChecking)
     		addOpen(null, null, ExprVar.make(null, "util/ordering"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "Snapshot"))), ExprVar.make(modulePos, "snapshot")); 
-		//addOpen(null, null, ExprVar.make(null, "util/stepUtil"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "Snapshot"))), null);
 		if(stateHierarchy)
 			addOpen(null, null, ExprVar.make(null, "util/boolean"), new ArrayList<ExprVar>(), ExprVar.make(null, "boolean"));
-		//addOpen(null, null, ExprVar.make(null, "util/integer"), new ArrayList<ExprVar>(), null);
     }
     
     // =============================================DASH MODULE TO STRING FUNCTIONS ============================================//

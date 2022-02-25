@@ -58,7 +58,7 @@ public class DashModuleToString {
 					out.print(arg);
 				}
 				out.print("]");
-				if(!open.alias.equals(open.filename.substring(open.filename.indexOf("/") + 1))) {
+				if((!open.alias.equals(open.filename.substring(open.filename.indexOf("/") + 1))) && !open.alias.contains("$")) {
 					out.print(" as ").print(open.alias);
 				}
 			}
