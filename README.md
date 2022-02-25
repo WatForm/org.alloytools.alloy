@@ -85,7 +85,7 @@ If the user opens a file with a Dash model or opens an empty tab using the ```Ne
 	+ Farheen et al., Transitive-closure-based model checking in Alloy. Journal of Software and Systems Modelling, 19:721--740, 2020 
 	+ Jose Serna. Dash: Declarative Behavioural Modelling in Alloy. MMath thesis, University of Waterloo, David R. Cheriton School of Computer Science, 2019) 
 
-- `CTL TCMC`: This option enables the automatic import of the ctl module for transitive-closure-based model checking (TCMC) and generates a fact that allows the user to perform model checking. This is set to ``On`` by default.  ctl.als is included in the util files.
+- `CTL TCMC`: This option enables the automatic import of the ctl module for transitive-closure-based model checking (TCMC) and generates a fact that allows the user to perform model checking. This is set to ``Off`` by default.  ctl.als is included in the util files.
 
 # Using Dash
 
@@ -146,6 +146,10 @@ To write properties of Dash models to run/check, it is important to know a littl
 	+ A_A1_t1 is transition t1 (which can be compared with s.taken where s is a Snapshot to see if A1 is in the set of transitions taken so far in this big step) 
 	+ A_A1_v1 is the value of variable v1 
 	+ A_ev1 is ev1, which can be compared to s.events where s is a Snapshot
+- Dash creates predicates (NOT relations) called init[s:Snapshot] and small_step[s,s_next: Snapshot], which are the model.  A user can relate these predicates to other relations depending on the properties they want to check:
+	+ for trace-based property checking, a fact connecting init[] to set 'first' and small_step[] to relation 'next' in the ordering module is created
+	+ for TCMC, a fact connecting init[] to set ks_s0 and small_step[] to relation ks_sigma is added
+	+ to just use the transitive closure, apply the transitive closure to 'next' from the ordering module or create a separate relation (connected to small_step) to avoid using the ordering module
 - to only check the property at stable snapshots, use the boolean s.stable where s is a snapshot (stable is only relevant if there are concurrent states)
 - if you need a scope for the EventLabel, count the number of events declared in the model. If you need a scope for the StateLabel, count the number of basic states declared in the model.
 

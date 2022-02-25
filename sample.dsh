@@ -1,6 +1,6 @@
 sig Value {}
 
-conc state Top { // root state is always concurrent
+conc state Root { // root state is always concurrent
 	event ev1 {} 
 	event ev2 {}
 	v1,v2: Value  // variables declared within a state are dynamic
@@ -43,8 +43,8 @@ conc state Top { // root state is always concurrent
 // check a property of the model
 // if ev1 happens when the variables have the same 
 assert t1_is_taken {
-    all s: Snapshot | Top_ev1 in s.events and Top_v1 = Top_v2 =>
-        some s_next: s.*nextStep |
-                    (Top_A_A1_t1 in s_next.taken)
+    all s: Snapshot | Root_ev1 in s.events and Root_v1 = Root_v2 =>
+        some s_next: s.*next |
+                    (Root_A_A1_t1 in s_next.taken)
 }
 check t1_is_taken for 3 Snapshot, 4 Value, 2 EventLabel, 3 StateLabel
