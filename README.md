@@ -151,11 +151,11 @@ To write properties of Dash models to run/check, it is important to know a littl
 	+ Root_A_A1_t1 is transition t1 (which can be compared with s.taken where s is a Snapshot to see if t1 is in the set of transitions taken so far in this big step) 
 	+ Root_A_v1 is the value of variable v1 
 	+ Root_ev1 is ev1, which can be compared to s.events where s is a Snapshot
-- Dash creates predicates (**NOT** relations) called init[s:Snapshot] and small_step[s,s_next: Snapshot], which are the model.  A user can relate these predicates to other relations depending on the properties they want to check:
-	+ for trace-based property checking (an option that can be chosen), a fact connecting init[] to set 'first' and small_step[] to relation 'next' in the ordering module is created
-	+ for transitive-closure-based model checking (TCMC) (an option that can be chosen), a fact connecting init[] to set ks_s0 and small_step[] to relation ks_sigma is added
+- Dash creates predicates (**NOT** relations) called 'init[s:Snapshot]' and 'small_step[s,s_next: Snapshot]', which are the model.  A user can relate these predicates to other relations depending on the properties they want to check:
+	+ for trace-based property checking (an option that can be chosen), a fact connecting 'init[]' to set 'first' and 'small_step[]' to relation 'next' in the ordering module is created
+	+ for transitive-closure-based model checking (TCMC) (an option that can be chosen), a fact connecting 'init[]' to set 'ks_s0' and 'small_step[]' to relation 'ks_sigma is' added
 	+ to just use the transitive closure, apply the transitive closure to 'next' from the ordering module or create a separate relation (connected to small_step) to avoid using the ordering module
-	+ in the future, we hope to create output for Electrum-base model checking
+	+ in the future, we plan to create output for Electrum-base model checking
 - to only check the property at stable snapshots, use the boolean s.stable where s is a snapshot (stable is only relevant if there are concurrent states)
 - if you need a scope for the EventLabel, count the number of events declared in the model. If you need a scope for the StateLabel, count the number of basic states declared in the model.
 
