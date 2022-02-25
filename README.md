@@ -145,12 +145,12 @@ More details can be found in:
 
 
 To write properties of Dash models to run/check, it is important to know a little bit about how Dash is translated to Alloy:
-- the signature of system states is called 'Snapshot' (which is an extension of 'BaseSnapshot')
+- the signature of system states is called 'Snapshot' 
 - elements of the transition system are prefixed by the sequence of labelled parent states, e.g., for the above model
-	+ A_A1 is basic state A1 (which can be compared to s.conf where s is a Snapshot to see if A1 is in the set of states of this Snapshot)
-	+ A_A1_t1 is transition t1 (which can be compared with s.taken where s is a Snapshot to see if A1 is in the set of transitions taken so far in this big step) 
-	+ A_A1_v1 is the value of variable v1 
-	+ A_ev1 is ev1, which can be compared to s.events where s is a Snapshot
+	+ Root_A_A1 is basic state A1 (which can be compared to s.conf where s is a Snapshot to see if A1 is in the set of states of this Snapshot)
+	+ Root_A_A1_t1 is transition t1 (which can be compared with s.taken where s is a Snapshot to see if A1 is in the set of transitions taken so far in this big step) 
+	+ Root_A_v1 is the value of variable v1 
+	+ Root_ev1 is ev1, which can be compared to s.events where s is a Snapshot
 - Dash creates predicates (**NOT** relations) called init[s:Snapshot] and small_step[s,s_next: Snapshot], which are the model.  A user can relate these predicates to other relations depending on the properties they want to check:
 	+ for trace-based property checking (an option that can be chosen), a fact connecting init[] to set 'first' and small_step[] to relation 'next' in the ordering module is created
 	+ for transitive-closure-based model checking (TCMC) (an option that can be chosen), a fact connecting init[] to set ks_s0 and small_step[] to relation ks_sigma is added
