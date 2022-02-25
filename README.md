@@ -85,7 +85,7 @@ If the user opens a file with a Dash model or opens an empty tab using the ```Ne
 	+ Farheen et al., Transitive-closure-based model checking in Alloy. Journal of Software and Systems Modelling, 19:721--740, 2020 
 	+ Jose Serna. Dash: Declarative Behavioural Modelling in Alloy. MMath thesis, University of Waterloo, David R. Cheriton School of Computer Science, 2019) 
 
-- `CTL TCMC`: This option enables the automatic import of the ordering module on Snapshot and generates a fact that relates the generated init/small_step predicates with first/next in the ordering module for examining paths of the Dash model using the standard trace technique in Alloy. This is set to ``Off`` by default.  
+- `Traces fact`: This option enables the automatic import of the ordering module on Snapshot and generates a fact that relates the generated init/small_step predicates with first/next in the ordering module for examining paths of the Dash model using the standard trace technique in Alloy. This is set to ``Off`` by default.  
 
 - `CTL TCMC`: This option enables the automatic import of the ctl module for transitive-closure-based model checking (TCMC) and generates a fact that allows the user to perform model checking. This is set to ``Off`` by default.  ctl.als is included in the util files.
 
