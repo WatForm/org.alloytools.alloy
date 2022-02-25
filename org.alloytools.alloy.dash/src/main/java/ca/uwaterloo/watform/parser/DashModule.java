@@ -1618,7 +1618,7 @@ public final class DashModule extends Browsable implements Module {
 		//addOpen(null, null, ExprVar.make(null, "util/stepUtil"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "Snapshot"))), null);
 		if(stateHierarchy)
 			addOpen(null, null, ExprVar.make(null, "util/boolean"), new ArrayList<ExprVar>(), ExprVar.make(null, "boolean"));
-		addOpen(null, null, ExprVar.make(null, "util/integer"), new ArrayList<ExprVar>(), null);
+		//addOpen(null, null, ExprVar.make(null, "util/integer"), new ArrayList<ExprVar>(), null);
     }
     
     // =============================================DASH MODULE TO STRING FUNCTIONS ============================================//
