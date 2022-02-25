@@ -42,6 +42,7 @@ conc state Root { // root state is always concurrent
 }
 // check a property of the model
 // if ev1 happens when the variables have the same 
+// requires the Traces fact option to be enabled
 assert t1_is_taken {
     all s: Snapshot | Root_ev1 in s.events and Root_v1 = Root_v2 =>
         some s_next: s.*next |
