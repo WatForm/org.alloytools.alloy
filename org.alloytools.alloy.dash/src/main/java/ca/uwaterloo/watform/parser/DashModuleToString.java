@@ -58,6 +58,9 @@ public class DashModuleToString {
 					out.print(arg);
 				}
 				out.print("]");
+				if(!open.alias.equals(open.filename.substring(open.filename.indexOf("/") + 1))) {
+					out.print(" as ").print(open.alias);
+				}
 			}
 			out.brk();
 		}

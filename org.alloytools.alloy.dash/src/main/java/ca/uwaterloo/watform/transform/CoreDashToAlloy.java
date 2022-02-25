@@ -916,7 +916,7 @@ public class CoreDashToAlloy {
     	Expr smallStep = ExprBadJoin.make(null, null, s, ExprVar.make(null, "small_step")); //small_step[s]
     	Expr sNext = ExprBinary.Op.JOIN.make(null, null, s, ExprVar.make(null, "next")); //s.next
     	smallStep = ExprBadJoin.make(null, null, sNext, smallStep); // small_step[s, s.next]
-    	Expr notSinLast = ExprUnary.Op.NOT.make(null, ExprBinary.Op.IN.make(null, null, s, ExprVar.make(null, "ordering/last"))); // !(s in last)
+    	Expr notSinLast = ExprUnary.Op.NOT.make(null, ExprBinary.Op.IN.make(null, null, s, ExprVar.make(null, "snapshot/last"))); // !(s in last)
     	Expr implies = ExprBinary.Op.IMPLIES.make(null, null, notSinLast, smallStep); // !(s in last) => small_step[s, s.next]
     	decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s: Snapshot
     	Expr smallStepQuant = ExprQt.Op.ALL.make(null, null, decls, implies); // all s: Snapshot | !(s in last) => small_step[s, s.next]
@@ -924,7 +924,7 @@ public class CoreDashToAlloy {
     	decls.clear();
     	
         Expr iffLeft = ExprUnary.Op.NOT.make(null, ExprBadJoin.make(null, null, s, ExprVar.make(null, "stable"))); // ! stable[s] or s.stable = False
-        Expr iffRight = ExprUnary.Op.SOME.make(null, ExprBadJoin.make(null, null, s, ExprVar.make(null, "ordering/next")));
+        Expr iffRight = ExprUnary.Op.SOME.make(null, ExprBadJoin.make(null, null, s, ExprVar.make(null, "snapshot/next")));
         Expr iffExpr = ExprBinary.Op.IMPLIES.make(null, null, iffLeft, iffRight);
     	decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s: Snapshot
         Expr quant = ExprQt.Op.ALL.make(null, null, decls, iffExpr); // all s: Snapshot | !stable[s] => some s.nextStep
@@ -1896,7 +1896,7 @@ public class CoreDashToAlloy {
         decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s: Snapshot
         expression = ExprQt.Op.ALL.make(null, null, new ArrayList<Decl>(decls), rightQT); //all s: Snapshot | lone (s.events & EnvironmentEvent)
         
-        module.addFact(null, "", expression);
+        module.addFact(null, "single_input", expression);
     }
     
     static void createCTLFact(DashModule module) {
@@ -1922,7 +1922,7 @@ public class CoreDashToAlloy {
         Expr quantified = ExprQt.Op.ALL.make(null, null, decls, implesEqualsSigma);
         expression = quantified;
         
-        Expr StepJoinInitial = ExprVar.make(null, "ordering/first"); // ordering/first
+        Expr StepJoinInitial = ExprVar.make(null, "snapshot/first"); // ordering/first
         Expr equalsInitial = ExprBinary.Op.EQUALS.make(null, null, StepJoinInitial, ExprVar.make(null, "ks_s0")); // ordering/first = ks_s0
         expression = ExprBinary.Op.AND.make(null, null, expression, equalsInitial);
         
@@ -1939,8 +1939,8 @@ public class CoreDashToAlloy {
         Expr reachabilityAxiomExpr = null; //This is the Reachability Axiom, all s : Snapshot | s in S .((Step.initial) <: * (Step.next_step) )
         a.add((ExprVar) s);
         
-        Expr next = ExprVar.make(null, "ordering/next"); //next
-        Expr initFirst = ExprVar.make(null, "ordering/first"); // ordering/first
+        Expr next = ExprVar.make(null, "snapshot/next"); //next
+        Expr initFirst = ExprVar.make(null, "snapshot/first"); // ordering/first
      
         Expr reflexiveClosure = ExprUnary.Op.RCLOSURE.make(null, next); // * (next)
         Expr domain = ExprBinary.Op.DOMAIN.make(null, null, initFirst, reflexiveClosure); // (ordering/first <: * (next))
