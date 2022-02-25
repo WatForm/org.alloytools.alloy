@@ -94,8 +94,7 @@ If the user opens a file with a Dash model or opens an empty tab using the ```Ne
 # Using Dash
 
 Dash extends Alloy with keywords to describe transitions in a hierarchical, concurrent state machines (similar to Statecharts).  Here is a small example:
-
-'''
+```
 sig Value {}
 
 conc state Root { // root state is always concurrent
@@ -138,7 +137,7 @@ conc state Root { // root state is always concurrent
 		}
 	}
 }
-'''
+```
 
 More details can be found in: 
 * The above example is available in the file sample.dsh in the root directory.
