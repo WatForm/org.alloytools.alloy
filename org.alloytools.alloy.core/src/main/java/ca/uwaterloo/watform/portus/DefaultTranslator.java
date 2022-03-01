@@ -2,11 +2,14 @@ package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.ConstList;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
+import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprBinary;
 import edu.mit.csail.sdg.ast.ExprConstant;
+import edu.mit.csail.sdg.ast.ExprHasName;
 import edu.mit.csail.sdg.ast.ExprList;
+import edu.mit.csail.sdg.ast.ExprQt;
 import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.Sig;
 import fortress.msfol.AnnotatedVar;
@@ -268,7 +271,7 @@ final class DefaultTranslator extends AbstractTranslator {
         }
     }
 
-    /** Translate an ExprList formula */
+    /** Translate an ExprList formula. */
     @Override
     public Term translate(ExprList expr, TranslationContext context) {
         // first, just translate all the args
@@ -286,6 +289,106 @@ final class DefaultTranslator extends AbstractTranslator {
                 // we don't yet support DISJOINT or TOTALORDER
                 throw new ErrorFatal("Unsupported ExprList formula: " + expr.op);
         }
+    }
+
+    /** Translate an ExprQt formula. */
+    // TODO: COMPREHENSION is a term not a formula, so is SUM
+    @Override
+    public Term translate(ExprQt expr, TranslationContext context) {
+        // "no x: e | f" gets translated to "all x: e | not f"
+        if (expr.op == ExprQt.Op.NO) {
+            // unfortunately forAll()'s API doesn't support taking just a list of decls
+            Expr translation = ExprQt.Op.ALL.make(null, null, expr.decls, expr.sub.not());
+            return recursivelyTranslate(translation, context);
+        }
+
+        // Deal with disjoint by desugaring
+        Expr desugared = expr.desugar();
+        if (desugared instanceof ExprQt) {
+            // we can continue to translate it here
+            expr = (ExprQt) desugared;
+        } else {
+            return recursivelyTranslate(desugared, context);
+        }
+
+        // Translate all the decls into Fortress
+        Pair<List<AnnotatedVar>, Term> varsAndCond = translateDeclList(expr.decls, context);
+        List<AnnotatedVar> vars = varsAndCond.a;
+        Term condition = varsAndCond.b;
+
+        // Process the formula itself - see KT figure 4.6
+        Term sub = recursivelyTranslate(expr.sub, context);
+        switch (expr.op) {
+            case ALL:
+                // forall x1: S1, ..., xn: Sn . [[x1 \in e1]] && ... && [[xn \in en]] => [[sub]]
+                return Term.mkForall(vars, Term.mkImp(condition, sub));
+            case SOME:
+                // exists x1: S1, ..., xn: Sn . [[x1 \in e1]] && ... && [[xn \in en]] && [[sub]]
+                return Term.mkExists(vars, Term.mkAnd(condition, sub));
+            case LONE: {
+                // naive for now
+                // forall x, y: S . [[x \in e]] && [[y \in e]] && [[f]] && [[f[x/y]]] => x = y
+                List<AnnotatedVar> primed = prime(vars);
+                Term primedCondition = PortusUtil.substitute(vars, primed, condition);
+                Term primedSub = PortusUtil.substitute(vars, primed, sub);
+                Term equal = PortusUtil.mkVarsEqual(vars, primed);
+                return Term.mkForall(vars, Term.mkForall(primed, Term.mkImp(
+                        Term.mkAnd(condition, primedCondition, sub, primedSub),
+                        equal)));
+            }
+            case ONE: {
+                // naive for now
+                // exists x: S . [[x \in e]] && [[f]] && forall y: S . [[y \in e]]
+                //   && [[f[x/y]]] => x = y
+                List<AnnotatedVar> primed = prime(vars);
+                Term primedCondition = PortusUtil.substitute(vars, primed, condition);
+                Term primedSub = PortusUtil.substitute(vars, primed, sub);
+                Term equal = PortusUtil.mkVarsEqual(vars, primed);
+                return Term.mkExists(vars, Term.mkAnd(condition, sub,
+                        Term.mkForall(primed, Term.mkImp(
+                                Term.mkAnd(primedCondition, primedSub),
+                                equal))));
+            }
+            default:
+                // unsupported or not formula - NO is handled above
+                throw new ErrorFatal("Unsupported ExprQt formula: " + expr.op);
+        }
+    }
+
+    /**
+     * Translate a list of decls from a quantifier.
+     * @return Pair of (list of translated vars, condition), where the condition expresses
+     *   that each variable is in the expr the decl declares it to be in. The condition must
+     *   be true for the variables to be used.
+     */
+    private Pair<List<AnnotatedVar>, Term> translateDeclList(
+            List<Decl> decls, TranslationContext context) {
+        List<AnnotatedVar> translatedVars = new ArrayList<>();
+        List<Term> conditions = new ArrayList<>();
+        for (Decl decl : decls) {
+            // Alloy typechecked that it has arity 1, so just get the first sort
+            Sort sort = PortusUtil.getSorts(decl.expr, context).get(0);
+            for (ExprHasName name : decl.names) {
+                Var var = Term.mkVar(uniqueNameGenerator.make(name.label));
+                translatedVars.add(var.of(sort));
+
+                // Add the condition "var \in decl.expr" to restrict the domain of var
+                conditions.add(recursivelyTranslate(
+                        ExprElementOf.make(var, decl.expr), context));
+            }
+        }
+
+        // All the conditions must be true for a set of variables to be used
+        Term condition = Term.mkAnd(conditions);
+        return new Pair<>(translatedVars, condition);
+    }
+
+    /** Generate a copy of `vars` with each variable suffixed with "_prime". */
+    private List<AnnotatedVar> prime(List<AnnotatedVar> vars) {
+        return vars.stream()
+                .map(var -> Term.mkVar(uniqueNameGenerator.make(var.variable().name() + "_prime"))
+                        .of(var.sort()))
+                .collect(Collectors.toList());
     }
 
 }
