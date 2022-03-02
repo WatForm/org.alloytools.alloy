@@ -636,7 +636,7 @@ public class TestDefaultTranslator {
 
     @Test
     public void testTranslate_some() {
-        // test [[some x: e | f]] := exists x: S | [[x \in e]] && [[f]]
+        // test [[some x: e | f]] := exists x: S . [[x \in e]] && [[f]]
         Sig.PrimSig sig = new Sig.PrimSig("S");
         ExprVar e = makeTestVarWithType("e", Type.make(sig));
         Decl x = e.oneOf("x");
@@ -682,11 +682,62 @@ public class TestDefaultTranslator {
         ExprVar f = makeTestVariable("f");
         Var expectedFlag = makeFlagConstant("expected");
 
+        // ExprQt doesn't override isSame unfortunately, so we have to use isAlphaEquivalent
         Expr expected = f.not().forAll(x);
         when(mockRoot.translate(argThat(isAlphaEquivalent(expected)), any()))
                 .thenReturn(expectedFlag);
 
         assertEquals(expectedFlag, translator.translate(f.forNo(x), context));
+    }
+
+    @Test
+    public void testTranslate_lone() {
+        // test [[lone x: e | f]] := forall x, y: S . [[x \in e]] && [[y \in e]] && [[f]] && [[f[y/x]]] => x = y
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e = makeTestVarWithType("e", Type.make(sig));
+        Decl alloyX = e.oneOf("x");
+        ExprVar f = makeTestVariable("f");
+        Var flagXInE = makeFlagConstant("xInE"), flagYInE = makeFlagConstant("yInE");
+
+        // set up the sort in the theory so we don't have to generate it
+        Sort sort = Sort.mkSortConst("S");
+        context.addSort(sort, 3);
+        context.setSigSort(sig, sort);
+
+        // use flag predicates for [[\in e]] and [[f]] to make sure the substitution happens correctly
+        FuncDecl flagInE = FuncDecl.mkFuncDecl("inE", sort, Sort.Bool());
+        FuncDecl flagF = FuncDecl.mkFuncDecl("f", sort, Sort.Bool());
+        context.addFunctionDeclaration(flagInE);
+        context.addFunctionDeclaration(flagF);
+
+        // translate [[x \in e]] with a function inE(x)
+        when(mockRoot.translate(argThat(isAlphaEquivalent(
+                ExprElementOf.make(Term.mkVar("x"), e.oneOf()))), any())).then(ctx -> {
+            // make sure the variable appears in the context
+            TranslationContext context = ctx.getArgument(1);
+            assertTrue(context.hasVarMapping("x"));
+            return Term.mkApp("inE", context.getVarMapping("x")); // will be substituted with y
+        });
+
+        // translate [[f]] with a function f(x)
+        when(mockRoot.translate(eq(f), any())).then(ctx -> {
+            // make sure the variable (still) appears in the context
+            TranslationContext context = ctx.getArgument(1);
+            assertTrue(context.hasVarMapping("x"));
+            return Term.mkApp("f", context.getVarMapping("x")); // will be substituted with y
+        });
+
+        Var x = Term.mkVar("x"), y = Term.mkVar("y");
+        Term expected = Term.mkForall(Arrays.asList(x.of(sort), y.of(sort)), Term.mkImp(
+                Term.mkAnd(
+                        Term.mkApp("inE", x),
+                        Term.mkApp("inE", y),
+                        Term.mkApp("f", x),
+                        Term.mkApp("f", y)),
+                Term.mkEq(x, y)));
+
+        Term result = translator.translate(f.forLone(alloyX), context);
+        assertThat(result, isAlphaEquivalentTerm(expected));
     }
 
 }

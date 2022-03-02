@@ -317,10 +317,7 @@ final class DefaultTranslator extends AbstractTranslator {
         List<AnnotatedVar> vars = new ArrayList<>(namesToVars.values());
         Term condition = varsAndCond.b;
 
-        // Process the subformula with the Fortress vars added to the lexical scope
-        for (String alloyVarName : namesToVars.keySet()) {
-            context.addVarMapping(alloyVarName, namesToVars.get(alloyVarName).variable());
-        }
+        // Process subformula - Fortress vars were added to the lexical scope in translateDeclList()
         Term sub = recursivelyTranslate(expr.sub, context);
 
         // Remove the vars from the lexical scope since it's done
@@ -343,9 +340,10 @@ final class DefaultTranslator extends AbstractTranslator {
                 Term primedCondition = PortusUtil.substitute(vars, primed, condition);
                 Term primedSub = PortusUtil.substitute(vars, primed, sub);
                 Term equal = PortusUtil.mkVarsEqual(vars, primed);
-                return Term.mkForall(vars, Term.mkForall(primed, Term.mkImp(
+                vars.addAll(primed); // add both at the same time
+                return Term.mkForall(vars, Term.mkImp(
                         Term.mkAnd(condition, primedCondition, sub, primedSub),
-                        equal)));
+                        equal));
             }
             case ONE: {
                 // naive for now
@@ -371,6 +369,7 @@ final class DefaultTranslator extends AbstractTranslator {
      * @return Pair of (map of Alloy variable names to translated vars, condition), where the
      *   condition expresses that each variable is in the expr the decl declares it to be in.
      *   The condition must be true for the variables to be used.
+     * @apiNote The variable names are added to the context's var mapping and must be cleaned up after.
      */
     private Pair<Map<String, AnnotatedVar>, Term> translateDeclList(
             List<Decl> decls, TranslationContext context) {
@@ -382,6 +381,9 @@ final class DefaultTranslator extends AbstractTranslator {
             for (ExprHasName name : decl.names) {
                 Var var = Term.mkVar(uniqueNameGenerator.make(name.label));
                 namesToVars.put(name.label, var.of(sort));
+
+                // Add it to the lexical scope in order to translate the condition
+                context.addVarMapping(name.label, var);
 
                 // Add the condition "var \in decl.expr" to restrict the domain of var
                 conditions.add(recursivelyTranslate(

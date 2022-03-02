@@ -85,7 +85,7 @@ final class PortusUtil {
         }
         List<Term> conjuncts = new ArrayList<>();
         for (int i = 0; i < a.size(); i++) {
-            conjuncts.add(Term.mkAnd(a.get(i).variable(), b.get(i).variable()));
+            conjuncts.add(Term.mkEq(a.get(i).variable(), b.get(i).variable()));
         }
         return Term.mkAnd(conjuncts);
     }
