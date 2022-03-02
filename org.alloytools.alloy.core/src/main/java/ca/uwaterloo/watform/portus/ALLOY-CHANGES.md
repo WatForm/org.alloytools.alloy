@@ -7,3 +7,4 @@
   so it can be mocked in unit tests.
 - Added Mockito 4.3.1 as a test dependency, as well as its dependencies ByteBuddy and Objenesis.
 - Made Expr's primary constructor protected so `ExprElementOf` can call it.
+- Made `Type.make(Sig.PrimSig)` public, so our tests can call it.

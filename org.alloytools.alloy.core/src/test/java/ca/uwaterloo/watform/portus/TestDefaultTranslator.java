@@ -7,6 +7,7 @@ import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprQt;
 import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Sig;
+import edu.mit.csail.sdg.ast.Type;
 import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.msfol.FuncDecl;
 import fortress.msfol.Sort;
@@ -19,6 +20,7 @@ import scala.jdk.javaapi.CollectionConverters;
 
 import java.util.Arrays;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static ca.uwaterloo.watform.portus.AlloyASTMatcher.isAlphaEquivalent;
 import static ca.uwaterloo.watform.portus.FortressASTMatcher.isAlphaEquivalentTerm;
@@ -30,6 +32,9 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.AdditionalMatchers.or;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -59,6 +64,10 @@ public class TestDefaultTranslator {
     // Alloy test variables are used as placeholders in Alloy test expressions.
     private ExprVar makeTestVariable(String label) {
         return ExprVar.make(null, label);
+    }
+
+    private ExprVar makeTestVarWithType(String label, Type type) {
+        return ExprVar.make(null, label, type);
     }
 
     // Fortress flag constants are used as mock return values of translations.
@@ -535,6 +544,149 @@ public class TestDefaultTranslator {
         Term result = translator.translate(ExprElementOf.make(x, e1.minus(e2)), context);
         assertEquals(Term.mkAnd(flag1, Term.mkNot(flag2)), result);
         assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_all_oneVar() {
+        // test [[all x: e | f]] := forall x: S . [[x \in e]] => [[f]]
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e = makeTestVarWithType("e", Type.make(sig));
+        Decl x = e.oneOf("x");
+        ExprVar f = makeTestVariable("f");
+        Var flagInE = makeFlagConstant("xInE");
+        Var flagSub = makeFlagConstant("f");
+        Var flagX = makeFlagConstant("x");
+
+        // set up a sort ahead of time so we don't have to translate that
+        Sort sort = Sort.mkSortConst("S");
+        context.addSort(sort, 3);
+        context.setSigSort(sig, sort);
+
+        // "e" gets translated to "one e" at some point
+        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(flagX, e.oneOf()))), any()))
+                .thenReturn(flagInE);
+
+        AtomicReference<Var> fortressX = new AtomicReference<>();
+        when(mockRoot.translate(eq(f), any())).then(ctx -> {
+            // make sure that x |-> fortressX appears in the context map when translating [[f]],
+            // and capture the fortressX constant to construct the expected translation later
+            TranslationContext context = ctx.getArgument(1);
+            assertTrue(context.hasVarMapping("x"));
+            fortressX.set(context.getVarMapping("x"));
+            return flagSub;
+        });
+
+        Term result = translator.translate(f.forAll(x), context);
+        assertNotNull(fortressX.get()); // make sure we captured a reference, so we translated [[f]]
+        // use the captured reference to construct the expected translation
+        Term expected = Term.mkForall(fortressX.get().of(sort), Term.mkImp(flagInE, flagSub));
+        assertEquals(expected, result);
+
+        // make sure the x |-> fortressX mapping was removed after translating [[f]]
+        assertFalse(context.hasVarMapping("x"));
+    }
+
+    @Test
+    public void testTranslate_all_twoVars() {
+        // test [[all x1: e1, x2: e2 | f]] := forall x1: S1, x2: S2 . [[x1 \in e1]] && [[x2 \in e2]] => [[f]]
+        Sig.PrimSig sig1 = new Sig.PrimSig("S1"), sig2 = new Sig.PrimSig("S2");
+        ExprVar e1 = makeTestVarWithType("e1", Type.make(sig1));
+        ExprVar e2 = makeTestVarWithType("e2", Type.make(sig2));
+        Decl x1 = e1.oneOf("x1"), x2 = e2.oneOf("x2");
+        ExprVar f = makeTestVariable("f");
+        Var flagInE1 = makeFlagConstant("x1InE1"), flagInE2 = makeFlagConstant("x2InE2");
+        Var flagSub = makeFlagConstant("f");
+        Var flagX = makeFlagConstant("x");
+
+        // set up sorts
+        Sort sort1 = Sort.mkSortConst("S1"), sort2 = Sort.mkSortConst("S2");
+        context.addSort(sort1, 3);
+        context.setSigSort(sig1, sort1);
+        context.addSort(sort2, 3);
+        context.setSigSort(sig2, sort2);
+
+        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(flagX, e1.oneOf()))), any()))
+                .thenReturn(flagInE1, flagInE2);
+
+        AtomicReference<Var> fortressX1 = new AtomicReference<>();
+        AtomicReference<Var> fortressX2 = new AtomicReference<>();
+        when(mockRoot.translate(eq(f), any())).then(ctx -> {
+            // make sure x1 and x2 have mappings here and capture them
+            TranslationContext context = ctx.getArgument(1);
+            assertTrue(context.hasVarMapping("x1"));
+            assertTrue(context.hasVarMapping("x2"));
+            fortressX1.set(context.getVarMapping("x1"));
+            fortressX2.set(context.getVarMapping("x2"));
+            return flagSub;
+        });
+
+        Term result = translator.translate(f.forAll(x1, x2), context);
+        assertNotNull(fortressX1.get()); // make sure we captured references, so we translated [[f]]
+        assertNotNull(fortressX2.get());
+        // use the captured reference to construct the expected translation
+        Term expected = Term.mkForall(
+                Arrays.asList(fortressX1.get().of(sort1), fortressX2.get().of(sort2)),
+                Term.mkImp(Term.mkAnd(flagInE1, flagInE2), flagSub));
+        assertEquals(expected, result);
+
+        // make sure the mappings were removed after translation
+        assertFalse(context.hasVarMapping("x1"));
+        assertFalse(context.hasVarMapping("x2"));
+    }
+
+    @Test
+    public void testTranslate_some() {
+        // test [[some x: e | f]] := exists x: S | [[x \in e]] && [[f]]
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e = makeTestVarWithType("e", Type.make(sig));
+        Decl x = e.oneOf("x");
+        ExprVar f = makeTestVariable("f");
+        Var flagInE = makeFlagConstant("xInE");
+        Var flagSub = makeFlagConstant("f");
+        Var flagX = makeFlagConstant("x");
+
+        // set up a sort ahead of time so we don't have to translate that
+        Sort sort = Sort.mkSortConst("S");
+        context.addSort(sort, 3);
+        context.setSigSort(sig, sort);
+
+        // "e" gets translated to "one e" at some point
+        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(flagX, e.oneOf()))), any()))
+                .thenReturn(flagInE);
+
+        AtomicReference<Var> fortressX = new AtomicReference<>();
+        when(mockRoot.translate(eq(f), any())).then(ctx -> {
+            // make sure that x |-> fortressX appears in the context map when translating [[f]],
+            // and capture the fortressX constant to construct the expected translation later
+            TranslationContext context = ctx.getArgument(1);
+            assertTrue(context.hasVarMapping("x"));
+            fortressX.set(context.getVarMapping("x"));
+            return flagSub;
+        });
+
+        Term result = translator.translate(f.forSome(x), context);
+        assertNotNull(fortressX.get()); // make sure we captured a reference, so we translated [[f]]
+        // use the captured reference to construct the expected translation
+        Term expected = Term.mkExists(fortressX.get().of(sort), Term.mkAnd(flagInE, flagSub));
+        assertEquals(expected, result);
+
+        // make sure the x |-> fortressX mapping was removed after translating [[f]]
+        assertFalse(context.hasVarMapping("x"));
+    }
+
+    @Test
+    public void testTranslate_no() {
+        // test [[no x: e | f]] := [[all x: e | not f]]
+        ExprVar e = makeTestVariable("e");
+        Decl x = e.oneOf("x");
+        ExprVar f = makeTestVariable("f");
+        Var expectedFlag = makeFlagConstant("expected");
+
+        Expr expected = f.not().forAll(x);
+        when(mockRoot.translate(argThat(isAlphaEquivalent(expected)), any()))
+                .thenReturn(expectedFlag);
+
+        assertEquals(expectedFlag, translator.translate(f.forNo(x), context));
     }
 
 }

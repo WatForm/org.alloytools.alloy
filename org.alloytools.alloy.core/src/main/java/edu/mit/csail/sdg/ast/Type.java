@@ -513,7 +513,7 @@ public final class Type implements Iterable<Type.ProductType>, Clause {
      * Create the type "sig"; this method promises it will not call any method or
      * read anything from "sig".
      */
-    static Type make(PrimSig sig) {
+    public static Type make(PrimSig sig) {
         return make(new ProductType(sig));
     }
 

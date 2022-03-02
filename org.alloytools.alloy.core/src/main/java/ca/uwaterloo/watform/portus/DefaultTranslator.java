@@ -312,12 +312,23 @@ final class DefaultTranslator extends AbstractTranslator {
         }
 
         // Translate all the decls into Fortress
-        Pair<List<AnnotatedVar>, Term> varsAndCond = translateDeclList(expr.decls, context);
-        List<AnnotatedVar> vars = varsAndCond.a;
+        Pair<Map<String, AnnotatedVar>, Term> varsAndCond = translateDeclList(expr.decls, context);
+        Map<String, AnnotatedVar> namesToVars = varsAndCond.a;
+        List<AnnotatedVar> vars = new ArrayList<>(namesToVars.values());
         Term condition = varsAndCond.b;
 
-        // Process the formula itself - see KT figure 4.6
+        // Process the subformula with the Fortress vars added to the lexical scope
+        for (String alloyVarName : namesToVars.keySet()) {
+            context.addVarMapping(alloyVarName, namesToVars.get(alloyVarName).variable());
+        }
         Term sub = recursivelyTranslate(expr.sub, context);
+
+        // Remove the vars from the lexical scope since it's done
+        for (String alloyVarName : namesToVars.keySet()) {
+            context.removeVarMapping(alloyVarName);
+        }
+
+        // Process the formula itself - see KT figure 4.6
         switch (expr.op) {
             case ALL:
                 // forall x1: S1, ..., xn: Sn . [[x1 \in e1]] && ... && [[xn \in en]] => [[sub]]
@@ -357,20 +368,20 @@ final class DefaultTranslator extends AbstractTranslator {
 
     /**
      * Translate a list of decls from a quantifier.
-     * @return Pair of (list of translated vars, condition), where the condition expresses
-     *   that each variable is in the expr the decl declares it to be in. The condition must
-     *   be true for the variables to be used.
+     * @return Pair of (map of Alloy variable names to translated vars, condition), where the
+     *   condition expresses that each variable is in the expr the decl declares it to be in.
+     *   The condition must be true for the variables to be used.
      */
-    private Pair<List<AnnotatedVar>, Term> translateDeclList(
+    private Pair<Map<String, AnnotatedVar>, Term> translateDeclList(
             List<Decl> decls, TranslationContext context) {
-        List<AnnotatedVar> translatedVars = new ArrayList<>();
+        Map<String, AnnotatedVar> namesToVars = new HashMap<>();
         List<Term> conditions = new ArrayList<>();
         for (Decl decl : decls) {
             // Alloy typechecked that it has arity 1, so just get the first sort
             Sort sort = PortusUtil.getSorts(decl.expr, context).get(0);
             for (ExprHasName name : decl.names) {
                 Var var = Term.mkVar(uniqueNameGenerator.make(name.label));
-                translatedVars.add(var.of(sort));
+                namesToVars.put(name.label, var.of(sort));
 
                 // Add the condition "var \in decl.expr" to restrict the domain of var
                 conditions.add(recursivelyTranslate(
@@ -380,7 +391,7 @@ final class DefaultTranslator extends AbstractTranslator {
 
         // All the conditions must be true for a set of variables to be used
         Term condition = Term.mkAnd(conditions);
-        return new Pair<>(translatedVars, condition);
+        return new Pair<>(namesToVars, condition);
     }
 
     /** Generate a copy of `vars` with each variable suffixed with "_prime". */
