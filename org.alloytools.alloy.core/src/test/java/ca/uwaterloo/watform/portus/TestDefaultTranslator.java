@@ -1,6 +1,7 @@
 package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.A4Reporter;
+import edu.mit.csail.sdg.alloy4.ConstList;
 import edu.mit.csail.sdg.ast.Attr;
 import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
@@ -544,6 +545,106 @@ public class TestDefaultTranslator {
         Term result = translator.translate(ExprElementOf.make(x, e1.minus(e2)), context);
         assertEquals(Term.mkAnd(flag1, Term.mkNot(flag2)), result);
         assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_in_arity1() {
+        // test [[e1 \in e2]] := forall x: S . [[x \in e1]] => [[x \in e2]] for arity 1
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e1 = makeTestVarWithType("e1", Type.make(sig));
+        ExprVar e2 = makeTestVarWithType("e2", Type.make(sig));
+        Var flagInE1 = makeFlagConstant("xInE1"), flagInE2 = makeFlagConstant("xInE2");
+        Var x = Term.mkVar("x");
+
+        // set up the sort so we don't need to generate it
+        Sort sort = Sort.mkSortConst("S");
+        context.addSort(sort, 3);
+        context.setSigSort(sig, sort);
+
+        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(x, e1))), any()))
+                .thenReturn(flagInE1, flagInE2);
+
+        Term result = translator.translate(e1.in(e2), context);
+        Term expected = Term.mkForall(x.of(sort), Term.mkImp(flagInE1, flagInE2));
+        assertThat(result, isAlphaEquivalentTerm(expected));
+    }
+
+    @Test
+    public void testTranslate_in_arity2() {
+        // test [[e1 \in e2]] := forall x1: S1, x2: S2 . [[(x1,x2) \in e1]] => [[(x1,x2) \in e2]]
+        Sig.PrimSig sig1 = new Sig.PrimSig("S1");
+        Sig.PrimSig sig2 = new Sig.PrimSig("S2");
+        ExprVar e1 = makeTestVarWithType("e1", Type.make(sig1).product(Type.make(sig2)));
+        ExprVar e2 = makeTestVarWithType("e2", Type.make(sig1).product(Type.make(sig2)));
+        Var flagInE1 = makeFlagConstant("xInE1"), flagInE2 = makeFlagConstant("xInE2");
+        Var x1 = Term.mkVar("x1"), x2 = Term.mkVar("x2");
+
+        // set up the sorts so we don't need to generate them
+        Sort sort1 = Sort.mkSortConst("S1");
+        Sort sort2 = Sort.mkSortConst("S2");
+        context.addSort(sort1, 3);
+        context.addSort(sort2, 3);
+        context.setSigSort(sig1, sort1);
+        context.setSigSort(sig2, sort2);
+
+        when(mockRoot.translate(argThat(isAlphaEquivalent(
+                ExprElementOf.make(ConstList.make(Arrays.asList(x1, x2)), e1))), any()))
+                .thenReturn(flagInE1, flagInE2);
+
+        Term result = translator.translate(e1.in(e2), context);
+        Term expected = Term.mkForall(Arrays.asList(x1.of(sort1), x2.of(sort2)),
+                Term.mkImp(flagInE1, flagInE2));
+        assertThat(result, isAlphaEquivalentTerm(expected));
+    }
+
+    @Test
+    public void testTranslate_eq_arity1() {
+        // test [[e1 = e2]] := forall x: S . [[x \in e1]] <=> [[x \in e2]] for arity 1
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e1 = makeTestVarWithType("e1", Type.make(sig));
+        ExprVar e2 = makeTestVarWithType("e2", Type.make(sig));
+        Var flagInE1 = makeFlagConstant("xInE1"), flagInE2 = makeFlagConstant("xInE2");
+        Var x = Term.mkVar("x");
+
+        // set up the sort so we don't need to generate it
+        Sort sort = Sort.mkSortConst("S");
+        context.addSort(sort, 3);
+        context.setSigSort(sig, sort);
+
+        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(x, e1))), any()))
+                .thenReturn(flagInE1, flagInE2);
+
+        Term result = translator.translate(e1.equal(e2), context);
+        Term expected = Term.mkForall(x.of(sort), Term.mkIff(flagInE1, flagInE2));
+        assertThat(result, isAlphaEquivalentTerm(expected));
+    }
+
+    @Test
+    public void testTranslate_eq_arity2() {
+        // test [[e1 = e2]] := forall x1: S1, x2: S2 . [[(x1,x2) \in e1]] <=> [[(x1,x2) \in e2]]
+        Sig.PrimSig sig1 = new Sig.PrimSig("S1");
+        Sig.PrimSig sig2 = new Sig.PrimSig("S2");
+        ExprVar e1 = makeTestVarWithType("e1", Type.make(sig1).product(Type.make(sig2)));
+        ExprVar e2 = makeTestVarWithType("e2", Type.make(sig1).product(Type.make(sig2)));
+        Var flagInE1 = makeFlagConstant("xInE1"), flagInE2 = makeFlagConstant("xInE2");
+        Var x1 = Term.mkVar("x1"), x2 = Term.mkVar("x2");
+
+        // set up the sorts so we don't need to generate them
+        Sort sort1 = Sort.mkSortConst("S1");
+        Sort sort2 = Sort.mkSortConst("S2");
+        context.addSort(sort1, 3);
+        context.addSort(sort2, 3);
+        context.setSigSort(sig1, sort1);
+        context.setSigSort(sig2, sort2);
+
+        when(mockRoot.translate(argThat(isAlphaEquivalent(
+                ExprElementOf.make(ConstList.make(Arrays.asList(x1, x2)), e1))), any()))
+                .thenReturn(flagInE1, flagInE2);
+
+        Term result = translator.translate(e1.equal(e2), context);
+        Term expected = Term.mkForall(Arrays.asList(x1.of(sort1), x2.of(sort2)),
+                Term.mkIff(flagInE1, flagInE2));
+        assertThat(result, isAlphaEquivalentTerm(expected));
     }
 
     @Test

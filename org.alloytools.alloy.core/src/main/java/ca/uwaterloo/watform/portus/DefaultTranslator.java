@@ -3,6 +3,7 @@ package ca.uwaterloo.watform.portus;
 import edu.mit.csail.sdg.alloy4.ConstList;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.alloy4.ErrorSyntax;
+import edu.mit.csail.sdg.alloy4.ErrorType;
 import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
@@ -28,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
  * The basic translator that provides unoptimized translations of every supported node.
@@ -249,6 +251,9 @@ final class DefaultTranslator extends AbstractTranslator {
                 return Term.mkIff(
                         recursivelyTranslate(expr.left, context),
                         recursivelyTranslate(expr.right, context));
+            case IN:
+            case EQUALS:
+                return translateInEq(expr.op, expr.left, expr.right, context);
             case AND:
             case OR:
                 // confusingly, AND and OR aren't real ExprBinary ops
@@ -257,6 +262,41 @@ final class DefaultTranslator extends AbstractTranslator {
                 // others are either not supported or not formulas
                 throw new ErrorFatal("Unsupported ExprBinary formula: " + expr.op);
         }
+    }
+
+    /** Translate the formula "e1 in e2" or "e1 = e2". */
+    private Term translateInEq(ExprBinary.Op op, Expr e1, Expr e2, TranslationContext context) {
+        // KT figure 4.9: [[e1 in e2]] := forall x1: S1, ..., xn: Sn .
+        //   [[(x1, ..., xn) \in e1]] => [[(x1, ..., xn) \in e2]]
+        // and [[e1 = e2]] := forall x1: S1, ..., sn: Sn .
+        //   [[(x1, ..., xn) \in e1]] <=> [[(x1, ..., xn) \in e2]]
+        // typechecker ensured arities are the same, make sure sort are the same
+        // TODO: can we support sorts that aren't the same?
+        assert e1.type().arity() == e2.type().arity();
+        List<Sort> sorts = PortusUtil.getSorts(e1, context);
+        List<Sort> sorts2 = PortusUtil.getSorts(e2, context);
+        if (!sorts.equals(sorts2)) {
+            throw new ErrorType("'in' with types of different top-level sigs is not supported");
+        }
+
+        // create the variables
+        List<AnnotatedVar> varDecls = IntStream.range(0, sorts.size())
+                .mapToObj(idx -> Term.mkVar("x" + idx).of(sorts.get(idx)))
+                .collect(Collectors.toList());
+        ConstList<Var> vars = ConstList.make(varDecls.stream()
+                .map(AnnotatedVar::variable)
+                .collect(Collectors.toList()));
+
+        Term inE1 = recursivelyTranslate(ExprElementOf.make(vars, e1), context);
+        Term inE2 = recursivelyTranslate(ExprElementOf.make(vars, e2), context);
+        Term condition;
+        if (op == ExprBinary.Op.IN) {
+            condition = Term.mkImp(inE1, inE2);
+        } else { // ExprBinary.Op.EQUALS
+            condition = Term.mkIff(inE1, inE2);
+        }
+
+        return Term.mkForall(varDecls, condition);
     }
 
     /** Translate an ExprUnary formula. */
