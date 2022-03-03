@@ -737,6 +737,9 @@ public class TestDefaultTranslator {
 
         Term result = translator.translate(f.forLone(alloyX), context);
         assertThat(result, isAlphaEquivalentTerm(expected));
+
+        // make sure the x |-> fortressX mapping was removed
+        assertFalse(context.hasVarMapping("x"));
     }
 
     @Test
@@ -788,6 +791,22 @@ public class TestDefaultTranslator {
 
         Term result = translator.translate(f.forOne(alloyX), context);
         assertThat(result, isAlphaEquivalentTerm(expected));
+
+        // make sure the x |-> fortressX mapping was removed
+        assertFalse(context.hasVarMapping("x"));
+    }
+
+    @Test
+    public void testTranslate_variable() {
+        // test [[x \in v]] := x = v for an Alloy variable v
+        // explicitly set the variable mapping in the context
+        ExprVar alloyVar = makeTestVariable("v");
+        Var x = Term.mkVar("x");
+        Var v = Term.mkVar("v");
+        context.addVarMapping(alloyVar.label, v);
+
+        Term result = translator.translate(ExprElementOf.make(x, alloyVar), context);
+        assertEquals(Term.mkEq(x, v), result);
     }
 
 }

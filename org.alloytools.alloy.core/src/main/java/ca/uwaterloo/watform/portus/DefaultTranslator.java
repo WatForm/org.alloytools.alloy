@@ -2,6 +2,7 @@ package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.ConstList;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
+import edu.mit.csail.sdg.alloy4.ErrorSyntax;
 import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
@@ -11,6 +12,7 @@ import edu.mit.csail.sdg.ast.ExprHasName;
 import edu.mit.csail.sdg.ast.ExprList;
 import edu.mit.csail.sdg.ast.ExprQt;
 import edu.mit.csail.sdg.ast.ExprUnary;
+import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Sig;
 import fortress.msfol.AnnotatedVar;
 import fortress.msfol.FuncDecl;
@@ -292,7 +294,7 @@ final class DefaultTranslator extends AbstractTranslator {
     }
 
     /** Translate an ExprQt formula. */
-    // TODO: COMPREHENSION is a term not a formula, so is SUM
+    // TODO: COMPREHENSION, SUM - terms, not formulas
     @Override
     public Term translate(ExprQt expr, TranslationContext context) {
         // "no x: e | f" gets translated to "all x: e | not f"
@@ -362,6 +364,19 @@ final class DefaultTranslator extends AbstractTranslator {
                 // unsupported or not formula - NO is handled above
                 throw new ErrorFatal("Unsupported ExprQt formula: " + expr.op);
         }
+    }
+
+    /** Translate "var \in expr", where expr is an ExprVar. */
+    @Override
+    public Term translate(Var var, ExprVar expr, TranslationContext context) {
+        // the Alloy variable must be mapped to a Fortress var in the current lexical scope
+        if (!context.hasVarMapping(expr.label)) {
+            // should have been caught by Alloy already...
+            throw new ErrorSyntax("Unknown variable name " + expr.label);
+        }
+
+        // KT figure 4.12: [[x \in v]] := x = v
+        return Term.mkEq(var, context.getVarMapping(expr.label));
     }
 
     /**
