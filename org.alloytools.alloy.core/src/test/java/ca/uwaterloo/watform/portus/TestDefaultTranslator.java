@@ -27,8 +27,8 @@ import static ca.uwaterloo.watform.portus.AlloyASTMatcher.isAlphaEquivalent;
 import static ca.uwaterloo.watform.portus.FortressASTMatcher.isAlphaEquivalentTerm;
 import static ca.uwaterloo.watform.portus.IsSameMatcher.isSameAs;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
-import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.startsWith;
@@ -41,8 +41,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.hamcrest.MockitoHamcrest.argThat;
 
@@ -85,157 +83,80 @@ public class TestDefaultTranslator {
     }
 
     // Assert that a function declaration is a membership predicate for the given sort.
-    private void assertIsMembershipPredicate(FuncDecl func, Sort sort, String name) {
+    private void assertIsMembershipPredicate(FuncDecl func, String name) {
         assertThat(func.name(), startsWith(name));
         assertThat(func.arity(), is(1));
-        assertThat(func.argSorts().head(), is(sort));
+        assertThat(func.argSorts().head(), is(context.univSort));
         assertThat(func.resultSort(), is(Sort.Bool()));
     }
 
-    // Assert that nothing has been added to the context.
+    // Assert that nothing has been added to the context (except the universal sort).
     private void assertContextEmpty() {
-        assertThat(context.getTheory(), is(Theory.empty()));
+        assertThat(context.getTheory(), is(Theory.empty().withSort(context.univSort)));
     }
 
     @Test
-    public void testTranslate_primSig_single() {
+    public void testTranslate_primSig_singleExactScope() {
         // single signature
         Sig.PrimSig sig = new Sig.PrimSig("TestSig");
-        when(mockScoper.sig2scope(sig)).thenReturn(5);
+        when(mockScoper.sig2scope(sig)).thenReturn(2);
+        when(mockScoper.isExact(sig)).thenReturn(true);
+
+        // mock out [[y \in sig]] from the exact scope axiom
+        Var y = Term.mkVar("y");
+        Term inSigFlag = makeFlagConstant("inSig");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(y, sig))), any()))
+                .thenReturn(inSigFlag);
 
         Term result = translator.translate(sig, context);
         assertThat(result, is(notNullValue())); // sig just returns something
 
-        // shouldn't have any axioms to translate
-        verify(mockRoot, never()).translate(any(), any());
+        // create the expected exact scope axiom
+        // "exists x1, x2: univ . forall y: univ . !(x1 = x2) && ([[y \in S]] <=> y = x1 || y = x2)"
+        Var x1 = Term.mkVar("x1");
+        Var x2 = Term.mkVar("x2");
+        Term exactScopeAxiom = Term.mkExists(Arrays.asList(x1.of(context.univSort), x2.of(context.univSort)),
+                Term.mkForall(y.of(context.univSort), Term.mkAnd(
+                        Term.mkNot(Term.mkEq(x1, x2)),
+                        Term.mkIff(inSigFlag, Term.mkOr(
+                                Term.mkEq(y, x1),
+                                Term.mkEq(y, x2))))));
 
-        // should have just one sort which bears its name and scope
-        assertThat(context.getTheory().sortsJava(), hasSize(1));
-        Sort sort = context.getSigSort(sig);
-        assertThat(sort, is(notNullValue()));
-        assertThat(sort.name(), startsWith("TestSig"));
-        assertThat(context.getSortScope(sort), is(5));
+        // this should be the only axiom
+        Set<Term> axioms = CollectionConverters.asJava(context.getTheory().axioms());
+        assertThat(axioms, contains(isAlphaEquivalentTerm(exactScopeAxiom)));
 
         // should have no constants, one function for the membership predicate
         assertThat(context.getTheory().constants().size(), is(0));
         assertThat(context.getTheory().enumConstants().size(), is(0));
         assertThat(context.getTheory().functionDeclarations().size(), is(1));
         FuncDecl func = context.getTheory().functionDeclarations().head();
-        assertIsMembershipPredicate(func, sort, "inTestSig");
+        assertIsMembershipPredicate(func, "inTestSig");
     }
 
     @Test
-    public void testTranslate_primSig_oneSubsigWithExactScope() {
-        // signature with subsig with exact scope
-        Sig.PrimSig parent = new Sig.PrimSig("Parent");
-        Sig.PrimSig child = new Sig.PrimSig("Child", parent);
-        when(mockScoper.sig2scope(parent)).thenReturn(3);
-        when(mockScoper.sig2scope(child)).thenReturn(2);
-        when(mockScoper.isExact(child)).thenReturn(true);
+    public void testTranslate_primSig_singleNonExactScope() {
+        // single signature
+        Sig.PrimSig sig = new Sig.PrimSig("TestSig");
+        when(mockScoper.sig2scope(sig)).thenReturn(2);
+        when(mockScoper.isExact(sig)).thenReturn(false);
 
-        // mock out the subset axiom
-        Decl x = child.oneOf("x");
-        Term subsetFlag = makeFlagConstant("subset");
-        Expr subsetAxiom = x.get().in(parent).forAll(x); // all x: child | x in parent
-        when(mockRoot.translate(argThat(isAlphaEquivalent(subsetAxiom)), any()))
-                .thenReturn(subsetFlag);
-
-        // mock out the exact scope axiom's [[x \in child]]
-        Term inChildFlag = makeFlagConstant("xInChild");
-        Expr inChild = ExprElementOf.make(Term.mkVar("x"), child);
-        when(mockRoot.translate(argThat(isAlphaEquivalent(inChild)), any()))
-                .thenReturn(inChildFlag);
-
-        // delegate to the method under test to translate the child sig
-        when(mockRoot.translate(eq(child), any())).then(
-                ctx -> translator.translate(ctx.getArgument(0), ctx.getArgument(1)));
-
-        // actually translate
-        Term result = translator.translate(parent, context);
-        assertThat(result, is(notNullValue()));
-
-        // should have just one sort with same name and scope
-        assertThat(context.getTheory().sortsJava(), hasSize(1));
-        Sort parentSort = context.getSigSort(parent);
-        assertThat(parentSort, is(notNullValue()));
-        assertThat(parentSort.name(), startsWith("Parent"));
-        assertThat(context.getSortScope(parentSort), is(3));
-
-        // create the expected exact scope axiom
-        // "exists x1, x2: parent . forall y: parent. !(x1 = x2) && ([[y \in sort]] <=> y = x1 || y = x2)"
-        Var x1 = Term.mkVar("x1");
-        Var x2 = Term.mkVar("x2");
-        Var y = Term.mkVar("y");
-        Term exactScopeAxiom = Term.mkExists(Arrays.asList(x1.of(parentSort), x2.of(parentSort)),
-                Term.mkForall(y.of(parentSort), Term.mkAnd(
-                        Term.mkNot(Term.mkEq(x1, x2)),
-                        Term.mkIff(inChildFlag, Term.mkOr(
-                                Term.mkEq(y, x1),
-                                Term.mkEq(y, x2))))));
-
-        // should have two axioms: subset and exact scope
-        Set<Term> axioms = CollectionConverters.asJava(context.getTheory().axioms());
-        //noinspection unchecked
-        assertThat(axioms, containsInAnyOrder(
-                is(subsetFlag),
-                isAlphaEquivalentTerm(exactScopeAxiom)));
-
-        // should have two functions, inParent: Parent -> Bool and inChild: Parent -> Bool
-        assertThat(context.getTheory().functionDeclarations().size(), is(2));
-        FuncDecl inParentPred = context.getTheory().functionDeclarations().head();
-        assertIsMembershipPredicate(inParentPred, parentSort, "inParent");
-        FuncDecl inChildPred = context.getTheory().functionDeclarations().last();
-        assertIsMembershipPredicate(inChildPred, parentSort, "inChild");
-
-        // should have no constants
-        assertThat(context.getTheory().constants().size(), is(0));
-        assertThat(context.getTheory().enumConstants().size(), is(0));
-    }
-
-    @Test
-    public void testTranslate_primSig_oneSubsigNonExactScope() {
-        // signature with subsig with non-exact scope
-        Sig.PrimSig parent = new Sig.PrimSig("Parent");
-        Sig.PrimSig child = new Sig.PrimSig("Child", parent);
-        when(mockScoper.sig2scope(parent)).thenReturn(3);
-        when(mockScoper.sig2scope(child)).thenReturn(2);
-        when(mockScoper.isExact(child)).thenReturn(false);
-
-        // mock out the subset axiom
-        Decl x = child.oneOf("x");
-        Term subsetFlag = makeFlagConstant("subset");
-        Expr subsetAxiom = x.get().in(parent).forAll(x); // all x: child | x in parent
-        when(mockRoot.translate(argThat(isAlphaEquivalent(subsetAxiom)), any()))
-                .thenReturn(subsetFlag);
-
-        // mock out the non-exact scope axiom's [[xi \in child]]
-        Expr inChild = ExprElementOf.make(Term.mkVar("x"), child);
-        when(mockRoot.translate(argThat(isAlphaEquivalent(inChild)), any())).then(
+        // mock out the non-exact scope axiom's [[xi \in sig]]
+        Expr inSig = ExprElementOf.make(Term.mkVar("x"), sig);
+        when(mockRoot.translate(argThat(isAlphaEquivalent(inSig)), any())).then(
                 ctx -> makeFlagConstant("inFlag_" + ctx.<ExprElementOf>getArgument(0).tuple.get(0)));
 
-        // delegate to the method under test to translate the child sig
-        when(mockRoot.translate(eq(child), any())).then(
-                ctx -> translator.translate(ctx.getArgument(0), ctx.getArgument(1)));
-
-        // actually translate
-        Term result = translator.translate(parent, context);
-        assertThat(result, is(notNullValue()));
-
-        // should have just one sort with same name and scope
-        assertThat(context.getTheory().sortsJava(), hasSize(1));
-        Sort parentSort = context.getSigSort(parent);
-        assertThat(parentSort, is(notNullValue()));
-        assertThat(parentSort.name(), startsWith("Parent"));
-        assertThat(context.getSortScope(parentSort), is(3));
+        Term result = translator.translate(sig, context);
+        assertThat(result, is(notNullValue())); // sig just returns something
 
         // create the expected non-exact scope axiom
-        // "forall x0, x1, x2: parent . [[x0 \in child]] && [[x1 \in child]] && [[x2 \in child]] =>
+        // "forall x0, x1, x2: univ . [[x0 \in S]] && [[x1 \in S]] && [[x2 \in S]] =>
         // x0 = x1 || x0 = x2 || x1 = x2"
         Var x0 = Term.mkVar("x0");
         Var x1 = Term.mkVar("x1");
         Var x2 = Term.mkVar("x2");
         Term nonExactScopeAxiom = Term.mkForall(
-                Arrays.asList(x0.of(parentSort), x1.of(parentSort), x2.of(parentSort)),
+                Arrays.asList(x0.of(context.univSort), x1.of(context.univSort), x2.of(context.univSort)),
                 Term.mkImp(
                         Term.mkAnd(
                                 makeFlagConstant("inFlag_x0"),
@@ -246,19 +167,85 @@ public class TestDefaultTranslator {
                                 Term.mkEq(x0, x2),
                                 Term.mkEq(x1, x2))));
 
-        // should have two axioms: subset and non-exact scope
+        // this should be the only axiom
+        Set<Term> axioms = CollectionConverters.asJava(context.getTheory().axioms());
+        assertThat(axioms, contains(isAlphaEquivalentTerm(nonExactScopeAxiom)));
+
+        // should have no constants, one function for the membership predicate
+        assertThat(context.getTheory().constants().size(), is(0));
+        assertThat(context.getTheory().enumConstants().size(), is(0));
+        assertThat(context.getTheory().functionDeclarations().size(), is(1));
+        FuncDecl func = context.getTheory().functionDeclarations().head();
+        assertIsMembershipPredicate(func, "inTestSig");
+    }
+
+    @Test
+    public void testTranslate_primSig_oneSubsigWithExactScope() {
+        // signature with subsig with exact scope
+        Sig.PrimSig parent = new Sig.PrimSig("Parent");
+        Sig.PrimSig child = new Sig.PrimSig("Child", parent);
+        when(mockScoper.sig2scope(parent)).thenReturn(2);
+        when(mockScoper.isExact(parent)).thenReturn(true);
+        when(mockScoper.sig2scope(child)).thenReturn(1);
+        when(mockScoper.isExact(child)).thenReturn(true);
+
+        // mock out the subset axiom
+        Decl x = child.oneOf("x");
+        Term subsetFlag = makeFlagConstant("subset");
+        Expr subsetAxiom = x.get().in(parent).forAll(x); // all x: child | x in parent
+        when(mockRoot.translate(argThat(isAlphaEquivalent(subsetAxiom)), any()))
+                .thenReturn(subsetFlag);
+
+        // mock out the exact scope axiom's [[x \in child]] and [[x \in parent]]
+        Term inChildFlag = makeFlagConstant("xInChild");
+        Expr inChild = ExprElementOf.make(Term.mkVar("x"), child);
+        when(mockRoot.translate(argThat(isAlphaEquivalent(inChild)), any()))
+                .thenReturn(inChildFlag);
+        Term inParentFlag = makeFlagConstant("xInParent");
+        Expr inParent = ExprElementOf.make(Term.mkVar("x"), parent);
+        when(mockRoot.translate(argThat(isAlphaEquivalent(inParent)), any()))
+                .thenReturn(inParentFlag);
+
+        // delegate to the method under test to translate the child sig
+        when(mockRoot.translate(eq(child), any())).then(
+                ctx -> translator.translate(ctx.getArgument(0), ctx.getArgument(1)));
+
+        // actually translate
+        Term result = translator.translate(parent, context);
+        assertThat(result, is(notNullValue()));
+
+        // create the expected exact scope axiom for the parent
+        // "exists x1, x2: univ . forall y: univ . !(x1 = x2) && ([[y \in Parent]] <=> y = x1 || y = x2)"
+        Var x1 = Term.mkVar("x1");
+        Var x2 = Term.mkVar("x2");
+        Var y = Term.mkVar("y");
+        Term exactScopeAxiom1 = Term.mkExists(Arrays.asList(x1.of(context.univSort), x2.of(context.univSort)),
+                Term.mkForall(y.of(context.univSort), Term.mkAnd(
+                        Term.mkNot(Term.mkEq(x1, x2)),
+                        Term.mkIff(inParentFlag, Term.mkOr(
+                                Term.mkEq(y, x1),
+                                Term.mkEq(y, x2))))));
+
+        // create the expected exact scope axiom for the child
+        // scope 1: "exists x: univ . forall y: univ . [[y \in Child]] <=> y = x
+        Term exactScopeAxiom2 = Term.mkExists(x1.of(context.univSort),
+                Term.mkForall(y.of(context.univSort), Term.mkIff(
+                        inChildFlag, Term.mkEq(y, x1))));
+
+        // should have two axioms: subset and exact scope
         Set<Term> axioms = CollectionConverters.asJava(context.getTheory().axioms());
         //noinspection unchecked
         assertThat(axioms, containsInAnyOrder(
                 is(subsetFlag),
-                isAlphaEquivalentTerm(nonExactScopeAxiom)));
+                isAlphaEquivalentTerm(exactScopeAxiom1),
+                isAlphaEquivalentTerm(exactScopeAxiom2)));
 
         // should have two functions, inParent: Parent -> Bool and inChild: Parent -> Bool
         assertThat(context.getTheory().functionDeclarations().size(), is(2));
         FuncDecl inParentPred = context.getTheory().functionDeclarations().head();
-        assertIsMembershipPredicate(inParentPred, parentSort, "inParent");
+        assertIsMembershipPredicate(inParentPred, "inParent");
         FuncDecl inChildPred = context.getTheory().functionDeclarations().last();
-        assertIsMembershipPredicate(inChildPred, parentSort, "inChild");
+        assertIsMembershipPredicate(inChildPred, "inChild");
 
         // should have no constants
         assertThat(context.getTheory().constants().size(), is(0));
@@ -272,6 +259,7 @@ public class TestDefaultTranslator {
         Sig.PrimSig child1 = new Sig.PrimSig("Child1", parent);
         Sig.PrimSig child2 = new Sig.PrimSig("Child2", parent);
         when(mockScoper.sig2scope(parent)).thenReturn(2);
+        when(mockScoper.isExact(parent)).thenReturn(true);
         when(mockScoper.sig2scope(child1)).thenReturn(1);
         when(mockScoper.sig2scope(child2)).thenReturn(1);
         when(mockScoper.isExact(child1)).thenReturn(true);
@@ -306,9 +294,12 @@ public class TestDefaultTranslator {
         when(mockRoot.translate(argThat(isAlphaEquivalent(disjointAxiom)), any()))
                 .thenReturn(disjointFlag);
 
-        // mock out the exact and non-exact scope axiom's [[xi \in childN]]
+        // mock out the exact and non-exact scope axiom's [[xi \in sig]]
         Expr inChild = ExprElementOf.make(Term.mkVar("x"), child1);
+        Expr inParent = ExprElementOf.make(Term.mkVar("x"), parent);
         when(mockRoot.translate(argThat(isAlphaEquivalent(inChild)), any())).then(
+                ctx -> makeFlagConstant("inFlag_" + ctx.<ExprElementOf>getArgument(0).tuple.get(0)));
+        when(mockRoot.translate(argThat(isAlphaEquivalent(inParent)), any())).then(
                 ctx -> makeFlagConstant("inFlag_" + ctx.<ExprElementOf>getArgument(0).tuple.get(0)));
 
         // delegate to the method under test to translate the child sigs
@@ -319,24 +310,29 @@ public class TestDefaultTranslator {
         Term result = translator.translate(parent, context);
         assertThat(result, is(notNullValue()));
 
-        // should have just one sort with same name and scope
-        assertThat(context.getTheory().sortsJava(), hasSize(1));
-        Sort parentSort = context.getSigSort(parent);
-        assertThat(parentSort, is(notNullValue()));
-        assertThat(parentSort.name(), startsWith("Parent"));
-        assertThat(context.getSortScope(parentSort), is(2));
-
-        // create the expected exact scope axiom
-        // "exists x1: parent . forall x: parent . [[x \in child1]] <=> x = x1"
+        // create the expected exact scope axiom for the parent
+        // "exists x1, x2: univ . forall y: univ . !(x1 = x2) && ([[y \in S]] <=> y = x1 || y = x2)"
         Var x1 = Term.mkVar("x1");
+        Var x2 = Term.mkVar("x2");
+        Var y = Term.mkVar("y");
+        Term exactScopeAxiom1 = Term.mkExists(Arrays.asList(x1.of(context.univSort), x2.of(context.univSort)),
+                Term.mkForall(y.of(context.univSort), Term.mkAnd(
+                        Term.mkNot(Term.mkEq(x1, x2)),
+                        // use 'x' since it's the variable name they use
+                        Term.mkIff(makeFlagConstant("inFlag_x"), Term.mkOr(
+                                Term.mkEq(y, x1),
+                                Term.mkEq(y, x2))))));
+
+        // create the expected exact scope axiom for the child
+        // "exists x1: univ . forall x: univ . [[x \in child1]] <=> x = x1"
         Var x = Term.mkVar("x");
-        Term exactScopeAxiom = Term.mkExists(x1.of(parentSort), Term.mkForall(x.of(parentSort),
+        Term exactScopeAxiom2 = Term.mkExists(x1.of(context.univSort), Term.mkForall(x.of(context.univSort),
                 Term.mkIff(makeFlagConstant("inFlag_x"), Term.mkEq(x, x1))));
 
-        // create the expected non-exact scope axiom
-        // "forall x0, x1: parent . [[x0 \in child2]] && [[x1 \in child2]] => x0 = x1"
+        // create the expected non-exact scope axiom for the child
+        // "forall x0, x1: univ . [[x0 \in child2]] && [[x1 \in child2]] => x0 = x1"
         Var x0 = Term.mkVar("x0");
-        Term nonExactScopeAxiom = Term.mkForall(Arrays.asList(x0.of(parentSort), x1.of(parentSort)),
+        Term nonExactScopeAxiom = Term.mkForall(Arrays.asList(x0.of(context.univSort), x1.of(context.univSort)),
                 Term.mkImp(
                         Term.mkAnd(
                                 makeFlagConstant("inFlag_x0"),
@@ -351,18 +347,19 @@ public class TestDefaultTranslator {
                 is(makeFlagConstant("subset_one_Child2")), // subset axiom, child2
                 is(disjointFlag), // disjoint axiom
                 is(coverFlag), // cover/abstract axiom
-                isAlphaEquivalentTerm(exactScopeAxiom), // exact scope axiom, child1
+                isAlphaEquivalentTerm(exactScopeAxiom1), // exact scope axiom, parent
+                isAlphaEquivalentTerm(exactScopeAxiom2), // exact scope axiom, child1
                 isAlphaEquivalentTerm(nonExactScopeAxiom))); // non-exact scope axiom, child2
 
         // should have three membership predicates, one per sort
         assertThat(context.getTheory().functionDeclarations().size(), is(3));
         FuncDecl inParentPred = context.getTheory().functionDeclarations().head();
-        assertIsMembershipPredicate(inParentPred, parentSort, "inParent");
+        assertIsMembershipPredicate(inParentPred, "inParent");
         //noinspection RedundantCast - IntelliJ thinks it's unnecessary but build fails without it
         FuncDecl inChild1Pred = (FuncDecl) context.getTheory().functionDeclarations().tail().head();
-        assertIsMembershipPredicate(inChild1Pred, parentSort, "inChild1");
+        assertIsMembershipPredicate(inChild1Pred, "inChild1");
         FuncDecl inChild2Pred = context.getTheory().functionDeclarations().last();
-        assertIsMembershipPredicate(inChild2Pred, parentSort, "inChild2");
+        assertIsMembershipPredicate(inChild2Pred, "inChild2");
 
         // should have no constants
         assertThat(context.getTheory().constants().size(), is(0));
@@ -549,29 +546,24 @@ public class TestDefaultTranslator {
 
     @Test
     public void testTranslate_in_arity1() {
-        // test [[e1 \in e2]] := forall x: S . [[x \in e1]] => [[x \in e2]] for arity 1
+        // test [[e1 \in e2]] := forall x: univ . [[x \in e1]] => [[x \in e2]] for arity 1
         Sig.PrimSig sig = new Sig.PrimSig("S");
         ExprVar e1 = makeTestVarWithType("e1", Type.make(sig));
         ExprVar e2 = makeTestVarWithType("e2", Type.make(sig));
         Var flagInE1 = makeFlagConstant("xInE1"), flagInE2 = makeFlagConstant("xInE2");
         Var x = Term.mkVar("x");
 
-        // set up the sort so we don't need to generate it
-        Sort sort = Sort.mkSortConst("S");
-        context.addSort(sort, 3);
-        context.setSigSort(sig, sort);
-
         when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(x, e1))), any()))
                 .thenReturn(flagInE1, flagInE2);
 
         Term result = translator.translate(e1.in(e2), context);
-        Term expected = Term.mkForall(x.of(sort), Term.mkImp(flagInE1, flagInE2));
+        Term expected = Term.mkForall(x.of(context.univSort), Term.mkImp(flagInE1, flagInE2));
         assertThat(result, isAlphaEquivalentTerm(expected));
     }
 
     @Test
     public void testTranslate_in_arity2() {
-        // test [[e1 \in e2]] := forall x1: S1, x2: S2 . [[(x1,x2) \in e1]] => [[(x1,x2) \in e2]]
+        // test [[e1 \in e2]] := forall x1, x2: univ . [[(x1,x2) \in e1]] => [[(x1,x2) \in e2]]
         Sig.PrimSig sig1 = new Sig.PrimSig("S1");
         Sig.PrimSig sig2 = new Sig.PrimSig("S2");
         ExprVar e1 = makeTestVarWithType("e1", Type.make(sig1).product(Type.make(sig2)));
@@ -579,49 +571,36 @@ public class TestDefaultTranslator {
         Var flagInE1 = makeFlagConstant("xInE1"), flagInE2 = makeFlagConstant("xInE2");
         Var x1 = Term.mkVar("x1"), x2 = Term.mkVar("x2");
 
-        // set up the sorts so we don't need to generate them
-        Sort sort1 = Sort.mkSortConst("S1");
-        Sort sort2 = Sort.mkSortConst("S2");
-        context.addSort(sort1, 3);
-        context.addSort(sort2, 3);
-        context.setSigSort(sig1, sort1);
-        context.setSigSort(sig2, sort2);
-
         when(mockRoot.translate(argThat(isAlphaEquivalent(
                 ExprElementOf.make(ConstList.make(Arrays.asList(x1, x2)), e1))), any()))
                 .thenReturn(flagInE1, flagInE2);
 
         Term result = translator.translate(e1.in(e2), context);
-        Term expected = Term.mkForall(Arrays.asList(x1.of(sort1), x2.of(sort2)),
+        Term expected = Term.mkForall(Arrays.asList(x1.of(context.univSort), x2.of(context.univSort)),
                 Term.mkImp(flagInE1, flagInE2));
         assertThat(result, isAlphaEquivalentTerm(expected));
     }
 
     @Test
     public void testTranslate_eq_arity1() {
-        // test [[e1 = e2]] := forall x: S . [[x \in e1]] <=> [[x \in e2]] for arity 1
+        // test [[e1 = e2]] := forall x: univ . [[x \in e1]] <=> [[x \in e2]] for arity 1
         Sig.PrimSig sig = new Sig.PrimSig("S");
         ExprVar e1 = makeTestVarWithType("e1", Type.make(sig));
         ExprVar e2 = makeTestVarWithType("e2", Type.make(sig));
         Var flagInE1 = makeFlagConstant("xInE1"), flagInE2 = makeFlagConstant("xInE2");
         Var x = Term.mkVar("x");
 
-        // set up the sort so we don't need to generate it
-        Sort sort = Sort.mkSortConst("S");
-        context.addSort(sort, 3);
-        context.setSigSort(sig, sort);
-
         when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(x, e1))), any()))
                 .thenReturn(flagInE1, flagInE2);
 
         Term result = translator.translate(e1.equal(e2), context);
-        Term expected = Term.mkForall(x.of(sort), Term.mkIff(flagInE1, flagInE2));
+        Term expected = Term.mkForall(x.of(context.univSort), Term.mkIff(flagInE1, flagInE2));
         assertThat(result, isAlphaEquivalentTerm(expected));
     }
 
     @Test
     public void testTranslate_eq_arity2() {
-        // test [[e1 = e2]] := forall x1: S1, x2: S2 . [[(x1,x2) \in e1]] <=> [[(x1,x2) \in e2]]
+        // test [[e1 = e2]] := forall x1, x2: univ . [[(x1,x2) \in e1]] <=> [[(x1,x2) \in e2]]
         Sig.PrimSig sig1 = new Sig.PrimSig("S1");
         Sig.PrimSig sig2 = new Sig.PrimSig("S2");
         ExprVar e1 = makeTestVarWithType("e1", Type.make(sig1).product(Type.make(sig2)));
@@ -629,27 +608,19 @@ public class TestDefaultTranslator {
         Var flagInE1 = makeFlagConstant("xInE1"), flagInE2 = makeFlagConstant("xInE2");
         Var x1 = Term.mkVar("x1"), x2 = Term.mkVar("x2");
 
-        // set up the sorts so we don't need to generate them
-        Sort sort1 = Sort.mkSortConst("S1");
-        Sort sort2 = Sort.mkSortConst("S2");
-        context.addSort(sort1, 3);
-        context.addSort(sort2, 3);
-        context.setSigSort(sig1, sort1);
-        context.setSigSort(sig2, sort2);
-
         when(mockRoot.translate(argThat(isAlphaEquivalent(
                 ExprElementOf.make(ConstList.make(Arrays.asList(x1, x2)), e1))), any()))
                 .thenReturn(flagInE1, flagInE2);
 
         Term result = translator.translate(e1.equal(e2), context);
-        Term expected = Term.mkForall(Arrays.asList(x1.of(sort1), x2.of(sort2)),
+        Term expected = Term.mkForall(Arrays.asList(x1.of(context.univSort), x2.of(context.univSort)),
                 Term.mkIff(flagInE1, flagInE2));
         assertThat(result, isAlphaEquivalentTerm(expected));
     }
 
     @Test
     public void testTranslate_all_oneVar() {
-        // test [[all x: e | f]] := forall x: S . [[x \in e]] => [[f]]
+        // test [[all x: e | f]] := forall x: univ . [[x \in e]] => [[f]]
         Sig.PrimSig sig = new Sig.PrimSig("S");
         ExprVar e = makeTestVarWithType("e", Type.make(sig));
         Decl x = e.oneOf("x");
@@ -657,11 +628,6 @@ public class TestDefaultTranslator {
         Var flagInE = makeFlagConstant("xInE");
         Var flagSub = makeFlagConstant("f");
         Var flagX = makeFlagConstant("x");
-
-        // set up a sort ahead of time so we don't have to translate that
-        Sort sort = Sort.mkSortConst("S");
-        context.addSort(sort, 3);
-        context.setSigSort(sig, sort);
 
         // "e" gets translated to "one e" at some point
         when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(flagX, e.oneOf()))), any()))
@@ -680,7 +646,7 @@ public class TestDefaultTranslator {
         Term result = translator.translate(f.forAll(x), context);
         assertNotNull(fortressX.get()); // make sure we captured a reference, so we translated [[f]]
         // use the captured reference to construct the expected translation
-        Term expected = Term.mkForall(fortressX.get().of(sort), Term.mkImp(flagInE, flagSub));
+        Term expected = Term.mkForall(fortressX.get().of(context.univSort), Term.mkImp(flagInE, flagSub));
         assertEquals(expected, result);
 
         // make sure the x |-> fortressX mapping was removed after translating [[f]]
@@ -689,7 +655,7 @@ public class TestDefaultTranslator {
 
     @Test
     public void testTranslate_all_twoVars() {
-        // test [[all x1: e1, x2: e2 | f]] := forall x1: S1, x2: S2 . [[x1 \in e1]] && [[x2 \in e2]] => [[f]]
+        // test [[all x1: e1, x2: e2 | f]] := forall x1, x2: univ . [[x1 \in e1]] && [[x2 \in e2]] => [[f]]
         Sig.PrimSig sig1 = new Sig.PrimSig("S1"), sig2 = new Sig.PrimSig("S2");
         ExprVar e1 = makeTestVarWithType("e1", Type.make(sig1));
         ExprVar e2 = makeTestVarWithType("e2", Type.make(sig2));
@@ -698,13 +664,6 @@ public class TestDefaultTranslator {
         Var flagInE1 = makeFlagConstant("x1InE1"), flagInE2 = makeFlagConstant("x2InE2");
         Var flagSub = makeFlagConstant("f");
         Var flagX = makeFlagConstant("x");
-
-        // set up sorts
-        Sort sort1 = Sort.mkSortConst("S1"), sort2 = Sort.mkSortConst("S2");
-        context.addSort(sort1, 3);
-        context.setSigSort(sig1, sort1);
-        context.addSort(sort2, 3);
-        context.setSigSort(sig2, sort2);
 
         when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(flagX, e1.oneOf()))), any()))
                 .thenReturn(flagInE1, flagInE2);
@@ -726,7 +685,7 @@ public class TestDefaultTranslator {
         assertNotNull(fortressX2.get());
         // use the captured reference to construct the expected translation
         Term expected = Term.mkForall(
-                Arrays.asList(fortressX1.get().of(sort1), fortressX2.get().of(sort2)),
+                Arrays.asList(fortressX1.get().of(context.univSort), fortressX2.get().of(context.univSort)),
                 Term.mkImp(Term.mkAnd(flagInE1, flagInE2), flagSub));
         assertEquals(expected, result);
 
@@ -737,7 +696,7 @@ public class TestDefaultTranslator {
 
     @Test
     public void testTranslate_some() {
-        // test [[some x: e | f]] := exists x: S . [[x \in e]] && [[f]]
+        // test [[some x: e | f]] := exists x: univ . [[x \in e]] && [[f]]
         Sig.PrimSig sig = new Sig.PrimSig("S");
         ExprVar e = makeTestVarWithType("e", Type.make(sig));
         Decl x = e.oneOf("x");
@@ -745,11 +704,6 @@ public class TestDefaultTranslator {
         Var flagInE = makeFlagConstant("xInE");
         Var flagSub = makeFlagConstant("f");
         Var flagX = makeFlagConstant("x");
-
-        // set up a sort ahead of time so we don't have to translate that
-        Sort sort = Sort.mkSortConst("S");
-        context.addSort(sort, 3);
-        context.setSigSort(sig, sort);
 
         // "e" gets translated to "one e" at some point
         when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(flagX, e.oneOf()))), any()))
@@ -768,7 +722,7 @@ public class TestDefaultTranslator {
         Term result = translator.translate(f.forSome(x), context);
         assertNotNull(fortressX.get()); // make sure we captured a reference, so we translated [[f]]
         // use the captured reference to construct the expected translation
-        Term expected = Term.mkExists(fortressX.get().of(sort), Term.mkAnd(flagInE, flagSub));
+        Term expected = Term.mkExists(fortressX.get().of(context.univSort), Term.mkAnd(flagInE, flagSub));
         assertEquals(expected, result);
 
         // make sure the x |-> fortressX mapping was removed after translating [[f]]
@@ -793,20 +747,15 @@ public class TestDefaultTranslator {
 
     @Test
     public void testTranslate_lone() {
-        // test [[lone x: e | f]] := forall x, y: S . [[x \in e]] && [[y \in e]] && [[f]] && [[f[y/x]]] => x = y
+        // test [[lone x: e | f]] := forall x, y: univ . [[x \in e]] && [[y \in e]] && [[f]] && [[f[y/x]]] => x = y
         Sig.PrimSig sig = new Sig.PrimSig("S");
         ExprVar e = makeTestVarWithType("e", Type.make(sig));
         Decl alloyX = e.oneOf("x");
         ExprVar f = makeTestVariable("f");
 
-        // set up the sort in the theory so we don't have to generate it
-        Sort sort = Sort.mkSortConst("S");
-        context.addSort(sort, 3);
-        context.setSigSort(sig, sort);
-
         // use flag predicates for [[\in e]] and [[f]] to make sure the substitution happens correctly
-        FuncDecl flagInE = FuncDecl.mkFuncDecl("inE", sort, Sort.Bool());
-        FuncDecl flagF = FuncDecl.mkFuncDecl("f", sort, Sort.Bool());
+        FuncDecl flagInE = FuncDecl.mkFuncDecl("inE", context.univSort, Sort.Bool());
+        FuncDecl flagF = FuncDecl.mkFuncDecl("f", context.univSort, Sort.Bool());
         context.addFunctionDeclaration(flagInE);
         context.addFunctionDeclaration(flagF);
 
@@ -828,7 +777,7 @@ public class TestDefaultTranslator {
         });
 
         Var x = Term.mkVar("x"), y = Term.mkVar("y");
-        Term expected = Term.mkForall(Arrays.asList(x.of(sort), y.of(sort)), Term.mkImp(
+        Term expected = Term.mkForall(Arrays.asList(x.of(context.univSort), y.of(context.univSort)), Term.mkImp(
                 Term.mkAnd(
                         Term.mkApp("inE", x),
                         Term.mkApp("inE", y),
@@ -845,21 +794,16 @@ public class TestDefaultTranslator {
 
     @Test
     public void testTranslate_one() {
-        // test [[one x: e | f]] := exists x: S . [[x \in e]] && [[f]] && forall y: S . [[y \in e]] &&
+        // test [[one x: e | f]] := exists x: univ . [[x \in e]] && [[f]] && forall y: S . [[y \in e]] &&
         //   [[f[y/x]]] => x = y
         Sig.PrimSig sig = new Sig.PrimSig("S");
         ExprVar e = makeTestVarWithType("e", Type.make(sig));
         Decl alloyX = e.oneOf("x");
         ExprVar f = makeTestVariable("f");
 
-        // set up the sort in the theory so we don't have to generate it
-        Sort sort = Sort.mkSortConst("S");
-        context.addSort(sort, 3);
-        context.setSigSort(sig, sort);
-
         // use flag predicates for [[\in e]] and [[f]] to make sure the substitution happens correctly
-        FuncDecl flagInE = FuncDecl.mkFuncDecl("inE", sort, Sort.Bool());
-        FuncDecl flagF = FuncDecl.mkFuncDecl("f", sort, Sort.Bool());
+        FuncDecl flagInE = FuncDecl.mkFuncDecl("inE", context.univSort, Sort.Bool());
+        FuncDecl flagF = FuncDecl.mkFuncDecl("f", context.univSort, Sort.Bool());
         context.addFunctionDeclaration(flagInE);
         context.addFunctionDeclaration(flagF);
 
@@ -881,10 +825,10 @@ public class TestDefaultTranslator {
         });
 
         Var x = Term.mkVar("x"), y = Term.mkVar("y");
-        Term expected = Term.mkExists(x.of(sort), Term.mkAnd(
+        Term expected = Term.mkExists(x.of(context.univSort), Term.mkAnd(
                 Term.mkApp("inE", x),
                 Term.mkApp("f", x),
-                Term.mkForall(y.of(sort), Term.mkImp(
+                Term.mkForall(y.of(context.univSort), Term.mkImp(
                         Term.mkAnd(
                                 Term.mkApp("inE", y),
                                 Term.mkApp("f", y)),

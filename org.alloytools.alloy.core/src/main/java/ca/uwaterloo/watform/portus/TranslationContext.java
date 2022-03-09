@@ -27,15 +27,15 @@ final class TranslationContext {
     // Calculates the scopes for each signature.
     public final ScopeComputer scoper;
 
+    // The single universal sort.
+    public final Sort univSort = Sort.mkSortConst("univ");
+
     // The current theory. Mutable.
-    private Theory theory = Theory.empty();
+    private Theory theory = Theory.empty().withSort(univSort);
 
-    // Scopes for each sort.
-    // Invariant: the sorts in the theory are exactly the keys of the scopes map.
-    private final Map<Sort, Integer> scopes = new HashMap<>();
-
-    // The sort that members of each sig are mapped to.
-    private final Map<Sig, Sort> sigsToSorts = new HashMap<>();
+    // The scope needed for the universal sort.
+    // This should be the sum of the scopes of all top-level sorts.
+    private int totalScope = 0;
 
     // The current lexical scope's mapping from variable labels to Fortress Vars.
     private final Env<String, Var> varMapping = new Env<>();
@@ -45,14 +45,14 @@ final class TranslationContext {
         this.scoper = scoper;
     }
 
-    public void addAxiom(Term axiom) {
-        theory = theory.withAxiom(axiom);
+    // Add to the total scope needed for the universal sort.
+    // This should be called for each top-level sig.
+    public void addToUnivScope(int scope) {
+        totalScope += scope;
     }
 
-    public void addSort(Sort sort, int scope) {
-        // keep the scope map in sync with the theory
-        scopes.put(sort, scope);
-        theory = theory.withSort(sort);
+    public void addAxiom(Term axiom) {
+        theory = theory.withAxiom(axiom);
     }
 
     public void addConstant(AnnotatedVar constant) {
@@ -61,16 +61,6 @@ final class TranslationContext {
 
     public void addFunctionDeclaration(FuncDecl funcDecl) {
         theory = theory.withFunctionDeclaration(funcDecl);
-    }
-
-    /** Set the sort that members of this sig belong to. */
-    public void setSigSort(Sig sig, Sort sort) {
-        sigsToSorts.put(sig, sort);
-    }
-
-    /** Get the sort that members of this sig belong to, or null if not set. */
-    public Sort getSigSort(Sig sig) {
-        return sigsToSorts.get(sig);
     }
 
     /**
@@ -109,9 +99,7 @@ final class TranslationContext {
     /** Configure a model finder's theory and scopes to check this translation. */
     public void configureModelFinder(ModelFinder finder) {
         finder.setTheory(theory);
-        for (Sort sort : theory.sortsJava()) {
-            finder.setAnalysisScope(sort, scopes.get(sort));
-        }
+        finder.setAnalysisScope(univSort, totalScope);
     }
 
     /**
@@ -120,14 +108,6 @@ final class TranslationContext {
      */
     Theory getTheory() {
         return theory;
-    }
-
-    /**
-     * Get the registered scope of the given sort. Again, mainly for testing.
-     * Returns a boxed Integer so that we return null if the sort doesn't have a registered scope.
-     */
-    Integer getSortScope(Sort sort) {
-        return scopes.get(sort);
     }
 
 }

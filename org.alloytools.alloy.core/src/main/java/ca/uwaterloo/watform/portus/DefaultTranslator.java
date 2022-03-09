@@ -3,7 +3,6 @@ package ca.uwaterloo.watform.portus;
 import edu.mit.csail.sdg.alloy4.ConstList;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.alloy4.ErrorSyntax;
-import edu.mit.csail.sdg.alloy4.ErrorType;
 import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
@@ -50,29 +49,12 @@ final class DefaultTranslator extends AbstractTranslator {
             throw new ErrorFatal("Internal error: seen sig " + sig.label + " before");
         }
 
-        // Find the sort corresponding to this sig.
-        Sort sort;
-        if (sig.isTopLevel()) {
-            // Top-level sig: make a new sort.
-            sort = Sort.mkSortConst(uniqueNameGenerator.make(sig.label));
-            int scope = context.scoper.sig2scope(sig);
-            context.addSort(sort, scope);
-        } else {
-            // Not top-level: its parent's sort should have been set before.
-            sort = context.getSigSort(sig.parent);
-            if (sort == null) {
-                // It wasn't set: violation of the translate(Sig, TranslationContext) contract.
-                throw new ErrorFatal("Sig " + sig.label + "'s parent had no SMT sort set.");
-            }
-        }
-        context.setSigSort(sig, sort);
-
-        // Make a new predicate for membership.
+        // Make a new predicate for membership
         String memPredName = uniqueNameGenerator.make("in" + sig.label);
         sigMemberPredicates.put(sig, var -> Term.mkApp(memPredName, var));
-        context.addFunctionDeclaration(FuncDecl.mkFuncDecl(memPredName, sort, Sort.Bool()));
+        context.addFunctionDeclaration(FuncDecl.mkFuncDecl(memPredName, context.univSort, Sort.Bool()));
 
-        // Translate all its children so we can translate membership in them.
+        // Translate all its children so we can translate membership in them
         for (Sig.PrimSig child : sig.children()) {
             recursivelyTranslate(child, context);
         }
@@ -95,14 +77,12 @@ final class DefaultTranslator extends AbstractTranslator {
             context.addAxiom(makeCoverAxiom(sig, context));
         }
 
-        // Subsigs: generate scope constraints
-        if (!sig.isTopLevel()) {
-            int scope = context.scoper.sig2scope(sig);
-            if (context.scoper.isExact(sig)) {
-                context.addAxiom(makeExactSubsigScopeAxiom(sig, sort, scope, context));
-            } else {
-                context.addAxiom(makeNonExactSubsigScopeAxiom(sig, sort, scope, context));
-            }
+        // Generate scope constraints
+        int scope = context.scoper.sig2scope(sig);
+        if (context.scoper.isExact(sig)) {
+            context.addAxiom(makeExactScopeAxiom(sig, scope, context));
+        } else {
+            context.addAxiom(makeNonExactScopeAxiom(sig, scope, context));
         }
 
         // return Top because the returned Term doesn't matter for a Sig
@@ -145,10 +125,10 @@ final class DefaultTranslator extends AbstractTranslator {
         return recursivelyTranslate(completenessAxiom, context);
     }
 
-    /** Create an axiom that the child subsig has an exact scope of `scope`. */
-    private Term makeExactSubsigScopeAxiom(Sig child, Sort sort, int scope, TranslationContext context) {
-        // Fortress: "exists x1, ..., xn: sort . forall x: sort . !(x1 = x2) && ...
-        // && !(x1 = xn) && !(x2 = x3) && ... && !(x{n-1} = xn) && ([[x \in child]] <=> x = x1
+    /** Create an axiom that the sig has an exact scope of `scope`. */
+    private Term makeExactScopeAxiom(Sig sig, int scope, TranslationContext context) {
+        // Fortress: "exists x1, ..., xn: univ . forall x: univ . !(x1 = x2) && ...
+        // && !(x1 = xn) && !(x2 = x3) && ... && !(x{n-1} = xn) && ([[x \in sig]] <=> x = x1
         // || ... || x = xn)" (KT 4.3)
         Var[] vars = new Var[scope];
         for (int i = 0; i < vars.length; i++) {
@@ -170,22 +150,22 @@ final class DefaultTranslator extends AbstractTranslator {
                 .collect(Collectors.toList());
 
         // construct the last conjunct
-        Term xInChild = recursivelyTranslate(ExprElementOf.make(x, child), context);
+        Term xInChild = recursivelyTranslate(ExprElementOf.make(x, sig), context);
         Term implication = Term.mkIff(xInChild, Term.mkOr(eqDisjuncts));
         conjuncts.add(implication);
 
         // construct the decls
         List<AnnotatedVar> varDecls = Arrays.stream(vars)
-                .map(var -> var.of(sort))
+                .map(var -> var.of(context.univSort))
                 .collect(Collectors.toList());
 
         // construct the final axiom
-        return Term.mkExists(varDecls, Term.mkForall(x.of(sort), Term.mkAnd(conjuncts)));
+        return Term.mkExists(varDecls, Term.mkForall(x.of(context.univSort), Term.mkAnd(conjuncts)));
     }
 
-    /** Create an axiom that the child subsig has a non-exact scope of `scope`. */
-    private Term makeNonExactSubsigScopeAxiom(Sig child, Sort sort, int scope, TranslationContext context) {
-        // Fortress: "forall x1, ..., x{n+1}: sort . [[x1 \in child]] && ... && [[x{n+1} \in child]] =>
+    /** Create an axiom that the sig has a non-exact scope of `scope`. */
+    private Term makeNonExactScopeAxiom(Sig sig, int scope, TranslationContext context) {
+        // Fortress: "forall x1, ..., x{n+1}: univ . [[x1 \in child]] && ... && [[x{n+1} \in child]] =>
         // x1 = x2 || .. || x1 = x{n+1} || x2 = x3 || ... || xn = x{n+1}" (KT 4.3)
         Var[] vars = new Var[scope + 1];
         for (int i = 0; i < vars.length; i++) {
@@ -194,7 +174,7 @@ final class DefaultTranslator extends AbstractTranslator {
 
         // construct the conjuncts
         List<Term> conjuncts = Arrays.stream(vars)
-                .map(var -> recursivelyTranslate(ExprElementOf.make(var, child), context))
+                .map(var -> recursivelyTranslate(ExprElementOf.make(var, sig), context))
                 .collect(Collectors.toList());
         Term conjunction = Term.mkAnd(conjuncts);
 
@@ -209,7 +189,7 @@ final class DefaultTranslator extends AbstractTranslator {
 
         // construct the forall and the final axiom
         List<AnnotatedVar> decls = Arrays.stream(vars)
-                .map(var -> var.of(sort))
+                .map(var -> var.of(context.univSort))
                 .collect(Collectors.toList());
         return Term.mkForall(decls, Term.mkImp(conjunction, disjunction));
     }
@@ -271,17 +251,11 @@ final class DefaultTranslator extends AbstractTranslator {
         // and [[e1 = e2]] := forall x1: S1, ..., sn: Sn .
         //   [[(x1, ..., xn) \in e1]] <=> [[(x1, ..., xn) \in e2]]
         // typechecker ensured arities are the same, make sure sort are the same
-        // TODO: can we support sorts that aren't the same?
         assert e1.type().arity() == e2.type().arity();
-        List<Sort> sorts = PortusUtil.getSorts(e1, context);
-        List<Sort> sorts2 = PortusUtil.getSorts(e2, context);
-        if (!sorts.equals(sorts2)) {
-            throw new ErrorType("'in' with types of different top-level sigs is not supported");
-        }
 
         // create the variables
-        List<AnnotatedVar> varDecls = IntStream.range(0, sorts.size())
-                .mapToObj(idx -> Term.mkVar("x" + idx).of(sorts.get(idx)))
+        List<AnnotatedVar> varDecls = IntStream.range(0, e1.type().arity())
+                .mapToObj(idx -> Term.mkVar("x" + idx).of(context.univSort))
                 .collect(Collectors.toList());
         ConstList<Var> vars = ConstList.make(varDecls.stream()
                 .map(AnnotatedVar::variable)
@@ -431,11 +405,10 @@ final class DefaultTranslator extends AbstractTranslator {
         Map<String, AnnotatedVar> namesToVars = new HashMap<>();
         List<Term> conditions = new ArrayList<>();
         for (Decl decl : decls) {
-            // Alloy typechecked that it has arity 1, so just get the first sort
-            Sort sort = PortusUtil.getSorts(decl.expr, context).get(0);
+            // Alloy typechecked that it has arity 1
             for (ExprHasName name : decl.names) {
                 Var var = Term.mkVar(uniqueNameGenerator.make(name.label));
-                namesToVars.put(name.label, var.of(sort));
+                namesToVars.put(name.label, var.of(context.univSort));
 
                 // Add it to the lexical scope in order to translate the condition
                 context.addVarMapping(name.label, var);
