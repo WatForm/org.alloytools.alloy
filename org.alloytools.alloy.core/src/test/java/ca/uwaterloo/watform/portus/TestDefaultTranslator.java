@@ -545,6 +545,96 @@ public class TestDefaultTranslator {
     }
 
     @Test
+    public void testTranslate_join_arity1x2() {
+        // test [[x \in e1 . e2]] := exists y: univ . [[y \in e1]] && [[(y, x) \in e2]]
+        // where arity(e1) = 1, arity(e2) = 2
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e1 = makeTestVarWithType("e1", Type.make(sig));
+        ExprVar e2 = makeTestVarWithType("e2", Type.make(sig).product(Type.make(sig)));
+        Var x = Term.mkVar("x"), y = Term.mkVar("y");
+
+        // mock out [[y \in e1]] and [[(y, x) \in e2]]
+        Var flagInE1 = makeFlagConstant("inE1"), flagInE2 = makeFlagConstant("inE2");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(y, e1))), any()))
+                .thenReturn(flagInE1);
+        when(mockRoot.translate(argThat(isAlphaEquivalent(
+                ExprElementOf.make(ConstList.make(Arrays.asList(y, x)), e2))), any()))
+                .thenReturn(flagInE2);
+
+        Term result = translator.translate(ExprElementOf.make(x, e1.join(e2)), context);
+        Term expected = Term.mkExists(y.of(context.univSort), Term.mkAnd(flagInE1, flagInE2));
+        assertThat(result, isAlphaEquivalentTerm(expected));
+    }
+
+    @Test
+    public void testTranslate_join_arity2x1() {
+        // test [[x \in e1 . e2]] := exists y: univ . [[y \in e1]] && [[(y, x) \in e2]]
+        // where arity(e1) = 2, arity(e2) = 1
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e1 = makeTestVarWithType("e1", Type.make(sig).product(Type.make(sig)));
+        ExprVar e2 = makeTestVarWithType("e2", Type.make(sig));
+        Var x = Term.mkVar("x"), y = Term.mkVar("y");
+
+        // mock out [[(x, y) \in e1]] and [[y \in e2]]
+        Var flagInE1 = makeFlagConstant("inE1"), flagInE2 = makeFlagConstant("inE2");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(
+                ExprElementOf.make(ConstList.make(Arrays.asList(x, y)), e1))), any()))
+                .thenReturn(flagInE1);
+        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(y, e2))), any()))
+                .thenReturn(flagInE2);
+
+        Term result = translator.translate(ExprElementOf.make(x, e1.join(e2)), context);
+        Term expected = Term.mkExists(y.of(context.univSort), Term.mkAnd(flagInE1, flagInE2));
+        assertThat(result, isAlphaEquivalentTerm(expected));
+    }
+
+    @Test
+    public void testTranslate_join_arity2x2() {
+        // test [[(x1, x2) \in e1 . e2]] := exists y: univ . [[(x1, y) \in e1]] && [[(y, x2) \in e2]]
+        // where arity(e1) = 2, arity(e2) = 2
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e1 = makeTestVarWithType("e1", Type.make(sig).product(Type.make(sig)));
+        ExprVar e2 = makeTestVarWithType("e2", Type.make(sig).product(Type.make(sig)));
+        Var x1 = Term.mkVar("x1"), x2 = Term.mkVar("x2"), y = Term.mkVar("y");
+
+        // mock out [[(x1, y) \in e1]] and [[(y, x2) \in e2]]
+        // they're alpha-equivalent, so just return one after the other
+        Var flagInE1 = makeFlagConstant("inE1"), flagInE2 = makeFlagConstant("inE2");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(
+                ExprElementOf.make(ConstList.make(Arrays.asList(x1, y)), e1))), any()))
+                .thenReturn(flagInE1, flagInE2);
+
+        Term result = translator.translate(
+                ExprElementOf.make(ConstList.make(Arrays.asList(x1, x2)), e1.join(e2)), context);
+        Term expected = Term.mkExists(y.of(context.univSort), Term.mkAnd(flagInE1, flagInE2));
+        assertThat(result, isAlphaEquivalentTerm(expected));
+    }
+
+    @Test
+    public void testTranslate_join_arity1x3() {
+        // test [[(x1, x2) \in e1 . e2]] := exists y: univ . [[y \in e1]] && [[(y, x1, x2) \in e2]]
+        // where arity(e1) = 1, arity(e2) = 3
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e1 = makeTestVarWithType("e1", Type.make(sig));
+        ExprVar e2 = makeTestVarWithType("e2", Type.make(sig)
+                .product(Type.make(sig)).product(Type.make(sig)));
+        Var x1 = Term.mkVar("x1"), x2 = Term.mkVar("x2"), y = Term.mkVar("y");
+
+        // mock out [[y \in e1]] and [[(y, x1, x2) \in e2]]
+        Var flagInE1 = makeFlagConstant("inE1"), flagInE2 = makeFlagConstant("inE2");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(y, e1))), any()))
+                .thenReturn(flagInE1);
+        when(mockRoot.translate(argThat(isAlphaEquivalent(
+                ExprElementOf.make(ConstList.make(Arrays.asList(y, x1, x2)), e2))), any()))
+                .thenReturn(flagInE2);
+
+        Term result = translator.translate(
+                ExprElementOf.make(ConstList.make(Arrays.asList(x1, x2)), e1.join(e2)), context);
+        Term expected = Term.mkExists(y.of(context.univSort), Term.mkAnd(flagInE1, flagInE2));
+        assertThat(result, isAlphaEquivalentTerm(expected));
+    }
+
+    @Test
     public void testTranslate_in_arity1() {
         // test [[e1 \in e2]] := forall x: univ . [[x \in e1]] => [[x \in e2]] for arity 1
         Sig.PrimSig sig = new Sig.PrimSig("S");

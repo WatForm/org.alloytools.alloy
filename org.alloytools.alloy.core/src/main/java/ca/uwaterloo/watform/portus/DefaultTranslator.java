@@ -212,10 +212,31 @@ final class DefaultTranslator extends AbstractTranslator {
                         recursivelyTranslate(ExprElementOf.make(tuple, expr.left), context),
                         Term.mkNot(
                                 recursivelyTranslate(ExprElementOf.make(tuple, expr.right), context)));
+            case JOIN:
+                return translateJoin(tuple, expr.left, expr.right, context);
             default:
                 // others are either not supported or not terms
                 throw new ErrorFatal("Unsupported ExprBinary term: " + expr.op);
         }
+    }
+
+    /** Translate "tuple \in left . right" */
+    private Term translateJoin(ConstList<Var> tuple, Expr left, Expr right, TranslationContext context) {
+        // Naive join implementation without optimizations (see KT figure 4.11).
+        // [[(x1,...,xn) \in e1 . e2]] := exists y: univ . [[(x1,...,xm,y) \in e1]] &&
+        //   [[(y,x{m+1},...,xn) \in e2]] where arity(e1) = m+1 and arity(e2) = n-m+1 and m<n
+        Var y = Term.mkVar(uniqueNameGenerator.make("y"));
+
+        // build up the tuples we'll recurse on
+        int partitionIdx = left.type().arity() - 1; // so that adding y gives the arity
+        List<Var> leftSubTuple = new ArrayList<>(tuple.subList(0, partitionIdx));
+        leftSubTuple.add(y); // append y to make (x1, ..., xm, y)
+        List<Var> rightSubTuple = new ArrayList<>(tuple.subList(partitionIdx, tuple.size()));
+        rightSubTuple.add(0, y); // prepend y to make (y, x{m+1}, ..., xn)
+
+        return Term.mkExists(y.of(context.univSort), Term.mkAnd(
+                recursivelyTranslate(ExprElementOf.make(ConstList.make(leftSubTuple), left), context),
+                recursivelyTranslate(ExprElementOf.make(ConstList.make(rightSubTuple), right), context)));
     }
 
     /** Translate an ExprBinary formula. */
@@ -255,7 +276,8 @@ final class DefaultTranslator extends AbstractTranslator {
 
         // create the variables
         List<AnnotatedVar> varDecls = IntStream.range(0, e1.type().arity())
-                .mapToObj(idx -> Term.mkVar("x" + idx).of(context.univSort))
+                .mapToObj(idx ->Term.mkVar(uniqueNameGenerator.make("x" + idx))
+                        .of(context.univSort))
                 .collect(Collectors.toList());
         ConstList<Var> vars = ConstList.make(varDecls.stream()
                 .map(AnnotatedVar::variable)
