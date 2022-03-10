@@ -45,6 +45,9 @@ public class CoreDashToAlloy {
     	//createCommand(module);
     	
         createSnapshotSigAST(module);
+        if ((!DashOptions.ctlModelChecking && !DashOptions.generateTraces) && DashOptions.generateSigAxioms) {
+        	createReachabilityFact(module);
+        }
         //createStepSigAST(module);
         createStateSpaceAST(module);
         createEventSpaceAST(module);
@@ -65,14 +68,17 @@ public class CoreDashToAlloy {
         createDifferentAtomsFact(module);
         if(DashOptions.generateTraces)
         	createTracesFact(module);
+        else
+        	createBigStepFact(module);
         //createModelDefFact(module);
         //createPathAST(module);
         if (DashOptions.generateSigAxioms) {
         	createSignificanceAxiomAST(module);
         	createOperationsAxiomAST(module);
         }
-        if (DashOptions.ctlModelChecking)
+        if (DashOptions.ctlModelChecking) {
         	createCTLFact(module);
+        }
         createInvariantFact(module);
         
         if (DashOptions.hasEvents && DashOptions.assumeSingleInput) 
@@ -167,6 +173,17 @@ public class CoreDashToAlloy {
             decls.add(new Decl(null, null, null, null, a, mult(b)));//events: set Label
             a.clear();
         }
+        
+        if ((!DashOptions.ctlModelChecking && !DashOptions.generateTraces) && DashOptions.generateSigAxioms) {
+            b = ExprUnary.Op.SOME.make(null, ExprVar.make(null, "Snapshot"));
+            a.add(ExprVar.make(null, "initial"));
+            decls.add(new Decl(null, null, null, null, a, mult(b)));//events: set Label
+            a.clear();
+            b = ExprBinary.Op.ARROW.make(null, null, ExprVar.make(null, "Snapshot"), ExprVar.make(null, "Snapshot"));
+            a.add(ExprVar.make(null, "next"));
+            decls.add(new Decl(null, null, null, null, a, mult(b))); //next_step: Snapshot -> Snapshot
+            a.clear();
+        }
 
         /* Creating the following expression: evnVar: mappings */
         for (String variableName : module.envVariable2Expression.keySet()) {
@@ -183,7 +200,7 @@ public class CoreDashToAlloy {
             decls.add(new Decl(null, null, null, null, a, mult(b)));
             a.clear();
         }
-        
+            
         //List<ExprVar> sigParent = new ArrayList<ExprVar>();
         //sigParent.add(ExprVar.make(null, "BaseSnapshot"));
         addSigAST(module, "Snapshot", null, null, decls, null, null, null, null, null);
@@ -210,6 +227,25 @@ public class CoreDashToAlloy {
         //List<ExprVar> sigParent = new ArrayList<ExprVar>();
         //sigParent.add(ExprVar.make(null, "BaseSnapshot"));
         addSigAST(module, "step", null, null, decls, null, null, null, null, null);
+    }
+    
+    static void createReachabilitySig(DashModule module) {
+        List<Decl> decls = new ArrayList<Decl>();
+        List<ExprVar> a = new ArrayList<ExprVar>();
+        
+        Expr b = ExprUnary.Op.SOME.make(null, ExprVar.make(null, "Snapshot"));
+        a.add(ExprVar.make(null, "initial"));
+        decls.add(new Decl(null, null, null, null, a, mult(b))); //initial: some Snapshot
+        a.clear();
+
+        b = ExprBinary.Op.ARROW.make(null, null, ExprVar.make(null, "Snapshot"), ExprVar.make(null, "Snapshot"));
+        a.add(ExprVar.make(null, "next"));
+        decls.add(new Decl(null, null, null, null, a, mult(b))); //next_step: Snapshot -> Snapshot
+        a.clear(); 
+        
+        //List<ExprVar> sigParent = new ArrayList<ExprVar>();
+        //sigParent.add(ExprVar.make(null, "BaseSnapshot"));
+        addSigAST(module, "Reachability", null, null, decls, null, null, new Pos("one", 0, 0), null, null);
     }
     
     static void createStateSpaceAST(DashModule module) {
@@ -979,6 +1015,91 @@ public class CoreDashToAlloy {
         Expr expr = ExprQt.Op.ALL.make(null, null, new ArrayList<Decl>(decls), rightQT); //all s, s_next: Snapshot | equals[s, s_next] => s = s_next
     	
         module.addFact(null, "different_atoms", expr);
+    }
+    
+    static void createBigStepFact(DashModule module) {
+        List<Decl> decls = new ArrayList<Decl>();
+        List<ExprVar> a = new ArrayList<ExprVar>();
+        Expr s = ExprVar.make(null, "s");
+        Expr sPrime = ExprVar.make(null, "s_next");
+        Expr snapshot = ExprUnary.Op.ONE.make(null, ExprVar.make(null, "Snapshot"));
+        Expr sStable = ExprBinary.Op.JOIN.make(null, null, s, ExprVar.make(null, "stable"));
+        
+        /*
+         * Creating the following expression: (all s: Snapshot | !stable[s] => (one s_next: Snapshot | small_step[s, s_next]))
+         */
+        Expr notsStable = ExprUnary.Op.NOT.make(null, sStable); //!stable[s]
+        Expr smallStepCall = ExprBadJoin.make(null, null, s, ExprVar.make(null, "small_step"));//s_next.small_step
+        smallStepCall = ExprBadJoin.make(null, null, sPrime, smallStepCall); //s.s_next.small_step
+        a.add((ExprVar) sPrime);
+        decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s_next: Snapshot
+        Expr qtExpr = ExprQt.Op.ONE.make(null, null, decls, smallStepCall);// one s_next: Snapshot | small_step[s, s_next]
+        Expr imples = ExprBinary.Op.IMPLIES.make(null, null, notsStable, qtExpr); // !stable[s] => (one s_next: Snapshot | small_step[s, s_next])
+        a.clear();
+        decls.clear();
+        a.add((ExprVar) s);
+        decls.add(new Decl(null, null, null, null, a, mult(snapshot))); // s: Snapshot
+        Expr expression = ExprQt.Op.ALL.make(null, null, decls, imples); // all s:Snapshot | !stable[s] => (one s_next: Snapshot | small_step[s, s_next])
+        a.clear();
+        decls.clear();
+
+    
+        /*
+         * Creating the following expression: all s_next: Snapshot | (isEnabled[s] && no s_next:
+         * Snapshot | small_step[s, s_next]) => s.stable = False
+         */
+        Expr isEnabledCall = ExprBadJoin.make(null, null, s, ExprVar.make(null, "isEnabled"));
+        a.add((ExprVar) sPrime);
+        decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s_next: Snapshot
+        qtExpr = ExprQt.Op.NO.make(null, null, decls, smallStepCall);// no s_next: Snapshot | small_step[s, s_next]
+        Expr iffLeft = ExprBinary.Op.AND.make(null, null, isEnabledCall, qtExpr); //(isEnabled[s] && no s_next: Snapshot | small_step[s, s_next])
+        Expr iffRight = ExprUnary.Op.NOT.make(null, ExprBadJoin.make(null, null, s, ExprVar.make(null, "stable"))); // ! stable[s] or s.stable = False
+        Expr iffExpr = ExprBinary.Op.IMPLIES.make(null, null, iffLeft, iffRight); //(isEnabled[s] && no s_next: Snapshot | small_step[s, s_next]) => s.stable = False
+        a.clear();
+        decls.clear();
+        a.add((ExprVar) s);
+        decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s: Snapshot
+        Expr expr = ExprQt.Op.ALL.make(null, null, decls, iffExpr);//all s_next: Snapshot | (isEnabled[s] && no s_next: Snapshot | small_step[s, s_next]) => s.stable = False
+        expression = ExprBinary.Op.AND.make(null, null, expression, expr);
+        
+        expression = ExprUnary.Op.NOOP.make(null, expression);
+        module.addFact(null, "completeBigStep", expression);
+    }
+    
+    static void createReachabilityFact(DashModule module) {
+        List<Decl> decls = new ArrayList<Decl>();
+        List<ExprVar> a = new ArrayList<ExprVar>();
+        Expr snapshot = ExprUnary.Op.ONE.make(null, ExprVar.make(null, "Snapshot"));
+        Expr s = ExprVar.make(null, "s");
+        Expr sPrime = ExprVar.make(null, "s_next");
+        Expr expression = null; //This is the final expression to be stored in the Fact AST
+        
+        /*
+         * Creating the following expression: some s: Snapshot | s in initial iff init[s]
+         */
+        a.add((ExprVar) s);
+        decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s: Snapshot
+        Expr sinInit = ExprBinary.Op.IN.make(null, null, s, ExprBinary.Op.JOIN.make(null, null, ExprVar.make(null, "Snapshot"), ExprVar.make(null, "initial"))); //s in Snapsot.initial
+        Expr initS = ExprBadJoin.make(null, null, s, ExprVar.make(null, "init"));
+        Expr iff = ExprBinary.Op.IFF.make(null, null, sinInit, initS);
+        expression = ExprQt.Op.ALL.make(null, null, new ArrayList<Decl>(decls), iff); //all s: Snapshot | s in Snapshotinitial iff init[s]
+        decls.clear();
+
+        /*
+         * Creating the following expression: all s, s_next: Snapshot | s->s_next in Reachability.next
+         * iff small_step[s, s_next]
+         */
+        a.add((ExprVar) sPrime);
+        decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s, s_next: Snapshot
+        Expr sArrowSPrime = ExprBinary.Op.ARROW.make(null, null, s, sPrime);
+        Expr smallStepCall = ExprBadJoin.make(null, null, s, ExprVar.make(null, "small_step"));//s_next.small_step
+        smallStepCall = ExprBadJoin.make(null, null, sPrime, smallStepCall); //s.s_next.small_step
+        Expr rightQT = ExprBinary.Op.IFF.make(null, null, ExprBinary.Op.IN.make(null, null, sArrowSPrime, ExprBinary.Op.JOIN.make(null, null, ExprVar.make(null, "Snapshot"), ExprVar.make(null, "next"))), smallStepCall);
+        Expr expr = ExprQt.Op.ALL.make(null, null, new ArrayList<Decl>(decls), rightQT); //all s, s_next: Snapshot | s->s_next in Snapshot.nextStep iff small_step[s, s_next]
+
+        expression = ExprBinary.Op.AND.make(null, null, expression, expr);
+        expression = ExprUnary.Op.NOOP.make(null, expression);
+        module.addFact(null, "reachabilityFact", expression);
     }
 
     /*
@@ -1952,11 +2073,19 @@ public class CoreDashToAlloy {
         Expr sSNextInSigma = ExprBinary.Op.IN.make(null, null, arrow, ExprVar.make(null, "ks_sigma")); // s->s_next = ks_sigma
         Expr implesEqualsSigma = ExprBinary.Op.IFF.make(null, null, sSNextInSigma, smallStepCall); // ->s_next = ks_sigma iff small_step[s, s_next]
         Expr quantified = ExprQt.Op.ALL.make(null, null, decls, implesEqualsSigma);
+        a.clear();
+        decls.clear();
         expression = quantified;
         
-        Expr StepJoinInitial = ExprVar.make(null, "snapshot/first"); // ordering/first
-        Expr equalsInitial = ExprBinary.Op.EQUALS.make(null, null, StepJoinInitial, ExprVar.make(null, "ks_s0")); // ordering/first = ks_s0
-        expression = ExprBinary.Op.AND.make(null, null, expression, equalsInitial);
+        /*
+         * Creating the following expression: all s: Snapshot | s in ks_s0 iff init[s]
+         */
+        a.add((ExprVar) s);
+        decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s: Snapshot
+        Expr rightQT = ExprBinary.Op.IFF.make(null, null, ExprBinary.Op.IN.make(null, null, s, ExprVar.make(null, "ks_s0")), ExprBadJoin.make(null, null, s, ExprVar.make(null, "init")));
+        expression = ExprQt.Op.ALL.make(null, null, new ArrayList<Decl>(decls), rightQT); //all s: Snapshot | s in ks_s0 iff init[s]
+        a.clear();
+        decls.clear();
         
         module.addFact(null, "tcmc", expression);
     }
@@ -1971,8 +2100,20 @@ public class CoreDashToAlloy {
         Expr reachabilityAxiomExpr = null; //This is the Reachability Axiom, all s : Snapshot | s in S .((Step.initial) <: * (Step.next_step) )
         a.add((ExprVar) s);
         
-        Expr next = ExprVar.make(null, "snapshot/next"); //next
-        Expr initFirst = ExprVar.make(null, "snapshot/first"); // ordering/first
+        Expr next = null;
+        Expr initFirst = null;
+        if (DashOptions.generateTraces) {
+        	next = ExprVar.make(null, "snapshot/next"); //next
+        	initFirst = ExprVar.make(null, "snapshot/first"); // ordering/first
+        }
+        else if(DashOptions.ctlModelChecking) {
+        	next = ExprVar.make(null, "ctl/ks_sigma"); //next
+        	initFirst = ExprVar.make(null, "ctl/ks_s0"); // ordering/first
+        }
+        else {
+        	next = ExprBinary.Op.JOIN.make(null, null, snapshot, ExprVar.make(null, "next")); //Snapshot.next
+        	initFirst = ExprBinary.Op.JOIN.make(null, null, snapshot, ExprVar.make(null, "initial")); //Snapshot.initial
+        }
      
         Expr reflexiveClosure = ExprUnary.Op.RCLOSURE.make(null, next); // * (next)
         Expr domain = ExprBinary.Op.DOMAIN.make(null, null, initFirst, reflexiveClosure); // (ordering/first <: * (next))
@@ -1981,7 +2122,6 @@ public class CoreDashToAlloy {
         Expr sInSJoinDomain = ExprBinary.Op.IN.make(null, null, s, SJoinDomain); // s in Snapshot. (ordering/first <: * (next))
         
         decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s: Snapshot
-        
         reachabilityAxiomExpr = ExprQt.Op.ALL.make(null, null, new ArrayList<Decl>(decls), sInSJoinDomain); // all s: Snapshot | s in Snapshot. ((Step.initial) <: * (Step.next_step) )
         addPredicateAST(module, "reachabilityAxiom", null, null, null, null, reachabilityAxiomExpr);
     }

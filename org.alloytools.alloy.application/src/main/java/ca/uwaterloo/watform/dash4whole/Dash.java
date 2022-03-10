@@ -24,12 +24,15 @@ public class Dash {
 
         System.out.println("Please specify the .dsh file path:");
         Scanner sc = new Scanner(System.in);
-        String actual = sc.nextLine();
+        String actual = "C:\\Users\\Tamjid Hossain\\Desktop\\Completed Dash Models\\BitCounter.dsh";
 
         if (!actual.endsWith(".dsh")) {
             System.err.println("File not supported.\nExpected a Dash file with 'dsh' extension");
             return;
         }
+        DashOptions.generateSigAxioms = true;
+        DashOptions.ctlModelChecking = false;
+        DashOptions.generateTraces = false;
         sc.close();
 
         Path path = Paths.get(actual);

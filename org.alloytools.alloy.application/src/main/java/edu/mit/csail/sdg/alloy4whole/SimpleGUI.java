@@ -1446,6 +1446,7 @@ public final class SimpleGUI implements ComponentListener, Listener {
             if (text.get().isFile()) {
                 DashModuleToString.toString(alloy);
                 text.newtab(DashOptions.outputDir + ".als");
+                text.get().setText(DashModuleToString.getString(alloy));
             } else {
                 text.newtab(null);
                 text.get().setText(DashModuleToString.getString(alloy));
