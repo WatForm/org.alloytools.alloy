@@ -8,6 +8,7 @@ import ca.uwaterloo.watform.parser.DashModule;
 import ca.uwaterloo.watform.parser.DashModuleToString;
 import ca.uwaterloo.watform.parser.DashOptions;
 import ca.uwaterloo.watform.parser.DashUtil;
+import ca.uwaterloo.watform.parser.DashValidation;
 import ca.uwaterloo.watform.transform.CoreDashToAlloy;
 import ca.uwaterloo.watform.transform.DashToCoreDash;
 import edu.mit.csail.sdg.alloy4.A4Reporter;
@@ -24,7 +25,7 @@ public class Dash {
 
         System.out.println("Please specify the .dsh file path:");
         Scanner sc = new Scanner(System.in);
-        String actual = "C:\\Users\\Tamjid Hossain\\Desktop\\Completed Dash Models\\BitCounter.dsh";
+        String actual = sc.next();
 
         if (!actual.endsWith(".dsh")) {
             System.err.println("File not supported.\nExpected a Dash file with 'dsh' extension");
@@ -56,6 +57,7 @@ public class Dash {
             System.out.println("=========== Parsing+Typechecking " + fileName + " =============");
 
             DashModule dash = DashUtil.parseEverything_fromFileDash(rep, null, actual);
+            DashValidation.validateDashModel(dash);
             DashModule coreDash = DashToCoreDash.transformToCoreDash(dash);
             DashModule alloy = CoreDashToAlloy.convertToAlloyAST(coreDash);
             alloy = DashModule.resolveAll(rep == null ? A4Reporter.NOP : rep, alloy);

@@ -380,9 +380,33 @@ public class DashValidation {
         	variable = variable.substring(variable.indexOf("/") + 1);
         }
         
-        if (!declarationNames.get(concStateToCheck).contains(variable) && !eventNames.get(concStateToCheck).contains(variable) && !declarationNames.get(concStateParName).contains(variable) && !keywords.contains(variable) && !quantifierVars.contains(variable) && !sigNames.contains(variable) && !funcNames.contains(variable)) {
+        if (!getAllUserVars(concStateParName, concStateToCheck).contains(variable)) {
             throw new ErrorSyntax(var.pos, "Could not resolve reference to: " + variable);
         }
+    }
+    
+    private static List<String> getAllUserVars (String parent, String concState) {
+    	List<String> vars = new ArrayList<String>();
+    	if (declarationNames.get(concState) != null) {
+    		vars.addAll(declarationNames.get(concState));
+    	}
+    	if (declarationNames.get(parent) != null) {
+    		vars.addAll(declarationNames.get(parent));
+    	}
+    	
+    	if (eventNames.get(concState) != null) {
+    		vars.addAll(eventNames.get(concState));
+    	}
+    	if (eventNames.get(parent) != null) {
+    		vars.addAll(eventNames.get(parent));
+    	}
+    	
+    	vars.addAll(keywords);
+    	vars.addAll(quantifierVars);
+    	vars.addAll(sigNames);
+    	vars.addAll(funcNames);
+    	
+    	return vars;
     }
 
     /* Ensure that conc states have a default state */
