@@ -133,6 +133,9 @@ public class TestDefaultTranslator {
         assertThat(context.getTheory().functionDeclarations().size(), is(1));
         FuncDecl func = context.getTheory().functionDeclarations().head();
         assertIsMembershipPredicate(func, "inTestSig");
+
+        // scope of univ should be same as scope of the one sig
+        assertThat(context.getTotalScope(), is(2));
     }
 
     @Test
@@ -178,6 +181,9 @@ public class TestDefaultTranslator {
         assertThat(context.getTheory().functionDeclarations().size(), is(1));
         FuncDecl func = context.getTheory().functionDeclarations().head();
         assertIsMembershipPredicate(func, "inTestSig");
+
+        // scope of univ should be same as scope of the one sig
+        assertThat(context.getTotalScope(), is(2));
     }
 
     @Test
@@ -251,6 +257,9 @@ public class TestDefaultTranslator {
         // should have no constants
         assertThat(context.getTheory().constants().size(), is(0));
         assertThat(context.getTheory().enumConstants().size(), is(0));
+
+        // scope of univ should be same as scope of the top-level sig
+        assertThat(context.getTotalScope(), is(2));
     }
 
     @Test
@@ -365,6 +374,9 @@ public class TestDefaultTranslator {
         // should have no constants
         assertThat(context.getTheory().constants().size(), is(0));
         assertThat(context.getTheory().enumConstants().size(), is(0));
+
+        // scope of univ should be same as scope of the top-level sig
+        assertThat(context.getTotalScope(), is(2));
     }
 
     @Test

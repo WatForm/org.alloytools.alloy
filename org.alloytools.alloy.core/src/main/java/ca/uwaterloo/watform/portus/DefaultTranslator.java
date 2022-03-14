@@ -54,6 +54,11 @@ final class DefaultTranslator extends AbstractTranslator {
         sigMemberPredicates.put(sig, var -> Term.mkApp(memPredName, var));
         context.addFunctionDeclaration(FuncDecl.mkFuncDecl(memPredName, context.univSort, Sort.Bool()));
 
+        // For top-level sigs, allocate enough elements for it in the univ sort
+        if (sig.isTopLevel()) {
+            context.addToUnivScope(context.scoper.sig2scope(sig));
+        }
+
         // Translate all its children so we can translate membership in them
         for (Sig.PrimSig child : sig.children()) {
             recursivelyTranslate(child, context);

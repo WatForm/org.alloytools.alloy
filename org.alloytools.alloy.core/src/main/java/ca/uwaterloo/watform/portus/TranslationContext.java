@@ -99,15 +99,24 @@ final class TranslationContext {
     /** Configure a model finder's theory and scopes to check this translation. */
     public void configureModelFinder(ModelFinder finder) {
         finder.setTheory(theory);
-        finder.setAnalysisScope(univSort, totalScope);
+        // Make sure the sort is non-empty, even if there are no sigs in the model
+        finder.setAnalysisScope(univSort, Math.min(totalScope, 1));
     }
 
     /**
-     * Get the theory being built. This is mainly for testing; for production use prefer
+     * Get the theory being built. This is for testing; for production use prefer
      * {@link #configureModelFinder(ModelFinder)}.
      */
     Theory getTheory() {
         return theory;
+    }
+
+    /**
+     * Get the total scope (i.e. the scope of the univ sort). This is for testing;
+     * for production use prefer {@link #configureModelFinder(ModelFinder)}.
+     */
+    int getTotalScope() {
+        return totalScope;
     }
 
 }

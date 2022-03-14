@@ -29,6 +29,9 @@ public final class TranslateAlloyToFortress implements CommandRunner {
             return executeCommand(reporter, sigs, command, scoper, options.fortressOptions);
         } catch (IOException e) {
             throw new ErrorFatal("IOException in Fortress translation", e);
+        } catch (Throwable e) {
+            // Alloy will catch it anyways, so rethrow as ErrorFatal for a more helpful debug message.
+            throw new ErrorFatal(e.getMessage(), e);
         }
     }
 
