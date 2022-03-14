@@ -83,6 +83,7 @@ import kodkod.util.ints.IntVector;
  *           facts are also implicitly globally quantified); also, variable
  *           singleton sigs are not collapsed like static ones; name all
  *           relations of total order; updated reporting
+ * @modified [portus] added Runner adapter for the CommandRunner interface
  */
 
 public final class TranslateAlloyToKodkod extends VisitReturn<Object> {
@@ -653,6 +654,17 @@ public final class TranslateAlloyToKodkod extends VisitReturn<Object> {
         if ((ans instanceof IntExpression) || (ans instanceof Formula) || (ans instanceof Expression))
             return ans;
         throw new ErrorFatal("Unknown internal error encountered in the evaluator.");
+    }
+
+    /**
+     * Adapter for the {@link CommandRunner} interface.
+     * @since Added by Portus.
+     */
+    public static final class Runner implements CommandRunner {
+        @Override
+        public A4Solution executeCommand(A4Reporter rep, Iterable<Sig> sigs, Command cmd, A4Options opts) {
+            return execute_commandFromBook(rep, sigs, cmd, opts);
+        }
     }
 
     // ==============================================================================================================//

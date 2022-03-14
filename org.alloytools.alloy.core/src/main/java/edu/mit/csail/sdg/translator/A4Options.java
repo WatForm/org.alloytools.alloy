@@ -17,6 +17,7 @@ package edu.mit.csail.sdg.translator;
 
 import java.io.Serializable;
 
+import ca.uwaterloo.watform.portus.FortressOptions;
 import edu.mit.csail.sdg.alloy4.ErrorAPI;
 import edu.mit.csail.sdg.alloy4.SafeList;
 
@@ -26,12 +27,14 @@ import edu.mit.csail.sdg.alloy4.SafeList;
  *
  * @modified [electrum] electrod smv solvers; decompose strategy options, mode
  *           and cores
+ * @modified [portus] add Fortress options; make SatSolver non-final and add a
+ *           factory method for creating a CommandRunner; Fortress solvers
  */
 
 public final class A4Options implements Serializable {
 
     /** This enum defines the set of possible SAT solvers. */
-    public static final class SatSolver implements Serializable {
+    public static class SatSolver implements Serializable {
 
         /** This ensures the class can be serialized reliably. */
         private static final long                serialVersionUID = 0;
@@ -56,7 +59,7 @@ public final class A4Options implements Serializable {
         private final String[]                   options;
 
         /** Constructs a new SatSolver value. */
-        private SatSolver(String id, String toString, String external, String[] options, boolean add) {
+        protected SatSolver(String id, String toString, String external, String[] options, boolean add) {
             this.id = id;
             this.toString = toString;
             this.external = external;
@@ -114,6 +117,14 @@ public final class A4Options implements Serializable {
             for (int i = 0; i < ans.length; i++)
                 ans[i] = options[i];
             return ans;
+        }
+
+        /**
+         * Returns the runner that should be used to execute commands.
+         */
+        public CommandRunner commandRunner() {
+            // Use Kodkod by default: subclasses can override with other runners.
+            return new TranslateAlloyToKodkod.Runner();
         }
 
         /**
@@ -204,6 +215,10 @@ public final class A4Options implements Serializable {
         public static final SatSolver CNF = new SatSolver("cnf", "Output CNF to file", null, null, true);
         /** Outputs the raw Kodkod file only */
         public static final SatSolver KK  = new SatSolver("kodkod", "Output Kodkod to file", null, null, true);
+
+        /** Fortress with the Z3 backend */
+        // TODO: deal with the class loading deadlock possible warning...
+        public static final SatSolver Z3 = new FortressOptions.FortressSatSolver("fortress/z3", "Fortress/Z3");
 
     }
 
@@ -320,6 +335,11 @@ public final class A4Options implements Serializable {
      */
     public int       decompose_threads    = 4;
 
+    /**
+     * Options specific to the Portus/Fortress backend.
+     */
+    public FortressOptions fortressOptions = new FortressOptions();
+
     /** This method makes a copy of this Options object. */
     public A4Options dup() {
         A4Options x = new A4Options();
@@ -337,6 +357,7 @@ public final class A4Options implements Serializable {
         x.coreGranularity = coreGranularity;
         x.decompose_mode = decompose_mode;
         x.decompose_threads = decompose_threads;
+        x.fortressOptions = fortressOptions;
         return x;
     }
 }

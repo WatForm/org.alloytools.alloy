@@ -76,6 +76,8 @@ import edu.mit.csail.sdg.translator.TranslateAlloyToKodkod;
  *           problems performs a step; the number of seen configurations is thus
  *           also logged (the presented step is the maximum step seen by any
  *           parallel problem)
+ * @modified [portus] run commands via the SatSolver's CommandRunner instead of
+ *           invoking TranslateAlloyToKodkod directly
  */
 
 final class SimpleReporter extends A4Reporter {
@@ -739,7 +741,8 @@ final class SimpleReporter extends A4Reporter {
                         cb(out, "bold", "Executing \"" + cmd + "\"\n");
                         A4Solution ai = null;
                         try { // [electrum] postpones error throwing, allows other commands to still be solved
-                            ai = TranslateAlloyToKodkod.execute_commandFromBook(rep, world.getAllReachableSigs(), cmd, options);
+                            // [portus] use the solver's CommandRunner instead of invoking TranslateAlloyToKodkod directly
+                            ai = options.solver.commandRunner().executeCommand(rep, world.getAllReachableSigs(), cmd, options);
                         } catch (Exception e1) {
                             exc = e1;
                         }

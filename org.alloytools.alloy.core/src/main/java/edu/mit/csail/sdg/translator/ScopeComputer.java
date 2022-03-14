@@ -74,7 +74,7 @@ import edu.mit.csail.sdg.parser.CompUtil;
  *           state, thus the atom may change; also, scopes for such sigs are not
  *           made exact; new syntax error, setting trace scope for static models
  *
- * @modified [portus] made public
+ * @modified [portus] made class public and not final, and made compute() public
  *
  */
 public class ScopeComputer {
@@ -526,7 +526,7 @@ public class ScopeComputer {
      * Please see ScopeComputer.java for the exact rules for deriving the missing
      * scopes.
      */
-    static Pair<A4Solution,ScopeComputer> compute(A4Reporter rep, A4Options opt, Iterable<Sig> sigs, Command cmd) throws Err {
+    public static Pair<A4Solution,ScopeComputer> compute(A4Reporter rep, A4Options opt, Iterable<Sig> sigs, Command cmd) throws Err {
         ScopeComputer sc = new ScopeComputer(rep, sigs, cmd);
         Set<String> set = cmd.getAllStringConstants(sigs);
         if (sc.maxstring >= 0 && set.size() > sc.maxstring)

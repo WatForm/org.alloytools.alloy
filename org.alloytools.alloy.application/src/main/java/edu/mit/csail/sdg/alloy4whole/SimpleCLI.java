@@ -275,7 +275,7 @@ public final class SimpleCLI {
                     }
                     rep.sb.append("Executing \"" + c + "\"\n");
                     options.skolemDepth = 0;
-                    A4Solution s = TranslateAlloyToKodkod.execute_commandFromBook(rep, world.getAllReachableSigs(), c, options);
+                    A4Solution s = options.solver.commandRunner().executeCommand(rep, world.getAllReachableSigs(), c, options);
                     if (s.satisfiable()) {
                         validate(s);
                         if (s.isIncremental()) {
@@ -285,7 +285,7 @@ public final class SimpleCLI {
                         }
                     }
                     options.skolemDepth = 2;
-                    s = TranslateAlloyToKodkod.execute_commandFromBook(rep, world.getAllReachableSigs(), c, options);
+                    s = options.solver.commandRunner().executeCommand(rep, world.getAllReachableSigs(), c, options);
                     if (s.satisfiable()) {
                         validate(s);
                         if (s.isIncremental()) {
