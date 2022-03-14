@@ -752,7 +752,7 @@ public class TestDefaultTranslator {
         Var flagX = makeFlagConstant("x");
 
         // "e" gets translated to "one e" at some point
-        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(flagX, e.oneOf()))), any()))
+        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(flagX, e))), any()))
                 .thenReturn(flagInE);
 
         AtomicReference<Var> fortressX = new AtomicReference<>();
@@ -788,7 +788,7 @@ public class TestDefaultTranslator {
         Var flagSub = makeFlagConstant("f");
         Var flagX = makeFlagConstant("x");
 
-        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(flagX, e1.oneOf()))), any()))
+        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(flagX, e1))), any()))
                 .thenReturn(flagInE1, flagInE2);
 
         AtomicReference<Var> fortressX1 = new AtomicReference<>();
@@ -830,7 +830,7 @@ public class TestDefaultTranslator {
         Var flagX = makeFlagConstant("x");
 
         // "e" gets translated to "one e" at some point
-        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(flagX, e.oneOf()))), any()))
+        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(flagX, e))), any()))
                 .thenReturn(flagInE);
 
         AtomicReference<Var> fortressX = new AtomicReference<>();
@@ -887,7 +887,7 @@ public class TestDefaultTranslator {
 
         // translate [[x \in e]] with a function inE(x)
         when(mockRoot.translate(argThat(isAlphaEquivalent(
-                ExprElementOf.make(Term.mkVar("x"), e.oneOf()))), any())).then(ctx -> {
+                ExprElementOf.make(Term.mkVar("x"), e))), any())).then(ctx -> {
             // make sure the variable appears in the context
             TranslationContext context = ctx.getArgument(1);
             assertTrue(context.hasVarMapping("x"));
@@ -935,7 +935,7 @@ public class TestDefaultTranslator {
 
         // translate [[x \in e]] with a function inE(x)
         when(mockRoot.translate(argThat(isAlphaEquivalent(
-                ExprElementOf.make(Term.mkVar("x"), e.oneOf()))), any())).then(ctx -> {
+                ExprElementOf.make(Term.mkVar("x"), e))), any())).then(ctx -> {
             // make sure the variable appears in the context
             TranslationContext context = ctx.getArgument(1);
             assertTrue(context.hasVarMapping("x"));

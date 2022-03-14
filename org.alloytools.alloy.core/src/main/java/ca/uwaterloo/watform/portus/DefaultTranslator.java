@@ -460,9 +460,22 @@ final class DefaultTranslator extends AbstractTranslator {
                 // Add it to the lexical scope in order to translate the condition
                 context.addVarMapping(name.label, var);
 
-                // Add the condition "var \in decl.expr" to restrict the domain of var
+                // Ensure decl.expr is ONEOF: we don't support other multiplicities in quantifiers (yet)
+                // TODO: try to skolemize it like Kodkod does?
+                if (decl.expr.mult() != ExprUnary.Op.ONEOF) {
+                    throw new ErrorFatal("Unsupported quantifier multiplicity for Fortress: "
+                            + decl.expr.mult());
+                }
+
+                // Unwrap the expression from its multiplicity (and any NOOPs)
+                // We know this is an ExprUnary because decl.expr.mult() returned ONEOF,
+                // which it only does if there's an ExprUnary somewhere in the chain.
+                ExprUnary wrappedDeclExpr = (ExprUnary) decl.expr.deNOP();
+                Expr declExpr = wrappedDeclExpr.sub;
+
+                // Add the condition "var \in declExpr" to restrict the domain of var
                 conditions.add(recursivelyTranslate(
-                        ExprElementOf.make(var, decl.expr), context));
+                        ExprElementOf.make(var, declExpr), context));
             }
         }
 
