@@ -63,8 +63,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
         // 1. Each top-level PrimSig. (Also count the number of sigs since we only have an Iterable.)
         int numSigs = 0;
         for (Sig sig : sigs) {
-            // TODO: can this be UNIV or other built-in sigs?
-            if (sig instanceof Sig.PrimSig && sig.isTopLevel()) {
+            if (sig instanceof Sig.PrimSig && sig.isTopLevel() && !sig.builtin) {
                 translator.translate(sig, context);
             }
             numSigs++;
