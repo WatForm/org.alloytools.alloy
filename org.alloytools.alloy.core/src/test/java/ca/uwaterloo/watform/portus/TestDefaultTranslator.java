@@ -5,6 +5,7 @@ import edu.mit.csail.sdg.alloy4.ConstList;
 import edu.mit.csail.sdg.ast.Attr;
 import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
+import edu.mit.csail.sdg.ast.ExprBinary;
 import edu.mit.csail.sdg.ast.ExprQt;
 import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.ExprVar;
@@ -750,6 +751,30 @@ public class TestDefaultTranslator {
                 Term.mkIff(flagInE1, flagInE2));
         assertThat(result, isAlphaEquivalentTerm(expected));
         assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_notIn() {
+        // test [[e1 !in e2]] := [[not (e1 in e2)]]
+        ExprVar e1 = makeTestVariable("e1"), e2 = makeTestVariable("e2");
+        Var flag = makeFlagConstant("flag");
+        when(mockRoot.translate(argThat(isSameAs(e1.in(e2).not())), any()))
+                .thenReturn(flag);
+
+        Term result = translator.translate(ExprBinary.Op.NOT_IN.make(null, null, e1, e2), context);
+        assertEquals(flag, result);
+    }
+
+    @Test
+    public void testTranslate_notEq() {
+        // test [[e1 != e2]] := [[not (e1 = e2)]]
+        ExprVar e1 = makeTestVariable("e1"), e2 = makeTestVariable("e2");
+        Var flag = makeFlagConstant("flag");
+        when(mockRoot.translate(argThat(isSameAs(e1.equal(e2).not())), any()))
+                .thenReturn(flag);
+
+        Term result = translator.translate(ExprBinary.Op.NOT_EQUALS.make(null, null, e1, e2), context);
+        assertEquals(flag, result);
     }
 
     @Test

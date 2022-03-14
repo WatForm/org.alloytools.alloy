@@ -270,6 +270,16 @@ final class DefaultTranslator extends AbstractTranslator {
             case IN:
             case EQUALS:
                 return translateInEq(expr.op, expr.left, expr.right, context);
+            case NOT_IN: {
+                // interpret as "not (left in right)"
+                Expr interpretation = expr.left.in(expr.right).not();
+                return recursivelyTranslate(interpretation, context);
+            }
+            case NOT_EQUALS: {
+                // interpret as "not (left = right)"
+                Expr interpretation = expr.left.equal(expr.right).not();
+                return recursivelyTranslate(interpretation, context);
+            }
             case AND:
             case OR:
                 // confusingly, AND and OR aren't real ExprBinary ops

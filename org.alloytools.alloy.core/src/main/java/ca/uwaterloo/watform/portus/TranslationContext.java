@@ -2,7 +2,6 @@ package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.alloy4.Env;
-import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.modelfind.ModelFinder;
 import fortress.msfol.AnnotatedVar;
@@ -11,9 +10,6 @@ import fortress.msfol.Sort;
 import fortress.msfol.Term;
 import fortress.msfol.Theory;
 import fortress.msfol.Var;
-
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * Represents the translation environment for a certain expression, including the
