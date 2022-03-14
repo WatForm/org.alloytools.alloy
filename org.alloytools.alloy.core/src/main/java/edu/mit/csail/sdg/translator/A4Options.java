@@ -218,7 +218,7 @@ public final class A4Options implements Serializable {
 
         /** Fortress with the Z3 backend */
         // TODO: deal with the class loading deadlock possible warning...
-        public static final SatSolver Z3 = new FortressOptions.FortressSatSolver("fortress/z3", "Fortress/Z3");
+        public static final SatSolver Z3 = new FortressOptions.FortressSmtSolver("fortress/z3", "Fortress/Z3");
 
     }
 

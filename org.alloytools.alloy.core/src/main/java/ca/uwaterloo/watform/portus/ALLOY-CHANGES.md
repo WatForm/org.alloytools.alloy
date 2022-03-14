@@ -13,6 +13,6 @@
   to that interface.
 - Made `A4Options.SatSolver` not final and added a `commandRunner()` method that returns the
   `CommandRunner` to use when running commands with the `SatSolver`. Added a subclass
-  `FortressOptions.FortressSatSolver` that uses `TranslateAlloyToFortress` instead and added
+  `FortressOptions.FortressSmtSolver` that uses `TranslateAlloyToFortress` instead and added
   static `SatSolver` constants for it.
 - Added a `FortressOptions` field to `A4Options`.
