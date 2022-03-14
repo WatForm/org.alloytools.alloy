@@ -15,7 +15,6 @@ import edu.mit.csail.sdg.ast.ExprQt;
 import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Sig;
-import fortress.msfol.Sort;
 import fortress.msfol.Term;
 import fortress.msfol.Var;
 
@@ -135,8 +134,6 @@ abstract class AbstractTranslator implements Translator {
      * Translate an Alloy primitive signature declaration.
      * For sig declarations and other Exprs that do not have values, the return value should be
      * Top if successful, and the context should be updated.
-     * Implementations must call {@link TranslationContext#setSigSort(Sig, Sort)} on the sig
-     * to set its sort.
      */
     public Term translate(Sig.PrimSig sig, TranslationContext context) {
         return null;

@@ -367,6 +367,29 @@ public class TestDefaultTranslator {
     }
 
     @Test
+    public void testTranslate_inSig() {
+        // test [[v \in Sig]] := inSig(v) where inSig is the membership predicate for Sig
+        Sig.PrimSig sig = new Sig.PrimSig("Sig");
+        when(mockScoper.sig2scope(sig)).thenReturn(1);
+        when(mockScoper.isExact(sig)).thenReturn(true);
+
+        // just delegate the sub-translations, we don't care about the generated axioms
+        delegateToRealTranslator();
+        translator.translate(sig, context);
+
+        Var var = Term.mkVar("v");
+        Term result = translator.translate(ExprElementOf.make(var, sig), context);
+
+        // get the membership predicate, should be the only function
+        assertThat(context.getTheory().functionDeclarations().size(), is(1));
+        FuncDecl inSigPred = context.getTheory().functionDeclarations().head();
+        assertIsMembershipPredicate(inSigPred, "inSig");
+
+        // result must be inSig(v)
+        assertEquals(Term.mkApp(inSigPred.name(), var), result);
+    }
+
+    @Test
     public void testTranslate_and_twoConjuncts() {
         // test [[x1 and x2]] := [[x1]] && [[x2]]
         ExprVar x1 = makeTestVariable("x1"), x2 = makeTestVariable("x2");
@@ -564,6 +587,7 @@ public class TestDefaultTranslator {
         Term result = translator.translate(ExprElementOf.make(x, e1.join(e2)), context);
         Term expected = Term.mkExists(y.of(context.univSort), Term.mkAnd(flagInE1, flagInE2));
         assertThat(result, isAlphaEquivalentTerm(expected));
+        assertContextEmpty();
     }
 
     @Test
@@ -586,6 +610,7 @@ public class TestDefaultTranslator {
         Term result = translator.translate(ExprElementOf.make(x, e1.join(e2)), context);
         Term expected = Term.mkExists(y.of(context.univSort), Term.mkAnd(flagInE1, flagInE2));
         assertThat(result, isAlphaEquivalentTerm(expected));
+        assertContextEmpty();
     }
 
     @Test
@@ -608,6 +633,7 @@ public class TestDefaultTranslator {
                 ExprElementOf.make(ConstList.make(Arrays.asList(x1, x2)), e1.join(e2)), context);
         Term expected = Term.mkExists(y.of(context.univSort), Term.mkAnd(flagInE1, flagInE2));
         assertThat(result, isAlphaEquivalentTerm(expected));
+        assertContextEmpty();
     }
 
     @Test
@@ -632,6 +658,7 @@ public class TestDefaultTranslator {
                 ExprElementOf.make(ConstList.make(Arrays.asList(x1, x2)), e1.join(e2)), context);
         Term expected = Term.mkExists(y.of(context.univSort), Term.mkAnd(flagInE1, flagInE2));
         assertThat(result, isAlphaEquivalentTerm(expected));
+        assertContextEmpty();
     }
 
     @Test
@@ -649,6 +676,7 @@ public class TestDefaultTranslator {
         Term result = translator.translate(e1.in(e2), context);
         Term expected = Term.mkForall(x.of(context.univSort), Term.mkImp(flagInE1, flagInE2));
         assertThat(result, isAlphaEquivalentTerm(expected));
+        assertContextEmpty();
     }
 
     @Test
@@ -669,6 +697,7 @@ public class TestDefaultTranslator {
         Term expected = Term.mkForall(Arrays.asList(x1.of(context.univSort), x2.of(context.univSort)),
                 Term.mkImp(flagInE1, flagInE2));
         assertThat(result, isAlphaEquivalentTerm(expected));
+        assertContextEmpty();
     }
 
     @Test
@@ -686,6 +715,7 @@ public class TestDefaultTranslator {
         Term result = translator.translate(e1.equal(e2), context);
         Term expected = Term.mkForall(x.of(context.univSort), Term.mkIff(flagInE1, flagInE2));
         assertThat(result, isAlphaEquivalentTerm(expected));
+        assertContextEmpty();
     }
 
     @Test
@@ -706,6 +736,7 @@ public class TestDefaultTranslator {
         Term expected = Term.mkForall(Arrays.asList(x1.of(context.univSort), x2.of(context.univSort)),
                 Term.mkIff(flagInE1, flagInE2));
         assertThat(result, isAlphaEquivalentTerm(expected));
+        assertContextEmpty();
     }
 
     @Test
@@ -741,6 +772,7 @@ public class TestDefaultTranslator {
 
         // make sure the x |-> fortressX mapping was removed after translating [[f]]
         assertFalse(context.hasVarMapping("x"));
+        assertContextEmpty();
     }
 
     @Test
@@ -782,6 +814,7 @@ public class TestDefaultTranslator {
         // make sure the mappings were removed after translation
         assertFalse(context.hasVarMapping("x1"));
         assertFalse(context.hasVarMapping("x2"));
+        assertContextEmpty();
     }
 
     @Test
@@ -817,6 +850,7 @@ public class TestDefaultTranslator {
 
         // make sure the x |-> fortressX mapping was removed after translating [[f]]
         assertFalse(context.hasVarMapping("x"));
+        assertContextEmpty();
     }
 
     @Test
@@ -833,6 +867,7 @@ public class TestDefaultTranslator {
                 .thenReturn(expectedFlag);
 
         assertEquals(expectedFlag, translator.translate(f.forNo(x), context));
+        assertContextEmpty();
     }
 
     @Test
@@ -942,6 +977,7 @@ public class TestDefaultTranslator {
 
         Term result = translator.translate(ExprElementOf.make(x, alloyVar), context);
         assertEquals(Term.mkEq(x, v), result);
+        assertContextEmpty();
     }
 
 }

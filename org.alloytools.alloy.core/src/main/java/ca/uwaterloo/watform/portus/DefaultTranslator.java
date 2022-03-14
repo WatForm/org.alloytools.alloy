@@ -194,6 +194,16 @@ final class DefaultTranslator extends AbstractTranslator {
         return Term.mkForall(decls, Term.mkImp(conjunction, disjunction));
     }
 
+    /** Translate "var \in sig". */
+    @Override
+    public Term translate(Var var, Sig sig, TranslationContext context) {
+        // if we recognize the sig, use its membership predicate
+        if (!sigMemberPredicates.containsKey(sig)) {
+            throw new ErrorSyntax("Unknown sig " + sig);
+        }
+        return sigMemberPredicates.get(sig).apply(var);
+    }
+
     /** Translate "tuple \in expr", where expr is an ExprBinary term. */
     @Override
     public Term translate(ConstList<Var> tuple, ExprBinary expr, TranslationContext context) {
