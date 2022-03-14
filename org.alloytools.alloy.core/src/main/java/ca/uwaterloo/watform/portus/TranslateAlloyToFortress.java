@@ -62,16 +62,19 @@ public final class TranslateAlloyToFortress implements CommandRunner {
 
         // 1. Each top-level PrimSig. (Also count the number of sigs since we only have an Iterable.)
         int numSigs = 0;
+        Set<String> sigNamesSeen = new HashSet<>();
         for (Sig sig : sigs) {
-            if (sig instanceof Sig.PrimSig && sig.isTopLevel() && !sig.builtin) {
-                translator.translate(sig, context);
+            if (!sig.builtin) {
+                if (sig instanceof Sig.PrimSig && sig.isTopLevel()) {
+                    translator.translate(sig, context);
+                    sigNamesSeen.add(sig.label);
+                }
+                numSigs++;
             }
-            numSigs++;
         }
 
         // 2. SubsetSigs, in the specified order.
         // If this becomes a performance bottleneck, consider a topological sort instead.
-        Set<String> sigNamesSeen = new HashSet<>();
         boolean changed;
         do {
             changed = false;

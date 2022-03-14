@@ -6,6 +6,7 @@ import edu.mit.csail.sdg.ast.Attr;
 import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprQt;
+import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.ast.Type;
@@ -977,6 +978,60 @@ public class TestDefaultTranslator {
 
         Term result = translator.translate(ExprElementOf.make(x, alloyVar), context);
         assertEquals(Term.mkEq(x, v), result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_noop() {
+        // test [[NOOP(e)]] := [[e]], because Alloy has no-ops in its AST
+        ExprVar e = makeTestVariable("e");
+        Var flagE = makeFlagConstant("flagE");
+        when(mockRoot.translate(eq(e), any())).thenReturn(flagE);
+        Term result = translator.translate(ExprUnary.Op.NOOP.make(null, e), context);
+        assertEquals(flagE, result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_nestedNoop() {
+        // test [[NOOP(NOOP(e))]] := [[e]]
+        ExprVar e = makeTestVariable("e");
+        Var flagE = makeFlagConstant("flagE");
+        when(mockRoot.translate(eq(e), any())).thenReturn(flagE);
+        Term result = translator.translate(
+                ExprUnary.Op.NOOP.make(null, ExprUnary.Op.NOOP.make(null, e)), context);
+        assertEquals(flagE, result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_inNoop() {
+        // test [[x \in NOOP(e)]] := [[x \in e]]
+        ExprVar e = makeTestVariable("e");
+        Var flagE = makeFlagConstant("flagE");
+        Var x = Term.mkVar("x");
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(x, e))), any()))
+                .thenReturn(flagE);
+
+        Expr testExpr = ExprElementOf.make(x, ExprUnary.Op.NOOP.make(null, e));
+        Term result = translator.translate(testExpr, context);
+        assertEquals(flagE, result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_inNestedNoop() {
+        // test [[x \in NOOP(NOOP(e))]] := [[x \in e]]
+        ExprVar e = makeTestVariable("e");
+        Var flagE = makeFlagConstant("flagE");
+        Var x = Term.mkVar("x");
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(x, e))), any()))
+                .thenReturn(flagE);
+
+        Expr testExpr = ExprElementOf.make(x, ExprUnary.Op.NOOP.make(null,
+                ExprUnary.Op.NOOP.make(null, e)));
+        Term result = translator.translate(testExpr, context);
+        assertEquals(flagE, result);
         assertContextEmpty();
     }
 

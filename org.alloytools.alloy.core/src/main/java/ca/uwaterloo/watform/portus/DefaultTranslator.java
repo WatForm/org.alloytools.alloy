@@ -313,9 +313,24 @@ final class DefaultTranslator extends AbstractTranslator {
                 // see KT figure 4.6
                 return Term.mkNot(
                         recursivelyTranslate(expr.sub, context));
+            case NOOP:
+                // no-op: ignore it
+                return recursivelyTranslate(expr.deNOP(), context);
             default:
                 // others are either not supported or not formulas
                 throw new ErrorFatal("Unsupported ExprUnary formula: " + expr.op);
+        }
+    }
+
+    @Override
+    public Term translate(ConstList<Var> tuple, ExprUnary expr, TranslationContext context) {
+        switch (expr.op) {
+            case NOOP:
+                // no-op: ignore it
+                return recursivelyTranslate(ExprElementOf.make(tuple, expr.deNOP()), context);
+            default:
+                // others are either not supported or not terms
+                throw new ErrorFatal("Unsupported ExprUnary term: " + expr.op);
         }
     }
 
