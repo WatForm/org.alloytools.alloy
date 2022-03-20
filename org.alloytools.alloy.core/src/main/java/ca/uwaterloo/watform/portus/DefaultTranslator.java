@@ -229,6 +229,8 @@ final class DefaultTranslator extends AbstractTranslator {
                                 recursivelyTranslate(ExprElementOf.make(tuple, expr.right), context)));
             case JOIN:
                 return translateJoin(tuple, expr.left, expr.right, context);
+            case ARROW:
+                return translateCrossProduct(tuple, expr.left, expr.right, context);
             default:
                 // others are either not supported or not terms
                 throw new ErrorFatal("Unsupported ExprBinary term: " + expr.op);
@@ -252,6 +254,23 @@ final class DefaultTranslator extends AbstractTranslator {
         return Term.mkExists(y.of(context.univSort), Term.mkAnd(
                 recursivelyTranslate(ExprElementOf.make(ConstList.make(leftSubTuple), left), context),
                 recursivelyTranslate(ExprElementOf.make(ConstList.make(rightSubTuple), right), context)));
+    }
+
+    /** Translate "tuple \in left->right" */
+    private Term translateCrossProduct(
+            ConstList<Var> tuple, Expr left, Expr right, TranslationContext context) {
+        // [[(x1,...,xn \in e1->e2]] := [[(x1,...,xm) \in e1]] && [[(x{m+1},...,xn) \in e2]]
+        // where arity(e1) = m and arity(e2) = n-m
+        if (left.type().arity() + right.type().arity() != tuple.size()) {
+            throw new ErrorFatal("Cross product arities do not match!");
+        }
+
+        List<Var> leftSubTuple = new ArrayList<>(tuple.subList(0, left.type().arity()));
+        List<Var> rightSubTuple = new ArrayList<>(tuple.subList(left.type().arity(), tuple.size()));
+
+        return Term.mkAnd(
+                recursivelyTranslate(ExprElementOf.make(ConstList.make(leftSubTuple), left), context),
+                recursivelyTranslate(ExprElementOf.make(ConstList.make(rightSubTuple), right), context));
     }
 
     /** Translate an ExprBinary formula. */
