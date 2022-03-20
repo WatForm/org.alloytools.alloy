@@ -237,7 +237,7 @@ final class DefaultTranslator extends AbstractTranslator {
         }
     }
 
-    /** Translate "tuple \in left . right" */
+    /** Translate "tuple \in left . right". */
     private Term translateJoin(ConstList<Var> tuple, Expr left, Expr right, TranslationContext context) {
         // Naive join implementation without optimizations (see KT figure 4.11).
         // [[(x1,...,xn) \in e1 . e2]] := exists y: univ . [[(x1,...,xm,y) \in e1]] &&
@@ -256,7 +256,7 @@ final class DefaultTranslator extends AbstractTranslator {
                 recursivelyTranslate(ExprElementOf.make(ConstList.make(rightSubTuple), right), context)));
     }
 
-    /** Translate "tuple \in left->right" */
+    /** Translate "tuple \in left->right". */
     private Term translateCrossProduct(
             ConstList<Var> tuple, Expr left, Expr right, TranslationContext context) {
         // [[(x1,...,xn \in e1->e2]] := [[(x1,...,xm) \in e1]] && [[(x{m+1},...,xn) \in e2]]
@@ -464,14 +464,41 @@ final class DefaultTranslator extends AbstractTranslator {
     /** Translate "var \in expr", where expr is an ExprVar. */
     @Override
     public Term translate(Var var, ExprVar expr, TranslationContext context) {
-        // the Alloy variable must be mapped to a Fortress var in the current lexical scope
-        if (!context.hasVarMapping(expr.label)) {
-            // should have been caught by Alloy already...
-            throw new ErrorSyntax("Unknown variable name " + expr.label);
-        }
-
         // KT figure 4.12: [[x \in v]] := x = v
-        return Term.mkEq(var, context.getVarMapping(expr.label));
+        return Term.mkEq(var, checkAndMapVarName(expr.label, context));
+    }
+
+    /** Translate "tuple \in expr", where expr is an ExprConstant. */
+    @Override
+    public Term translate(ConstList<Var> tuple, ExprConstant expr, TranslationContext context) {
+        switch (expr.op) {
+            case IDEN:
+                return translateIden(tuple, context);
+            case EMPTYNESS:
+                // "tuple \in none" is always false
+                return Term.mkBottom();
+            default:
+                throw new ErrorFatal("Unsupported ExprConstant: " + expr);
+        }
+    }
+
+    /** Translate "tuple \in iden". */
+    private Term translateIden(ConstList<Var> tuple, TranslationContext context) {
+        // KT figure 4.12: [[(x1, x2) \in iden]] := x1 = x2
+        // note that this works even for incompatible top-level sigs since we use a universal sort
+        if (tuple.size() != 2) {
+            throw new ErrorFatal("iden expects arity 2, but got " + tuple.size());
+        }
+        return Term.mkEq(tuple.get(0), tuple.get(1));
+    }
+
+    /** Map an Alloy variable name to a Fortress var, or throw an error. */
+    private Var checkAndMapVarName(String label, TranslationContext context) {
+        // the Alloy variable must be mapped to a Fortress var in the current lexical scope
+        if (!context.hasVarMapping(label)) {
+            throw new ErrorSyntax("Unknown variable name " + label);
+        }
+        return context.getVarMapping(label);
     }
 
     /**

@@ -6,6 +6,7 @@ import edu.mit.csail.sdg.ast.Attr;
 import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprBinary;
+import edu.mit.csail.sdg.ast.ExprConstant;
 import edu.mit.csail.sdg.ast.ExprQt;
 import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.ExprVar;
@@ -1085,6 +1086,25 @@ public class TestDefaultTranslator {
 
         Term result = translator.translate(ExprElementOf.make(x, alloyVar), context);
         assertEquals(Term.mkEq(x, v), result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_iden() {
+        // test [[(x1, x2) \in iden] := x1 = x2
+        Var x1 = Term.mkVar("x1"), x2 = Term.mkVar("x2");
+        Term result = translator.translate(
+                ExprElementOf.make(ConstList.make(Arrays.asList(x1, x2)), ExprConstant.IDEN), context);
+        assertEquals(Term.mkEq(x1, x2), result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_emptyness() {
+        // test [[x \in none] := false
+        Var x = Term.mkVar("x");
+        Term result = translator.translate(ExprElementOf.make(x, ExprConstant.EMPTYNESS), context);
+        assertEquals(Term.mkBottom(), result);
         assertContextEmpty();
     }
 

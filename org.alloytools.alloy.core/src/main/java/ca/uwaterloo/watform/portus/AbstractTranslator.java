@@ -90,8 +90,8 @@ abstract class AbstractTranslator implements Translator {
         return null;
     }
 
-    /** Translate "var \in expr", where expr is an ExprConstant. */
-    public Term translate(Var var, ExprConstant expr, TranslationContext context) {
+    /** Translate "tuple \in expr", where expr is an ExprConstant. */
+    public Term translate(ConstList<Var> tuple, ExprConstant expr, TranslationContext context) {
         return null;
     }
 
@@ -205,8 +205,7 @@ abstract class AbstractTranslator implements Translator {
                 // it's a function: pass down the contextual info
                 return translate(expr.tuple, call, context);
             } else if (expr.sub instanceof ExprConstant) {
-                assert expr.tuple.size() == 1;
-                return translate(expr.tuple.get(0), (ExprConstant) expr.sub, context);
+                return translate(expr.tuple, (ExprConstant) expr.sub, context);
             } else if (expr.sub instanceof ExprLet) {
                 return translate(expr.tuple, (ExprLet) expr.sub, context);
             } else if (expr.sub instanceof Sig) {
