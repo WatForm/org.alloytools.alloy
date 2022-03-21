@@ -50,7 +50,9 @@ public class CoreDashToAlloy {
         }
         //createStepSigAST(module);
         createStateSpaceAST(module);
-        createEventSpaceAST(module);
+        if(DashOptions.isEnvEventModel) {
+        	createEventSpaceAST(module);
+        }
         createTransitionSpaceAST(module);
         
         createStableAST(module);
@@ -68,7 +70,7 @@ public class CoreDashToAlloy {
         createDifferentAtomsFact(module);
         if(DashOptions.generateTraces)
         	createTracesFact(module);
-        else
+        else if (!DashOptions.generateTraces && module.stateHierarchy)
         	createBigStepFact(module);
         //createModelDefFact(module);
         //createPathAST(module);
@@ -85,7 +87,7 @@ public class CoreDashToAlloy {
         	createSingleStepFact(module);
         //if (DashOptions.reachabilityCheck)
         	//createReachabilityAST(module);
-        
+        DashOptions.isEnvEventModel = false;
         return module;
     }
     
@@ -161,11 +163,12 @@ public class CoreDashToAlloy {
         //Create AST for variable declaration:
         //stable: one Bool
         if (module.stateHierarchy) {
-            b = ExprUnary.Op.ONE.make(null, ExprVar.make(null, "Bool"));
-            a.add(ExprVar.make(null, "stable"));
-            decls.add(new Decl(null, null, null, null, a, mult(b)));
-            a.clear();
+	        b = ExprUnary.Op.ONE.make(null, ExprVar.make(null, "Bool"));
+	        a.add(ExprVar.make(null, "stable"));
+	        decls.add(new Decl(null, null, null, null, a, mult(b)));
+	        a.clear();
         }
+        
 
         if (DashOptions.isEnvEventModel) {
             b = ExprUnary.Op.SETOF.make(null, ExprVar.make(null, "EventLabel"));
@@ -175,10 +178,6 @@ public class CoreDashToAlloy {
         }
         
         if ((!DashOptions.ctlModelChecking && !DashOptions.generateTraces) && DashOptions.generateSigAxioms) {
-            b = ExprUnary.Op.SOME.make(null, ExprVar.make(null, "Snapshot"));
-            a.add(ExprVar.make(null, "initial"));
-            decls.add(new Decl(null, null, null, null, a, mult(b)));//events: set Label
-            a.clear();
             b = ExprBinary.Op.ARROW.make(null, null, ExprVar.make(null, "Snapshot"), ExprVar.make(null, "Snapshot"));
             a.add(ExprVar.make(null, "next"));
             decls.add(new Decl(null, null, null, null, a, mult(b))); //next_step: Snapshot -> Snapshot
@@ -538,12 +537,11 @@ public class CoreDashToAlloy {
         /* Creating the following expression(s): s_next.variable = s.variable */
         if (transition.doExpr == null) {
             //These are the variables that have not been changed in the post-cond and they need to retain their values in the next snapshot
-            for (String var : getUnchangedVars(new ArrayList<Expr>(), getParentConcState(transition.parentState), module, transition)) {
-                Expr binaryLeft = ExprBadJoin.make(null, null, ExprVar.make(null, "s_next"), ExprVar.make(null, var)); //s_next.variableParent_varName
-                Expr binaryRight = ExprBadJoin.make(null, null, ExprVar.make(null, "s"), ExprVar.make(null, var)); //s_next.variableParent_varName
-                Expr binaryEquals = ExprBinary.Op.EQUALS.make(null, null, binaryLeft, binaryRight);
-                expression = ExprBinary.Op.AND.make(null, null, expression, binaryEquals);
+            Map<String, DashConcState> unchangedVars = new LinkedHashMap<String, DashConcState>(getUnchangedVars(null, module));
+            for (String var : unchangedVars.keySet()) {
+                expression = ExprBinary.Op.AND.make(null, null, expression, createUnchangedVariableAST(var, unchangedVars.get(var), parent));
             }
+            changedVars.clear();
         }
 
         /*
@@ -556,7 +554,7 @@ public class CoreDashToAlloy {
             Expr ifCond = ExprBadJoin.make(null, null, ExprVar.make(null, "s"), ExprVar.make(null, "testIfNextStable"));
             ifCond = ExprBadJoin.make(null, null, ExprVar.make(null, "s_next"), ifCond);
             ifCond = ExprBadJoin.make(null, null, ExprVar.make(null, transition.modifiedName), ifCond);
-            ifCond = ExprBadJoin.make(null, null, ExprVar.make(null, "none"), ifCond);
+            //ifCond = ExprBadJoin.make(null, null, ExprVar.make(null, "none"), ifCond);
             
             /* Conjunction of any env variables in the model */
             for(String concStateName: module.envVariableNames.keySet()) {
@@ -881,7 +879,12 @@ public class CoreDashToAlloy {
 
             expr = ExprBinary.Op.AND.make(null, null, expr, ExprITE.make(null, ifCond, ifExpr, elseExpr));
             
-            addPredicateAST(module, "enabledAfterStep_" + transition.modifiedName, "_s", "s", "t", "genEvents", expr);
+            if (DashOptions.isEnvEventModel) {
+            	addPredicateAST(module, "enabledAfterStep_" + transition.modifiedName, "_s", "s", "t", "genEvents", expr);
+            }
+            else {
+            	addPredicateAST(module, "enabledAfterStep_" + transition.modifiedName, "_s", "s", "t", null, expr);
+            }
         }
     }
     
@@ -1072,23 +1075,12 @@ public class CoreDashToAlloy {
         Expr snapshot = ExprUnary.Op.ONE.make(null, ExprVar.make(null, "Snapshot"));
         Expr s = ExprVar.make(null, "s");
         Expr sPrime = ExprVar.make(null, "s_next");
-        Expr expression = null; //This is the final expression to be stored in the Fact AST
-        
-        /*
-         * Creating the following expression: some s: Snapshot | s in initial iff init[s]
-         */
-        a.add((ExprVar) s);
-        decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s: Snapshot
-        Expr sinInit = ExprBinary.Op.IN.make(null, null, s, ExprBinary.Op.JOIN.make(null, null, ExprVar.make(null, "Snapshot"), ExprVar.make(null, "initial"))); //s in Snapsot.initial
-        Expr initS = ExprBadJoin.make(null, null, s, ExprVar.make(null, "init"));
-        Expr iff = ExprBinary.Op.IFF.make(null, null, sinInit, initS);
-        expression = ExprQt.Op.ALL.make(null, null, new ArrayList<Decl>(decls), iff); //all s: Snapshot | s in Snapshotinitial iff init[s]
-        decls.clear();
 
         /*
          * Creating the following expression: all s, s_next: Snapshot | s->s_next in Reachability.next
          * iff small_step[s, s_next]
          */
+        a.add((ExprVar) s);
         a.add((ExprVar) sPrime);
         decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s, s_next: Snapshot
         Expr sArrowSPrime = ExprBinary.Op.ARROW.make(null, null, s, sPrime);
@@ -1097,9 +1089,8 @@ public class CoreDashToAlloy {
         Expr rightQT = ExprBinary.Op.IFF.make(null, null, ExprBinary.Op.IN.make(null, null, sArrowSPrime, ExprBinary.Op.JOIN.make(null, null, ExprVar.make(null, "Snapshot"), ExprVar.make(null, "next"))), smallStepCall);
         Expr expr = ExprQt.Op.ALL.make(null, null, new ArrayList<Decl>(decls), rightQT); //all s, s_next: Snapshot | s->s_next in Snapshot.nextStep iff small_step[s, s_next]
 
-        expression = ExprBinary.Op.AND.make(null, null, expression, expr);
-        expression = ExprUnary.Op.NOOP.make(null, expression);
-        module.addFact(null, "reachabilityFact", expression);
+        expr = ExprUnary.Op.NOOP.make(null, expr);
+        module.addFact(null, "reachabilityFact", expr);
     }
 
     /*
@@ -1223,25 +1214,41 @@ public class CoreDashToAlloy {
 
         for (String key : module.transitions.keySet()) {
             if (expr == null) {
-                Expr tFuncCall = ExprBadJoin.make(null, null, ExprVar.make(null, "s"), ExprVar.make(null, "enabledAfterStep_" + key)); //t.enabledAfterStep_transName
-                Expr genEventT = ExprBadJoin.make(null, null, ExprVar.make(null, "s_next"), tFuncCall); //genEvents.t.enabledAfterStep_transName
-                Expr sPrimeGenEventT = ExprBadJoin.make(null, null, ExprVar.make(null, "t"), genEventT);
-                Expr ssPrimeGenEventT = ExprBadJoin.make(null, null, ExprVar.make(null, "genEvents"), sPrimeGenEventT);
-                expr = ExprUnary.Op.NOT.make(null, ssPrimeGenEventT); //!enabledAfterStep_transName[s, s_next, t, genEvents]\n
+                Expr tFuncCall = ExprBadJoin.make(null, null, ExprVar.make(null, "s"), ExprVar.make(null, "enabledAfterStep_" + key)); //s.enabledAfterStep_transName
+                Expr genEventT = ExprBadJoin.make(null, null, ExprVar.make(null, "s_next"), tFuncCall); //s_next.s.enabledAfterStep_transName
+                Expr sPrimeGenEventT = ExprBadJoin.make(null, null, ExprVar.make(null, "t"), genEventT); //t.s_next.s.enabledAfterStep_transName
+                if (DashOptions.isEnvEventModel) {
+                	Expr ssPrimeGenEventT = ExprBadJoin.make(null, null, ExprVar.make(null, "genEvents"), sPrimeGenEventT);
+                	expr = ExprUnary.Op.NOT.make(null, ssPrimeGenEventT); //!enabledAfterStep_transName[s, s_next, t, genEvents]\n
+                }
+                else {
+                	expr = ExprUnary.Op.NOT.make(null, sPrimeGenEventT); //!enabledAfterStep_transName[s, s_next, t]\n
+                }
             } else {
                 Expr tFuncCall = ExprBadJoin.make(null, null, ExprVar.make(null, "s"), ExprVar.make(null, "enabledAfterStep_" + key)); //s.enabledAfterStep_transName
                 Expr genEventT = ExprBadJoin.make(null, null, ExprVar.make(null, "s_next"), tFuncCall); //s_next.s.enabledAfterStep_transName
                 Expr sPrimeGenEventT = ExprBadJoin.make(null, null, ExprVar.make(null, "t"), genEventT);
-                Expr ssPrimeGenEventT = ExprBadJoin.make(null, null, ExprVar.make(null, "genEvents"), sPrimeGenEventT);
-                Expr negaged = ExprUnary.Op.NOT.make(null, ssPrimeGenEventT); //!enabledAfterStep_transName[s, s_next, t, genEvents]\n
-                expr = ExprBinary.Op.AND.make(null, null, expr, negaged);
+                if (DashOptions.isEnvEventModel) {
+                	Expr ssPrimeGenEventT = ExprBadJoin.make(null, null, ExprVar.make(null, "genEvents"), sPrimeGenEventT);
+                    Expr negated = ExprUnary.Op.NOT.make(null, ssPrimeGenEventT); //!enabledAfterStep_transName[s, s_next, t, genEvents]\n
+                	expr = ExprBinary.Op.AND.make(null, null, expr, negated);
+                }
+                else {
+                    Expr negated = ExprUnary.Op.NOT.make(null, sPrimeGenEventT); //!enabledAfterStep_transName[s, s_next, t]\n
+                    expr = ExprBinary.Op.AND.make(null, null, expr, negated);
+                } 
             }
         }
 
         /* No need to add this predicate if there are no transitions */
         if (module.transitions.keySet().size() > 0 && module.stateHierarchy) {
             expr = ExprUnary.Op.NOOP.make(null, expr);
-            addPredicateAST(module, "testIfNextStable", "s", "s_next", "t", "genEvents", expr);
+            if (DashOptions.isEnvEventModel) {
+            	addPredicateAST(module, "testIfNextStable", "s", "s_next", "t", "genEvents", expr);
+            }
+            else {
+            	addPredicateAST(module, "testIfNextStable", "s", "s_next", "t", null, expr);
+            }
         }
     }
 
@@ -1377,8 +1384,13 @@ public class CoreDashToAlloy {
         if (arg4 != null)
             a.add(ExprVar.make(null, arg4));
 
-        if (a.size() > 0 && a.size() <= 2) //Cannot add declarations if the predicate for no arguments
+        if (a.size() > 0 && a.size() <= 2) { //Cannot add declarations if the predicate for no arguments
             decls.add(new Decl(null, null, null, null, a, mult(snapshot)));
+        }
+        else if (a.size() == 3) { //Only for EnabledAfterNextStep/testIfNextStable Predicate AST creation without EventLabel in the model
+            decls.add(new Decl(null, null, null, null, new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, arg1), ExprVar.make(null, arg2))), mult(snapshot)));
+            decls.add(new Decl(null, null, null, null, new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, arg3))), ExprVar.make(null, "TransitionLabel")));
+        }
         else if (a.size() == 4) { //Only for EnabledAfterNextStep Predicate AST creation
             decls.add(new Decl(null, null, null, null, new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, arg1), ExprVar.make(null, arg2))), mult(snapshot)));
             decls.add(new Decl(null, null, null, null, new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, arg3))), ExprVar.make(null, "TransitionLabel")));
@@ -1665,6 +1677,9 @@ public class CoreDashToAlloy {
         }
         if (unary.sub instanceof ExprList) {
         	sub = getVarFromExprList((ExprList) unary.sub, parent, module);
+        }
+        if (unary.sub instanceof ExprQt) {
+        	sub = getVarFromExprQt((ExprQt) unary.sub, parent, module);
         }
         if (unary.sub instanceof ExprConstant) {
         	sub = unary.sub;
@@ -1961,7 +1976,7 @@ public class CoreDashToAlloy {
         	return (ExprUnary) ExprUnary.Op.CAST2INT.make(null, sub);
         if(op == ExprUnary.Op.CAST2SIGINT)
         	return (ExprUnary) ExprUnary.Op.CAST2SIGINT.make(null, sub);
-        if(op == ExprUnary.Op.NOOP)
+        if(op == ExprUnary.Op.NOOP) 
         	return (ExprUnary) ExprUnary.Op.NOOP.make(null, sub);
      
         return null;
@@ -2072,10 +2087,9 @@ public class CoreDashToAlloy {
         Expr arrow = ExprBinary.Op.ARROW.make(null, null, s, sNext); // s->s_next
         Expr sSNextInSigma = ExprBinary.Op.IN.make(null, null, arrow, ExprVar.make(null, "ks_sigma")); // s->s_next = ks_sigma
         Expr implesEqualsSigma = ExprBinary.Op.IFF.make(null, null, sSNextInSigma, smallStepCall); // ->s_next = ks_sigma iff small_step[s, s_next]
-        Expr quantified = ExprQt.Op.ALL.make(null, null, decls, implesEqualsSigma);
+        expression = ExprQt.Op.ALL.make(null, null, decls, implesEqualsSigma);
         a.clear();
         decls.clear();
-        expression = quantified;
         
         /*
          * Creating the following expression: all s: Snapshot | s in ks_s0 iff init[s]
@@ -2083,7 +2097,7 @@ public class CoreDashToAlloy {
         a.add((ExprVar) s);
         decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s: Snapshot
         Expr rightQT = ExprBinary.Op.IFF.make(null, null, ExprBinary.Op.IN.make(null, null, s, ExprVar.make(null, "ks_s0")), ExprBadJoin.make(null, null, s, ExprVar.make(null, "init")));
-        expression = ExprQt.Op.ALL.make(null, null, new ArrayList<Decl>(decls), rightQT); //all s: Snapshot | s in ks_s0 iff init[s]
+        expression = ExprBinary.Op.AND.make(null, null, ExprQt.Op.ALL.make(null, null, new ArrayList<Decl>(decls), rightQT), expression); //all s: Snapshot | s in ks_s0 iff init[s]
         a.clear();
         decls.clear();
         
@@ -2098,7 +2112,6 @@ public class CoreDashToAlloy {
         Expr snapshot = ExprVar.make(null, "Snapshot");
         Expr s = ExprVar.make(null, "s");
         Expr reachabilityAxiomExpr = null; //This is the Reachability Axiom, all s : Snapshot | s in S .((Step.initial) <: * (Step.next_step) )
-        a.add((ExprVar) s);
         
         Expr next = null;
         Expr initFirst = null;
@@ -2111,8 +2124,24 @@ public class CoreDashToAlloy {
         	initFirst = ExprVar.make(null, "ctl/ks_s0"); // ordering/first
         }
         else {
+        	ExprVar sInit = ExprVar.make(null, "s_init");
+        	Expr initSInit = ExprBadJoin.make(null, null, sInit, ExprVar.make(null, "init")); //s_init.init or init[s_init]
         	next = ExprBinary.Op.JOIN.make(null, null, snapshot, ExprVar.make(null, "next")); //Snapshot.next
-        	initFirst = ExprBinary.Op.JOIN.make(null, null, snapshot, ExprVar.make(null, "initial")); //Snapshot.initial
+        	Expr reflexiveClosure = ExprUnary.Op.RCLOSURE.make(null, next); // * (Snapshot.next)
+        	Expr domain = ExprBinary.Op.DOMAIN.make(null, null, sInit, reflexiveClosure); // (s_init <: * (next))
+        	Expr joinDomain = ExprBadJoin.make(null, null, snapshot, domain); // Snapshot.(s_init <: * (next))
+        	Expr sInDomain = ExprBinary.Op.IN.make(null, null, s, joinDomain); // s in Snapshot.(s_init <: * (next))
+        	Expr sInitAndSInDomain = ExprBinary.Op.AND.make(null, null, initSInit, sInDomain); // init[s_init] and s in (s_init <: * (next))
+        	a.add(sInit);
+        	decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s_init: Snapshot
+        	Expr someQt = ExprQt.Op.SOME.make(null, null, new ArrayList<Decl>(decls), sInitAndSInDomain); // some s: Snapshot | init[s_init] and s in (s_init <: * (next))
+        	a.clear();
+        	decls.clear();
+        	a.add((ExprVar) s);
+        	decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s: Snapshot
+        	Expr reachabilityAxiom = ExprQt.Op.ALL.make(null, null, new ArrayList<Decl>(decls), someQt); // all s: Snapshot | some s_init: Snapshot | init[s_init] and s in (s_init <: * (next))
+        	addPredicateAST(module, "reachabilityAxiom", null, null, null, null, reachabilityAxiom);
+        	return;
         }
      
         Expr reflexiveClosure = ExprUnary.Op.RCLOSURE.make(null, next); // * (next)
@@ -2121,6 +2150,7 @@ public class CoreDashToAlloy {
         Expr SJoinDomain = ExprBadJoin.make(null, null, snapshot, domain); // Snapshot. (ordering/first <: * (next))
         Expr sInSJoinDomain = ExprBinary.Op.IN.make(null, null, s, SJoinDomain); // s in Snapshot. (ordering/first <: * (next))
         
+        a.add((ExprVar) s);
         decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s: Snapshot
         reachabilityAxiomExpr = ExprQt.Op.ALL.make(null, null, new ArrayList<Decl>(decls), sInSJoinDomain); // all s: Snapshot | s in Snapshot. ((Step.initial) <: * (Step.next_step) )
         addPredicateAST(module, "reachabilityAxiom", null, null, null, null, reachabilityAxiomExpr);

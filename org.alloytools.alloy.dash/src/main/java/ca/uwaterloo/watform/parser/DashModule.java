@@ -1570,8 +1570,8 @@ public final class DashModule extends Browsable implements Module {
             variables.add(name.toString());
             //Set variable name to as it would appear in the Alloy model and map it to its
             //respective expression i.e in_p: lone Patient, in_p is the var name, lone Patient is the expression
-            variable2Expression.put(concState.name + "_" + name.toString(), decl.expr);
-            variable2ConcState.put(concState.name + "_" + name.toString(), concState);
+            variable2Expression.put(concState.modifiedName + "_" + name.toString(), decl.expr);
+            variable2ConcState.put(concState.modifiedName + "_" + name.toString(), concState);
         }
 
         for (String var : variables) {
@@ -1595,7 +1595,7 @@ public final class DashModule extends Browsable implements Module {
             variables.add(name.toString());
             //Set variable name to as it would appear in the Alloy model and map it to its
             //respective expression i.e in_p: lone Patient, in_p is the var name, lone Patient is the expression
-            envVariable2Expression.put(concState.name + "_" + name.toString(), decl.expr);
+            envVariable2Expression.put(concState.modifiedName + "_" + name.toString(), decl.expr);
         }
 
         envVariableNames.put(concState.modifiedName, variables);
@@ -1623,7 +1623,7 @@ public final class DashModule extends Browsable implements Module {
     	if (DashOptions.generateTraces || DashOptions.ctlModelChecking)
     		addOpen(null, null, ExprVar.make(null, "util/ordering"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "Snapshot"))), ExprVar.make(modulePos, "snapshot")); 
 		if(stateHierarchy)
-			addOpen(null, null, ExprVar.make(null, "util/boolean"), new ArrayList<ExprVar>(), ExprVar.make(null, "boolean"));
+			addOpen(null, null, ExprVar.make(null, "util/boolean"), new ArrayList<ExprVar>(), null);
     }
     
     // =============================================DASH MODULE TO STRING FUNCTIONS ============================================//
