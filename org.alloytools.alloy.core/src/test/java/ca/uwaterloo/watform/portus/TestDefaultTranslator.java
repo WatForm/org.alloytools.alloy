@@ -1090,6 +1090,15 @@ public class TestDefaultTranslator {
     }
 
     @Test
+    public void testTranslate_univ() {
+        // test [[x \in univ]] := true
+        Var x = Term.mkVar("x");
+        Term result = translator.translate(ExprElementOf.make(x, Sig.UNIV), context);
+        assertEquals(Term.mkTop(), result);
+        assertContextEmpty();
+    }
+
+    @Test
     public void testTranslate_iden() {
         // test [[(x1, x2) \in iden] := x1 = x2
         Var x1 = Term.mkVar("x1"), x2 = Term.mkVar("x2");

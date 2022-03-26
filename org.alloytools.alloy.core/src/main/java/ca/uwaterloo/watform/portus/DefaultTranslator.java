@@ -202,6 +202,16 @@ final class DefaultTranslator extends AbstractTranslator {
     /** Translate "var \in sig". */
     @Override
     public Term translate(Var var, Sig sig, TranslationContext context) {
+        // Special cases: builtin sigs
+        if (sig.builtin) {
+            if (sig.equals(Sig.UNIV)) {
+                // "var \in univ" is always true
+                return Term.mkTop();
+            } else {
+                throw new ErrorFatal("Unsupported builtin sig: " + sig);
+            }
+        }
+
         // if we recognize the sig, use its membership predicate
         if (!sigMemberPredicates.containsKey(sig)) {
             throw new ErrorSyntax("Unknown sig " + sig);
