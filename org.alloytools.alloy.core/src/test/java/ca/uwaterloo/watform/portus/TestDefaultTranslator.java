@@ -747,6 +747,97 @@ public class TestDefaultTranslator {
     }
 
     @Test
+    public void testTranslate_domainRestriction_arity1() {
+        // test [[x \in e1 <: e2]] := [[x \in e1]] && [[x \in e2]] where arity(e1) = arity(e2) = 1
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e1 = makeTestVarWithType("e1", Type.make(sig));
+        ExprVar e2 = makeTestVarWithType("e2", Type.make(sig));
+        Var x = Term.mkVar("x");
+
+        // mock out [[x \in e1]] and [[x \in e2]]
+        // they're alpha-equivalent, so just return one flag after the other
+        Var flagInE1 = makeFlagConstant("inE1"), flagInE2 = makeFlagConstant("inE2");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(x, e1))), any()))
+                .thenReturn(flagInE1, flagInE2);
+
+        Term result = translator.translate(ExprElementOf.make(x, e1.domain(e2)), context);
+        Term expected = Term.mkAnd(flagInE1, flagInE2);
+        assertThat(result, isAlphaEquivalentTerm(expected));
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_domainRestriction_arity3() {
+        // test [[(x1,x2,x3) \in e1 <: e2]] := [[x \in e1]] && [[(x1,x2,x3) \in e2]]
+        // where arity(e1) = 1, arity(e2) = 3
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e1 = makeTestVarWithType("e1", Type.make(sig));
+        ExprVar e2 = makeTestVarWithType("e2", Type.make(sig)
+                .product(Type.make(sig)).product(Type.make(sig)));
+        Var x1 = Term.mkVar("x1"), x2 = Term.mkVar("x2"), x3 = Term.mkVar("x3");
+
+        // mock out [[x \in e1]] and [[(x1,x2,x3) \in e2]]
+        Var flagInE1 = makeFlagConstant("inE1"), flagInE2 = makeFlagConstant("inE2");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(x1, e1))), any()))
+                .thenReturn(flagInE1);
+        when(mockRoot.translate(argThat(isAlphaEquivalent(
+                ExprElementOf.make(ConstList.make(Arrays.asList(x1, x2, x3)), e2))), any()))
+                .thenReturn(flagInE2);
+
+        Term result = translator.translate(ExprElementOf.make(
+                ConstList.make(Arrays.asList(x1, x2, x3)), e1.domain(e2)), context);
+        Term expected = Term.mkAnd(flagInE1, flagInE2);
+        assertThat(result, isAlphaEquivalentTerm(expected));
+        assertContextEmpty();
+    }
+
+
+    @Test
+    public void testTranslate_rangeRestriction_arity1() {
+        // test [[x \in e1 :> e2]] := [[x \in e1]] && [[x \in e2]] where arity(e1) = arity(e2) = 1
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e1 = makeTestVarWithType("e1", Type.make(sig));
+        ExprVar e2 = makeTestVarWithType("e2", Type.make(sig));
+        Var x = Term.mkVar("x");
+
+        // mock out [[x \in e1]] and [[x \in e2]]
+        // they're alpha-equivalent, so just return one flag after the other
+        Var flagInE1 = makeFlagConstant("inE1"), flagInE2 = makeFlagConstant("inE2");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(x, e1))), any()))
+                .thenReturn(flagInE1, flagInE2);
+
+        Term result = translator.translate(ExprElementOf.make(x, e1.range(e2)), context);
+        Term expected = Term.mkAnd(flagInE1, flagInE2);
+        assertThat(result, isAlphaEquivalentTerm(expected));
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_rangeRestriction_arity3() {
+        // test [[(x1,x2,x3) \in e1 :> e2]] := [[(x1,x2,x3) \in e1]] && [[x \in e2]]
+        // where arity(e1) = 3, arity(e2) = 1
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e1 = makeTestVarWithType("e1", Type.make(sig)
+                .product(Type.make(sig)).product(Type.make(sig)));
+        ExprVar e2 = makeTestVarWithType("e2", Type.make(sig));
+        Var x1 = Term.mkVar("x1"), x2 = Term.mkVar("x2"), x3 = Term.mkVar("x3");
+
+        // mock out [[(x1,x2,x3) \in e2]] and [[x \in e1]]
+        Var flagInE1 = makeFlagConstant("inE1"), flagInE2 = makeFlagConstant("inE2");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(
+                ExprElementOf.make(ConstList.make(Arrays.asList(x1, x2, x3)), e1))), any()))
+                .thenReturn(flagInE1);
+        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(x1, e2))), any()))
+                .thenReturn(flagInE2);
+
+        Term result = translator.translate(ExprElementOf.make(
+                ConstList.make(Arrays.asList(x1, x2, x3)), e1.range(e2)), context);
+        Term expected = Term.mkAnd(flagInE1, flagInE2);
+        assertThat(result, isAlphaEquivalentTerm(expected));
+        assertContextEmpty();
+    }
+
+    @Test
     public void testTranslate_in_arity1() {
         // test [[e1 \in e2]] := forall x: univ . [[x \in e1]] => [[x \in e2]] for arity 1
         Sig.PrimSig sig = new Sig.PrimSig("S");

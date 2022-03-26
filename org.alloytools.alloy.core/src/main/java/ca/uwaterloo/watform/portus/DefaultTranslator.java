@@ -23,6 +23,7 @@ import fortress.msfol.Var;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -241,6 +242,10 @@ final class DefaultTranslator extends AbstractTranslator {
                 return translateJoin(tuple, expr.left, expr.right, context);
             case ARROW:
                 return translateCrossProduct(tuple, expr.left, expr.right, context);
+            case DOMAIN:
+                return translateDomainRestriction(tuple, expr.left, expr.right, context);
+            case RANGE:
+                return translateRangeRestriction(tuple, expr.left, expr.right, context);
             default:
                 // others are either not supported or not terms
                 throw new ErrorFatal("Unsupported ExprBinary term: " + expr.op);
@@ -281,6 +286,38 @@ final class DefaultTranslator extends AbstractTranslator {
         return Term.mkAnd(
                 recursivelyTranslate(ExprElementOf.make(ConstList.make(leftSubTuple), left), context),
                 recursivelyTranslate(ExprElementOf.make(ConstList.make(rightSubTuple), right), context));
+    }
+
+    /** Translate the formula "tuple \in domain <: expr". */
+    private Term translateDomainRestriction(
+            ConstList<Var> tuple, Expr domain, Expr expr, TranslationContext context) {
+        // KT figure 4.11: [[(x1,...,xn) \in domain <: expr]] := [[x1 \in domain]] && [[(x1,...,xn) \in expr]]
+        // where arity(domain) = 1 and arity(expr) = n
+        if (domain.type().arity() != 1) {
+            throw new ErrorFatal("The left-hand side of a domain restriction must have arity 1.");
+        }
+
+        ConstList<Var> firstVar = ConstList.make(Collections.singletonList(tuple.get(0)));
+
+        return Term.mkAnd(
+                recursivelyTranslate(ExprElementOf.make(firstVar, domain), context),
+                recursivelyTranslate(ExprElementOf.make(tuple, expr), context));
+    }
+
+    /** Translate the formula "tuple \in expr :> range". */
+    private Term translateRangeRestriction(
+            ConstList<Var> tuple, Expr expr, Expr range, TranslationContext context) {
+        // KT figure 4.11: [[(x1,...,xn) \in expr :> range]] := [[(x1,...,xn) \in expr]] && [[xn \in range]]
+        // where arity(expr) = n and arity(range) = 1
+        if (range.type().arity() != 1) {
+            throw new ErrorFatal("The right-hand side of a range restriction must have arity 1.");
+        }
+
+        ConstList<Var> lastVar = ConstList.make(Collections.singletonList(tuple.get(tuple.size() - 1)));
+
+        return Term.mkAnd(
+                recursivelyTranslate(ExprElementOf.make(tuple, expr), context),
+                recursivelyTranslate(ExprElementOf.make(lastVar, range), context));
     }
 
     /** Translate an ExprBinary formula. */
