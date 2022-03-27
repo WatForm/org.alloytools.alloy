@@ -1350,9 +1350,6 @@ public final class SimpleGUI implements ComponentListener, Listener {
             return wrapMe();
         doRefreshRun();
         OurUtil.enableAll(runmenu);
-        if (text.get().isEditingDash()) {
-            return doRun(0);
-        }
         if (commands == null)
             return null;
         int n = commands.size();
@@ -1364,6 +1361,10 @@ public final class SimpleGUI implements ComponentListener, Listener {
             latestCommand = n - 1;
         if (latestCommand < 0)
             latestCommand = 0;
+        if (text.get().isEditingDash()) {
+            System.out.println("Running Latest Command");
+            return doRun(latestCommand);
+        }
         return doRun(latestCommand);
     }
 

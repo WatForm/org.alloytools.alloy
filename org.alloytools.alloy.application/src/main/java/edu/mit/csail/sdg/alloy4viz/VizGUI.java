@@ -782,8 +782,10 @@ public final class VizGUI implements ComponentListener {
             VizState myState = myStates.get(statepanes - 1);
             final Set<AlloyType> projected = myState.getProjectedTypes();
 
+            myState.hidePrivate(false);
+
             for (final AlloyType t : myState.getOriginalModel().getTypes()) {
-                if (t.getName().equals("stepUtil/Step")) {
+                if (t.getName().equals("ctl/TS")) {
                     myState.project(t);
                 }
             }
@@ -793,6 +795,18 @@ public final class VizGUI implements ComponentListener {
             for (AlloyRelation r : myState.getCurrentModel().getRelations()) {
                 System.out.println("Name of relation: " + r.getName());
                 if (r.getName().equals("next")) {
+                    myState.attribute.put(r, false);
+                    myState.edgeVisible.put(r, true);
+                }
+                if (r.getName().equals("sigma")) {
+                    myState.attribute.put(r, false);
+                    myState.edgeVisible.put(r, true);
+                }
+                if (r.getName().equals("Next")) {
+                    myState.attribute.put(r, false);
+                    myState.edgeVisible.put(r, true);
+                }
+                if (r.getName().equals("First")) {
                     myState.attribute.put(r, false);
                     myState.edgeVisible.put(r, true);
                 }

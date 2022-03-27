@@ -1,5 +1,6 @@
 package ca.uwaterloo.watform.transform;
 
+import java.nio.file.FileSystemNotFoundException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -66,12 +67,14 @@ public class CoreDashToAlloy {
         createTestIfStableAST(module);
         createSmallStepAST(module);
         createEqualsAST(module);
-        createIsEnabledAST(module);
+        //createIsEnabledAST(module);
         createDifferentAtomsFact(module);
-        if(DashOptions.generateTraces)
+        if(DashOptions.generateTraces) {
         	createTracesFact(module);
-        else if (!DashOptions.generateTraces && module.stateHierarchy)
+        }
+        else if (!DashOptions.generateTraces && module.stateHierarchy) {
         	createBigStepFact(module);
+        }
         //createModelDefFact(module);
         //createPathAST(module);
         if (DashOptions.generateSigAxioms) {
@@ -169,7 +172,6 @@ public class CoreDashToAlloy {
 	        a.clear();
         }
         
-
         if (DashOptions.isEnvEventModel) {
             b = ExprUnary.Op.SETOF.make(null, ExprVar.make(null, "EventLabel"));
             a.add(ExprVar.make(null, "events"));
@@ -976,29 +978,7 @@ public class CoreDashToAlloy {
         
         if (module.stateHierarchy)
         	expression = ExprBinary.Op.AND.make(null, null, expression, quant);
-        
-        /*
-         * Creating the following expression: all s_next: Snapshot | (isEnabled[s] && no s_next:
-         * Snapshot | small_step[s, s_next]) => s.stable = False
-         */
-        Expr isEnabledCall = ExprBadJoin.make(null, null, s, ExprVar.make(null, "isEnabled"));
-        a.add((ExprVar) s_Next);
-        decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s_next: Snapshot
-        Expr smallStepCall = ExprBadJoin.make(null, null, s, ExprVar.make(null, "small_step"));//s_next.small_step
-        smallStepCall = ExprBadJoin.make(null, null, s_Next, smallStepCall); //s.s_next.small_step
-        Expr qtExpr = ExprQt.Op.NO.make(null, null, decls, smallStepCall);// no s_next: Snapshot | small_step[s, s_next]
-        iffLeft = ExprBinary.Op.AND.make(null, null, isEnabledCall, qtExpr); //(isEnabled[s] && no s_next: Snapshot | small_step[s, s_next])
-        iffRight = ExprUnary.Op.NOT.make(null, ExprBadJoin.make(null, null, s, ExprVar.make(null, "stable"))); // ! stable[s] or s.stable = False
-        iffExpr = ExprBinary.Op.IMPLIES.make(null, null, iffLeft, iffRight); //(isEnabled[s] && no s_next: Snapshot | small_step[s, s_next]) => s.stable = False
-        a.clear();
-        decls.clear();
-        a.add((ExprVar) s);
-        decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s: Snapshot
-        Expr expr = ExprQt.Op.ALL.make(null, null, decls, iffExpr);//all s: Snapshot | (isEnabled[s] && no s_next: Snapshot | small_step[s, s_next]) => s.stable = False
-        
-        if (module.stateHierarchy)
-        	expression = ExprBinary.Op.AND.make(null, null, expression, expr);
-    	
+        	
         module.addFact(null, "traces", expression);
     }
     
@@ -1043,27 +1023,6 @@ public class CoreDashToAlloy {
         a.add((ExprVar) s);
         decls.add(new Decl(null, null, null, null, a, mult(snapshot))); // s: Snapshot
         Expr expression = ExprQt.Op.ALL.make(null, null, decls, imples); // all s:Snapshot | !stable[s] => (one s_next: Snapshot | small_step[s, s_next])
-        a.clear();
-        decls.clear();
-
-    
-        /*
-         * Creating the following expression: all s_next: Snapshot | (isEnabled[s] && no s_next:
-         * Snapshot | small_step[s, s_next]) => s.stable = False
-         */
-        Expr isEnabledCall = ExprBadJoin.make(null, null, s, ExprVar.make(null, "isEnabled"));
-        a.add((ExprVar) sPrime);
-        decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s_next: Snapshot
-        qtExpr = ExprQt.Op.NO.make(null, null, decls, smallStepCall);// no s_next: Snapshot | small_step[s, s_next]
-        Expr iffLeft = ExprBinary.Op.AND.make(null, null, isEnabledCall, qtExpr); //(isEnabled[s] && no s_next: Snapshot | small_step[s, s_next])
-        Expr iffRight = ExprUnary.Op.NOT.make(null, ExprBadJoin.make(null, null, s, ExprVar.make(null, "stable"))); // ! stable[s] or s.stable = False
-        Expr iffExpr = ExprBinary.Op.IMPLIES.make(null, null, iffLeft, iffRight); //(isEnabled[s] && no s_next: Snapshot | small_step[s, s_next]) => s.stable = False
-        a.clear();
-        decls.clear();
-        a.add((ExprVar) s);
-        decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s: Snapshot
-        Expr expr = ExprQt.Op.ALL.make(null, null, decls, iffExpr);//all s_next: Snapshot | (isEnabled[s] && no s_next: Snapshot | small_step[s, s_next]) => s.stable = False
-        expression = ExprBinary.Op.AND.make(null, null, expression, expr);
         
         expression = ExprUnary.Op.NOOP.make(null, expression);
         module.addFact(null, "completeBigStep", expression);
