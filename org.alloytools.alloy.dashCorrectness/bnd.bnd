@@ -1,4 +1,4 @@
-Main-Class: ca.uwaterloo.watform.dash4whole.Dash
+Main-Class: ca.uwaterloo.watform.dash4whole.CorrectnessTesting
 
 -buildpath: \
 	org.alloytools.alloy.application,\

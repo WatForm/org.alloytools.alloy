@@ -47,6 +47,8 @@ import edu.mit.csail.sdg.ast.ExprUnary.Op;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.ast.Sig.Field;
 import edu.mit.csail.sdg.ast.Type.ProductType;
+import edu.mit.csail.sdg.parser.CompModule;
+import edu.mit.csail.sdg.parser.CompUtil;
 import edu.mit.csail.sdg.ast.VisitQueryOnce;
 
 /**
@@ -315,6 +317,33 @@ public final class DashUtil {
             if (world == null)
                 throw new ErrorFatal("Cannot parse an expression with null world.");
             return world.parseOneExpressionFromString(input);
+        } catch (IOException ex) {
+            throw new ErrorFatal("IOException occurred: " + ex.getMessage(), ex);
+        } catch (Throwable ex) {
+            if (ex instanceof Err)
+                throw (Err) ex;
+            else
+                throw new ErrorFatal("Unknown exception occurred: " + ex, ex);
+        }
+    }
+    
+    // =============================================================================================================//
+
+    /**
+     * Parses 1 module from the input string (without loading any subfiles)
+     *
+     * @return an array of 0 or more Command if no error occurred
+     */
+    public static ConstList<Command> parseOneModule_fromString(String content) throws Err {
+        DashModule u = parseOneModule(content);
+        return ConstList.make(u.getAllCommands());
+    }
+
+    public static DashModule parseOneModule(String content) throws Err {
+        try {
+            Map<String,String> fc = new LinkedHashMap<String,String>();
+            fc.put("", content);
+            return DashUtil.parseDash(new ArrayList<Object>(), null, fc, null, 0, "", "", 1);
         } catch (IOException ex) {
             throw new ErrorFatal("IOException occurred: " + ex.getMessage(), ex);
         } catch (Throwable ex) {

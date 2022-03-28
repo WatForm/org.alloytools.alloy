@@ -37,7 +37,10 @@ public class CorrectnessTesting {
 
     @SuppressWarnings("resource" )
     public static void main(String args[]) throws Exception {
-        String dirName = "C:\\Users\\Tamjid Hossain\\Desktop\\Regression Testing";
+        File dirFile = new File("");
+        File parentPath = dirFile.getAbsoluteFile().getParentFile();
+
+        String dirName = parentPath.getAbsolutePath() + "\\RegressionTesting";
         List<File> listOfFiles = getDashModels(dirName);
         DashOptions.generateSigAxioms = false;
 

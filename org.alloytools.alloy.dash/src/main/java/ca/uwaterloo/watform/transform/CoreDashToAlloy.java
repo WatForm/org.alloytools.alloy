@@ -67,7 +67,7 @@ public class CoreDashToAlloy {
         createTestIfStableAST(module);
         createSmallStepAST(module);
         createEqualsAST(module);
-        //createIsEnabledAST(module);
+        createIsEnabledAST(module);
         createDifferentAtomsFact(module);
         if(DashOptions.generateTraces) {
         	createTracesFact(module);
@@ -198,13 +198,29 @@ public class CoreDashToAlloy {
         for (String variableName : module.variable2Expression.keySet()) {
             b = module.variable2Expression.get(variableName);
             a.add(ExprVar.make(null, variableName));
-            decls.add(new Decl(null, null, null, null, a, mult(b)));
+            decls.add(new Decl(null, null, null, null, a, checkSigVarExpr(b)));
             a.clear();
         }
             
         //List<ExprVar> sigParent = new ArrayList<ExprVar>();
         //sigParent.add(ExprVar.make(null, "BaseSnapshot"));
         addSigAST(module, "Snapshot", null, null, decls, null, null, null, null, null);
+    }
+    
+    static Expr checkSigVarExpr(Expr b) {
+        if (b instanceof ExprUnary) {
+            ExprUnary y = (ExprUnary) b;
+            if (y.op == ExprUnary.Op.SOME)
+                return ExprUnary.Op.SOMEOF.make(y.pos, y.sub);
+            if (y.op == ExprUnary.Op.LONE)
+                return ExprUnary.Op.LONEOF.make(y.pos, y.sub);
+            if (y.op == ExprUnary.Op.ONE)
+                return ExprUnary.Op.ONEOF.make(y.pos, y.sub);
+        }
+    	if (b instanceof ExprVar) {
+    		return ExprUnary.Op.SETOF.make(null, b);
+    	}
+        return b;
     }
     
     static void createStepSigAST(DashModule module) {

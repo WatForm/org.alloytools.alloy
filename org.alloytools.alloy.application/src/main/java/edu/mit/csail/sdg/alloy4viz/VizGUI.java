@@ -793,7 +793,6 @@ public final class VizGUI implements ComponentListener {
             myState.attribute.put(null, true);
             myState.edgeVisible.put(null, false);
             for (AlloyRelation r : myState.getCurrentModel().getRelations()) {
-                System.out.println("Name of relation: " + r.getName());
                 if (r.getName().equals("next")) {
                     myState.attribute.put(r, false);
                     myState.edgeVisible.put(r, true);

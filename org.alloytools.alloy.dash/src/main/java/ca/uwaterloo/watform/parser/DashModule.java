@@ -1363,6 +1363,7 @@ public final class DashModule extends Browsable implements Module {
      * passed in as arguments
      */
     public void addTopLevelConcState(Pos pos, String name, List<Object> stateItems) {
+    	stateHierarchy = false;
         DashConcState topLevelConcState = new DashConcState(pos, name, stateItems);
         topLevelConcState.modifiedName = name;
 

@@ -1,6 +1,6 @@
 <alloy builddate="1970-01-01T00:00:00Z">
 
-<instance bitwidth="4" maxseq="4" mintrace="-1" maxtrace="-1" command="Check final_bitStatus for 7 Snapshot, exactly 2 EventLabel expect 0" filename="" tracelength="1" backloop="0">
+<instance bitwidth="4" maxseq="4" mintrace="-1" maxtrace="-1" command="Check alwaysReachesDone for exactly 4 Snapshot, exactly 2 Var" filename="" tracelength="1" backloop="0">
 
 <sig label="seq/Int" ID="0" parentID="1" builtin="yes">
 </sig>
@@ -11,187 +11,100 @@
 <sig label="String" ID="3" parentID="2" builtin="yes">
 </sig>
 
-<sig label="this/Snapshot" ID="4" parentID="2">
+<sig label="this/Var" ID="4" parentID="2">
+   <atom label="Var$0"/>
+   <atom label="Var$1"/>
+</sig>
+
+<sig label="this/Snapshot" ID="5" parentID="2">
    <atom label="Snapshot$0"/>
    <atom label="Snapshot$1"/>
    <atom label="Snapshot$2"/>
    <atom label="Snapshot$3"/>
-   <atom label="Snapshot$4"/>
-   <atom label="Snapshot$5"/>
-   <atom label="Snapshot$6"/>
 </sig>
 
-<field label="conf" ID="5" parentID="4">
-   <tuple> <atom label="Snapshot$0"/> <atom label="Counter_Bit2_Bit22$0"/> </tuple>
-   <tuple> <atom label="Snapshot$2"/> <atom label="Counter_Bit2_Bit21$0"/> </tuple>
-   <tuple> <atom label="Snapshot$3"/> <atom label="Counter_Bit1_Bit11$0"/> </tuple>
-   <tuple> <atom label="Snapshot$3"/> <atom label="Counter_Bit2_Bit21$0"/> </tuple>
-   <tuple> <atom label="Snapshot$4"/> <atom label="Counter_Bit2_Bit21$0"/> </tuple>
-   <tuple> <atom label="Snapshot$5"/> <atom label="Counter_Bit1_Bit11$0"/> </tuple>
-   <tuple> <atom label="Snapshot$6"/> <atom label="Counter_Bit1_Bit12$0"/> </tuple>
-   <types> <type ID="4"/> <type ID="6"/> </types>
+<field label="conf" ID="6" parentID="5">
+   <tuple> <atom label="Snapshot$3"/> <atom label="Parent_Child1_S0$0"/> </tuple>
+   <types> <type ID="5"/> <type ID="7"/> </types>
 </field>
 
-<field label="taken" ID="7" parentID="4">
-   <tuple> <atom label="Snapshot$0"/> <atom label="Counter_Bit1_T2$0"/> </tuple>
-   <tuple> <atom label="Snapshot$0"/> <atom label="Counter_Bit2_T3$0"/> </tuple>
-   <tuple> <atom label="Snapshot$1"/> <atom label="Counter_Bit1_T1$0"/> </tuple>
-   <tuple> <atom label="Snapshot$1"/> <atom label="Counter_Bit1_T2$0"/> </tuple>
-   <tuple> <atom label="Snapshot$2"/> <atom label="Counter_Bit1_T1$0"/> </tuple>
-   <tuple> <atom label="Snapshot$2"/> <atom label="Counter_Bit2_T3$0"/> </tuple>
-   <tuple> <atom label="Snapshot$5"/> <atom label="Counter_Bit1_T2$0"/> </tuple>
-   <tuple> <atom label="Snapshot$5"/> <atom label="Counter_Bit2_T4$0"/> </tuple>
-   <tuple> <atom label="Snapshot$6"/> <atom label="Counter_Bit2_T4$0"/> </tuple>
-   <types> <type ID="4"/> <type ID="8"/> </types>
+<field label="taken" ID="8" parentID="5">
+   <tuple> <atom label="Snapshot$1"/> <atom label="Parent_Child1_S0_T1$0"/> </tuple>
+   <tuple> <atom label="Snapshot$2"/> <atom label="Parent_Child1_S0_T0$0"/> </tuple>
+   <types> <type ID="5"/> <type ID="9"/> </types>
 </field>
 
-<field label="stable" ID="9" parentID="4">
+<field label="stable" ID="10" parentID="5">
    <tuple> <atom label="Snapshot$0"/> <atom label="boolean/True$0"/> </tuple>
    <tuple> <atom label="Snapshot$1"/> <atom label="boolean/True$0"/> </tuple>
    <tuple> <atom label="Snapshot$2"/> <atom label="boolean/True$0"/> </tuple>
    <tuple> <atom label="Snapshot$3"/> <atom label="boolean/True$0"/> </tuple>
-   <tuple> <atom label="Snapshot$4"/> <atom label="boolean/True$0"/> </tuple>
-   <tuple> <atom label="Snapshot$5"/> <atom label="boolean/True$0"/> </tuple>
-   <tuple> <atom label="Snapshot$6"/> <atom label="boolean/False$0"/> </tuple>
-   <types> <type ID="4"/> <type ID="10"/> </types>
+   <types> <type ID="5"/> <type ID="11"/> </types>
 </field>
 
-<field label="events" ID="11" parentID="4">
-   <tuple> <atom label="Snapshot$0"/> <atom label="Counter_Bit2_Done$0"/> </tuple>
-   <tuple> <atom label="Snapshot$1"/> <atom label="Counter_Tk0$0"/> </tuple>
-   <tuple> <atom label="Snapshot$1"/> <atom label="Counter_Bit1_Tk1$0"/> </tuple>
-   <tuple> <atom label="Snapshot$2"/> <atom label="Counter_Bit2_Done$0"/> </tuple>
-   <tuple> <atom label="Snapshot$4"/> <atom label="Counter_Tk0$0"/> </tuple>
-   <tuple> <atom label="Snapshot$4"/> <atom label="Counter_Bit2_Done$0"/> </tuple>
-   <tuple> <atom label="Snapshot$5"/> <atom label="Counter_Bit1_Tk1$0"/> </tuple>
-   <tuple> <atom label="Snapshot$6"/> <atom label="Counter_Tk0$0"/> </tuple>
-   <types> <type ID="4"/> <type ID="12"/> </types>
+<field label="Parent_Child1_variable" ID="12" parentID="5">
+   <tuple> <atom label="Snapshot$3"/> <atom label="Var$0"/> </tuple>
+   <tuple> <atom label="Snapshot$3"/> <atom label="Var$1"/> </tuple>
+   <types> <type ID="5"/> <type ID="4"/> </types>
 </field>
 
-<field label="initial" ID="13" parentID="4">
-   <tuple> <atom label="Snapshot$0"/> <atom label="Snapshot$3"/> </tuple>
-   <tuple> <atom label="Snapshot$1"/> <atom label="Snapshot$3"/> </tuple>
-   <tuple> <atom label="Snapshot$2"/> <atom label="Snapshot$3"/> </tuple>
-   <tuple> <atom label="Snapshot$3"/> <atom label="Snapshot$3"/> </tuple>
-   <tuple> <atom label="Snapshot$4"/> <atom label="Snapshot$3"/> </tuple>
-   <tuple> <atom label="Snapshot$5"/> <atom label="Snapshot$3"/> </tuple>
-   <tuple> <atom label="Snapshot$6"/> <atom label="Snapshot$3"/> </tuple>
-   <types> <type ID="4"/> <type ID="4"/> </types>
+<sig label="this/Parent_Child1_S0" ID="13" parentID="14" one="yes">
+   <atom label="Parent_Child1_S0$0"/>
+</sig>
+
+<sig label="this/Parent_Child1_Done" ID="15" parentID="14" one="yes">
+   <atom label="Parent_Child1_Done$0"/>
+</sig>
+
+<sig label="this/Parent_Child1" ID="14" parentID="16" abstract="yes">
+</sig>
+
+<sig label="this/Parent" ID="16" parentID="17" abstract="yes">
+</sig>
+
+<sig label="this/SystemState" ID="17" parentID="7" abstract="yes">
+</sig>
+
+<sig label="this/StateLabel" ID="7" parentID="2" abstract="yes">
+</sig>
+
+<sig label="this/Parent_Child1_S0_T0" ID="18" parentID="9" one="yes">
+   <atom label="Parent_Child1_S0_T0$0"/>
+</sig>
+
+<sig label="this/Parent_Child1_S0_T1" ID="19" parentID="9" one="yes">
+   <atom label="Parent_Child1_S0_T1$0"/>
+</sig>
+
+<sig label="this/TransitionLabel" ID="9" parentID="2" abstract="yes">
+</sig>
+
+<sig label="ctl/TS" ID="20" parentID="2" one="yes" private="yes">
+   <atom label="ctl/TS$0"/>
+</sig>
+
+<field label="S0" ID="21" parentID="20" private="yes">
+   <tuple> <atom label="ctl/TS$0"/> <atom label="Snapshot$3"/> </tuple>
+   <types> <type ID="20"/> <type ID="5"/> </types>
 </field>
 
-<field label="next" ID="14" parentID="4">
-   <tuple> <atom label="Snapshot$1"/> <atom label="Snapshot$6"/> <atom label="Snapshot$5"/> </tuple>
-   <types> <type ID="4"/> <type ID="4"/> <type ID="4"/> </types>
+<field label="sigma" ID="22" parentID="20" private="yes">
+   <types> <type ID="20"/> <type ID="5"/> <type ID="5"/> </types>
 </field>
 
-<sig label="this/Counter_Bit1_Bit11" ID="15" parentID="16" one="yes">
-   <atom label="Counter_Bit1_Bit11$0"/>
-</sig>
-
-<sig label="this/Counter_Bit1_Bit12" ID="17" parentID="16" one="yes">
-   <atom label="Counter_Bit1_Bit12$0"/>
-</sig>
-
-<sig label="this/Counter_Bit1" ID="16" parentID="18" abstract="yes">
-</sig>
-
-<sig label="this/Counter_Bit2_Bit21" ID="19" parentID="20" one="yes">
-   <atom label="Counter_Bit2_Bit21$0"/>
-</sig>
-
-<sig label="this/Counter_Bit2_Bit22" ID="21" parentID="20" one="yes">
-   <atom label="Counter_Bit2_Bit22$0"/>
-</sig>
-
-<sig label="this/Counter_Bit2" ID="20" parentID="18" abstract="yes">
-</sig>
-
-<sig label="this/Counter" ID="18" parentID="22" abstract="yes">
-</sig>
-
-<sig label="this/SystemState" ID="22" parentID="6" abstract="yes">
-</sig>
-
-<sig label="this/StateLabel" ID="6" parentID="2" abstract="yes">
-</sig>
-
-<sig label="this/Counter_Tk0" ID="23" parentID="24" one="yes">
-   <atom label="Counter_Tk0$0"/>
-</sig>
-
-<sig label="this/EnvironmentEvent" ID="24" parentID="12" abstract="yes">
-</sig>
-
-<sig label="this/Counter_Bit1_Tk1" ID="25" parentID="26" one="yes">
-   <atom label="Counter_Bit1_Tk1$0"/>
-</sig>
-
-<sig label="this/Counter_Bit2_Done" ID="27" parentID="26" one="yes">
-   <atom label="Counter_Bit2_Done$0"/>
-</sig>
-
-<sig label="this/InternalEvent" ID="26" parentID="12" abstract="yes">
-</sig>
-
-<sig label="this/EventLabel" ID="12" parentID="2" abstract="yes">
-</sig>
-
-<sig label="this/Counter_Bit1_T1" ID="28" parentID="8" one="yes">
-   <atom label="Counter_Bit1_T1$0"/>
-</sig>
-
-<sig label="this/Counter_Bit1_T2" ID="29" parentID="8" one="yes">
-   <atom label="Counter_Bit1_T2$0"/>
-</sig>
-
-<sig label="this/Counter_Bit2_T3" ID="30" parentID="8" one="yes">
-   <atom label="Counter_Bit2_T3$0"/>
-</sig>
-
-<sig label="this/Counter_Bit2_T4" ID="31" parentID="8" one="yes">
-   <atom label="Counter_Bit2_T4$0"/>
-</sig>
-
-<sig label="this/TransitionLabel" ID="8" parentID="2" abstract="yes">
-</sig>
-
-<sig label="snapshot/Ord" ID="32" parentID="2" one="yes" private="yes">
-   <atom label="snapshot/Ord$0"/>
-</sig>
-
-<field label="First" ID="33" parentID="32" private="yes">
-   <tuple> <atom label="snapshot/Ord$0"/> <atom label="Snapshot$0"/> </tuple>
-   <types> <type ID="32"/> <type ID="4"/> </types>
-</field>
-
-<field label="Next" ID="34" parentID="32" private="yes">
-   <tuple> <atom label="snapshot/Ord$0"/> <atom label="Snapshot$0"/> <atom label="Snapshot$1"/> </tuple>
-   <tuple> <atom label="snapshot/Ord$0"/> <atom label="Snapshot$1"/> <atom label="Snapshot$2"/> </tuple>
-   <tuple> <atom label="snapshot/Ord$0"/> <atom label="Snapshot$2"/> <atom label="Snapshot$3"/> </tuple>
-   <tuple> <atom label="snapshot/Ord$0"/> <atom label="Snapshot$3"/> <atom label="Snapshot$4"/> </tuple>
-   <tuple> <atom label="snapshot/Ord$0"/> <atom label="Snapshot$4"/> <atom label="Snapshot$5"/> </tuple>
-   <tuple> <atom label="snapshot/Ord$0"/> <atom label="Snapshot$5"/> <atom label="Snapshot$6"/> </tuple>
-   <types> <type ID="32"/> <type ID="4"/> <type ID="4"/> </types>
-</field>
-
-<sig label="boolean/True" ID="35" parentID="10" one="yes">
+<sig label="boolean/True" ID="23" parentID="11" one="yes">
    <atom label="boolean/True$0"/>
 </sig>
 
-<sig label="boolean/False" ID="36" parentID="10" one="yes">
+<sig label="boolean/False" ID="24" parentID="11" one="yes">
    <atom label="boolean/False$0"/>
 </sig>
 
-<sig label="boolean/Bool" ID="10" parentID="2" abstract="yes">
+<sig label="boolean/Bool" ID="11" parentID="2" abstract="yes">
 </sig>
 
 <sig label="univ" ID="2" builtin="yes" var="yes">
 </sig>
-
-<skolem label="$final_bitStatus_s" ID="37">
-   <tuple> <atom label="Snapshot$0"/> </tuple>
-   <types> <type ID="4"/> </types>
-</skolem>
 
 </instance>
 

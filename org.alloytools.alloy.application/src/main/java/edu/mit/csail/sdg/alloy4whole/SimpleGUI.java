@@ -1138,9 +1138,11 @@ public final class SimpleGUI implements ComponentListener, Listener {
                 if (directory.toString() != null)
                     DashOptions.dashModelLocation = directory.toString();
                 if (text.get().isFile()) {
-                    DashUtil.parseEverything_fromFileDash(A4Reporter.NOP, null, actual);
+                    DashModule dash = DashUtil.parseEverything_fromFileDash(A4Reporter.NOP, null, actual);
+                    DashValidation.validateDashModel(dash);
                 } else {
-                    DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, text.get().getText());
+                    DashModule dash = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, text.get().getText());
+                    DashValidation.validateDashModel(dash);
                 }
             } catch (Err e) {
                 runmenu.getItem(0).setEnabled(false);
@@ -1274,12 +1276,6 @@ public final class SimpleGUI implements ComponentListener, Listener {
         opt.originalFilename = Util.canon(text.get().getFilename());
         opt.solver = Solver.get();
         task.bundleIndex = i;
-        task.bundleWarningNonFatal = WarningNonfatal.get();
-        task.bundleVariablesUnchanged = VariablesUnchanged.get();
-        task.bundleAssumeSingleInput = AssumeSingleInput.get();
-        task.bundleGenerateSigAxiom = GenerateSigAxiom.get();
-        task.bundleCTLModelChecking = CTLModelChecking.get();
-        task.bundleGenerateTraces = GenerateTraces.get();
         task.map = text.takeSnapshot();
         task.options = opt.dup();
         task.resolutionMode = (Version.experimental && ImplicitThis.get()) ? 2 : 1;
@@ -1350,6 +1346,14 @@ public final class SimpleGUI implements ComponentListener, Listener {
             return wrapMe();
         doRefreshRun();
         OurUtil.enableAll(runmenu);
+        if (text.get().isEditingDash()) {
+            DashOptions.variablesUnchanged = VariablesUnchanged.get();
+            DashOptions.assumeSingleInput = AssumeSingleInput.get();
+            DashOptions.generateSigAxioms = GenerateSigAxiom.get();
+            DashOptions.ctlModelChecking = CTLModelChecking.get();
+            DashOptions.generateTraces = GenerateTraces.get();
+            return doRun(0);
+        }
         if (commands == null)
             return null;
         int n = commands.size();
@@ -1361,10 +1365,6 @@ public final class SimpleGUI implements ComponentListener, Listener {
             latestCommand = n - 1;
         if (latestCommand < 0)
             latestCommand = 0;
-        if (text.get().isEditingDash()) {
-            System.out.println("Running Latest Command");
-            return doRun(latestCommand);
-        }
         return doRun(latestCommand);
     }
 
