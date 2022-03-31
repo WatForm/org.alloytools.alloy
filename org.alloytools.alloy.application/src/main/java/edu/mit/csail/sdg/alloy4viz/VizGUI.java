@@ -788,6 +788,9 @@ public final class VizGUI implements ComponentListener {
                 if (t.getName().equals("ctl/TS")) {
                     myState.project(t);
                 }
+                if (t.getName().equals("snapshot/Ord")) {
+                    myState.project(t);
+                }
             }
 
             myState.attribute.put(null, true);
