@@ -462,16 +462,30 @@ final class DefaultTranslator extends AbstractTranslator {
         }
     }
 
+    /** Translate "tuple \in expr", where expr is an ExprUnary formula. */
     @Override
     public Term translate(ConstList<Var> tuple, ExprUnary expr, TranslationContext context) {
         switch (expr.op) {
             case NOOP:
                 // no-op: ignore it
                 return recursivelyTranslate(ExprElementOf.make(tuple, expr.deNOP()), context);
+            case TRANSPOSE:
+                return translateTranspose(tuple, expr.sub, context);
             default:
                 // others are either not supported or not terms
                 throw new ErrorFatal("Unsupported ExprUnary term: " + expr.op);
         }
+    }
+
+    /** Translate "tuple \in ~sub". */
+    private Term translateTranspose(ConstList<Var> tuple, Expr sub, TranslationContext context) {
+        if (tuple.size() != 2) {
+            throw new ErrorSyntax("Transpose argument must have arity 2");
+        }
+
+        // swap the variables in the tuple - see KT figure 4.11
+        ConstList<Var> swapped = ConstList.make(Arrays.asList(tuple.get(1), tuple.get(0)));
+        return recursivelyTranslate(ExprElementOf.make(swapped, sub), context);
     }
 
     /** Translate an ExprList formula. */

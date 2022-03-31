@@ -1026,6 +1026,23 @@ public class TestDefaultTranslator {
     }
 
     @Test
+    public void testTranslate_transpose() {
+        // test [[(x1, x2) \in ~e]] := [[(x2, x1) \in e]]
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e = makeTestVarWithType("e", Type.make(sig).product(Type.make(sig)));
+        Var x1 = Term.mkVar("x1"), x2 = Term.mkVar("x2");
+
+        Var flagSwapped = makeFlagConstant("swapped");
+        when(mockRoot.translate(argThat(isSameAs(
+                ExprElementOf.make(ConstList.make(Arrays.asList(x2, x1)), e))), any()))
+                .thenReturn(flagSwapped);
+
+        Term result = translator.translate(
+                ExprElementOf.make(ConstList.make(Arrays.asList(x1, x2)), e.transpose()), context);
+        assertEquals(flagSwapped, result);
+    }
+
+    @Test
     public void testTranslate_all_oneVar() {
         // test [[all x: e | f]] := forall x: univ . [[x \in e]] => [[f]]
         Sig.PrimSig sig = new Sig.PrimSig("S");
