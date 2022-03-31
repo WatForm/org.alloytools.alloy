@@ -838,6 +838,92 @@ public class TestDefaultTranslator {
     }
 
     @Test
+    public void testTranslate_override_arity1() {
+        // Override special case: test [[x \in e1 ++ e2]] := [[x \in e1 + e2]]
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e1 = makeTestVarWithType("e1", Type.make(sig));
+        ExprVar e2 = makeTestVarWithType("e2", Type.make(sig));
+        Var x = Term.mkVar("x");
+
+        // mock out [[x \in e1 + e2]]
+        Var flagUnion = makeFlagConstant("inUnion");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(x, e1.plus(e2)))), any()))
+                .thenReturn(flagUnion);
+
+        Term result = translator.translate(ExprElementOf.make(x, e1.override(e2)), context);
+        assertThat(result, is(flagUnion));
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_override_arity2() {
+        // test [[(x1, x2) \in e1 ++ e2]] := [[(x1, x2) \in e2]]
+        // || ([[(x1, x2) \in e1]] && !exists y. [[(x1, y) \in e2]])
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e1 = makeTestVarWithType("e1", Type.make(sig).product(Type.make(sig)));
+        ExprVar e2 = makeTestVarWithType("e2", Type.make(sig).product(Type.make(sig)));
+        // note: use y0 to match the generated variable name for more robust testing
+        Var x1 = Term.mkVar("x1"), x2 = Term.mkVar("x2"), y = Term.mkVar("y0");
+
+        // mock out all the element-of checks
+        Var flagBothInE1 = makeFlagConstant("bothInE1");
+        Var flagBothInE2 = makeFlagConstant("bothInE2");
+        Var flagX1InE2 = makeFlagConstant("x1InE2");
+        when(mockRoot.translate(argThat(isSameAs(
+                ExprElementOf.make(ConstList.make(Arrays.asList(x1, x2)), e1))), any()))
+                .thenReturn(flagBothInE1);
+        when(mockRoot.translate(argThat(isSameAs(
+                ExprElementOf.make(ConstList.make(Arrays.asList(x1, x2)), e2))), any()))
+                .thenReturn(flagBothInE2);
+        when(mockRoot.translate(argThat(isSameAs(
+                ExprElementOf.make(ConstList.make(Arrays.asList(x1, y)), e2))), any()))
+                .thenReturn(flagX1InE2);
+
+        Term result = translator.translate(
+                ExprElementOf.make(ConstList.make(Arrays.asList(x1, x2)), e1.override(e2)), context);
+        Term expected = Term.mkOr(flagBothInE2, Term.mkAnd(
+                flagBothInE1, Term.mkNot(Term.mkExists(y.of(context.univSort), flagX1InE2))));
+        assertEquals(expected, result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_override_arity3() {
+        // test [[(x1, x2, x3) \in e1 ++ e2]] := [[(x1, x2, x3) \in e2]]
+        // || ([[(x1, x2, x3) \in e1]] && !exists y1, y2. [[(x1, y1, y2) \in e2]])
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e1 = makeTestVarWithType("e1", Type.make(sig).product(Type.make(sig))
+                .product(Type.make(sig)));
+        ExprVar e2 = makeTestVarWithType("e2", Type.make(sig).product(Type.make(sig))
+                .product(Type.make(sig)));
+        Var x1 = Term.mkVar("x1"), x2 = Term.mkVar("x2"), x3 = Term.mkVar("x3");
+        // match the generated variable names
+        Var y1 = Term.mkVar("y0"), y2 = Term.mkVar("y1");
+
+        // mock out all the element-of checks
+        Var flagAllInE1 = makeFlagConstant("allInE1");
+        Var flagAllInE2 = makeFlagConstant("allInE2");
+        Var flagX1InE2 = makeFlagConstant("x1InE2");
+        when(mockRoot.translate(argThat(isSameAs(
+                ExprElementOf.make(ConstList.make(Arrays.asList(x1, x2, x3)), e1))), any()))
+                .thenReturn(flagAllInE1);
+        when(mockRoot.translate(argThat(isSameAs(
+                ExprElementOf.make(ConstList.make(Arrays.asList(x1, x2, x3)), e2))), any()))
+                .thenReturn(flagAllInE2);
+        when(mockRoot.translate(argThat(isSameAs(
+                ExprElementOf.make(ConstList.make(Arrays.asList(x1, y1, y2)), e2))), any()))
+                .thenReturn(flagX1InE2);
+
+        Term result = translator.translate(
+                ExprElementOf.make(ConstList.make(Arrays.asList(x1, x2, x3)), e1.override(e2)), context);
+        Term expected = Term.mkOr(flagAllInE2, Term.mkAnd(
+                flagAllInE1, Term.mkNot(Term.mkExists(
+                        Arrays.asList(y1.of(context.univSort), y2.of(context.univSort)), flagX1InE2))));
+        assertEquals(expected, result);
+        assertContextEmpty();
+    }
+
+    @Test
     public void testTranslate_in_arity1() {
         // test [[e1 \in e2]] := forall x: univ . [[x \in e1]] => [[x \in e2]] for arity 1
         Sig.PrimSig sig = new Sig.PrimSig("S");

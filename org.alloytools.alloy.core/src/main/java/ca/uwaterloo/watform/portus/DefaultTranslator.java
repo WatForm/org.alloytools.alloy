@@ -224,20 +224,12 @@ final class DefaultTranslator extends AbstractTranslator {
     @Override
     public Term translate(ConstList<Var> tuple, ExprBinary expr, TranslationContext context) {
         switch (expr.op) {
-            // see KT figure 4.10
-            case PLUS: // union
-                return Term.mkOr(
-                        recursivelyTranslate(ExprElementOf.make(tuple, expr.left), context),
-                        recursivelyTranslate(ExprElementOf.make(tuple, expr.right), context));
+            case PLUS:
+                return translateUnion(tuple, expr.left, expr.right, context);
             case INTERSECT:
-                return Term.mkAnd(
-                        recursivelyTranslate(ExprElementOf.make(tuple, expr.left), context),
-                        recursivelyTranslate(ExprElementOf.make(tuple, expr.right), context));
-            case MINUS: // set difference
-                return Term.mkAnd(
-                        recursivelyTranslate(ExprElementOf.make(tuple, expr.left), context),
-                        Term.mkNot(
-                                recursivelyTranslate(ExprElementOf.make(tuple, expr.right), context)));
+                return translateIntersection(tuple, expr.left, expr.right, context);
+            case MINUS:
+                return translateSetDifference(tuple, expr.left, expr.right, context);
             case JOIN:
                 return translateJoin(tuple, expr.left, expr.right, context);
             case ARROW:
@@ -246,10 +238,37 @@ final class DefaultTranslator extends AbstractTranslator {
                 return translateDomainRestriction(tuple, expr.left, expr.right, context);
             case RANGE:
                 return translateRangeRestriction(tuple, expr.left, expr.right, context);
+            case PLUSPLUS:
+                return translateOverride(tuple, expr.left, expr.right, context);
             default:
                 // others are either not supported or not terms
                 throw new ErrorFatal("Unsupported ExprBinary term: " + expr.op);
         }
+    }
+
+    /** Translate "tuple \in left + right". */
+    private Term translateUnion(ConstList<Var> tuple, Expr left, Expr right, TranslationContext context) {
+        // see KT figure 4.10
+        return Term.mkOr(
+                recursivelyTranslate(ExprElementOf.make(tuple, left), context),
+                recursivelyTranslate(ExprElementOf.make(tuple, right), context));
+    }
+
+    /** Translate "tuple \in left & right". */
+    private Term translateIntersection(
+            ConstList<Var> tuple, Expr left, Expr right, TranslationContext context) {
+        // see KT figure 4.10
+        return Term.mkAnd(
+                recursivelyTranslate(ExprElementOf.make(tuple, left), context),
+                recursivelyTranslate(ExprElementOf.make(tuple, right), context));
+    }
+
+    private Term translateSetDifference(
+            ConstList<Var> tuple, Expr left, Expr right, TranslationContext context) {
+        // see KT figure 4.10
+        return Term.mkAnd(
+                recursivelyTranslate(ExprElementOf.make(tuple, left), context),
+                Term.mkNot(recursivelyTranslate(ExprElementOf.make(tuple, right), context)));
     }
 
     /** Translate "tuple \in left . right". */
@@ -318,6 +337,46 @@ final class DefaultTranslator extends AbstractTranslator {
         return Term.mkAnd(
                 recursivelyTranslate(ExprElementOf.make(tuple, expr), context),
                 recursivelyTranslate(ExprElementOf.make(lastVar, range), context));
+    }
+
+    /** Translate the formula "tuple \in base ++ override". */
+    private Term translateOverride(
+            ConstList<Var> tuple, Expr base, Expr override, TranslationContext context) {
+        // KT figure 4.11: [[(x1,...,xn) \in base ++ override]] := [[(x1,...,xn) \in override]]
+        // || ([[(x1,...,xn \in base]] && !(exists y2,...,yn . [[(x1,y2,...,yn) \in override]]))
+        // where arity(base) = arity(override) = n
+        int arity = base.type().arity();
+        if (override.type().arity() != arity) {
+            throw new ErrorFatal("The arities of the sides of '++' must match.");
+        }
+
+        // Special case: arity = 1, avoid having zero elements for y2,...,yn.
+        // Translate [[x \in base ++ override]] := [[x \in base + override]] to take advantage
+        // of any optimizations for union.
+        if (arity == 1) {
+            return recursivelyTranslate(ExprElementOf.make(tuple, base.plus(override)), context);
+        }
+
+        // translate [[(x1,...,xn) \in base]] and [[(x1,...,xn) \in override]]
+        Term inBase = recursivelyTranslate(ExprElementOf.make(tuple, base), context);
+        Term inOverride = recursivelyTranslate(ExprElementOf.make(tuple, override), context);
+
+        // build up the vars x1,y2,...,yn and the annotated vars y2,...,yn
+        List<AnnotatedVar> annotatedVars = new ArrayList<>(arity - 1);
+        List<Var> overrideVars = new ArrayList<>(arity);
+        overrideVars.add(tuple.get(0));
+        for (int i = 0; i < arity - 1; i++) {
+            Var y = Term.mkVar(uniqueNameGenerator.make("y" + i));
+            overrideVars.add(y);
+            annotatedVars.add(y.of(context.univSort));
+        }
+
+        // translate [[(x1,y2,...,yn) \in override]]
+        Term firstInOverride = recursivelyTranslate(
+                ExprElementOf.make(ConstList.make(overrideVars), override), context);
+
+        return Term.mkOr(inOverride, Term.mkAnd(
+                inBase, Term.mkNot(Term.mkExists(annotatedVars, firstInOverride))));
     }
 
     /** Translate an ExprBinary formula. */
