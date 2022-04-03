@@ -804,6 +804,10 @@ public final class VizGUI implements ComponentListener {
                     myState.attribute.put(r, false);
                     myState.edgeVisible.put(r, true);
                 }
+                if (r.getName().equals("next_step")) {
+                    myState.attribute.put(r, false);
+                    myState.edgeVisible.put(r, true);
+                }
                 if (r.getName().equals("Next")) {
                     myState.attribute.put(r, false);
                     myState.edgeVisible.put(r, true);

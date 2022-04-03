@@ -83,8 +83,9 @@ public class CoreDashToAlloy {
         if (DashOptions.ctlModelChecking) {
         	createCTLFact(module);
         }
-        if (DashOptions.hasEvents && DashOptions.assumeSingleInput) 
+        if (DashOptions.hasEvents && DashOptions.assumeSingleInput) {
         	createSingleStepFact(module);
+        }
         
         createInvariantFact(module);
       
@@ -140,8 +141,8 @@ public class CoreDashToAlloy {
         }
         
         if ((!DashOptions.ctlModelChecking && !DashOptions.generateTraces) && DashOptions.generateSigAxioms) {
-            b = ExprBinary.Op.ARROW.make(null, null, ExprVar.make(null, "Snapshot"), ExprVar.make(null, "Snapshot"));
-            a.add(ExprVar.make(null, "next"));
+            b = ExprVar.make(null, "Snapshot");
+            a.add(ExprVar.make(null, "next_step"));
             decls.add(new Decl(null, null, null, null, a, mult(b))); //next_step: Snapshot -> Snapshot
             a.clear();
         }
@@ -902,11 +903,11 @@ public class CoreDashToAlloy {
          */
         a.add((ExprVar) s);
         a.add((ExprVar) sPrime);
-        decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s, s_next: Snapshot
+        decls.add(new Decl(null, new Pos("isDisjoint", 0, 0), null, null, a, mult(snapshot))); //s, s_next: Snapshot
         Expr sArrowSPrime = ExprBinary.Op.ARROW.make(null, null, s, sPrime);
         Expr smallStepCall = ExprBadJoin.make(null, null, s, ExprVar.make(null, "small_step"));//s_next.small_step
         smallStepCall = ExprBadJoin.make(null, null, sPrime, smallStepCall); //s.s_next.small_step
-        Expr rightQT = ExprBinary.Op.IFF.make(null, null, ExprBinary.Op.IN.make(null, null, sArrowSPrime, ExprBinary.Op.JOIN.make(null, null, ExprVar.make(null, "Snapshot"), ExprVar.make(null, "next"))), smallStepCall);
+        Expr rightQT = ExprBinary.Op.IFF.make(null, null, ExprBinary.Op.IN.make(null, null, sArrowSPrime, ExprVar.make(null, "next_step")), smallStepCall);
         Expr expr = ExprQt.Op.ALL.make(null, null, new ArrayList<Decl>(decls), rightQT); //all s, s_next: Snapshot | s->s_next in Snapshot.nextStep iff small_step[s, s_next]
 
         expr = ExprUnary.Op.NOOP.make(null, expr);
@@ -1727,7 +1728,7 @@ public class CoreDashToAlloy {
         else {
         	ExprVar sInit = ExprVar.make(null, "s_init");
         	Expr initSInit = ExprBadJoin.make(null, null, sInit, ExprVar.make(null, "init")); //s_init.init or init[s_init]
-        	next = ExprBinary.Op.JOIN.make(null, null, snapshot, ExprVar.make(null, "next")); //Snapshot.next
+        	next = ExprVar.make(null, "next_step"); //Snapshot.next
         	Expr reflexiveClosure = ExprUnary.Op.RCLOSURE.make(null, next); // * (Snapshot.next)
         	Expr domain = ExprBinary.Op.DOMAIN.make(null, null, sInit, reflexiveClosure); // (s_init <: * (next))
         	Expr joinDomain = ExprBadJoin.make(null, null, snapshot, domain); // Snapshot.(s_init <: * (next))

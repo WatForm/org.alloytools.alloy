@@ -415,6 +415,9 @@ public class DashModuleToString {
 		for (Decl decl : decls) {
 			StringJoiner namesJoiner = new StringJoiner(",");
 			decl.names.forEach(name -> namesJoiner.add(cleanLabel(name.label)));
+			if (decl.disjoint != null) {
+				out.print("disj").print(" ");
+			}
 			if (!first) {
 				out.print(",").brk();
 			}
