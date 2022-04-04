@@ -40,7 +40,7 @@ public class CorrectnessTesting {
         File dirFile = new File("");
         File parentPath = dirFile.getAbsoluteFile().getParentFile();
 
-        String dirName = parentPath.getAbsolutePath() + "\\RegressionTesting";
+        String dirName = parentPath.getAbsolutePath() + "\\dash-testing\\RegressionTesting";
         List<File> listOfFiles = getDashModels(dirName);
         DashOptions.generateSigAxioms = false;
 
