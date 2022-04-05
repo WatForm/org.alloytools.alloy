@@ -1,3 +1,6 @@
+src/main/java/ca/uwaterloo/watform/parser/DashLexer.java
+src/main/java/ca/uwaterloo/watform/parser/DashParser.java
+src/main/java/ca/uwaterloo/watform/parser/DashSym.java
 .DS_Store
 .gradle/
 generated/
