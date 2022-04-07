@@ -90,6 +90,11 @@ abstract class AbstractTranslator implements Translator {
         return null;
     }
 
+    /** Translate an ExprConstant Alloy formula. */
+    public Term translate(ExprConstant expr, TranslationContext context) {
+        return null;
+    }
+
     /** Translate "tuple \in expr", where expr is an ExprConstant. */
     public Term translate(ConstList<Var> tuple, ExprConstant expr, TranslationContext context) {
         return null;
@@ -242,8 +247,7 @@ abstract class AbstractTranslator implements Translator {
 
         @Override
         public Term visit(ExprConstant expr) throws Err {
-            // not a formula: must wrap it to pass down contextual info
-            throw new ErrorFatal("ExprConstant must be wrapped with ExprElementOf");
+            return translate(expr, context);
         }
 
         @Override

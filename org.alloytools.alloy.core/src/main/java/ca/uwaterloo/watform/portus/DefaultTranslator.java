@@ -456,10 +456,26 @@ final class DefaultTranslator extends AbstractTranslator {
             case NOOP:
                 // no-op: ignore it
                 return recursivelyTranslate(expr.deNOP(), context);
+            case NO:
+                return translateQuantifiedExpr(ExprQt.Op.NO, expr.sub, context);
+            case LONE:
+                return translateQuantifiedExpr(ExprQt.Op.LONE, expr.sub, context);
+            case ONE:
+                return translateQuantifiedExpr(ExprQt.Op.ONE, expr.sub, context);
+            case SOME:
+                return translateQuantifiedExpr(ExprQt.Op.SOME, expr.sub, context);
             default:
                 // others are either not supported or not formulas
                 throw new ErrorFatal("Unsupported ExprUnary formula: " + expr.op);
         }
+    }
+
+    /** Translate "Q e", where Q is one of {one, lone, some, no} and e is an expression. */
+    private Term translateQuantifiedExpr(ExprQt.Op quantifier, Expr expr, TranslationContext context) {
+        // "Q e" is equivalent to "Q x: e | true", so translate as such for simplicity
+        Decl x = expr.oneOf("x");
+        Expr formula = quantifier.make(null, null, Collections.singletonList(x), ExprConstant.TRUE);
+        return recursivelyTranslate(formula, context);
     }
 
     /** Translate "tuple \in expr", where expr is an ExprUnary formula. */
@@ -588,22 +604,36 @@ final class DefaultTranslator extends AbstractTranslator {
         return Term.mkEq(var, checkAndMapVarName(expr.label, context));
     }
 
+    /** Translate an ExprConstant formula. */
+    @Override
+    public Term translate(ExprConstant expr, TranslationContext context) {
+        // The only ExprConstant formulas are TRUE and FALSE - we generate them in recursive translations.
+        switch (expr.op) {
+            case TRUE:
+                return Term.mkTop();
+            case FALSE:
+                return Term.mkBottom();
+            default:
+                throw new ErrorFatal("Unsupported ExprConstant formula: " + expr);
+        }
+    }
+
     /** Translate "tuple \in expr", where expr is an ExprConstant. */
     @Override
     public Term translate(ConstList<Var> tuple, ExprConstant expr, TranslationContext context) {
         switch (expr.op) {
             case IDEN:
-                return translateIden(tuple, context);
+                return translateIden(tuple);
             case EMPTYNESS:
                 // "tuple \in none" is always false
                 return Term.mkBottom();
             default:
-                throw new ErrorFatal("Unsupported ExprConstant: " + expr);
+                throw new ErrorFatal("Unsupported ExprConstant expression: " + expr);
         }
     }
 
     /** Translate "tuple \in iden". */
-    private Term translateIden(ConstList<Var> tuple, TranslationContext context) {
+    private Term translateIden(ConstList<Var> tuple) {
         // KT figure 4.12: [[(x1, x2) \in iden]] := x1 = x2
         // note that this works even for incompatible top-level sigs since we use a universal sort
         if (tuple.size() != 2) {

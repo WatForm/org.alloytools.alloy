@@ -81,8 +81,14 @@ public class TestDefaultTranslator {
     // This should go before other when() calls so it can be overriden for specific arguments.
     // Also, you must use doReturn(...).when(...) for overrides: https://stackoverflow.com/a/34172381.
     private void delegateToRealTranslator() {
+        delegateToTranslator(translator);
+    }
+
+    // Delegate to the given translator for any translation.
+    // Again, you must use doReturn(...).when(...) for overrides.
+    private void delegateToTranslator(Translator delegate) {
         when(mockRoot.translate(any(), any())).then(
-                ctx -> translator.translate(ctx.getArgument(0), ctx.getArgument(1)));
+                ctx -> delegate.translate(ctx.getArgument(0), ctx.getArgument(1)));
     }
 
     // Assert that a function declaration is a membership predicate for the given sort.
@@ -1270,6 +1276,102 @@ public class TestDefaultTranslator {
     }
 
     @Test
+    public void testTranslate_someExpr() {
+        // test [[some e]] := [[some x: e | true]]
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e = makeTestVarWithType("e", Type.make(sig));
+
+        // use a custom delegate translator to make sure it's correctly translated
+        Var flag = makeFlagConstant("translated");
+        delegateToTranslator((expr, context) -> {
+            // check that it's "some x: e | true" for some variable x
+            if (!(expr instanceof ExprQt)) return null;
+            ExprQt qt = (ExprQt) expr;
+            boolean correct = qt.op == ExprQt.Op.SOME
+                    && qt.decls.size() == 1
+                    && qt.decls.get(0).expr.isSame(e.oneOf())
+                    && qt.sub == ExprConstant.TRUE;
+            return correct ? flag : null;
+        });
+
+        Term result = translator.translate(e.some(), context);
+        assertEquals(flag, result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_noExpr() {
+        // test [[no e]] := [[no x: e | true]]
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e = makeTestVarWithType("e", Type.make(sig));
+
+        // use a custom delegate translator to make sure it's correctly translated
+        Var flag = makeFlagConstant("translated");
+        delegateToTranslator((expr, context) -> {
+            // check that it's "no x: e | true" for some variable x
+            if (!(expr instanceof ExprQt)) return null;
+            ExprQt qt = (ExprQt) expr;
+            boolean correct = qt.op == ExprQt.Op.NO
+                    && qt.decls.size() == 1
+                    && qt.decls.get(0).expr.isSame(e.oneOf())
+                    && qt.sub == ExprConstant.TRUE;
+            return correct ? flag : null;
+        });
+
+        Term result = translator.translate(e.no(), context);
+        assertEquals(flag, result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_loneExpr() {
+        // test [[lone e]] := [[lone x: e | true]]
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e = makeTestVarWithType("e", Type.make(sig));
+
+        // use a custom delegate translator to make sure it's correctly translated
+        Var flag = makeFlagConstant("translated");
+        delegateToTranslator((expr, context) -> {
+            // check that it's "lone x: e | true" for some variable x
+            if (!(expr instanceof ExprQt)) return null;
+            ExprQt qt = (ExprQt) expr;
+            boolean correct = qt.op == ExprQt.Op.LONE
+                    && qt.decls.size() == 1
+                    && qt.decls.get(0).expr.isSame(e.oneOf())
+                    && qt.sub == ExprConstant.TRUE;
+            return correct ? flag : null;
+        });
+
+        Term result = translator.translate(e.lone(), context);
+        assertEquals(flag, result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_oneExpr() {
+        // test [[one e]] := [[one x: e | true]]
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e = makeTestVarWithType("e", Type.make(sig));
+
+        // use a custom delegate translator to make sure it's correctly translated
+        Var flag = makeFlagConstant("translated");
+        delegateToTranslator((expr, context) -> {
+            // check that it's "one x: e | true" for some variable x
+            if (!(expr instanceof ExprQt)) return null;
+            ExprQt qt = (ExprQt) expr;
+            boolean correct = qt.op == ExprQt.Op.ONE
+                    && qt.decls.size() == 1
+                    && qt.decls.get(0).expr.isSame(e.oneOf())
+                    && qt.sub == ExprConstant.TRUE;
+            return correct ? flag : null;
+        });
+
+        Term result = translator.translate(e.one(), context);
+        assertEquals(flag, result);
+        assertContextEmpty();
+    }
+
+    @Test
     public void testTranslate_variable() {
         // test [[x \in v]] := x = v for an Alloy variable v
         // explicitly set the variable mapping in the context
@@ -1304,9 +1406,25 @@ public class TestDefaultTranslator {
 
     @Test
     public void testTranslate_emptyness() {
-        // test [[x \in none] := false
+        // test [[x \in none]] := false
         Var x = Term.mkVar("x");
         Term result = translator.translate(ExprElementOf.make(x, ExprConstant.EMPTYNESS), context);
+        assertEquals(Term.mkBottom(), result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_true() {
+        // test [[true]] := Top
+        Term result = translator.translate(ExprConstant.TRUE, context);
+        assertEquals(Term.mkTop(), result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_false() {
+        // test [[false]] := Bottom
+        Term result = translator.translate(ExprConstant.FALSE, context);
         assertEquals(Term.mkBottom(), result);
         assertContextEmpty();
     }
