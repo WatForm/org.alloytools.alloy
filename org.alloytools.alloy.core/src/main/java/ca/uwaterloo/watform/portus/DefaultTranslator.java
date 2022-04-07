@@ -514,10 +514,11 @@ final class DefaultTranslator extends AbstractTranslator {
 
         switch (expr.op) {
             // see KT figure 4.6, extended to any number of ops
+            // note that an empty AND list is always true, and an empty OR list is always false
             case AND:
-                return Term.mkAnd(translatedArgs);
+                return translatedArgs.size() == 0 ? Term.mkTop() : Term.mkAnd(translatedArgs);
             case OR:
-                return Term.mkOr(translatedArgs);
+                return translatedArgs.size() == 0 ? Term.mkBottom() : Term.mkOr(translatedArgs);
             default:
                 // we don't yet support DISJOINT or TOTALORDER
                 throw new ErrorFatal("Unsupported ExprList formula: " + expr.op);

@@ -7,6 +7,7 @@ import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprBinary;
 import edu.mit.csail.sdg.ast.ExprConstant;
+import edu.mit.csail.sdg.ast.ExprList;
 import edu.mit.csail.sdg.ast.ExprQt;
 import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.ExprVar;
@@ -22,7 +23,9 @@ import org.junit.Before;
 import org.junit.Test;
 import scala.jdk.javaapi.CollectionConverters;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -438,6 +441,27 @@ public class TestDefaultTranslator {
     }
 
     @Test
+    public void testTranslate_and_noConjuncts() {
+        // test that an empty list of 'and' conjuncts translates to Top
+        Expr emptyAnd = ExprList.make(null, null, ExprList.Op.AND, new ArrayList<>());
+        Term result = translator.translate(emptyAnd, context);
+        assertEquals(Term.mkTop(), result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_and_oneConjunct() {
+        // test that [[AND(x)]] := [[x]], where AND(x) denotes an AND ExprList
+        ExprVar x = makeTestVariable("x");
+        Var flagX = makeFlagConstant("x");
+        when(mockRoot.translate(eq(x), any())).thenReturn(flagX);
+        Expr andList = ExprList.make(null, null, ExprList.Op.AND, Collections.singletonList(x));
+        Term result = translator.translate(andList, context);
+        assertEquals(flagX, result);
+        assertContextEmpty();
+    }
+
+    @Test
     public void testTranslate_or_twoDisjuncts() {
         // test [[x1 or x2]] := [[x1]] || [[x2]]
         ExprVar x1 = makeTestVariable("x1"), x2 = makeTestVariable("x2");
@@ -461,6 +485,27 @@ public class TestDefaultTranslator {
         when(mockRoot.translate(eq(x3), any())).thenReturn(flagX3);
         Term result = translator.translate(x1.or(x2).or(x3), context);
         assertEquals(Term.mkOr(flagX1, flagX2, flagX3), result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_or_noDisjuncts() {
+        // test that an empty list of 'or' disjuncts translates to Bottom
+        Expr emptyOr = ExprList.make(null, null, ExprList.Op.OR, new ArrayList<>());
+        Term result = translator.translate(emptyOr, context);
+        assertEquals(Term.mkBottom(), result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_or_oneDisjunct() {
+        // test that [[OR(x)]] := [[x]], where OR(x) denotes an OR ExprList
+        ExprVar x = makeTestVariable("x");
+        Var flagX = makeFlagConstant("x");
+        when(mockRoot.translate(eq(x), any())).thenReturn(flagX);
+        Expr orList = ExprList.make(null, null, ExprList.Op.OR, Collections.singletonList(x));
+        Term result = translator.translate(orList, context);
+        assertEquals(flagX, result);
         assertContextEmpty();
     }
 
