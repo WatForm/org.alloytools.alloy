@@ -414,6 +414,162 @@ public class TestDefaultTranslator {
     }
 
     @Test
+    public void testTranslate_field_set() {
+        // test "sig A {f: set e}" results in a relation and an axiom [[f in A->e]]
+        Sig.PrimSig sig = new Sig.PrimSig("A");
+        Expr e = makeTestVarWithType("e", Type.make(sig)); // addField() requires it to be typechecked
+        Sig.Field f = sig.addField("f", e.setOf());
+
+        // mock out [[f in A->e]]
+        Var domainAxiom = makeFlagConstant("domainAxiom");
+        when(mockRoot.translate(argThat(isSameAs(f.in(sig.product(e)))), any()))
+                .thenReturn(domainAxiom);
+
+        Term result = translator.translate(f, context);
+        assertThat(result, is(notNullValue()));
+
+        // get the relation predicate, it should be the only function
+        assertThat(context.getTheory().functionDeclarations().size(), is(1));
+        FuncDecl relationPred = context.getTheory().functionDeclarations().head();
+        assertEquals("f", relationPred.name());
+        assertEquals(2, relationPred.arity());
+        assertEquals(Sort.Bool(), relationPred.resultSort());
+
+        // make sure the domain axiom is the only axiom
+        Set<Term> axioms = CollectionConverters.asJava(context.getTheory().axioms());
+        assertThat(axioms, containsInAnyOrder(domainAxiom));
+
+        // should have no constants
+        assertThat(context.getTheory().constants().size(), is(0));
+        assertThat(context.getTheory().enumConstants().size(), is(0));
+    }
+
+    @Test
+    public void testTranslate_field_setMultipleArrows() {
+        // test "sig A {f: set (e1->e2)}" results in a relation and an axiom [[f in A->e1->e2]]
+        Sig.PrimSig sig = new Sig.PrimSig("A");
+        Expr e1 = makeTestVarWithType("e1", Type.make(sig)); // addField() requires it to be typechecked
+        Expr e2 = makeTestVarWithType("e2", Type.make(sig)); // addField() requires it to be typechecked
+        Sig.Field f = sig.addField("f", e1.product(e2).setOf());
+
+        // mock out [[f in A->e1->e2]]
+        Var domainAxiom = makeFlagConstant("domainAxiom");
+        when(mockRoot.translate(argThat(isSameAs(f.in(sig.product(e1.product(e2))))), any()))
+                .thenReturn(domainAxiom);
+
+        Term result = translator.translate(f, context);
+        assertThat(result, is(notNullValue()));
+
+        // get the relation predicate, it should be the only function
+        assertThat(context.getTheory().functionDeclarations().size(), is(1));
+        FuncDecl relationPred = context.getTheory().functionDeclarations().head();
+        assertEquals("f", relationPred.name());
+        assertEquals(3, relationPred.arity()); // arity of A->e1->e2
+        assertEquals(Sort.Bool(), relationPred.resultSort());
+
+        // make sure the domain axiom is the only axiom
+        Set<Term> axioms = CollectionConverters.asJava(context.getTheory().axioms());
+        assertThat(axioms, containsInAnyOrder(domainAxiom));
+
+        // should have no constants
+        assertThat(context.getTheory().constants().size(), is(0));
+        assertThat(context.getTheory().enumConstants().size(), is(0));
+    }
+
+    @Test
+    public void testTranslate_field_one() {
+        // test "sig A {f: one e}" results in a relation and an axiom [[f in A->one e]]
+        Sig.PrimSig sig = new Sig.PrimSig("A");
+        Expr e = makeTestVarWithType("e", Type.make(sig)); // addField() requires it to be typechecked
+        Sig.Field f = sig.addField("f", e.oneOf());
+
+        // mock out [[f in A->one e]]
+        Var domainAxiom = makeFlagConstant("domainAxiom");
+        when(mockRoot.translate(argThat(isSameAs(f.in(sig.any_arrow_one(e)))), any()))
+                .thenReturn(domainAxiom);
+
+        Term result = translator.translate(f, context);
+        assertThat(result, is(notNullValue()));
+
+        // get the relation predicate, it should be the only function
+        assertThat(context.getTheory().functionDeclarations().size(), is(1));
+        FuncDecl relationPred = context.getTheory().functionDeclarations().head();
+        assertEquals("f", relationPred.name());
+        assertEquals(2, relationPred.arity());
+        assertEquals(Sort.Bool(), relationPred.resultSort());
+
+        // make sure the domain axiom is the only axiom
+        Set<Term> axioms = CollectionConverters.asJava(context.getTheory().axioms());
+        assertThat(axioms, containsInAnyOrder(domainAxiom));
+
+        // should have no constants
+        assertThat(context.getTheory().constants().size(), is(0));
+        assertThat(context.getTheory().enumConstants().size(), is(0));
+    }
+
+    @Test
+    public void testTranslate_field_lone() {
+        // test "sig A {f: lone e}" results in a relation and an axiom [[f in A->lone e]]
+        Sig.PrimSig sig = new Sig.PrimSig("A");
+        Expr e = makeTestVarWithType("e", Type.make(sig)); // addField() requires it to be typechecked
+        Sig.Field f = sig.addField("f", e.loneOf());
+
+        // mock out [[f in A->lone e]]
+        Var domainAxiom = makeFlagConstant("domainAxiom");
+        when(mockRoot.translate(argThat(isSameAs(f.in(sig.any_arrow_lone(e)))), any()))
+                .thenReturn(domainAxiom);
+
+        Term result = translator.translate(f, context);
+        assertThat(result, is(notNullValue()));
+
+        // get the relation predicate, it should be the only function
+        assertThat(context.getTheory().functionDeclarations().size(), is(1));
+        FuncDecl relationPred = context.getTheory().functionDeclarations().head();
+        assertEquals("f", relationPred.name());
+        assertEquals(2, relationPred.arity());
+        assertEquals(Sort.Bool(), relationPred.resultSort());
+
+        // make sure the domain axiom is the only axiom
+        Set<Term> axioms = CollectionConverters.asJava(context.getTheory().axioms());
+        assertThat(axioms, containsInAnyOrder(domainAxiom));
+
+        // should have no constants
+        assertThat(context.getTheory().constants().size(), is(0));
+        assertThat(context.getTheory().enumConstants().size(), is(0));
+    }
+
+    @Test
+    public void testTranslate_field_some() {
+        // test "sig A {f: some e}" results in a relation and an axiom [[f in A->some e]]
+        Sig.PrimSig sig = new Sig.PrimSig("A");
+        Expr e = makeTestVarWithType("e", Type.make(sig)); // addField() requires it to be typechecked
+        Sig.Field f = sig.addField("f", e.someOf());
+
+        // mock out [[f in A->some e]]
+        Var domainAxiom = makeFlagConstant("domainAxiom");
+        when(mockRoot.translate(argThat(isSameAs(f.in(sig.any_arrow_some(e)))), any()))
+                .thenReturn(domainAxiom);
+
+        Term result = translator.translate(f, context);
+        assertThat(result, is(notNullValue()));
+
+        // get the relation predicate, it should be the only function
+        assertThat(context.getTheory().functionDeclarations().size(), is(1));
+        FuncDecl relationPred = context.getTheory().functionDeclarations().head();
+        assertEquals("f", relationPred.name());
+        assertEquals(2, relationPred.arity());
+        assertEquals(Sort.Bool(), relationPred.resultSort());
+
+        // make sure the domain axiom is the only axiom
+        Set<Term> axioms = CollectionConverters.asJava(context.getTheory().axioms());
+        assertThat(axioms, containsInAnyOrder(domainAxiom));
+
+        // should have no constants
+        assertThat(context.getTheory().constants().size(), is(0));
+        assertThat(context.getTheory().enumConstants().size(), is(0));
+    }
+
+    @Test
     public void testTranslate_and_twoConjuncts() {
         // test [[x1 and x2]] := [[x1]] && [[x2]]
         ExprVar x1 = makeTestVariable("x1"), x2 = makeTestVariable("x2");

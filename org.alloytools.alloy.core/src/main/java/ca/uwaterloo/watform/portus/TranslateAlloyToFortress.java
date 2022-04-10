@@ -3,6 +3,8 @@ package ca.uwaterloo.watform.portus;
 import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.ast.Command;
+import edu.mit.csail.sdg.ast.Decl;
+import edu.mit.csail.sdg.ast.ExprHasName;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.A4Options;
 import edu.mit.csail.sdg.translator.A4Solution;
@@ -41,8 +43,10 @@ public final class TranslateAlloyToFortress implements CommandRunner {
         Translator translator = new TranslatorManager(options);
         TranslationContext context = new TranslationContext(reporter, scoper);
 
-        // Do sigs first, then the formula.
+        // Do sigs first, then fields, then the formula.
+        // We have to do fields after sigs because a field can refer to sigs that come after it.
         translateSigs(sigs, translator, context);
+        translateFields(sigs, translator, context);
         // TODO: append all the facts and field facts to the formula (copy/abstract makeFacts)
         context.addAxiom(translator.translate(command.formula, context));
 
@@ -99,6 +103,20 @@ public final class TranslateAlloyToFortress implements CommandRunner {
         if (sigNamesSeen.size() != numSigs) {
             // If there's anything left, there's a cycle somewhere. Should be caught by parser.
             throw new ErrorFatal("Cyclic inheritance in subset sigs!");
+        }
+    }
+
+    private void translateFields(Iterable<Sig> sigs, Translator translator, TranslationContext context) {
+        // Translate every field from each sig.
+        for (Sig sig : sigs) {
+            for (Decl fieldDecl : sig.getFieldDecls()) {
+                for (ExprHasName name : fieldDecl.names) {
+                    // We pass the Field rather than the Decl because Decls appear in other locations too
+                    // (such as in quantifier formulas).
+                    Sig.Field field = (Sig.Field) name;
+                    translator.translate(field, context);
+                }
+            }
         }
     }
 

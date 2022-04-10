@@ -18,7 +18,6 @@ import fortress.msfol.AnnotatedVar;
 import fortress.msfol.FuncDecl;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
-import fortress.msfol.Top$;
 import fortress.msfol.Var;
 
 import java.util.ArrayList;
@@ -37,7 +36,13 @@ import java.util.stream.IntStream;
 final class DefaultTranslator extends AbstractTranslator {
 
     // Membership predicates for each signature (see KT 4.2).
+    // Represent it by a Java function taking "x" to "inA(x)".
     private final Map<Sig, Function<Var, Term>> sigMemberPredicates = new HashMap<>();
+
+    // Relation predicates for each field (see KT 4.2).
+    // Note: no function optimization yet/in this class.
+    // Represent relations by a Java function taking "x1,...,xn" to "f(x1,...,xn)".
+    private final Map<Sig.Field, Function<List<Var>, Term>> relationPredicates = new HashMap<>();
 
     public DefaultTranslator(Translator topLevelTranslator) {
         super(topLevelTranslator);
@@ -92,8 +97,7 @@ final class DefaultTranslator extends AbstractTranslator {
         }
 
         // return Top because the returned Term doesn't matter for a Sig
-        // this unfortunate syntax is the only way to access a Scala case object in Java
-        return Top$.MODULE$;
+        return Term.mkTop();
     }
 
     /** Create an axiom that child is a subset of parent. */
@@ -218,6 +222,69 @@ final class DefaultTranslator extends AbstractTranslator {
             throw new ErrorSyntax("Unknown sig " + sig);
         }
         return sigMemberPredicates.get(sig).apply(var);
+    }
+
+    /** Translate a field declaration inside a sig. */
+    @Override
+    public Term translate(Sig.Field field, TranslationContext context) {
+        // Make a new predicate for the field relation (no function optimization yet).
+        String relName = uniqueNameGenerator.make(field.label);
+        relationPredicates.put(field, vars -> {
+            if (vars.size() != field.type().arity()) {
+                throw new ErrorFatal("Internal error: bad field relation predicate arity.");
+            }
+            return Term.mkApp(relName, vars);
+        });
+
+        // the predicate signature is (univ)^n -> Bool, where n is the field arity
+        context.addFunctionDeclaration(FuncDecl.mkFuncDecl(relName,
+                Collections.nCopies(field.type().arity(), context.univSort), Sort.Bool()));
+
+        // constrain the domain of the field: see KT 4.2 (page 29)
+        context.addAxiom(makeFieldDomainConstraint(field, context));
+
+        // just return Top because the returned term doesn't matter for a field declaration
+        return Term.mkTop();
+    }
+
+    /** Create an axiom asserting that the field's relation stays within its domain. */
+    private Term makeFieldDomainConstraint(Sig.Field field, TranslationContext context) {
+        // See KT 4.2 (page 29).
+        // for "sig A {f: e}", translate to [[f in A->e]] (roughly)
+        Expr domainExpr = getFieldDomainExpr(field);
+        return recursivelyTranslate(field.in(domainExpr), context);
+    }
+
+    /** Get the expression bounding the field's domain: e.g. for "sig A {f: B}", return A->one B. */
+    private Expr getFieldDomainExpr(Sig.Field field) {
+        // Choose the appropriate arrow according to the field expr's multiplicity.
+        Expr declared = field.decl().expr.deNOP(); // what it's declared as: e.g. in "f: B", this is B
+        ExprUnary.Op mult = declared.mult();
+        if (declared.mult == 1) { // 1 means it's a multiplicity contraint like "ONEOF", "SOMEOF"
+            // Strip the multiplicity constraint
+            declared = ((ExprUnary) declared).sub;
+        }
+        switch (mult) {
+            case ONEOF:
+                return field.sig.any_arrow_one(declared);
+            case LONEOF:
+                return field.sig.any_arrow_lone(declared);
+            case SOMEOF:
+                return field.sig.any_arrow_some(declared);
+            // TODO: we don't support EXACTLYOF, is it needed?
+            case SETOF:
+            default:
+                return field.sig.product(declared);
+        }
+    }
+
+    @Override
+    public Term translate(ConstList<Var> tuple, Sig.Field field, TranslationContext context) {
+        // if we recognize the field, use its relation
+        if (!relationPredicates.containsKey(field)) {
+            throw new ErrorFatal("Unknown field: " + field);
+        }
+        return relationPredicates.get(field).apply(tuple);
     }
 
     /** Translate "tuple \in expr", where expr is an ExprBinary term. */
