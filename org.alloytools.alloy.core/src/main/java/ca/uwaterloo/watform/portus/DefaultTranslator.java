@@ -10,6 +10,7 @@ import edu.mit.csail.sdg.ast.ExprBinary;
 import edu.mit.csail.sdg.ast.ExprCall;
 import edu.mit.csail.sdg.ast.ExprConstant;
 import edu.mit.csail.sdg.ast.ExprHasName;
+import edu.mit.csail.sdg.ast.ExprLet;
 import edu.mit.csail.sdg.ast.ExprList;
 import edu.mit.csail.sdg.ast.ExprQt;
 import edu.mit.csail.sdg.ast.ExprUnary;
@@ -664,6 +665,16 @@ final class DefaultTranslator extends AbstractTranslator {
                 // unsupported or not formula - NO is handled above
                 throw new ErrorFatal("Unsupported ExprQt formula: " + expr.op);
         }
+    }
+
+    /** Translate an ExprLet formula. */
+    @Override
+    public Term translate(ExprLet let, TranslationContext context) {
+        // Bind the variable in the context, translate the subformula, and remove the variable.
+        context.addLetMapping(let.var.label, let.expr);
+        Term result = recursivelyTranslate(let.sub, context);
+        context.removeMapping(let.var.label);
+        return result;
     }
 
     /** Translate "tuple \in expr", where expr is an ExprVar. */

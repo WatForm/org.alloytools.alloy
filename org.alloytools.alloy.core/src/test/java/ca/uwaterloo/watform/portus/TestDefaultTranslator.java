@@ -7,6 +7,7 @@ import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprBinary;
 import edu.mit.csail.sdg.ast.ExprConstant;
+import edu.mit.csail.sdg.ast.ExprLet;
 import edu.mit.csail.sdg.ast.ExprList;
 import edu.mit.csail.sdg.ast.ExprQt;
 import edu.mit.csail.sdg.ast.ExprUnary;
@@ -1582,6 +1583,31 @@ public class TestDefaultTranslator {
         Term result = translator.translate(e.one(), context);
         assertEquals(flag, result);
         assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_let() {
+        // test [[let x = e | f(x)]] := [[f(e)]]
+        ExprVar e = makeTestVariable("e");
+        ExprVar x = makeTestVariable("x");
+        ExprVar f = makeTestVariable("f");
+
+        // make sure the argument is e
+        Var flag = makeFlagConstant("flag");
+        when(mockRoot.translate(eq(f), any())).then(ctx -> {
+            TranslationContext context = ctx.getArgument(1);
+            assertTrue(context.hasLetMapping("x"));
+            assertEquals(e, context.getLetMapping("x"));
+            return flag;
+        });
+
+        Term result = translator.translate(ExprLet.make(null, x, e, f), context);
+        assertEquals(flag, result);
+
+        // make sure x is flushed from the context's mapping
+        assertContextEmpty();
+        assertFalse(context.hasLetMapping("x"));
+        assertFalse(context.hasVarMapping("x"));
     }
 
     @Test
