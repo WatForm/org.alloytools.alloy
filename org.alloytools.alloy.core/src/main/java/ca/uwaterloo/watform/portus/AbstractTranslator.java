@@ -130,8 +130,8 @@ abstract class AbstractTranslator implements Translator {
         return null;
     }
 
-    /** Translate "var \in expr", where expr is an ExprVar. */
-    public Term translate(Var var, ExprVar expr, TranslationContext context) {
+    /** Translate "tuple \in expr", where expr is an ExprVar. */
+    public Term translate(ConstList<Var> tuple, ExprVar expr, TranslationContext context) {
         return null;
     }
 
@@ -200,8 +200,7 @@ abstract class AbstractTranslator implements Translator {
             } else if (expr.sub instanceof ExprUnary) {
                 return translate(expr.tuple, (ExprUnary) expr.sub, context);
             } else if (expr.sub instanceof ExprVar) {
-                assert expr.tuple.size() == 1;
-                return translate(expr.tuple.get(0), (ExprVar) expr.sub, context);
+                return translate(expr.tuple, (ExprVar) expr.sub, context);
             } else if (expr.sub instanceof ExprCall) {
                 ExprCall call = (ExprCall) expr.sub;
                 if (call.fun.isPred) {

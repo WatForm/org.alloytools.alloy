@@ -2,6 +2,7 @@ package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.alloy4.Env;
+import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.modelfind.ModelFinder;
 import fortress.msfol.AnnotatedVar;
@@ -33,8 +34,10 @@ final class TranslationContext {
     // This should be the sum of the scopes of all top-level sorts.
     private int totalScope = 0;
 
-    // The current lexical scope's mapping from variable labels to Fortress Vars.
-    private final Env<String, Var> varMapping = new Env<>();
+    // The current lexical scope's mapping from Alloy variable labels to either
+    // Fortress Vars or Alloy expressions as used in the "let x = e | ..." construct.
+    // We use a single Env so these types of mappings can shadow each other.
+    private final Env<String, Either<Var, Expr>> alloyVarMapping = new Env<>();
 
     public TranslationContext(A4Reporter reporter, ScopeComputer scoper) {
         this.reporter = (reporter == null) ? A4Reporter.NOP : reporter;
@@ -62,18 +65,10 @@ final class TranslationContext {
     /**
      * Add a mapping from an Alloy variable name to a Fortress variable.
      * The mapping should be valid for the current lexical scope and be removed at the end
-     * of the scope with {@link #removeVarMapping(String)}
+     * of the scope with {@link #removeMapping(String)}.
      */
     public void addVarMapping(String alloyVarName, Var fortressVar) {
-        varMapping.put(alloyVarName, fortressVar);
-    }
-
-    /**
-     * Remove a variable mapping for an Alloy variable name.
-     * This should be done when the variable name goes out of scope.
-     */
-    public void removeVarMapping(String alloyVarName) {
-        varMapping.remove(alloyVarName);
+        alloyVarMapping.put(alloyVarName, Either.asFirst(fortressVar));
     }
 
     /**
@@ -81,15 +76,54 @@ final class TranslationContext {
      * the given Alloy variable name?
      */
     public boolean hasVarMapping(String alloyVarName) {
-        return varMapping.has(alloyVarName);
+        return alloyVarMapping.has(alloyVarName) && alloyVarMapping.get(alloyVarName).hasFirst();
     }
 
     /**
      * Get the Fortress variable associated with an Alloy variable name in the
-     * current lexical scope.
+     * current lexical scope. Return null if there's no such associated variable.
      */
     public Var getVarMapping(String alloyVarName) {
-        return varMapping.get(alloyVarName);
+        if (hasVarMapping(alloyVarName)) {
+            return alloyVarMapping.get(alloyVarName).getFirst();
+        }
+        return null;
+    }
+
+    /**
+     * Add a mapping from an Alloy variable name to a bound expression.
+     * The mapping should be valid for the current lexical scope and be removed at the end
+     * of the scope with {@link #removeMapping(String)}.
+     */
+    public void addLetMapping(String alloyVarName, Expr boundExpr) {
+        alloyVarMapping.put(alloyVarName, Either.asSecond(boundExpr));
+    }
+
+    /**
+     * Does the current lexical scope have a bound expression associated with
+     * the given Alloy variable name?
+     */
+    public boolean hasLetMapping(String alloyVarName) {
+        return alloyVarMapping.has(alloyVarName) && alloyVarMapping.get(alloyVarName).hasSecond();
+    }
+
+    /**
+     * Get the bound expression associated with an Alloy variable name in the
+     * current lexical scope. Return null if there's no such expression bound.
+     */
+    public Expr getLetMapping(String alloyVarName) {
+        if (hasLetMapping(alloyVarName)) {
+            return alloyVarMapping.get(alloyVarName).getSecond();
+        }
+        return null;
+    }
+
+    /**
+     * Remove a variable or bound expression mapping for an Alloy variable name.
+     * This should be done when the variable name goes out of scope.
+     */
+    public void removeMapping(String alloyVarName) {
+        alloyVarMapping.remove(alloyVarName);
     }
 
     /** Configure a model finder's theory and scopes to check this translation. */

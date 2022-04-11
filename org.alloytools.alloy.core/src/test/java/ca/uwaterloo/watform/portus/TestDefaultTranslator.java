@@ -11,6 +11,7 @@ import edu.mit.csail.sdg.ast.ExprList;
 import edu.mit.csail.sdg.ast.ExprQt;
 import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.ExprVar;
+import edu.mit.csail.sdg.ast.Func;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.ast.Type;
 import edu.mit.csail.sdg.translator.ScopeComputer;
@@ -26,6 +27,7 @@ import scala.jdk.javaapi.CollectionConverters;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -73,6 +75,16 @@ public class TestDefaultTranslator {
 
     private ExprVar makeTestVarWithType(String label, Type type) {
         return ExprVar.make(null, label, type);
+    }
+
+    // Convenience function to make a Func representing a predicate.
+    private Func makeTestPred(String label, List<Decl> decls, Expr body) {
+        return new Func(null, label, decls, null, body);
+    }
+
+    // Convenience function to make a Func representing a function.
+    private Func makeTestFunc(String label, List<Decl> decls, Expr returnExpr, Expr body) {
+        return new Func(null, label, decls, returnExpr, body);
     }
 
     // Fortress flag constants are used as mock return values of translations.
@@ -1573,7 +1585,7 @@ public class TestDefaultTranslator {
     }
 
     @Test
-    public void testTranslate_variable() {
+    public void testTranslate_variable_var() {
         // test [[x \in v]] := x = v for an Alloy variable v
         // explicitly set the variable mapping in the context
         ExprVar alloyVar = makeTestVariable("v");
@@ -1583,7 +1595,182 @@ public class TestDefaultTranslator {
 
         Term result = translator.translate(ExprElementOf.make(x, alloyVar), context);
         assertEquals(Term.mkEq(x, v), result);
+    }
+
+    @Test
+    public void testTranslate_variable_let() {
+        // test [[(x1,x2) \in v]] := [[(x1,x2) \in e]] when in "let v = e" context
+        // explicitly set the mapping in the context
+        Sig.PrimSig sig = new Sig.PrimSig("Sig");
+        ExprVar expr = makeTestVarWithType("e", Type.make(sig).product(Type.make(sig)));
+        ExprVar alloyVar = makeTestVariable("v");
+        context.addLetMapping(alloyVar.label, expr);
+
+        // mock out [[(x1,x2) \in e]]
+        Var x1 = Term.mkVar("x1"), x2 = Term.mkVar("x2");
+        ConstList<Var> vars = ConstList.make(Arrays.asList(x1, x2));
+        Var flagInE = makeFlagConstant("inE");
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(vars, expr))), any()))
+                .thenReturn(flagInE);
+
+        Term result = translator.translate(ExprElementOf.make(vars, alloyVar), context);
+        assertEquals(flagInE, result);
+    }
+
+    @Test
+    public void testTranslate_pred_nilary() {
+        // test [[ p[] ]] := [[f]] when "pred p { f }" is defined
+        ExprVar f = makeTestVariable("f");
+        Func pred = makeTestPred("p", null, f);
+
+        Var flag = makeFlagConstant("flag");
+        when(mockRoot.translate(eq(f), any())).thenReturn(flag);
+
+        Term result = translator.translate(pred.call(), context);
+        assertEquals(flag, result);
         assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_pred_unary() {
+        // test [[ u[y] ]] := [[f(y)]] when "pred u[x: S] { f(x) }" is defined
+        Sig.PrimSig sig = new Sig.PrimSig("Sig");
+        Decl xDecl = sig.oneOf("x");
+        ExprVar y = makeTestVariable("y");
+        ExprVar f = makeTestVariable("f");
+        Func pred = makeTestPred("u", Collections.singletonList(xDecl), f);
+
+        // make sure the argument is y
+        Term flag = makeFlagConstant("flag");
+        when(mockRoot.translate(eq(f), any())).then(ctx -> {
+            TranslationContext context = ctx.getArgument(1);
+            assertTrue(context.hasLetMapping("x"));
+            assertEquals(y, context.getLetMapping("x"));
+            return flag;
+        });
+
+        Term result = translator.translate(pred.call(y), context);
+        assertEquals(flag, result);
+
+        // make sure y is flushed from the context's mapping
+        assertContextEmpty();
+        assertFalse(context.hasLetMapping("y"));
+        assertFalse(context.hasVarMapping("y"));
+    }
+
+    @Test
+    public void testTranslate_pred_binary() {
+        // test [[ b[y1, y2] ]] := [[f(y1, y2)]] when "pred b[x1: S, x2: S] { f(x1, x2) }" is defined
+        Sig.PrimSig sig = new Sig.PrimSig("Sig");
+        Decl x1Decl = sig.oneOf("x1");
+        Decl x2Decl = sig.oneOf("x2");
+        ExprVar y1 = makeTestVariable("y1");
+        ExprVar y2 = makeTestVariable("y2");
+        ExprVar f = makeTestVariable("f");
+        Func pred = makeTestPred("b", Arrays.asList(x1Decl, x2Decl), f);
+
+        // make sure the arguments are y1, y2
+        Term flag = makeFlagConstant("flag");
+        when(mockRoot.translate(eq(f), any())).then(ctx -> {
+            TranslationContext context = ctx.getArgument(1);
+            assertTrue(context.hasLetMapping("x1"));
+            assertTrue(context.hasLetMapping("x2"));
+            assertEquals(y1, context.getLetMapping("x1"));
+            assertEquals(y2, context.getLetMapping("x2"));
+            return flag;
+        });
+
+        Term result = translator.translate(pred.call(y1, y2), context);
+        assertEquals(flag, result);
+
+        // make sure y1, y2 are flushed from the context's mapping
+        assertContextEmpty();
+        assertFalse(context.hasLetMapping("y1"));
+        assertFalse(context.hasLetMapping("y2"));
+        assertFalse(context.hasVarMapping("y1"));
+        assertFalse(context.hasVarMapping("y2"));
+    }
+
+    @Test
+    public void testTranslate_fun_nilary() {
+        // test [[ x \in g[] ]] := [[x \in f]] when "fun g: S { f }" is defined
+        Sig.PrimSig sig = new Sig.PrimSig("Sig");
+        ExprVar f = makeTestVariable("f");
+        Func fun = makeTestFunc("g", null, sig, f);
+        Var x = Term.mkVar("x");
+        ConstList<Var> vars = ConstList.make(Collections.singletonList(x));
+
+        Var flag = makeFlagConstant("flag");
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(vars, f))), any()))
+                .thenReturn(flag);
+
+        Term result = translator.translate(ExprElementOf.make(vars, fun.call()), context);
+        assertEquals(flag, result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_fun_unary() {
+        // test [[ x \in u[y] ]] := [[f(y)]] when "fun u[x: S]: S { f(x) }" is defined
+        Sig.PrimSig sig = new Sig.PrimSig("Sig");
+        Decl xDecl = sig.oneOf("x");
+        ExprVar y = makeTestVariable("y");
+        ExprVar f = makeTestVariable("f");
+        Func fun = makeTestFunc("u", Collections.singletonList(xDecl), sig, f);
+        Var x = Term.mkVar("x");
+        ConstList<Var> vars = ConstList.make(Collections.singletonList(x));
+
+        // make sure the argument is y
+        Term flag = makeFlagConstant("flag");
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(vars, f))), any())).then(ctx -> {
+            TranslationContext context = ctx.getArgument(1);
+            assertTrue(context.hasLetMapping("x"));
+            assertEquals(y, context.getLetMapping("x"));
+            return flag;
+        });
+
+        Term result = translator.translate(ExprElementOf.make(vars, fun.call(y)), context);
+        assertEquals(flag, result);
+
+        // make sure y is flushed from the context's mapping
+        assertContextEmpty();
+        assertFalse(context.hasLetMapping("y"));
+        assertFalse(context.hasVarMapping("y"));
+    }
+
+    @Test
+    public void testTranslate_fun_binary() {
+        // test [[ b[y1, y2] ]] := [[f(y1, y2)]] when "fun b[x1: S, x2: S]: S { f(x1, x2) }" is defined
+        Sig.PrimSig sig = new Sig.PrimSig("Sig");
+        Decl x1Decl = sig.oneOf("x1");
+        Decl x2Decl = sig.oneOf("x2");
+        ExprVar y1 = makeTestVariable("y1");
+        ExprVar y2 = makeTestVariable("y2");
+        ExprVar f = makeTestVariable("f");
+        Func fun = makeTestFunc("b", Arrays.asList(x1Decl, x2Decl), sig, f);
+        Var x = Term.mkVar("x");
+        ConstList<Var> vars = ConstList.make(Collections.singletonList(x));
+
+        // make sure the arguments are y1, y2
+        Term flag = makeFlagConstant("flag");
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(vars, f))), any())).then(ctx -> {
+            TranslationContext context = ctx.getArgument(1);
+            assertTrue(context.hasLetMapping("x1"));
+            assertTrue(context.hasLetMapping("x2"));
+            assertEquals(y1, context.getLetMapping("x1"));
+            assertEquals(y2, context.getLetMapping("x2"));
+            return flag;
+        });
+
+        Term result = translator.translate(ExprElementOf.make(vars, fun.call(y1, y2)), context);
+        assertEquals(flag, result);
+
+        // make sure y1, y2 are flushed from the context's mapping
+        assertContextEmpty();
+        assertFalse(context.hasLetMapping("y1"));
+        assertFalse(context.hasLetMapping("y2"));
+        assertFalse(context.hasVarMapping("y1"));
+        assertFalse(context.hasVarMapping("y2"));
     }
 
     @Test

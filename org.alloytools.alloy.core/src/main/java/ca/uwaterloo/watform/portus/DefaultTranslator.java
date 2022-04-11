@@ -7,6 +7,7 @@ import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprBinary;
+import edu.mit.csail.sdg.ast.ExprCall;
 import edu.mit.csail.sdg.ast.ExprConstant;
 import edu.mit.csail.sdg.ast.ExprHasName;
 import edu.mit.csail.sdg.ast.ExprList;
@@ -623,7 +624,7 @@ final class DefaultTranslator extends AbstractTranslator {
 
         // Remove the vars from the lexical scope since it's done
         for (String alloyVarName : namesToVars.keySet()) {
-            context.removeVarMapping(alloyVarName);
+            context.removeMapping(alloyVarName);
         }
 
         // Process the formula itself - see KT figure 4.6
@@ -665,11 +666,21 @@ final class DefaultTranslator extends AbstractTranslator {
         }
     }
 
-    /** Translate "var \in expr", where expr is an ExprVar. */
+    /** Translate "tuple \in expr", where expr is an ExprVar. */
     @Override
-    public Term translate(Var var, ExprVar expr, TranslationContext context) {
+    public Term translate(ConstList<Var> tuple, ExprVar expr, TranslationContext context) {
+        // Check if it's mapped to a let-expression - if so, use that instead
+        if (context.hasLetMapping(expr.label)) {
+            @SuppressWarnings("ConstantConditions") // IntelliJ gives a false positive nullable warning
+            Expr mapped = ExprElementOf.make(tuple, context.getLetMapping(expr.label));
+            return recursivelyTranslate(mapped, context);
+        }
+
         // KT figure 4.12: [[x \in v]] := x = v
-        return Term.mkEq(var, checkAndMapVarName(expr.label, context));
+        if (tuple.size() != 1) {
+            throw new ErrorFatal("Wrong arity for ExprVar!");
+        }
+        return Term.mkEq(tuple.get(0), checkAndMapVarName(expr.label, context));
     }
 
     /** Translate an ExprConstant formula. */
@@ -710,8 +721,45 @@ final class DefaultTranslator extends AbstractTranslator {
         return Term.mkEq(tuple.get(0), tuple.get(1));
     }
 
-    /** Map an Alloy variable name to a Fortress var, or throw an error. */
-    private Var checkAndMapVarName(String label, TranslationContext context) {
+    /** Translate a predicate call. */
+    @Override
+    public Term translate(ExprCall call, TranslationContext context) {
+        return translateCall(call.fun.getBody(), call, context);
+    }
+
+    /** Translate "tuple \in call", where call is a function call. */
+    @Override
+    public Term translate(ConstList<Var> tuple, ExprCall call, TranslationContext context) {
+        return translateCall(ExprElementOf.make(tuple, call.fun.getBody()), call, context);
+    }
+
+    /** Translate a pred or fun, but where "body" is the expr to recursively translate in scope. */
+    private Term translateCall(Expr body, ExprCall call, TranslationContext context) {
+        // Just naively substitute it.
+        // TODO: handle recursion - currently we loop forever
+        if (call.args.size() != call.fun.count()) {
+            throw new ErrorFatal("Wrong number of arguments to predicate or function!");
+        }
+
+        // Add the parameter mappings to the context.
+        for (int i = 0; i < call.fun.count(); i++) {
+            Expr arg = call.args.get(i);
+            ExprVar param = call.fun.get(i);
+            context.addLetMapping(param.label, arg);
+        }
+
+        Term result = recursivelyTranslate(body, context);
+
+        // Remove all the parameters from the context.
+        for (int i = 0; i < call.fun.count(); i++) {
+            ExprVar param = call.fun.get(i);
+            context.removeMapping(param.label);
+        }
+        return result;
+    }
+
+    /** Map an Alloy variable name to a Fortress term, or throw an error. */
+    private Term checkAndMapVarName(String label, TranslationContext context) {
         // the Alloy variable must be mapped to a Fortress var in the current lexical scope
         if (!context.hasVarMapping(label)) {
             throw new ErrorSyntax("Unknown variable name " + label);
