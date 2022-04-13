@@ -76,8 +76,10 @@ public class CoreDashToAlloy {
         	createBigStepFact(module);
         }
 
-        if (DashOptions.generateSigAxioms) {
+        if (!DashOptions.generateTraces) {
         	createSignificanceAxiomAST(module);
+        }
+        if (DashOptions.generateSigAxioms) {
         	createOperationsAxiomAST(module);
         }
         if (DashOptions.ctlModelChecking) {
@@ -1755,7 +1757,7 @@ public class CoreDashToAlloy {
         a.add((ExprVar) s);
         decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s: Snapshot
         reachabilityAxiomExpr = ExprQt.Op.ALL.make(null, null, new ArrayList<Decl>(decls), sInSJoinDomain); // all s: Snapshot | s in Snapshot. ((Step.initial) <: * (Step.next_step) )
-        addPredicateAST(module, "reachabilityAxiom", null, null, null, null, reachabilityAxiomExpr);
+        module.addFact(null, "reachabilityAxiom", reachabilityAxiomExpr);
     }
     
     static void createOperationsAxiomAST(DashModule module)

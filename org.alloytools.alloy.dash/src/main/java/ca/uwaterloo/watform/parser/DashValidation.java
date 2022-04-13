@@ -24,10 +24,13 @@ import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprBadJoin;
 import edu.mit.csail.sdg.ast.ExprBinary;
+import edu.mit.csail.sdg.ast.ExprHasName;
 import edu.mit.csail.sdg.ast.ExprList;
 import edu.mit.csail.sdg.ast.ExprQt;
 import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.ExprVar;
+import edu.mit.csail.sdg.ast.Sig;
+import edu.mit.csail.sdg.ast.Sig.Field;
 
 /**
  * This class represents is used to check for well-formedness conditions for a
@@ -81,6 +84,13 @@ public class DashValidation {
      * validation purposes. This is accessed by Alloy.cup when parsing a signature.
      */
     static List<String>                    sigNames               = new ArrayList<String>();
+    
+    /*
+     * A list of all the signature relation names in the DASH model. This is used for
+     * validation purposes. This is accessed by Alloy.cup when parsing a signature.
+     */
+    static List<String>                    sigRelations               = new ArrayList<String>();
+    static List<Decl>                    sigDecls               	  = new ArrayList<Decl>(); // Used by the Dash.cup file to store all the Signature relations.
 
     /*
      * A list of all the func and pred names in the DASH model. This is used for
@@ -302,13 +312,13 @@ public class DashValidation {
             getVarFromUnary((ExprUnary) joinExpr.left);
         }
         if (joinExpr.left instanceof ExprBadJoin) {
-            getVarFromBadJoin((ExprBadJoin) joinExpr.right);
+            getVarFromBadJoin((ExprBadJoin) joinExpr.left);
         }
         if (joinExpr.right instanceof ExprVar) {
             checkIfVarValid((ExprVar) joinExpr.right);
         }
         if (joinExpr.right instanceof ExprUnary) {
-            getVarFromUnary((ExprUnary) joinExpr.left);
+            getVarFromUnary((ExprUnary) joinExpr.right);
         }
         if (joinExpr.right instanceof ExprBadJoin) {
             getVarFromBadJoin((ExprBadJoin) joinExpr.right);
@@ -401,6 +411,7 @@ public class DashValidation {
     		vars.addAll(eventNames.get(parent));
     	}
     	
+    	vars.addAll(sigRelations);
     	vars.addAll(keywords);
     	vars.addAll(quantifierVars);
     	vars.addAll(sigNames);
@@ -756,9 +767,18 @@ public class DashValidation {
     }
 
     public static void validateDashModel(DashModule dashModule) {
+    	getSigRelations(dashModule);
         addConcStates(dashModule);
         validateConcStates(dashModule);
         clearContainers();
+    }
+    
+    private static void getSigRelations(DashModule module) {
+    	for (Decl decl: sigDecls) {
+            for (ExprHasName name: decl.names) {
+            	sigRelations.add(name.toString());
+            }
+    	}
     }
 
     public static void clearContainers() {

@@ -28,6 +28,11 @@ public class DashTrans {
     public DashTrans(Pos pos, String name, List<Object> transItems) {
         this.name = name;
         this.pos = pos;
+        
+        // For an empty transition
+        if (transItems == null) {
+        	return;
+        }
 
         for (Object item : transItems) {
             if (item instanceof DashFrom)

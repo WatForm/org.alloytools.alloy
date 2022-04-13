@@ -875,11 +875,12 @@ StateItems::= Exit:x				{: RESULT=new ArrayList<Object>(); RESULT.add(x); :};
 StateItems::= Exit:x StateItems:y		{: RESULT=y; RESULT.add(0, x) ;			  :};
 
 //Transition Declaration
-Trans ::= TRANS:o				    Name:n LBRACE TransItems:c RBRACE {: RESULT = new DashTrans(o, n.label, c);  :}
- 	 |TRANS:o                                   LBRACE TransItems:c RBRACE        {: RESULT = new DashTrans(o, null, c);       :}
+Trans ::= TRANS:o	   Name:n                       LBRACE TransItems:c RBRACE                               {: RESULT = new DashTrans(o, n.label, c);  :}
+ 	 |TRANS:o      Name:n                       LBRACE RBRACE                                            {: RESULT = new DashTrans(o, n.label, null);       :}
+ 	 |TRANS:o                                   LBRACE TransItems:c RBRACE                               {: RESULT = new DashTrans(o, null, c);       :}
  	 |TRANS:o                                   LBRACE Name:a   LBRACKET Names:b RBRACKET RBRACE         {: RESULT=new DashTemplateCall(a.pos, "", a.label, b); :}   
  	 |TRANS:o      Name:n                       LBRACE Name:a   LBRACKET Names:b RBRACKET RBRACE         {: RESULT=new DashTemplateCall(a.pos, n.label, a.label, b); :} 
- 	 |DEF:o        Name:n                       LBRACKET Decls:d RBRACKET    LBRACE TransItems:c RBRACE {: RESULT = new DashTransTemplate(o, n.label, c, d); :}
+ 	 |DEF:o        Name:n                       LBRACKET Decls:d RBRACKET    LBRACE TransItems:c RBRACE  {: RESULT = new DashTransTemplate(o, n.label, c, d); :}
 ;  
 
 StateItems::= Trans:x				{: RESULT=new ArrayList<Object>(); RESULT.add(x); :};
@@ -943,6 +944,7 @@ Sig ::= SigQuals:a Names:b SigIn:c LBRACE Decls:d RBRACE:o SuperOpt:e
    ExprVar cc = (c!=null && c.size()>0) ? c.remove(c.size()-1) : null;
    for(ExprVar bb:b) {
       DashValidation.sigNames.add(bb.label);
+	DashValidation.sigDecls.addAll(d);
       parser.dashmodule.addSig(bb.label, cc, c, d, e,
          AttrType.WHERE   .makenull(bb.pos.merge(e==null ? o : e.span())),
          AttrType.ABSTRACT.makenull(a.get(0)),
