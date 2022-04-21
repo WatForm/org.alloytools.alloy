@@ -714,6 +714,19 @@ public class TestDefaultTranslator {
     }
 
     @Test
+    public void testTranslate_ifThenElse() {
+        // test [[a => b else c]] := ([[a]] => [[b]]) && (![[a]] => [[c]])
+        ExprVar a = makeTestVariable("a"), b = makeTestVariable("b"), c = makeTestVariable("c");
+        Var flagA = makeFlagConstant("a"), flagB = makeFlagConstant("b"), flagC = makeFlagConstant("c");
+        when(mockRoot.translate(eq(a), any())).thenReturn(flagA);
+        when(mockRoot.translate(eq(b), any())).thenReturn(flagB);
+        when(mockRoot.translate(eq(c), any())).thenReturn(flagC);
+        Term result = translator.translate(a.ite(b, c), context);
+        assertEquals(Term.mkAnd(Term.mkImp(flagA, flagB), Term.mkImp(Term.mkNot(flagA), flagC)), result);
+        assertContextEmpty();
+    }
+
+    @Test
     public void testTranslate_union_twoSets() {
         // test [[x \in e1 + e2]] := [[x \in e1]] || [[x \in e2]]
         ExprVar e1 = makeTestVariable("e1"), e2 = makeTestVariable("e2");

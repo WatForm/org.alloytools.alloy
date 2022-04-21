@@ -10,6 +10,7 @@ import edu.mit.csail.sdg.ast.ExprBinary;
 import edu.mit.csail.sdg.ast.ExprCall;
 import edu.mit.csail.sdg.ast.ExprConstant;
 import edu.mit.csail.sdg.ast.ExprHasName;
+import edu.mit.csail.sdg.ast.ExprITE;
 import edu.mit.csail.sdg.ast.ExprLet;
 import edu.mit.csail.sdg.ast.ExprList;
 import edu.mit.csail.sdg.ast.ExprQt;
@@ -482,6 +483,16 @@ final class DefaultTranslator extends AbstractTranslator {
                 // others are either not supported or not formulas
                 throw new ErrorFatal("Unsupported ExprBinary formula: " + expr.op);
         }
+    }
+
+    /** Translate the formula "f1 => f2 else f3". */
+    @Override
+    public Term translate(ExprITE expr, TranslationContext context) {
+        // by exhaustive search, "([[f1]] => [[f2]]) && (![[f1]] => [[f3]])" is as good as we can do.
+        Term cond = recursivelyTranslate(expr.cond, context);
+        Term left = recursivelyTranslate(expr.left, context);
+        Term right = recursivelyTranslate(expr.right, context);
+        return Term.mkAnd(Term.mkImp(cond, left), Term.mkImp(Term.mkNot(cond), right));
     }
 
     /** Translate the formula "e1 in e2" or "e1 = e2". */
