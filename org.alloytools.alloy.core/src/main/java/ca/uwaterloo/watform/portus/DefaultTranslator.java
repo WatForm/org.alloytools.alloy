@@ -485,16 +485,6 @@ final class DefaultTranslator extends AbstractTranslator {
         }
     }
 
-    /** Translate the formula "f1 => f2 else f3". */
-    @Override
-    public Term translate(ExprITE expr, TranslationContext context) {
-        // by exhaustive search, "([[f1]] => [[f2]]) && (![[f1]] => [[f3]])" is as good as we can do.
-        Term cond = recursivelyTranslate(expr.cond, context);
-        Term left = recursivelyTranslate(expr.left, context);
-        Term right = recursivelyTranslate(expr.right, context);
-        return Term.mkAnd(Term.mkImp(cond, left), Term.mkImp(Term.mkNot(cond), right));
-    }
-
     /** Translate the formula "e1 in e2" or "e1 = e2". */
     private Term translateInEq(ExprBinary.Op op, Expr e1, Expr e2, TranslationContext context) {
         // KT figure 4.9: [[e1 in e2]] := forall x1: S1, ..., xn: Sn .
@@ -523,6 +513,26 @@ final class DefaultTranslator extends AbstractTranslator {
         }
 
         return Term.mkForall(varDecls, condition);
+    }
+
+    /** Translate the formula "f1 => f2 else f3". */
+    @Override
+    public Term translate(ExprITE expr, TranslationContext context) {
+        // by exhaustive search, "([[f1]] => [[f2]]) && (![[f1]] => [[f3]])" is as good as we can do.
+        Term cond = recursivelyTranslate(expr.cond, context);
+        Term left = recursivelyTranslate(expr.left, context);
+        Term right = recursivelyTranslate(expr.right, context);
+        return Term.mkAnd(Term.mkImp(cond, left), Term.mkImp(Term.mkNot(cond), right));
+    }
+
+    /** Translate the formula "tuple \in (f => e1 else e2)". */
+    @Override
+    public Term translate(ConstList<Var> tuple, ExprITE expr, TranslationContext context) {
+        // Similar to the above: "([[f]] => [[tuple \in e1]]) && (![[f]] => [[tuple \in e2]])"
+        Term cond = recursivelyTranslate(expr.cond, context);
+        Term left = recursivelyTranslate(ExprElementOf.make(tuple, expr.left), context);
+        Term right = recursivelyTranslate(ExprElementOf.make(tuple, expr.right), context);
+        return Term.mkAnd(Term.mkImp(cond, left), Term.mkImp(Term.mkNot(cond), right));
     }
 
     /** Translate an ExprUnary formula. */

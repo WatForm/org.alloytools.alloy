@@ -727,6 +727,21 @@ public class TestDefaultTranslator {
     }
 
     @Test
+    public void testTranslate_ifThenElse_expr() {
+        // test [[x \in f => e1 else e2]] := ([[f]] => [[x \in e1]]) && (![[f]] => [[x \in e2]])
+        ExprVar f = makeTestVariable("f"), e1 = makeTestVariable("e1"), e2 = makeTestVariable("e2");
+        Var x = Term.mkVar("x");
+        ConstList<Var> varList = ConstList.make(Collections.singletonList(x));
+        Var flagF = makeFlagConstant("f"), flagInE1 = makeFlagConstant("inE1"), flagInE2 = makeFlagConstant("inE2");
+        when(mockRoot.translate(eq(f), any())).thenReturn(flagF);
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(varList, e1))), any())).thenReturn(flagInE1);
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(varList, e2))), any())).thenReturn(flagInE2);
+        Term result = translator.translate(ExprElementOf.make(varList, f.ite(e1, e2)), context);
+        assertEquals(Term.mkAnd(Term.mkImp(flagF, flagInE1), Term.mkImp(Term.mkNot(flagF), flagInE2)), result);
+        assertContextEmpty();
+    }
+
+    @Test
     public void testTranslate_union_twoSets() {
         // test [[x \in e1 + e2]] := [[x \in e1]] || [[x \in e2]]
         ExprVar e1 = makeTestVariable("e1"), e2 = makeTestVariable("e2");
