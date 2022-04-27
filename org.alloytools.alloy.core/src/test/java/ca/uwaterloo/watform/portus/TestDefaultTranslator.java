@@ -1011,9 +1011,9 @@ public class TestDefaultTranslator {
         // mock out [[all a: A | some a.e]] and [[all b: B | some e.b]]
         Var flagABound = makeFlagConstant("ABound");
         Var flagBBound = makeFlagConstant("BBound");
-        when(mockRoot.translate(argThat(isAlphaEquivalent(a.get().join(e).someOf().forAll(a))), any()))
+        when(mockRoot.translate(argThat(isAlphaEquivalent(a.get().join(e).some().forAll(a))), any()))
                 .thenReturn(flagABound);
-        when(mockRoot.translate(argThat(isAlphaEquivalent(e.join(b.get()).someOf().forAll(b))), any()))
+        when(mockRoot.translate(argThat(isAlphaEquivalent(e.join(b.get()).some().forAll(b))), any()))
                 .thenReturn(flagBBound);
 
         Term result = translator.translate(e.in(A.some_arrow_some(B)), context);
@@ -1036,7 +1036,7 @@ public class TestDefaultTranslator {
 
         // mock out [[all a: A | some a.e]]
         Var flagABound = makeFlagConstant("ABound");
-        when(mockRoot.translate(argThat(isAlphaEquivalent(a.get().join(e).someOf().forAll(a))), any()))
+        when(mockRoot.translate(argThat(isAlphaEquivalent(a.get().join(e).some().forAll(a))), any()))
                 .thenReturn(flagABound);
 
         Term result = translator.translate(e.in(A.any_arrow_some(B)), context);
@@ -1059,7 +1059,7 @@ public class TestDefaultTranslator {
 
         // mock out [[all b: B | some e.b]]
         Var flagBBound = makeFlagConstant("BBound");
-        when(mockRoot.translate(argThat(isAlphaEquivalent(e.join(b.get()).someOf().forAll(b))), any()))
+        when(mockRoot.translate(argThat(isAlphaEquivalent(e.join(b.get()).some().forAll(b))), any()))
                 .thenReturn(flagBBound);
 
         Term result = translator.translate(e.in(A.some_arrow_any(B)), context);
@@ -1140,9 +1140,9 @@ public class TestDefaultTranslator {
         // mock out [[all a: A one->B | one a.e]] and [[all c: C->one D | some e.c]]
         Var flagABound = makeFlagConstant("ABound");
         Var flagCBound = makeFlagConstant("CBound");
-        when(mockRoot.translate(argThat(isAlphaEquivalent(a.get().join(e).oneOf().forAll(a))), any()))
+        when(mockRoot.translate(argThat(isAlphaEquivalent(a.get().join(e).one().forAll(a))), any()))
                 .thenReturn(flagABound);
-        when(mockRoot.translate(argThat(isAlphaEquivalent(e.join(c.get()).someOf().forAll(c))), any()))
+        when(mockRoot.translate(argThat(isAlphaEquivalent(e.join(c.get()).some().forAll(c))), any()))
                 .thenReturn(flagCBound);
 
         // mock out [[all a: A one->B | a.e in C->one D]] and [[all c: C->one D | e.c in A one->B]]

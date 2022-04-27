@@ -44,7 +44,7 @@ final class PortusUtil {
     }
 
     /**
-     * Return the unary multiplicity operator corresponding to "M" in "M->N", or SETOF if
+     * Return the unary multiplicity operator corresponding to "M" in "M->N", or NOOP if
      * there's no multiplicity operator. Return null if arrowOp isn't an arrow operator.
      */
     @SuppressWarnings("DuplicatedCode") // IntelliJ's duplication detection is a little aggressive
@@ -56,24 +56,24 @@ final class PortusUtil {
             case ONE_ARROW_ONE:
             case ONE_ARROW_LONE:
             case ONE_ARROW_SOME:
-                return ExprUnary.Op.ONEOF;
+                return ExprUnary.Op.ONE;
             case LONE_ARROW_ANY:
             case LONE_ARROW_ONE:
             case LONE_ARROW_LONE:
             case LONE_ARROW_SOME:
-                return ExprUnary.Op.LONEOF;
+                return ExprUnary.Op.LONE;
             case SOME_ARROW_ANY:
             case SOME_ARROW_ONE:
             case SOME_ARROW_LONE:
             case SOME_ARROW_SOME:
-                return ExprUnary.Op.SOMEOF;
+                return ExprUnary.Op.SOME;
             default:
-                return ExprUnary.Op.SETOF;
+                return ExprUnary.Op.NOOP;
         }
     }
 
     /**
-     * Return the unary multiplicity operator corresponding to "N" in "M->N", or SETOF if
+     * Return the unary multiplicity operator corresponding to "N" in "M->N", or NOOP if
      * there's no multiplicity operator. Return null if arrowOp isn't an arrow operator.
      */
     @SuppressWarnings("DuplicatedCode")
@@ -85,19 +85,19 @@ final class PortusUtil {
             case ONE_ARROW_ONE:
             case LONE_ARROW_ONE:
             case SOME_ARROW_ONE:
-                return ExprUnary.Op.ONEOF;
+                return ExprUnary.Op.ONE;
             case ANY_ARROW_LONE:
             case ONE_ARROW_LONE:
             case LONE_ARROW_LONE:
             case SOME_ARROW_LONE:
-                return ExprUnary.Op.LONEOF;
+                return ExprUnary.Op.LONE;
             case ANY_ARROW_SOME:
             case ONE_ARROW_SOME:
             case LONE_ARROW_SOME:
             case SOME_ARROW_SOME:
-                return ExprUnary.Op.SOMEOF;
+                return ExprUnary.Op.SOME;
             default:
-                return ExprUnary.Op.SETOF;
+                return ExprUnary.Op.NOOP;
         }
     }
 

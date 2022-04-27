@@ -509,14 +509,14 @@ final class DefaultTranslator extends AbstractTranslator {
         conjuncts.add(exprInArrow);
 
         // translate [[all a: A | N a.expr]] where N is the right multiplicity
-        if (rightMult != ExprUnary.Op.SETOF) {
+        if (rightMult != ExprUnary.Op.NOOP) {
             Decl a = arrow.left.oneOf("a");
             Expr multBound = rightMult.make(null, a.get().join(expr)).forAll(a);
             conjuncts.add(recursivelyTranslate(multBound, context));
         }
 
         // translate [[all b: B | M expr.b]] where M is the left multiplicity
-        if (leftMult != ExprUnary.Op.SETOF) {
+        if (leftMult != ExprUnary.Op.NOOP) {
             Decl b = arrow.right.oneOf("b");
             Expr multBound = leftMult.make(null, expr.join(b.get())).forAll(b);
             conjuncts.add(recursivelyTranslate(multBound, context));
