@@ -995,6 +995,170 @@ public class TestDefaultTranslator {
     }
 
     @Test
+    public void testTranslate_declarationFormula_someSome() {
+        // test [[e in A some->some B]] := [[e in A->B]] && [[all a: A | some a.e]] && [[all b: B | some e.b]]
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e = makeTestVarWithType("e", Type.make(sig).product(Type.make(sig)));
+        ExprVar A = makeTestVarWithType("A", Type.make(sig));
+        ExprVar B = makeTestVarWithType("B", Type.make(sig));
+        Decl a = A.oneOf("a");
+        Decl b = B.oneOf("b");
+
+        // mock out [[e in A->B]]
+        Var flagInAToB = makeFlagConstant("inAToB");
+        when(mockRoot.translate(argThat(isSameAs(e.in(A.product(B)))), any())).thenReturn(flagInAToB);
+
+        // mock out [[all a: A | some a.e]] and [[all b: B | some e.b]]
+        Var flagABound = makeFlagConstant("ABound");
+        Var flagBBound = makeFlagConstant("BBound");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(a.get().join(e).someOf().forAll(a))), any()))
+                .thenReturn(flagABound);
+        when(mockRoot.translate(argThat(isAlphaEquivalent(e.join(b.get()).someOf().forAll(b))), any()))
+                .thenReturn(flagBBound);
+
+        Term result = translator.translate(e.in(A.some_arrow_some(B)), context);
+        assertEquals(Term.mkAnd(flagInAToB, flagABound, flagBBound), result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_declarationFormula_anySome() {
+        // test [[e in A->some B]] := [[e in A->B]] && [[all a: A | some a.e]]
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e = makeTestVarWithType("e", Type.make(sig).product(Type.make(sig)));
+        ExprVar A = makeTestVarWithType("A", Type.make(sig));
+        ExprVar B = makeTestVarWithType("B", Type.make(sig));
+        Decl a = A.oneOf("a");
+
+        // mock out [[e in A->B]]
+        Var flagInAToB = makeFlagConstant("inAToB");
+        when(mockRoot.translate(argThat(isSameAs(e.in(A.product(B)))), any())).thenReturn(flagInAToB);
+
+        // mock out [[all a: A | some a.e]]
+        Var flagABound = makeFlagConstant("ABound");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(a.get().join(e).someOf().forAll(a))), any()))
+                .thenReturn(flagABound);
+
+        Term result = translator.translate(e.in(A.any_arrow_some(B)), context);
+        assertEquals(Term.mkAnd(flagInAToB, flagABound), result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_declarationFormula_someAny() {
+        // test [[e in A some->B]] := [[e in A->B]] && [[all b: B | some e.b]]
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e = makeTestVarWithType("e", Type.make(sig).product(Type.make(sig)));
+        ExprVar A = makeTestVarWithType("A", Type.make(sig));
+        ExprVar B = makeTestVarWithType("B", Type.make(sig));
+        Decl b = B.oneOf("b");
+
+        // mock out [[e in A->B]]
+        Var flagInAToB = makeFlagConstant("inAToB");
+        when(mockRoot.translate(argThat(isSameAs(e.in(A.product(B)))), any())).thenReturn(flagInAToB);
+
+        // mock out [[all b: B | some e.b]]
+        Var flagBBound = makeFlagConstant("BBound");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(e.join(b.get()).someOf().forAll(b))), any()))
+                .thenReturn(flagBBound);
+
+        Term result = translator.translate(e.in(A.some_arrow_any(B)), context);
+        assertEquals(Term.mkAnd(flagInAToB, flagBBound), result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_declarationFormula_nestedFirst() {
+        // test [[e in (A some->some B)->C]] := [[e in (A->B)->C]] && [[all c: C | e.c in A some->some B]]
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e = makeTestVarWithType("e", Type.make(sig).product(Type.make(sig)).product(Type.make(sig)));
+        ExprVar A = makeTestVarWithType("A", Type.make(sig));
+        ExprVar B = makeTestVarWithType("B", Type.make(sig));
+        ExprVar C = makeTestVarWithType("C", Type.make(sig));
+        Decl c = C.oneOf("c");
+
+        // mock out [[e in (A->B)->C]]
+        Var flagInArrow = makeFlagConstant("inArrow");
+        when(mockRoot.translate(argThat(isSameAs(e.in(A.product(B).product(C)))), any()))
+                .thenReturn(flagInArrow);
+
+        // mock out [[all c: C | e.c in A some->some B]]
+        Var flagNestedBound = makeFlagConstant("nestedBound");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(
+                e.join(c.get()).in(A.some_arrow_some(B)).forAll(c))), any())).thenReturn(flagNestedBound);
+
+        Term result = translator.translate(e.in(A.some_arrow_some(B).product(C)), context);
+        assertEquals(Term.mkAnd(flagInArrow, flagNestedBound), result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_declarationFormula_nestedSecond() {
+        // test [[e in A->(B some->some C)]] := [[e in A->(B->C)]] && [[all a: A | a.e in B some->some C]]
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e = makeTestVarWithType("e", Type.make(sig).product(Type.make(sig)).product(Type.make(sig)));
+        ExprVar A = makeTestVarWithType("A", Type.make(sig));
+        ExprVar B = makeTestVarWithType("B", Type.make(sig));
+        ExprVar C = makeTestVarWithType("C", Type.make(sig));
+        Decl a = A.oneOf("a");
+
+        // mock out [[e in A->(B->C)]]
+        Var flagInArrow = makeFlagConstant("inArrow");
+        when(mockRoot.translate(argThat(isSameAs(e.in(A.product(B.product(C))))), any()))
+                .thenReturn(flagInArrow);
+
+        // mock out [[all a: A | a.e in B some->some C]]
+        Var flagNestedBound = makeFlagConstant("nestedBound");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(
+                a.get().join(e).in(B.some_arrow_some(C)).forAll(a))), any())).thenReturn(flagNestedBound);
+
+        Term result = translator.translate(e.in(A.product(B.some_arrow_some(C))), context);
+        assertEquals(Term.mkAnd(flagInArrow, flagNestedBound), result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_declarationFormula_comprehensive() {
+        // test [[e in (A one->B) some->one (C->one D)]] := [[e in (A->B)->(C->D)]] &&
+        // [[all a: A one->B | one a.e]] && [[all c: C->one D | some e.c]] &&
+        // [[all a: A one->B | a.e in C->one D]] && [[all c: C->one D | e.c in A one->B]]
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e = makeTestVarWithType("e", Type.make(sig).product(Type.make(sig)).product(Type.make(sig))
+                .product(Type.make(sig)));
+        ExprVar A = makeTestVarWithType("A", Type.make(sig));
+        ExprVar B = makeTestVarWithType("B", Type.make(sig));
+        ExprVar C = makeTestVarWithType("C", Type.make(sig));
+        ExprVar D = makeTestVarWithType("D", Type.make(sig));
+        Decl a = A.one_arrow_any(B).oneOf("a");
+        Decl c = C.any_arrow_one(D).oneOf("c");
+
+        // mock out [[e in (A->B)->(C->D)]]
+        Var flagInArrow = makeFlagConstant("inArrow");
+        when(mockRoot.translate(argThat(isSameAs(e.in(A.product(B).product(C.product(D))))), any()))
+                .thenReturn(flagInArrow);
+
+        // mock out [[all a: A one->B | one a.e]] and [[all c: C->one D | some e.c]]
+        Var flagABound = makeFlagConstant("ABound");
+        Var flagCBound = makeFlagConstant("CBound");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(a.get().join(e).oneOf().forAll(a))), any()))
+                .thenReturn(flagABound);
+        when(mockRoot.translate(argThat(isAlphaEquivalent(e.join(c.get()).someOf().forAll(c))), any()))
+                .thenReturn(flagCBound);
+
+        // mock out [[all a: A one->B | a.e in C->one D]] and [[all c: C->one D | e.c in A one->B]]
+        Var flagANestedBound = makeFlagConstant("ANestedBound");
+        Var flagCNestedBound = makeFlagConstant("CNestedBound");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(
+                a.get().join(e).in(C.any_arrow_one(D)).forAll(a))), any())).thenReturn(flagANestedBound);
+        when(mockRoot.translate(argThat(isAlphaEquivalent(
+                e.join(c.get()).in(A.one_arrow_any(B)).forAll(c))), any())).thenReturn(flagCNestedBound);
+
+        Term result = translator.translate(e.in(A.one_arrow_any(B).some_arrow_one(C.any_arrow_one(D))), context);
+        assertEquals(Term.mkAnd(flagInArrow, flagABound, flagCBound, flagANestedBound, flagCNestedBound), result);
+        assertContextEmpty();
+    }
+
+    @Test
     public void testTranslate_domainRestriction_arity1() {
         // test [[x \in e1 <: e2]] := [[x \in e1]] && [[x \in e2]] where arity(e1) = arity(e2) = 1
         Sig.PrimSig sig = new Sig.PrimSig("S");

@@ -452,6 +452,10 @@ final class DefaultTranslator extends AbstractTranslator {
     /** Translate an ExprBinary formula. */
     @Override
     public Term translate(ExprBinary expr, TranslationContext context) {
+        if (PortusUtil.isDeclarationFormula(expr)) {
+            return translateDeclarationFormula(expr.left, (ExprBinary) expr.right, context);
+        }
+
         switch (expr.op) {
             // see KT figure 4.6
             case IMPLIES:
@@ -483,6 +487,56 @@ final class DefaultTranslator extends AbstractTranslator {
                 // others are either not supported or not formulas
                 throw new ErrorFatal("Unsupported ExprBinary formula: " + expr.op);
         }
+    }
+
+    /** Translate "expr in arrow", where arrow has a multiplicity or one of its children does. */
+    private Term translateDeclarationFormula(Expr expr, ExprBinary arrow, TranslationContext context) {
+        // From Software Abstractions (Jackson), 3.6.3--3.6.5:
+        // [[expr in A M->N B]] := [[expr in A->B]] && [[all a: A | N a.expr]] && [[all b: B | M expr.b]]
+        // There might be optimization opportunities here for nested multiplicity arrows.
+        assert arrow.op.isArrow;
+
+        // find the multiplicities of both sides
+        ExprUnary.Op leftMult = PortusUtil.getArrowLeftMultiplicity(arrow.op);
+        ExprUnary.Op rightMult = PortusUtil.getArrowRightMultiplicity(arrow.op);
+        assert leftMult != null && rightMult != null;
+
+        // translate [[expr in A->B]] without multiplicities
+        Expr plainArrow = PortusUtil.stripArrowMultiplicities(arrow);
+        Term exprInArrow = recursivelyTranslate(expr.in(plainArrow), context);
+
+        List<Term> conjuncts = new ArrayList<>();
+        conjuncts.add(exprInArrow);
+
+        // translate [[all a: A | N a.expr]] where N is the right multiplicity
+        if (rightMult != ExprUnary.Op.SETOF) {
+            Decl a = arrow.left.oneOf("a");
+            Expr multBound = rightMult.make(null, a.get().join(expr)).forAll(a);
+            conjuncts.add(recursivelyTranslate(multBound, context));
+        }
+
+        // translate [[all b: B | M expr.b]] where M is the left multiplicity
+        if (leftMult != ExprUnary.Op.SETOF) {
+            Decl b = arrow.right.oneOf("b");
+            Expr multBound = leftMult.make(null, expr.join(b.get())).forAll(b);
+            conjuncts.add(recursivelyTranslate(multBound, context));
+        }
+
+        // handle nested arrows
+        if (PortusUtil.isDeclarationFormulaArrow(arrow.right)) {
+            // add [[all a: A | a.expr in B]]
+            Decl a = arrow.left.oneOf("a");
+            Expr nestedBound = a.get().join(expr).in(arrow.right).forAll(a);
+            conjuncts.add(recursivelyTranslate(nestedBound, context));
+        }
+        if (PortusUtil.isDeclarationFormulaArrow(arrow.left)) {
+            // add [[all b: B | expr.b in A]]
+            Decl b = arrow.right.oneOf("b");
+            Expr nestedBound = expr.join(b.get()).in(arrow.left).forAll(b);
+            conjuncts.add(recursivelyTranslate(nestedBound, context));
+        }
+
+        return Term.mkAnd(conjuncts);
     }
 
     /** Translate the formula "e1 in e2" or "e1 = e2". */
@@ -652,10 +706,10 @@ final class DefaultTranslator extends AbstractTranslator {
         // Process the formula itself - see KT figure 4.6
         switch (expr.op) {
             case ALL:
-                // forall x1: S1, ..., xn: Sn . [[x1 \in e1]] && ... && [[xn \in en]] => [[sub]]
+                // forall x1: S, ..., xn: S . [[x1 \in e1]] && ... && [[xn \in en]] => [[sub]]
                 return Term.mkForall(vars, Term.mkImp(condition, sub));
             case SOME:
-                // exists x1: S1, ..., xn: Sn . [[x1 \in e1]] && ... && [[xn \in en]] && [[sub]]
+                // exists x1: S, ..., xn: S . [[x1 \in e1]] && ... && [[xn \in en]] && [[sub]]
                 return Term.mkExists(vars, Term.mkAnd(condition, sub));
             case LONE: {
                 // naive for now
