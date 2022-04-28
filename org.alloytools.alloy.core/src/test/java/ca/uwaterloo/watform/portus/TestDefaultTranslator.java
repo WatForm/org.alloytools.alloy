@@ -1682,6 +1682,105 @@ public class TestDefaultTranslator {
     }
 
     @Test
+    public void testTranslate_comprehension_unary() {
+        // test [[x \in {y: e | f}]] := [[x \in e]] && [[f]] where y is mapped to x
+        Var x = Term.mkVar("x");
+        ExprVar e = makeTestVariable("e");
+        Decl y = e.oneOf("y");
+        ExprVar f = makeTestVariable("f");
+
+        // mock out [[x \in e]]
+        Var flagInE = makeFlagConstant("inE");
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(ConstList.make(1, x), e))), any()))
+                .thenReturn(flagInE);
+
+        // mock out [[f]] where y is mapped to x
+        Var flagMappedF = makeFlagConstant("mappedF");
+        when(mockRoot.translate(eq(f), any())).then(ctx -> {
+            TranslationContext context = ctx.getArgument(1);
+            assertTrue(context.hasVarMapping("y"));
+            assertEquals(x, context.getVarMapping("y"));
+            return flagMappedF;
+        });
+
+        Expr comprehension = ExprElementOf.make(ConstList.make(1, x), f.comprehensionOver(y));
+        Term result = translator.translate(comprehension, context);
+        assertEquals(Term.mkAnd(flagInE, flagMappedF), result);
+        assertContextEmpty(); // should clear context
+    }
+
+    @Test
+    public void testTranslate_comprehension_binaryDifferentBounds() {
+        // test [[(x1, x2) \in {y1: e1, y2: e2 | f}]] := [[x1 \in e1]] && [[x2 \in e2]] && [[f]]
+        // where y1 is mapped to x1 and y2 is mapped to x2
+        Var x1 = Term.mkVar("x1");
+        Var x2 = Term.mkVar("x2");
+        ExprVar e1 = makeTestVariable("e1");
+        ExprVar e2 = makeTestVariable("e2");
+        Decl y1 = e1.oneOf("y1");
+        Decl y2 = e2.oneOf("y2");
+        ExprVar f = makeTestVariable("f");
+
+        // mock out [[x1 \in e1]] and [[x2 \in e2]]
+        Var flagInE1 = makeFlagConstant("inE1"), flagInE2 = makeFlagConstant("inE2");
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(ConstList.make(1, x1), e1))), any()))
+                .thenReturn(flagInE1);
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(ConstList.make(1, x2), e2))), any()))
+                .thenReturn(flagInE2);
+
+        // mock out [[f]] where y1 is mapped to x1, y2 is mapped to x2
+        Var flagMappedF = makeFlagConstant("mappedF");
+        when(mockRoot.translate(eq(f), any())).then(ctx -> {
+            TranslationContext context = ctx.getArgument(1);
+            assertTrue(context.hasVarMapping("y1"));
+            assertTrue(context.hasVarMapping("y2"));
+            assertEquals(x1, context.getVarMapping("y1"));
+            assertEquals(x2, context.getVarMapping("y2"));
+            return flagMappedF;
+        });
+
+        Expr comprehension = ExprElementOf.make(ConstList.make(Arrays.asList(x1, x2)), f.comprehensionOver(y1, y2));
+        Term result = translator.translate(comprehension, context);
+        assertEquals(Term.mkAnd(flagInE1, flagInE2, flagMappedF), result);
+        assertContextEmpty(); // should clear context
+    }
+
+    @Test
+    public void testTranslate_comprehension_binarySameBound() {
+        // test [[(x1, x2) \in {y1, y2: e | f}]] := [[x1 \in e]] && [[x2 \in e]] && [[f]]
+        // where y1 is mapped to x1 and y2 is mapped to x2
+        Var x1 = Term.mkVar("x1");
+        Var x2 = Term.mkVar("x2");
+        ExprVar e = makeTestVariable("e");
+        ExprVar y1 = makeTestVariable("y1"), y2 = makeTestVariable("y2");
+        Decl ys = new Decl(null, null, null, null, Arrays.asList(y1, y2), e.oneOf());
+        ExprVar f = makeTestVariable("f");
+
+        // mock out [[x1 \in e1]] and [[x2 \in e2]]
+        Var flagInE1 = makeFlagConstant("inE1"), flagInE2 = makeFlagConstant("inE2");
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(ConstList.make(1, x1), e))), any()))
+                .thenReturn(flagInE1);
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(ConstList.make(1, x2), e))), any()))
+                .thenReturn(flagInE2);
+
+        // mock out [[f]] where y1 is mapped to x1, y2 is mapped to x2
+        Var flagMappedF = makeFlagConstant("mappedF");
+        when(mockRoot.translate(eq(f), any())).then(ctx -> {
+            TranslationContext context = ctx.getArgument(1);
+            assertTrue(context.hasVarMapping("y1"));
+            assertTrue(context.hasVarMapping("y2"));
+            assertEquals(x1, context.getVarMapping("y1"));
+            assertEquals(x2, context.getVarMapping("y2"));
+            return flagMappedF;
+        });
+
+        Expr comprehension = ExprElementOf.make(ConstList.make(Arrays.asList(x1, x2)), f.comprehensionOver(ys));
+        Term result = translator.translate(comprehension, context);
+        assertEquals(Term.mkAnd(flagInE1, flagInE2, flagMappedF), result);
+        assertContextEmpty(); // should clear context
+    }
+
+    @Test
     public void testTranslate_someExpr() {
         // test [[some e]] := [[some x: e | true]]
         Sig.PrimSig sig = new Sig.PrimSig("S");

@@ -120,6 +120,11 @@ abstract class AbstractTranslator implements Translator {
         return null;
     }
 
+    /** Translate "tuple \in expr", where expr is an ExprQt. */
+    public Term translate(ConstList<Var> tuple, ExprQt expr, TranslationContext context) {
+        return null;
+    }
+
     /** Translate an ExprQt Alloy formula. */
     public Term translate(ExprQt expr, TranslationContext context) {
         return null;
@@ -219,6 +224,8 @@ abstract class AbstractTranslator implements Translator {
                 return translate(expr.tuple, (ExprLet) expr.sub, context);
             } else if (expr.sub instanceof ExprITE) {
                 return translate(expr.tuple, (ExprITE) expr.sub, context);
+            } else if (expr.sub instanceof ExprQt) {
+                return translate(expr.tuple, (ExprQt) expr.sub, context);
             } else if (expr.sub instanceof Sig) {
                 assert expr.tuple.size() == 1;
                 return translate(expr.tuple.get(0), (Sig) expr.sub, context);

@@ -670,7 +670,6 @@ final class DefaultTranslator extends AbstractTranslator {
     }
 
     /** Translate an ExprQt formula. */
-    // TODO: COMPREHENSION, SUM - terms, not formulas
     @Override
     public Term translate(ExprQt expr, TranslationContext context) {
         // "no x: e | f" gets translated to "all x: e | not f"
@@ -740,6 +739,77 @@ final class DefaultTranslator extends AbstractTranslator {
                 // unsupported or not formula - NO is handled above
                 throw new ErrorFatal("Unsupported ExprQt formula: " + expr.op);
         }
+    }
+
+    /** Translate "tuple \in expr", where expr is an ExprQt. */
+    @Override
+    public Term translate(ConstList<Var> tuple, ExprQt expr, TranslationContext context) {
+        switch (expr.op) {
+            case COMPREHENSION:
+                return translateComprehension(tuple, expr, context);
+            case SUM:
+                // TODO
+            default:
+                // unsupported or not expression
+                throw new ErrorFatal("Unsupported ExprQt expression: " + expr.op);
+        }
+    }
+
+    /** Translate "tuple \in expr", where expr is a comprehension ExprQt. */
+    private Term translateComprehension(ConstList<Var> tuple, ExprQt expr, TranslationContext context) {
+        // [[(x1,...,xn) \in {y1: e1, ..., yn: en | f(y1,...,yn)}]] :=
+        // [[x1 \in e1]] && ... && [[xn \in en]] && [[f(y1,...,yn)]] where yi is mapped to xi
+        // First, check the arity is correct
+        if (tuple.size() != expr.count()) {
+            throw new ErrorSyntax("Mismatched arity for comprehension expression!");
+        }
+
+        // Pair the vars and decls/names
+        List<Pair<Var, Pair<Decl, ExprHasName>>> varsAndDecls = new ArrayList<>();
+        int tupleIdx = 0;
+        for (Decl decl : expr.decls) {
+            for (ExprHasName name : decl.names) {
+                Var var = tuple.get(tupleIdx);
+                varsAndDecls.add(new Pair<>(var, new Pair<>(decl, name)));
+                tupleIdx++;
+            }
+        }
+
+        List<Term> conjuncts = new ArrayList<>();
+
+        // Generate each [[xi \in ei]] conjunct
+        for (Pair<Var, Pair<Decl, ExprHasName>> varAndDecl : varsAndDecls) {
+            Var var = varAndDecl.a;
+            Decl decl = varAndDecl.b.a;
+            // Unwrap the expression from its multiplicity (and any NOOPs)
+            Expr declExpr = decl.expr.deNOP();
+            if (declExpr.mult == 1) {
+                // We know this is an ExprUnary because decl.expr.mult() must return ONEOF,
+                // because ExprQt doesn't allow comprehension decls to have other multiplicities.
+                ExprUnary wrappedDeclExpr = (ExprUnary) declExpr;
+                declExpr = wrappedDeclExpr.sub;
+            }
+            Expr conjunct = ExprElementOf.make(ConstList.make(1, var), declExpr);
+            conjuncts.add(recursivelyTranslate(conjunct, context));
+        }
+
+        // Map each yi to xi - do this after generating conjuncts to avoid any interference
+        for (Pair<Var, Pair<Decl, ExprHasName>> varAndDecl : varsAndDecls) {
+            Var var = varAndDecl.a;
+            ExprHasName name = varAndDecl.b.b;
+            context.addVarMapping(name.label, var);
+        }
+
+        // Map [[f(y1,...,yn)]]
+        conjuncts.add(recursivelyTranslate(expr.sub, context));
+
+        // Unmap all the yi's
+        for (Pair<Var, Pair<Decl, ExprHasName>> varAndDecl : varsAndDecls) {
+            ExprHasName name = varAndDecl.b.b;
+            context.removeMapping(name.label);
+        }
+
+        return Term.mkAnd(conjuncts);
     }
 
     /** Translate an ExprLet formula. */
