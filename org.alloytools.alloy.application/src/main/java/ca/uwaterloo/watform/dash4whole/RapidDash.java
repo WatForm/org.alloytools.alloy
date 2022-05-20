@@ -45,7 +45,7 @@ public class RapidDash {
             System.out.println("=========== Parsing+Typechecking " + fileName + " =============");
 
             DashModule dash = DashUtil.parseEverything_fromFileDash(rep, null, actual);
-            DashModule coreDash = DashToCoreDash.transformToCoreDash(dash);
+            DashModule coreDash = new DashToCoreDash().transformToCoreDash(dash, fileName.toString(), "");
             // Start our translation from here
 
         }
