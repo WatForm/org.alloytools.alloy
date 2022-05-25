@@ -512,7 +512,7 @@ public class DashModuleToString {
     	}
     	if (reference.equals("different_atoms")) {
     		out.print("/* This fact defines the following:").brk();
-    		out.print("   Consequtive snapshots that have the same set of active control states, events generated, transitions taken in the big step, and system variables are equal").brk();
+    		out.print("   Consequetive snapshots that have the same set of active control states, events generated, transitions taken in the big step, and system variables are equal").brk();
     		out.print("*/").brk();
     	}
     	if (reference.equals("tcmc")) {

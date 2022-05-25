@@ -1,6 +1,7 @@
 sig Value {}
 
 conc state Root { // root state is always concurrent
+	env event ev0 {}
 	event ev1 {} 
 	event ev2 {}
 	v1,v2: Value  // variables declared within a state are dynamic
@@ -10,7 +11,7 @@ conc state Root { // root state is always concurrent
 			trans t1 {
 				from A1 // src state
 				goto A2  // dest state
-				on ev1 // guarding event
+				on ev0 // guarding event
 				when v2 = v1 // guarding condition: Alloy formula
 				do {
 					v1' = v1  // Alloy formula

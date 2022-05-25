@@ -14,6 +14,7 @@ public class DashState {
     public Object          parent       = null;
 
     public List<DashState> states       = new ArrayList<DashState>();
+    public List<DashEvent> events       = new ArrayList<DashEvent>();
     public List<DashEnter> enter       = new ArrayList<DashEnter>();
     public List<DashExit>  exit       = new ArrayList<DashExit>();
     public List<DashTrans> transitions  = new ArrayList<DashTrans>();
@@ -42,9 +43,9 @@ public class DashState {
                 if (item instanceof DashExit) 
                     this.exit.add((DashExit) item);
                 if (item instanceof DashEvent)
-                    throw new ErrorSyntax(((DashEvent) item).pos, "Cannot declare an event inside a state");
+                    this.events.add((DashEvent) item);
                 if (item instanceof DashExpr)
-                    throw new ErrorSyntax(((DashExpr) item).pos, "Illegal declaration inside a state");
+                    throw new ErrorSyntax(((DashExpr) item).pos, "Illegal declaration inside an OR state");
             }
         }
 

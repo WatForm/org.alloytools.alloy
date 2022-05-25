@@ -68,8 +68,12 @@ public class CoreDashToAlloy {
         createSmallStepAST(module);
         createEqualsAST(module);
         createIsEnabledAST(module);
+        
+        createStutterStep(module);
         createDifferentAtomsFact(module);
+        
         if(DashOptions.generateTraces) {
+            createPathAST(module);
         	createTracesFact(module);
         }
         else if (!DashOptions.generateTraces && module.stateHierarchy) {
@@ -77,7 +81,7 @@ public class CoreDashToAlloy {
         }
 
         if (!DashOptions.generateTraces) {
-        	createSignificanceAxiomAST(module);
+        	//createSignificanceAxiomAST(module);
         }
         if (DashOptions.generateSigAxioms) {
         	createOperationsAxiomAST(module);
@@ -94,7 +98,38 @@ public class CoreDashToAlloy {
         DashOptions.isEnvEventModel = false;
         return module;
     }
+    
+    /**************************** CREATE A STUTTER STEP ***************************/
 
+    static void createStutterStep(DashModule module) {
+    	Expr expression = null;
+    	ExprVar s = ExprVar.make(null, "s");
+    	ExprVar sNext = ExprVar.make(null, "s_next");
+    	ExprVar isEnabled = ExprVar.make(null, "isEnabled");
+        ExprVar conf = ExprVar.make(null, "conf");
+        ExprVar events = ExprVar.make(null, "events");
+        ExprVar taken = ExprVar.make(null, "taken");
+       
+    	Expr sIsEnabled = ExprBadJoin.make(null, null, s, isEnabled);
+    	Expr notIsEnbled = ExprUnary.Op.NOT.make(null, sIsEnabled);
+    	expression = notIsEnbled;
+    	
+        Expr expr = ExprBinary.Op.EQUALS.make(null, null, ExprBadJoin.make(null, null, sNext, conf), ExprBadJoin.make(null, null, s, conf)); //s_next.conf = s.conf
+        if (DashOptions.isEnvEventModel)
+            expr = ExprBinary.Op.AND.make(null, null, expr, ExprBinary.Op.EQUALS.make(null, null, ExprBadJoin.make(null, null, sNext, events), ExprBadJoin.make(null, null, s, events))); //s_next.events = s.events
+
+        expr = ExprBinary.Op.AND.make(null, null, expr, ExprBinary.Op.EQUALS.make(null, null, ExprBadJoin.make(null, null, sNext, taken), ExprBadJoin.make(null, null, s, taken))); //s_next.taken = s.taken
+        
+        for (String key : module.variableNames.keySet()) {
+            for (String var : module.variableNames.get(key))
+                expr = ExprBinary.Op.AND.make(null, null, expr, ExprBinary.Op.EQUALS.make(null, null, ExprBadJoin.make(null, null, sNext, ExprVar.make(null, key + "_" + var)), ExprBadJoin.make(null, null, s, ExprVar.make(null, key + "_" + var))));
+        }
+        
+        expression = ExprBinary.Op.AND.make(null, null, expression, expr);
+    	
+    	addPredicateAST(module, "stutterStep" , "s", "s_next", null, null, expression); 
+    }
+    
     /**************************** CREATE PREDICATES FOR A TRANSITION ***************************/
     
     static void createTransitionsAST(DashModule module) {
@@ -456,8 +491,7 @@ public class CoreDashToAlloy {
             Expr ifCond = ExprBadJoin.make(null, null, ExprVar.make(null, "s"), ExprVar.make(null, "testIfNextStable"));
             ifCond = ExprBadJoin.make(null, null, ExprVar.make(null, "s_next"), ifCond);
             ifCond = ExprBadJoin.make(null, null, ExprVar.make(null, transition.modifiedName), ifCond);
-            //ifCond = ExprBadJoin.make(null, null, ExprVar.make(null, "none"), ifCond);
-            
+
             /* Conjunction of any env variables in the model */
             for(String concStateName: module.envVariableNames.keySet()) {
             	for(String envVar: module.envVariableNames.get(concStateName)) {
@@ -777,6 +811,11 @@ public class CoreDashToAlloy {
                 expression = ExprBinary.Op.OR.make(null, null, expression, expr);
             }
         }
+        
+        // Add in the Stutter Step
+        Expr expr = ExprBadJoin.make(null, null, ExprVar.make(null, "s"), ExprVar.make(null, "stutterStep"));
+        expr = ExprBadJoin.make(null, null, ExprVar.make(null, "s_next"), expr);
+        expression = ExprBinary.Op.OR.make(null, null, expression, expr);
 
         addPredicateAST(module, "small_step", "s", "s_next", null, null, expression);
     }
@@ -797,7 +836,7 @@ public class CoreDashToAlloy {
 
         decls.add(new Decl(null, null, null, null, a, mult(sNext))); //s_next: s.next
 
-        Expr operationCall = ExprBadJoin.make(null, null, s, ExprVar.make(null, "operation"));
+        Expr operationCall = ExprBadJoin.make(null, null, s, ExprVar.make(null, "small_step"));
         operationCall = ExprBadJoin.make(null, null, sPrime, operationCall); //s_next.s.operation
 
         expression = ExprQt.Op.ALL.make(null, null, decls, operationCall);
@@ -812,8 +851,8 @@ public class CoreDashToAlloy {
         List<Decl> decls = new ArrayList<Decl>();
         List<ExprVar> a = new ArrayList<ExprVar>();
         Expr snapshot = ExprUnary.Op.ONE.make(null, ExprVar.make(null, "Snapshot"));
+        Expr snapshotMinuslast = ExprBinary.Op.MINUS.make(null, null, ExprVar.make(null, "Snapshot"), ExprVar.make(null, "snapshot/last"));
         Expr s = ExprVar.make(null, "s");
-        Expr s_Next = ExprVar.make(null, "s_next");
         a.add((ExprVar) s);
         
     	Expr expression = ExprBadJoin.make(null, null, ExprVar.make(null, "first"), ExprVar.make(null, "init")); // init[first]
@@ -821,10 +860,8 @@ public class CoreDashToAlloy {
     	Expr smallStep = ExprBadJoin.make(null, null, s, ExprVar.make(null, "small_step")); //small_step[s]
     	Expr sNext = ExprBinary.Op.JOIN.make(null, null, s, ExprVar.make(null, "next")); //s.next
     	smallStep = ExprBadJoin.make(null, null, sNext, smallStep); // small_step[s, s.next]
-    	Expr notSinLast = ExprUnary.Op.NOT.make(null, ExprBinary.Op.IN.make(null, null, s, ExprVar.make(null, "snapshot/last"))); // !(s in last)
-    	Expr implies = ExprBinary.Op.IMPLIES.make(null, null, notSinLast, smallStep); // !(s in last) => small_step[s, s.next]
-    	decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s: Snapshot
-    	Expr smallStepQuant = ExprQt.Op.ALL.make(null, null, decls, implies); // all s: Snapshot | !(s in last) => small_step[s, s.next]
+    	decls.add(new Decl(null, null, null, null, a, mult(snapshotMinuslast))); //s: Snapshot
+    	Expr smallStepQuant = ExprQt.Op.ALL.make(null, null, decls, smallStep); // all s: Snapshot - snapshot/last | small_step[s, s.next]
     	expression = ExprBinary.Op.AND.make(null, null, expression, smallStepQuant);
     	decls.clear();
     	

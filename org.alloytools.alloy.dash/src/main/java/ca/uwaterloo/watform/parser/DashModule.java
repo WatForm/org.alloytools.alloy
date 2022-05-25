@@ -1524,13 +1524,17 @@ public final class DashModule extends Browsable implements Module {
             state.parent = parent;
         }
 
-        if (state.isDefault)
+        if (state.isDefault) {
             defaultStates.add(state);
+        }
 
         states.put(modifiedStateName, state);
 
         for (DashState innerState : state.states) {
             addState(state, innerState);
+        }
+        for (DashEvent event : state.events) {
+            addEvent(getParentConcState(state), event);
         }
     }
 
