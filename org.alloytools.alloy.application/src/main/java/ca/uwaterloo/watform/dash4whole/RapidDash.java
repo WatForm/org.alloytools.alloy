@@ -42,7 +42,7 @@ public class RapidDash {
 
             System.out.println("Parsing Model");
 
-            //Parse+typecheck the model
+            // Parse + typecheck the model
             System.out.println("=========== Parsing+Typechecking " + fileName + " =============");
 
             DashModule dash = DashUtil.parseEverything_fromFileDash(rep, null, actual);
