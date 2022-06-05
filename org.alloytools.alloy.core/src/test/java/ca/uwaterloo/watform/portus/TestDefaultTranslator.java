@@ -66,7 +66,7 @@ public class TestDefaultTranslator {
         mockRoot = mock(Translator.class);
         translator = new DefaultTranslator(mockRoot);
         mockScoper = mock(ScopeComputer.class);
-        context = new TranslationContext(A4Reporter.NOP, mockScoper);
+        context = new TranslationContext(new FortressOptions(), A4Reporter.NOP, mockScoper);
     }
 
     // Alloy test variables are used as placeholders in Alloy test expressions.

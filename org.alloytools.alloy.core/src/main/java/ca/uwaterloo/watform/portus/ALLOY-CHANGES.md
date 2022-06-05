@@ -16,3 +16,7 @@
   `FortressOptions.FortressSmtSolver` that uses `TranslateAlloyToFortress` instead and added
   static `SatSolver` constants for it.
 - Added a `FortressOptions` field to `A4Options`.
+- Extracted `SolutionInterface` interface from `A4Solution`, and use it instead of `A4Solution`
+  outside the `edu.mit.csail.sdg.translator` package as much as possible, so that `FortressSolution`
+  can implement it and allow the Alloy Analyzer to visualize Fortress solutions.
+- Made `A4TupleSet`'s constructor public so that Portus can call it.

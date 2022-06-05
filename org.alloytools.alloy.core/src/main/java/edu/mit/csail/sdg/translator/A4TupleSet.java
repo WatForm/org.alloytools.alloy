@@ -40,8 +40,9 @@ public final class A4TupleSet implements Iterable<A4Tuple> {
      * the atom2name map in sol. <br>
      * NOTE: caller must ensure the Kodkod tupleset is not modified, since we expect
      * the resulting A4Tupleset to be constant.
+     * @modified [portus] made public
      */
-    A4TupleSet(TupleSet tuples, A4Solution sol) {
+    public A4TupleSet(TupleSet tuples, A4Solution sol) {
         this.tuples = tuples;
         this.sol = sol;
     }

@@ -130,9 +130,11 @@ import kodkod.util.ints.IndexedEntry;
  *
  *           supports additional iteration operations provided by the kodkod
  *           backend
+ *
+ * @modified [portus] extracted SolutionInterface and used in other packages
  */
 
-public final class A4Solution {
+public final class A4Solution implements SolutionInterface {
 
     // ====== static immutable fields
     // ====================================================================//
@@ -566,6 +568,7 @@ public final class A4Solution {
     // ===================================================================================================//
 
     /** Returns the bitwidth; always between 1 and 30. */
+    @Override
     public int getBitwidth() {
         return bitwidth;
     }
@@ -574,6 +577,7 @@ public final class A4Solution {
      * Returns the maximum allowed sequence length; always between 0 and
      * 2^(bitwidth-1)-1.
      */
+    @Override
     public int getMaxSeq() {
         return maxseq;
     }
@@ -581,6 +585,7 @@ public final class A4Solution {
     /**
      * Returns the maximum allowed trace length; -1 if static model.
      */
+    @Override
     public int getMaxTrace() {
         return maxtrace;
     }
@@ -588,6 +593,7 @@ public final class A4Solution {
     /**
      * Returns the minimum allowed trace length; -1 if static model.
      */
+    @Override
     public int getMinTrace() {
         return mintrace;
     }
@@ -595,6 +601,7 @@ public final class A4Solution {
     /**
      * Returns the largest allowed integer, or -1 if no integers are allowed.
      */
+    @Override
     public int max() {
         return Util.max(bitwidth);
     }
@@ -602,6 +609,7 @@ public final class A4Solution {
     /**
      * Returns the smallest allowed integer, or 0 if no integers are allowed
      */
+    @Override
     public int min() {
         return Util.min(bitwidth);
     }
@@ -609,6 +617,7 @@ public final class A4Solution {
     /**
      * Returns the maximum number of allowed loop unrolling or recursion level.
      */
+    @Override
     public int unrolls() {
         return unrolls;
     }
@@ -619,6 +628,7 @@ public final class A4Solution {
      * Returns the original Alloy file name that generated this solution; can be ""
      * if unknown.
      */
+    @Override
     public String getOriginalFilename() {
         return originalOptions.originalFilename;
     }
@@ -627,6 +637,7 @@ public final class A4Solution {
      * Returns the original command that generated this solution; can be "" if
      * unknown.
      */
+    @Override
     public String getOriginalCommand() {
         return originalCommand;
     }
@@ -925,6 +936,7 @@ public final class A4Solution {
     /**
      * Returns true iff the problem has been solved and the result is satisfiable.
      */
+    @Override
     public boolean satisfiable() {
         return eval != null;
     }
@@ -933,6 +945,7 @@ public final class A4Solution {
      * Returns an unmodifiable copy of the list of all sigs in this solution's
      * model; always contains UNIV+SIGINT+SEQIDX+STRING+NONE and has no duplicates.
      */
+    @Override
     public SafeList<Sig> getAllReachableSigs() {
         return sigs.dup();
     }
@@ -941,6 +954,7 @@ public final class A4Solution {
      * Checks whether the this solution's model contains any configuration (static)
      * elements.
      */
+    @Override
     public boolean hasConfigs() {
         for (Sig s : sigs) {
             if (s.isVariable == null && !s.builtin)
@@ -956,6 +970,7 @@ public final class A4Solution {
      * Returns an unmodifiable copy of the list of all skolems if the problem is
      * solved and is satisfiable; else returns an empty list.
      */
+    @Override
     public Iterable<ExprVar> getAllSkolems() {
         return skolems.dup();
     }
@@ -964,16 +979,19 @@ public final class A4Solution {
      * Returns an unmodifiable copy of the list of all atoms if the problem is
      * solved and is satisfiable; else returns an empty list.
      */
+    @Override
     public Iterable<ExprVar> getAllAtoms() {
         return atoms.dup();
     }
 
     /** Returns the back loop instance of this instance (should always exist). */
+    @Override
     public int getLoopState() {
         return ((TemporalInstance) eval.instance()).loop;
     }
 
     /** Returns the length of the finite prefix. */
+    @Override
     public int getTraceLength() {
         return ((TemporalInstance) eval.instance()).prefixLength();
     }
@@ -1004,6 +1022,7 @@ public final class A4Solution {
      * Return the A4TupleSet for the given sig (if solution not yet solved, or
      * unsatisfiable, or sig not found, then return an empty tupleset).
      */
+    @Override
     public A4TupleSet eval(Sig sig) {
         return eval(sig, 0);
     }
@@ -1012,6 +1031,7 @@ public final class A4Solution {
      * Return the A4TupleSet for the given sig (if solution not yet solved, or
      * unsatisfiable, or sig not found, then return an empty tupleset).
      */
+    @Override
     public A4TupleSet eval(Sig sig, int state) {
         try {
             if (!solved || eval == null)
@@ -1035,6 +1055,7 @@ public final class A4Solution {
      * Return the A4TupleSet for the given field (if solution not yet solved, or
      * unsatisfiable, or field not found, then return an empty tupleset).
      */
+    @Override
     public A4TupleSet eval(Field field) {
         return eval(field, 0);
     }
@@ -1043,6 +1064,7 @@ public final class A4Solution {
      * Return the A4TupleSet for the given field (if solution not yet solved, or
      * unsatisfiable, or field not found, then return an empty tupleset).
      */
+    @Override
     public A4TupleSet eval(Field field, int state) {
         try {
             if (!solved || eval == null)
@@ -1064,6 +1086,7 @@ public final class A4Solution {
      * If this solution is solved and satisfiable, evaluates the given expression
      * and returns an A4TupleSet, a java Integer, or a java Boolean.
      */
+    @Override
     public Object eval(Expr expr) throws Err {
         return eval(expr, 0);
     }
@@ -1072,6 +1095,7 @@ public final class A4Solution {
      * If this solution is solved and satisfiable, evaluates the given expression at
      * the given state and returns an A4TupleSet, a java Integer, or a java Boolean.
      */
+    @Override
     public Object eval(Expr expr, int state) throws Err {
         try {
             if (expr instanceof Sig)
@@ -1760,6 +1784,7 @@ public final class A4Solution {
     }
 
     // [electrum] print particular state, if -1 all
+    @Override
     public String toString(int state) {
         if (!solved)
             return "---OUTCOME---\nUnknown.\n";
@@ -1834,6 +1859,7 @@ public final class A4Solution {
      *
      * @throws ErrorAPI if the solver was not an incremental solver
      */
+    @Override
     public A4Solution next() throws Err {
         return fork(-3);
     }
@@ -1844,6 +1870,7 @@ public final class A4Solution {
      *
      * @throws ErrorAPI if the solver was not an incremental solver
      */
+    @Override
     public A4Solution fork(int p) throws Err {
         if (!solved)
             throw new ErrorAPI("This solution is not yet solved, so next() is not allowed.");
@@ -1861,6 +1888,7 @@ public final class A4Solution {
     /**
      * Returns true if this solution was generated by an incremental SAT solver.
      */
+    @Override
     public boolean isIncremental() {
         return kEnumerator != null;
     }
@@ -1879,6 +1907,7 @@ public final class A4Solution {
      * If this solution is unsatisfiable and its unsat core is available, then
      * return the core; else return an empty set.
      */
+    @Override
     public Set<Pos> lowLevelCore() {
         if (lCoreCache != null)
             return lCoreCache;
@@ -1908,6 +1937,7 @@ public final class A4Solution {
      * If this solution is unsatisfiable and its unsat core is available, then
      * return the core; else return an empty set.
      */
+    @Override
     public Pair<Set<Pos>,Set<Pos>> highLevelCore() {
         if (hCoreCache != null)
             return hCoreCache;
@@ -1936,6 +1966,7 @@ public final class A4Solution {
     // ===================================================================================================//
 
     /** Helper method to write out a full XML file. */
+    @Override
     public void writeXML(String filename) throws Err {
         writeXML(filename, null, null);
     }
@@ -1957,6 +1988,7 @@ public final class A4Solution {
     }
 
     /** Helper method to write out a full XML file. */
+    @Override
     public void writeXML(A4Reporter rep, String filename, Iterable<Func> macros, Map<String,String> sourceFiles) throws Err {
         try (PrintWriter out = new PrintWriter(filename, "UTF-8")) {
             writeXML(rep, out, macros, sourceFiles);
@@ -1968,6 +2000,7 @@ public final class A4Solution {
     }
 
     /** Helper method to write out a full XML file. */
+    @Override
     public void writeXML(PrintWriter writer, Iterable<Func> macros, Map<String,String> sourceFiles) throws Err {
         A4SolutionWriter.writeInstance(null, this, writer, macros, sourceFiles);
         if (writer.checkError())
@@ -1981,11 +2014,13 @@ public final class A4Solution {
             throw new ErrorFatal("Error writing the solution XML file.");
     }
 
+    @Override
     public String format() {
         return format(-1);
     }
 
     // [electrum] format particular state, if -1 all
+    @Override
     public String format(int state) {
         if (!solved)
             return "---OUTCOME---\nUnknown.\n";

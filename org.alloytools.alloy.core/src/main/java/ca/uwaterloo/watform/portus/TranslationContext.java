@@ -18,6 +18,9 @@ import fortress.msfol.Var;
  */
 final class TranslationContext {
 
+    // The Fortress options to be used for the translation.
+    public final FortressOptions options;
+
     // A reporter that translators can use to log output.
     public final A4Reporter reporter;
 
@@ -37,11 +40,23 @@ final class TranslationContext {
     // The current lexical scope's mapping from Alloy variable labels to either
     // Fortress Vars or Alloy expressions as used in the "let x = e | ..." construct.
     // We use a single Env so these types of mappings can shadow each other.
-    private final Env<String, Either<Var, Expr>> alloyVarMapping = new Env<>();
+    private final Env<String, Either<Var, Expr>> alloyVarMapping;
 
-    public TranslationContext(A4Reporter reporter, ScopeComputer scoper) {
+    public TranslationContext(FortressOptions options, A4Reporter reporter, ScopeComputer scoper) {
+        this.options = options;
         this.reporter = (reporter == null) ? A4Reporter.NOP : reporter;
         this.scoper = scoper;
+        this.alloyVarMapping = new Env<>();
+    }
+
+    // Copy constructor: copy the context so changes to the new context don't affect the original.
+    public TranslationContext(TranslationContext context) {
+        this.options = context.options;
+        this.reporter = context.reporter;
+        this.scoper = context.scoper;
+        this.theory = context.theory; // theory is immutable
+        this.totalScope = context.totalScope;
+        this.alloyVarMapping = context.alloyVarMapping.dup();
     }
 
     // Add to the total scope needed for the universal sort.

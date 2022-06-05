@@ -4,14 +4,17 @@ import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.ast.Command;
 import edu.mit.csail.sdg.ast.Decl;
+import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprHasName;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.A4Options;
-import edu.mit.csail.sdg.translator.A4Solution;
 import edu.mit.csail.sdg.translator.CommandRunner;
 import edu.mit.csail.sdg.translator.ScopeComputer;
+import edu.mit.csail.sdg.translator.SolutionInterface;
+import fortress.interpretation.Interpretation;
 import fortress.modelfind.ModelFinder;
 import fortress.modelfind.ModelFinderResult;
+import fortress.msfol.Term;
 
 import java.io.IOException;
 import java.util.HashSet;
@@ -24,11 +27,18 @@ import java.util.Set;
 public final class TranslateAlloyToFortress implements CommandRunner {
 
     @Override
-    public A4Solution executeCommand(
+    public SolutionInterface executeCommand(
             A4Reporter reporter, Iterable<Sig> sigs, Command command, A4Options options) {
         ScopeComputer scoper = ScopeComputer.compute(reporter, options, sigs, command).b;
+
         try {
-            return executeCommand(reporter, sigs, command, scoper, options.fortressOptions);
+            // Actually execute the command, and time it.
+            long beginTimeMs = System.currentTimeMillis();
+            SolutionInterface solution = executeCommand(reporter, sigs, command, scoper, options);
+            long solvingTimeMs = System.currentTimeMillis() - beginTimeMs;
+
+            reportResult(solution, reporter, command, solvingTimeMs);
+            return solution;
         } catch (IOException e) {
             throw new ErrorFatal("IOException in Fortress translation", e);
         } catch (Throwable e) {
@@ -37,11 +47,21 @@ public final class TranslateAlloyToFortress implements CommandRunner {
         }
     }
 
-    private A4Solution executeCommand(
+    private void reportResult(
+            SolutionInterface solution, A4Reporter reporter, Command command, long solvingTimeMs) {
+        if (solution.satisfiable()) {
+            reporter.resultSAT(command, solvingTimeMs, solution);
+        } else {
+            reporter.resultUNSAT(command, solvingTimeMs, solution);
+        }
+    }
+
+    // Execute the command specified by command, mutating and returning solution.
+    private SolutionInterface executeCommand(
             A4Reporter reporter, Iterable<Sig> sigs, Command command,
-            ScopeComputer scoper, FortressOptions options) throws IOException {
-        Translator translator = new TranslatorManager(options);
-        TranslationContext context = new TranslationContext(reporter, scoper);
+            ScopeComputer scoper, A4Options options) throws IOException {
+        Translator translator = new TranslatorManager(options.fortressOptions);
+        TranslationContext context = new TranslationContext(options.fortressOptions, reporter, scoper);
 
         // Do sigs first, then fields, then the formula.
         // We have to do fields after sigs because a field can refer to sigs that come after it.
@@ -55,10 +75,11 @@ public final class TranslateAlloyToFortress implements CommandRunner {
             context.configureModelFinder(finder);
             ModelFinderResult result = finder.checkSat();
             reporter.debug("SMT result: " + result);
-        }
 
-        // TODO: return a result to hook into Alloy
-        return null;
+            Interpretation interpretation = (result == ModelFinderResult.Sat()) ? finder.viewModel() : null;
+            return new FortressSolution(
+                    interpretation, context, sigs, options.originalFilename, command.toString());
+        }
     }
 
     private void translateSigs(Iterable<Sig> sigs, Translator translator, TranslationContext context) {
@@ -118,6 +139,17 @@ public final class TranslateAlloyToFortress implements CommandRunner {
                 }
             }
         }
+    }
+
+    /**
+     * Translate an Alloy formula to a Fortress term using an existing translation context.
+     * @param formula The Alloy formula to translate. This must be a formula (i.e. the type must
+     *                be boolean, cannot be an expression).
+     * @param context An existing translation context to translate within.
+     */
+    public static Term translateFormula(Expr formula, TranslationContext context) {
+        Translator translator = new TranslatorManager(context.options);
+        return translator.translate(formula, context);
     }
 
 }
