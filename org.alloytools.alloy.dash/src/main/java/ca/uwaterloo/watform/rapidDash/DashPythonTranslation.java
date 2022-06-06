@@ -22,6 +22,8 @@ public class DashPythonTranslation {
 
     public List<String> basicSigLabels;
 
+    public List<String> oneSigLabels;
+
     private Map<String, State> concStateMap;
 
     /**
@@ -37,6 +39,12 @@ public class DashPythonTranslation {
                 .map(sig -> clean(sig.label))
                 .collect(Collectors.toList());
 
+        // get signature names
+        this.oneSigLabels = dashModule.sigs.values().stream()
+                .filter(this::isOneSig)
+                .map(sig -> clean(sig.label))
+                .collect(Collectors.toList());
+
         // get state hierarchy
         this.concStateMap = new HashMap<>();
         // initialize all states instances, TODO: state will have more member variables, here is only used for transitions
@@ -48,22 +56,22 @@ public class DashPythonTranslation {
         }
         
         // add substates to conc states
-        for(DashConcState state: dashModule.concStates.values()) {
-        	for(DashConcState substate: state.concStates) {
-        		this.concStateMap.get(state.modifiedName).addSubstate(this.concStateMap.get(substate.modifiedName));
-        		this.concStateMap.get(substate.modifiedName).parent = concStateMap.get(state.modifiedName);
+        for(DashConcState state: dashModule.getAllConcurrentStates().values()) {
+        	for(DashConcState substate: state.getInnerConcStates()) {
+        		this.concStateMap.get(state.getFullyQualName()).addSubstate(this.concStateMap.get(substate.getFullyQualName()));
+        		this.concStateMap.get(substate.getFullyQualName()).parent = concStateMap.get(state.getFullyQualName());
         	}
-        	for(DashState substate: state.states) {
-        		this.concStateMap.get(state.modifiedName).addSubstate(this.concStateMap.get(substate.modifiedName));
-        		this.concStateMap.get(substate.modifiedName).parent = concStateMap.get(state.modifiedName);
+        	for(DashState substate: state.getInnerORStates()) {
+        		this.concStateMap.get(state.getFullyQualName()).addSubstate(this.concStateMap.get(substate.getFullyQualName()));
+        		this.concStateMap.get(substate.getFullyQualName()).parent = concStateMap.get(state.getFullyQualName());
         	}
         }
         
         // add substates to dash states
-        for(DashState state: dashModule.states.values()) {
-        	for(DashState substate: state.states) {
-        		this.concStateMap.get(state.modifiedName).addSubstate(this.concStateMap.get(substate.modifiedName));
-        		this.concStateMap.get(substate.modifiedName).parent = concStateMap.get(state.modifiedName);
+        for(DashState state: dashModule.getORStates().values()) {
+        	for(DashState substate: state.getInnerORStates()) {
+        		this.concStateMap.get(state.getFullyQualName()).addSubstate(this.concStateMap.get(substate.getFullyQualName()));
+        		this.concStateMap.get(substate.getFullyQualName()).parent = concStateMap.get(state.getFullyQualName());
         	}
         }
 
@@ -89,6 +97,12 @@ public class DashPythonTranslation {
     		}
     	}
     	return states;
+    }
+
+    private Boolean isOneSig(Sig sig) {
+        return sig.isOne != null & sig.isAbstract == null & sig.isEnum == null &
+                sig.isLone == null & sig.isMeta == null & sig.isPrivate == null & sig.isSome == null & sig.isSubset == null &
+                sig.isVariable == null;
     }
 
     public class State{
