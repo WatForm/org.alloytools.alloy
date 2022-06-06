@@ -4,6 +4,7 @@ import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.alloy4.ConstList;
 import edu.mit.csail.sdg.alloy4.Err;
 import edu.mit.csail.sdg.alloy4.ErrorAPI;
+import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.alloy4.Pos;
 import edu.mit.csail.sdg.alloy4.SafeList;
@@ -12,6 +13,7 @@ import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Func;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.A4Solution;
+import edu.mit.csail.sdg.translator.A4SolutionWriter;
 import edu.mit.csail.sdg.translator.A4TupleSet;
 import edu.mit.csail.sdg.translator.SolutionInterface;
 import fortress.interpretation.Interpretation;
@@ -23,10 +25,12 @@ import fortress.msfol.Var;
 import fortress.operations.InterpretationVerifier;
 import kodkod.instance.Tuple;
 import kodkod.instance.TupleFactory;
+import kodkod.instance.TupleSet;
 import kodkod.instance.Universe;
 import scala.collection.immutable.Seq;
 import scala.jdk.javaapi.CollectionConverters;
 
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -42,6 +46,9 @@ public final class FortressSolution implements SolutionInterface {
     /** The Fortress interpretation corresponding to this solution (null if unsat). */
     private final Interpretation interpretation;
 
+    /** The translator used to produce the input to Fortress which produced the interpretation.. */
+    private final Translator translator;
+
     /** The context of the translation used to produce the interpretation. */
     private final TranslationContext context;
 
@@ -54,9 +61,10 @@ public final class FortressSolution implements SolutionInterface {
     /** Map atoms from Fortress to Alloy. */
     private final Map<Value, ExprVar> fortressToAlloyAtoms = new HashMap<>();
 
-    FortressSolution(Interpretation interpretation, TranslationContext context, Iterable<Sig> sigs,
-                     String originalFilename, String originalCommand) {
+    FortressSolution(Interpretation interpretation, Translator translator, TranslationContext context,
+                     Iterable<Sig> sigs, String originalFilename, String originalCommand) {
         this.interpretation = interpretation;
+        this.translator = translator;
         this.context = context;
         this.sigs = new SafeList<>(sigs);
         this.originalFilename = originalFilename;
@@ -106,13 +114,13 @@ public final class FortressSolution implements SolutionInterface {
     @Override
     public int getMaxTrace() {
         // TODO - temporal support
-        return 0;
+        return -1;
     }
 
     @Override
     public int getMinTrace() {
         // TODO - temporal support
-        return 0;
+        return -1;
     }
 
     @Override
@@ -124,7 +132,7 @@ public final class FortressSolution implements SolutionInterface {
     @Override
     public int getTraceLength() {
         // TODO - temporal support
-        return 0;
+        return 1;
     }
 
     @Override
@@ -192,7 +200,7 @@ public final class FortressSolution implements SolutionInterface {
             // A formula - just check it and return the boolean
             // Translate to Fortress - copy the translation context to avoid any modifications
             TranslationContext contextCopy = new TranslationContext(context);
-            Term fortressTerm = TranslateAlloyToFortress.translateFormula(expr, contextCopy);
+            Term fortressTerm = translator.translate(expr, contextCopy);
             return evaluateFormula(fortressTerm, interpretation);
         }
 
@@ -206,7 +214,8 @@ public final class FortressSolution implements SolutionInterface {
         // It's a tuple set - manually evaluate {(x1,...,xn) : univ^n | [[(x1,...,xn) \in expr]]}
         List<List<Value>> tupleSet = new ArrayList<>();
         Set<Value> atoms = fortressToAlloyAtoms.keySet();
-        for (List<Value> tuple : cartesianPower(atoms, expr.type().arity())) {
+        int arity = expr.type().arity();
+        for (List<Value> tuple : cartesianPower(atoms, arity)) {
             // ExprElementOf only takes Vars, so use fake sorts to work around:
             // (x1,...,xn) \in expr --> forall y1: X1. ... forall yn: Xn. (y1,...,yn) \in expr
             // where X1 = {x1}, ..., Xn = {xn}
@@ -218,7 +227,7 @@ public final class FortressSolution implements SolutionInterface {
             // Translate [[(y1,...,yn) \in expr]] - copy the context to avoid any modifications
             TranslationContext contextCopy = new TranslationContext(context);
             Expr inExpr = ExprElementOf.make(ConstList.make(vars), expr);
-            Term formula = TranslateAlloyToFortress.translateFormula(inExpr, contextCopy);
+            Term formula = translator.translate(inExpr, contextCopy);
 
             // Add on the fake sorts (going backwards for elegance)
             Interpretation fakeSortInterp = interpretation;
@@ -248,8 +257,14 @@ public final class FortressSolution implements SolutionInterface {
         List<Tuple> tuples = tupleSet.stream()
                 .map(tupleFactory::tuple)
                 .collect(Collectors.toList());
-        // TODO is it ok to leave the A4Solution argument null?
-        return new A4TupleSet(tupleFactory.setOf(tuples), null);
+        TupleSet result;
+        if (tuples.isEmpty()) {
+            // TupleFactory.setOf() can't determine the arity if there are no tuples
+            result = tupleFactory.noneOf(arity);
+        } else {
+            result = tupleFactory.setOf(tuples);
+        }
+        return new A4TupleSet(result, this);
     }
 
     @Override
@@ -262,8 +277,11 @@ public final class FortressSolution implements SolutionInterface {
     private static boolean evaluateFormula(
             Term formula, Interpretation interpretation) {
         // Check whether the interpretation satisfies a theory with the term as the only axiom.
-        // TODO: avoid useless theory by extracting function from InterpretationVerifier?
-        Theory theory = Theory.empty().withAxiom(formula);
+        Theory theory = Theory.empty()
+                .withSorts(interpretation.sortInterpretationsJava().keySet())
+                .withFunctionDeclarations(interpretation.functionInterpretations().keys())
+                .withConstants(interpretation.constantInterpretationsJava().keySet())
+                .withAxiom(formula);
         InterpretationVerifier verifier = new InterpretationVerifier(theory);
         return verifier.verifyInterpretation(interpretation);
     }
@@ -331,18 +349,32 @@ public final class FortressSolution implements SolutionInterface {
 
     @Override
     public void writeXML(String filename) throws Err {
-        
+        writeXML(A4Reporter.NOP, filename, Collections.emptyList(), Collections.emptyMap());
     }
 
     @Override
     public void writeXML(
             A4Reporter rep, String filename, Iterable<Func> macros, Map<String, String> sourceFiles) throws Err {
-
+        System.out.println(filename);
+        try (PrintWriter out = new PrintWriter(filename, "UTF-8")) {
+            writeXML(rep, out, macros, sourceFiles);
+            if (out.checkError()) {
+                throw new ErrorFatal("Failed to write the Fortress solution XML file.");
+            }
+        } catch (IOException e) {
+            throw new ErrorFatal("Error writing the Fortress solution XML file.", e);
+        }
     }
 
     @Override
     public void writeXML(PrintWriter writer, Iterable<Func> macros, Map<String, String> sourceFiles) throws Err {
+        writeXML(A4Reporter.NOP, writer, macros, sourceFiles);
+    }
 
+    private void writeXML(
+            A4Reporter rep, PrintWriter writer, Iterable<Func> macros, Map<String, String> sourceFiles) throws Err {
+        // Use the general solution writer routine
+        A4SolutionWriter.writeInstance(rep, this, writer, macros, sourceFiles);
     }
 
     @Override
@@ -354,6 +386,17 @@ public final class FortressSolution implements SolutionInterface {
     public String format(int state) {
         // TODO - temporal support
         return format();
+    }
+
+    @Override
+    public String atom2name(Object atom) {
+        return atom.toString();
+    }
+
+    @Override
+    public Sig.PrimSig atom2sig(Object atom) {
+        // TODO: find the sig of an atom (brute force?)
+        return null;
     }
 
 }

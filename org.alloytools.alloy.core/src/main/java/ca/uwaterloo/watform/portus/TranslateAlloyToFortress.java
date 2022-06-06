@@ -78,7 +78,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
 
             Interpretation interpretation = (result == ModelFinderResult.Sat()) ? finder.viewModel() : null;
             return new FortressSolution(
-                    interpretation, context, sigs, options.originalFilename, command.toString());
+                    interpretation, translator, context, sigs, options.originalFilename, command.toString());
         }
     }
 
@@ -139,17 +139,6 @@ public final class TranslateAlloyToFortress implements CommandRunner {
                 }
             }
         }
-    }
-
-    /**
-     * Translate an Alloy formula to a Fortress term using an existing translation context.
-     * @param formula The Alloy formula to translate. This must be a formula (i.e. the type must
-     *                be boolean, cannot be an expression).
-     * @param context An existing translation context to translate within.
-     */
-    public static Term translateFormula(Expr formula, TranslationContext context) {
-        Translator translator = new TranslatorManager(context.options);
-        return translator.translate(formula, context);
     }
 
 }

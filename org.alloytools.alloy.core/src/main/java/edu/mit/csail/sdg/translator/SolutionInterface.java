@@ -84,4 +84,8 @@ public interface SolutionInterface {
     // [electrum] format particular state, if -1 all
     String format(int state);
 
+    String atom2name(Object atom);
+
+    Sig.PrimSig atom2sig(Object atom);
+
 }

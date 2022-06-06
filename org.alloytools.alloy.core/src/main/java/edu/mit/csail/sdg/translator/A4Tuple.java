@@ -22,15 +22,17 @@ import kodkod.instance.Tuple;
 /**
  * Immutable; represents a single Alloy tuple; comparison is by identity rather
  * than by value.
+ *
+ * @modified [portus] used SolutionInterface rather than A4Solution
  */
 
 public final class A4Tuple {
 
     /** The Kodkod tuple. */
-    private final Tuple      tuple;
+    private final Tuple             tuple;
 
-    /** The A4Solution that this came from. */
-    private final A4Solution sol;
+    /** The solution that this came from. */
+    private final SolutionInterface sol;
 
     /**
      * Construct a Tuple from the kodkod Tuple, while renaming each atom using the
@@ -38,7 +40,7 @@ public final class A4Tuple {
      * NOTE: caller must ensure the Kodkod tuple is not modified, since we expect
      * the resulting A4Tuple to be constant.
      */
-    A4Tuple(Tuple tuple, A4Solution sol) {
+    A4Tuple(Tuple tuple, SolutionInterface sol) {
         this.tuple = tuple;
         this.sol = sol;
     }

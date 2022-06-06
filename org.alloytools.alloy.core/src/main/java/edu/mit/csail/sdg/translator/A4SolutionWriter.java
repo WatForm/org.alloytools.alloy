@@ -38,8 +38,8 @@ import edu.mit.csail.sdg.ast.Sig.SubsetSig;
 import edu.mit.csail.sdg.ast.Type;
 
 /**
- * This helper class contains helper routines for writing an A4Solution object
- * out as an XML file.
+ * This helper class contains helper routines for writing a SolutionInterface
+ * object out as an XML file.
  *
  * @modified [electrum] prints full trace instance into XML; each state is added
  *           as an XML Instance element; trace meta-data (length, loop, variable
@@ -51,6 +51,10 @@ import edu.mit.csail.sdg.ast.Type;
  *           enforced that skolems always belong to a sig); mutable skolem vars
  *           (from auxiliary functions) may be empty in certain states and
  *           should still be printed (so empty skolem vars are always printed);
+ *
+ * @modified [portus] write out a general SolutionInterface rather than
+ *           specifically an A4Solution so Fortress solutions can be written
+ *           too; make writeInstance() public
  */
 
 public final class A4SolutionWriter {
@@ -59,7 +63,7 @@ public final class A4SolutionWriter {
     private final IdentityHashMap<Expr,String> map       = new IdentityHashMap<Expr,String>();
 
     /** This is the solution we're writing out. */
-    private final A4Solution                   sol;
+    private final SolutionInterface            sol;
 
     /**
      * This is the A4Reporter that we're sending diagnostic messages to; can be null
@@ -254,7 +258,7 @@ public final class A4SolutionWriter {
      * If sol==null, write the list of Sigs as a Metamodel, else write the solution
      * as an XML file.
      */
-    private A4SolutionWriter(A4Reporter rep, A4Solution sol, Iterable<Sig> sigs, int bitwidth, int maxseq, int mintrace, int maxtrace, int tracelength, int backloop, String originalCommand, String originalFileName, PrintWriter out, Iterable<Func> extraSkolems, int state) throws Err {
+    private A4SolutionWriter(A4Reporter rep, SolutionInterface sol, Iterable<Sig> sigs, int bitwidth, int maxseq, int mintrace, int maxtrace, int tracelength, int backloop, String originalCommand, String originalFileName, PrintWriter out, Iterable<Func> extraSkolems, int state) throws Err {
         this.rep = rep;
         this.out = out;
         this.sol = sol;
@@ -318,8 +322,10 @@ public final class A4SolutionWriter {
     /**
      * If this solution is a satisfiable solution, this method will write it out in
      * XML format as a sequence of &lt;instance&gt;..&lt;/instance&gt;.
+     *
+     * @modified [portus] made public
      */
-    static void writeInstance(A4Reporter rep, A4Solution sol, PrintWriter out, Iterable<Func> extraSkolems, Map<String,String> sources) throws Err {
+    public static void writeInstance(A4Reporter rep, SolutionInterface sol, PrintWriter out, Iterable<Func> extraSkolems, Map<String,String> sources) throws Err {
         if (!sol.satisfiable())
             throw new ErrorAPI("This solution is unsatisfiable.");
         try {

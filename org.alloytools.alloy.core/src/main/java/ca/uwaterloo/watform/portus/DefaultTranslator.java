@@ -215,6 +215,9 @@ final class DefaultTranslator extends AbstractTranslator {
             if (sig.equals(Sig.UNIV)) {
                 // "var \in univ" is always true
                 return Term.mkTop();
+            } else if (sig.equals(Sig.STRING)) {
+                // TODO - implement strings for real
+                return Term.mkBottom();
             } else {
                 throw new ErrorFatal("Unsupported builtin sig: " + sig);
             }
@@ -222,7 +225,7 @@ final class DefaultTranslator extends AbstractTranslator {
 
         // if we recognize the sig, use its membership predicate
         if (!sigMemberPredicates.containsKey(sig)) {
-            throw new ErrorSyntax("Unknown sig " + sig);
+            throw new ErrorFatal("Unknown sig " + sig);
         }
         return sigMemberPredicates.get(sig).apply(var);
     }
