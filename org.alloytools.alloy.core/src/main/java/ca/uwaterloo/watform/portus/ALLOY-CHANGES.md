@@ -16,10 +16,10 @@
   `FortressOptions.FortressSmtSolver` that uses `TranslateAlloyToFortress` instead and added
   static `SatSolver` constants for it.
 - Added a `FortressOptions` field to `A4Options`.
-- Extracted `SolutionInterface` interface from `A4Solution`, and used it instead of `A4Solution`
+- Extracted `AlloySolution` interface from `A4Solution`, and used it instead of `A4Solution`
   outside the `edu.mit.csail.sdg.translator` package as much as possible, so that `FortressSolution`
   can implement it and allow the Alloy Analyzer to visualize Fortress solutions.
-- Also used `SolutionInterface` in `A4SolutionWriter`, `A4Tuple`, and `A4TupleSet` to make them
+- Also used `AlloySolution` in `A4SolutionWriter`, `A4Tuple`, and `A4TupleSet` to make them
   generic between Fortress and Kodkod solutions. Made `A4Solution`'s `atom2name` and `atom2sig`
-  methods public so they can be added to `SolutionInterface`.
+  methods public so they can be added to `AlloySolution`.
 - Made `A4TupleSet`'s constructor public so that Portus can call it.

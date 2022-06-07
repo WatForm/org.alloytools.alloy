@@ -4,17 +4,15 @@ import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.ast.Command;
 import edu.mit.csail.sdg.ast.Decl;
-import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprHasName;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.A4Options;
 import edu.mit.csail.sdg.translator.CommandRunner;
 import edu.mit.csail.sdg.translator.ScopeComputer;
-import edu.mit.csail.sdg.translator.SolutionInterface;
+import edu.mit.csail.sdg.translator.AlloySolution;
 import fortress.interpretation.Interpretation;
 import fortress.modelfind.ModelFinder;
 import fortress.modelfind.ModelFinderResult;
-import fortress.msfol.Term;
 
 import java.io.IOException;
 import java.util.HashSet;
@@ -27,14 +25,14 @@ import java.util.Set;
 public final class TranslateAlloyToFortress implements CommandRunner {
 
     @Override
-    public SolutionInterface executeCommand(
+    public AlloySolution executeCommand(
             A4Reporter reporter, Iterable<Sig> sigs, Command command, A4Options options) {
         ScopeComputer scoper = ScopeComputer.compute(reporter, options, sigs, command).b;
 
         try {
             // Actually execute the command, and time it.
             long beginTimeMs = System.currentTimeMillis();
-            SolutionInterface solution = executeCommand(reporter, sigs, command, scoper, options);
+            AlloySolution solution = executeCommand(reporter, sigs, command, scoper, options);
             long solvingTimeMs = System.currentTimeMillis() - beginTimeMs;
 
             reportResult(solution, reporter, command, solvingTimeMs);
@@ -48,7 +46,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
     }
 
     private void reportResult(
-            SolutionInterface solution, A4Reporter reporter, Command command, long solvingTimeMs) {
+            AlloySolution solution, A4Reporter reporter, Command command, long solvingTimeMs) {
         if (solution.satisfiable()) {
             reporter.resultSAT(command, solvingTimeMs, solution);
         } else {
@@ -57,7 +55,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
     }
 
     // Execute the command specified by command, mutating and returning solution.
-    private SolutionInterface executeCommand(
+    private AlloySolution executeCommand(
             A4Reporter reporter, Iterable<Sig> sigs, Command command,
             ScopeComputer scoper, A4Options options) throws IOException {
         Translator translator = new TranslatorManager(options.fortressOptions);

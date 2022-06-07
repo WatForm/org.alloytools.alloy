@@ -15,7 +15,7 @@ import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.A4Solution;
 import edu.mit.csail.sdg.translator.A4SolutionWriter;
 import edu.mit.csail.sdg.translator.A4TupleSet;
-import edu.mit.csail.sdg.translator.SolutionInterface;
+import edu.mit.csail.sdg.translator.AlloySolution;
 import fortress.interpretation.Interpretation;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
@@ -41,7 +41,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public final class FortressSolution implements SolutionInterface {
+public final class FortressSolution implements AlloySolution {
 
     /** The Fortress interpretation corresponding to this solution (null if unsat). */
     private final Interpretation interpretation;
@@ -88,6 +88,12 @@ public final class FortressSolution implements SolutionInterface {
     }
 
     @Override
+    public int getMaxSeq() {
+        // TODO - integers (?)
+        return 0;
+    }
+
+    @Override
     public int max() {
         // TODO - integers
         return 0;
@@ -102,12 +108,6 @@ public final class FortressSolution implements SolutionInterface {
     @Override
     public int unrolls() {
         // TODO - recursion
-        return 0;
-    }
-
-    @Override
-    public int getMaxSeq() {
-        // TODO - temporal support
         return 0;
     }
 
@@ -308,7 +308,8 @@ public final class FortressSolution implements SolutionInterface {
 
     @Override
     public String toString() {
-        return null;
+        // TODO - do we need to do this?
+        return satisfiable() ? "SAT" : "UNSAT";
     }
 
     @Override
@@ -379,6 +380,7 @@ public final class FortressSolution implements SolutionInterface {
 
     @Override
     public String format() {
+        // TODO - do we need to do this?
         return null;
     }
 

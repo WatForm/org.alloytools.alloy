@@ -1,0 +1,223 @@
+package edu.mit.csail.sdg.translator;
+
+import edu.mit.csail.sdg.alloy4.A4Reporter;
+import edu.mit.csail.sdg.alloy4.Err;
+import edu.mit.csail.sdg.alloy4.ErrorAPI;
+import edu.mit.csail.sdg.alloy4.Pair;
+import edu.mit.csail.sdg.alloy4.Pos;
+import edu.mit.csail.sdg.alloy4.SafeList;
+import edu.mit.csail.sdg.ast.Expr;
+import edu.mit.csail.sdg.ast.ExprVar;
+import edu.mit.csail.sdg.ast.Func;
+import edu.mit.csail.sdg.ast.Sig;
+
+import java.io.PrintWriter;
+import java.util.Map;
+import java.util.Set;
+
+/**
+ * A solution that can be displayed in the Alloy Analyzer.
+ * This forms an abstraction over A4Solution which can also be implemented by
+ * non-Kodkod-based solution types, such as FortressSolution.
+ *
+ * @since Added by Portus.
+ */
+public interface AlloySolution {
+
+    /**
+     * Returns the bitwidth; always between 1 and 30.
+     */
+    int getBitwidth();
+
+    /**
+     * Returns the maximum allowed sequence length; always between 0 and
+     * 2^(bitwidth-1)-1.
+     */
+    int getMaxSeq();
+
+    /**
+     * Returns the largest allowed integer, or -1 if no integers are allowed.
+     */
+    int max();
+
+    /**
+     * Returns the smallest allowed integer, or 0 if no integers are allowed
+     */
+    int min();
+
+    /**
+     * Returns the maximum number of allowed loop unrolling or recursion level.
+     */
+    int unrolls();
+
+    /**
+     * Returns the maximum allowed trace length; -1 if static model.
+     */
+    int getMaxTrace();
+
+    /**
+     * Returns the minimum allowed trace length; -1 if static model.
+     */
+    int getMinTrace();
+
+    /**
+     * Returns the back loop instance of this instance (should always exist).
+     */
+    int getLoopState();
+
+    /**
+     * Returns the length of the finite prefix.
+     */
+    int getTraceLength();
+
+    /**
+     * Returns the original Alloy file name that generated this solution; can be ""
+     * if unknown.
+     */
+    String getOriginalFilename();
+
+    /**
+     * Returns the original command that generated this solution; can be "" if
+     * unknown.
+     */
+    String getOriginalCommand();
+
+    /**
+     * Returns true iff the problem has been solved and the result is satisfiable.
+     */
+    boolean satisfiable();
+
+    /**
+     * Returns an unmodifiable copy of the list of all sigs in this solution's model.
+     */
+    SafeList<Sig> getAllReachableSigs();
+
+    /**
+     * Checks whether the this solution's model contains any configuration (static) elements.
+     */
+    boolean hasConfigs();
+
+    /**
+     * Returns an unmodifiable copy of the list of all skolems if the problem is
+     * solved and is satisfiable; else returns an empty list.
+     */
+    Iterable<ExprVar> getAllSkolems();
+
+    /**
+     * Returns an unmodifiable copy of the list of all atoms if the problem is
+     * solved and is satisfiable; else returns an empty list.
+     */
+    Iterable<ExprVar> getAllAtoms();
+
+    /**
+     * Return the A4TupleSet for the given sig (if solution not yet solved, or
+     * unsatisfiable, or sig not found, then return an empty tupleset).
+     */
+    A4TupleSet eval(Sig sig);
+
+    /**
+     * Return the A4TupleSet for the given sig (if solution not yet solved, or
+     * unsatisfiable, or sig not found, then return an empty tupleset).
+     */
+    A4TupleSet eval(Sig sig, int state);
+
+    /**
+     * Return the A4TupleSet for the given field (if solution not yet solved, or
+     * unsatisfiable, or field not found, then return an empty tupleset).
+     */
+    A4TupleSet eval(Sig.Field field);
+
+    /**
+     * Return the A4TupleSet for the given field (if solution not yet solved, or
+     * unsatisfiable, or field not found, then return an empty tupleset).
+     */
+    A4TupleSet eval(Sig.Field field, int state);
+
+    /**
+     * If this solution is solved and satisfiable, evaluates the given expression
+     * and returns an A4TupleSet, a java Integer, or a java Boolean.
+     */
+    Object eval(Expr expr) throws Err;
+
+    /**
+     * If this solution is solved and satisfiable, evaluates the given expression at
+     * the given state and returns an A4TupleSet, a java Integer, or a java Boolean.
+     */
+    Object eval(Expr expr, int state) throws Err;
+
+    /**
+     * Print a particular temporal state, if -1 all.
+     */
+    String toString(int state);
+
+    /**
+     * If this solution is UNSAT, return itself; else return the next solution
+     * (which could be SAT or UNSAT).
+     *
+     * @throws ErrorAPI if the solver was not an incremental solver
+     */
+    A4Solution next() throws Err;
+
+    /**
+     * If this solution is UNSAT, return itself; else return the next solution
+     * according to the selected operation (which could be SAT or UNSAT).
+     *
+     * @throws ErrorAPI if the solver was not an incremental solver
+     */
+    A4Solution fork(int p) throws Err;
+
+    /**
+     * Returns true if this solution was generated by an incremental SAT solver.
+     */
+    boolean isIncremental();
+
+    /**
+     * If this solution is unsatisfiable and its unsat core is available, then
+     * return the core; else return an empty set.
+     */
+    Set<Pos> lowLevelCore();
+
+    /**
+     * If this solution is unsatisfiable and its unsat core is available, then
+     * return the core; else return an empty set.
+     */
+    Pair<Set<Pos>, Set<Pos>> highLevelCore();
+
+    /**
+     * Helper method to write out a full XML file.
+     */
+    void writeXML(String filename) throws Err;
+
+    /**
+     * Helper method to write out a full XML file.
+     */
+    void writeXML(A4Reporter rep, String filename, Iterable<Func> macros, Map<String, String> sourceFiles) throws Err;
+
+    /**
+     * Helper method to write out a full XML file.
+     */
+    void writeXML(PrintWriter writer, Iterable<Func> macros, Map<String, String> sourceFiles) throws Err;
+
+    /**
+     * Format the solution to a string in the format expected by the visualizer.
+     */
+    String format();
+
+    /**
+     * Format a particular state, if -1 all.
+     */
+    String format(int state);
+
+    /**
+     * Returns the short unique name corresponding to the given atom if the problem
+     * is solved and is satisfiable; else returns atom.toString().
+     */
+    String atom2name(Object atom);
+
+    /**
+     * Returns the most specific sig corresponding to the given atom if the problem
+     * is solved and is satisfiable; else returns UNIV.
+     */
+    Sig.PrimSig atom2sig(Object atom);
+
+}

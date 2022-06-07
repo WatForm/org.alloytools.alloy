@@ -26,7 +26,7 @@ import kodkod.instance.TupleSet;
  * Immutable; represents a collection of Alloy tuples; comparison is by identity
  * rather than by value.
  *
- * @modified [portus] used SolutionInterface rather than A4Solution
+ * @modified [portus] used AlloySolution rather than A4Solution
  */
 
 public final class A4TupleSet implements Iterable<A4Tuple> {
@@ -35,7 +35,7 @@ public final class A4TupleSet implements Iterable<A4Tuple> {
     private final TupleSet          tuples;
 
     /** The solution that this came from. */
-    private final SolutionInterface sol;
+    private final AlloySolution sol;
 
     /**
      * Construct a TupleSet from the kodkod TupleSet, while renaming each atom using
@@ -44,7 +44,7 @@ public final class A4TupleSet implements Iterable<A4Tuple> {
      * the resulting A4Tupleset to be constant.
      * @modified [portus] made public
      */
-    public A4TupleSet(TupleSet tuples, SolutionInterface sol) {
+    public A4TupleSet(TupleSet tuples, AlloySolution sol) {
         this.tuples = tuples;
         this.sol = sol;
     }

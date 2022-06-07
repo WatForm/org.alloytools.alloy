@@ -5,7 +5,7 @@ import edu.mit.csail.sdg.ast.Command;
 import edu.mit.csail.sdg.ast.Sig;
 
 /**
- * Something that can execute a command: transforming a command to an {@link SolutionInterface}.
+ * Something that can execute a command: transforming a command to an {@link AlloySolution}.
  *
  * @since Added by Portus
  */
@@ -22,6 +22,6 @@ public interface CommandRunner {
      *         satisfiable or unsatisfiable, or null if the solver does not give a result
      *         (e.g. "save to file").
      */
-    SolutionInterface executeCommand(A4Reporter rep, Iterable<Sig> sigs, Command cmd, A4Options opts);
+    AlloySolution executeCommand(A4Reporter rep, Iterable<Sig> sigs, Command cmd, A4Options opts);
 
 }

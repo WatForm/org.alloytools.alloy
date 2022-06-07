@@ -42,7 +42,7 @@ import edu.mit.csail.sdg.translator.A4Options;
 import edu.mit.csail.sdg.translator.A4Options.SatSolver;
 import edu.mit.csail.sdg.translator.A4SolutionReader;
 import edu.mit.csail.sdg.translator.A4SolutionWriter;
-import edu.mit.csail.sdg.translator.SolutionInterface;
+import edu.mit.csail.sdg.translator.AlloySolution;
 
 /**
  * This class is used by the Alloy developers to drive the regression test
@@ -176,7 +176,7 @@ public final class SimpleCLI {
 
     private SimpleCLI() {}
 
-    private static void validate(SolutionInterface sol) throws Exception {
+    private static void validate(AlloySolution sol) throws Exception {
         StringWriter sw = new StringWriter();
         PrintWriter pw = new PrintWriter(sw);
         sol.writeXML(pw, null, null);
@@ -274,7 +274,7 @@ public final class SimpleCLI {
                     }
                     rep.sb.append("Executing \"" + c + "\"\n");
                     options.skolemDepth = 0;
-                    SolutionInterface s = options.solver.commandRunner().executeCommand(rep, world.getAllReachableSigs(), c, options);
+                    AlloySolution s = options.solver.commandRunner().executeCommand(rep, world.getAllReachableSigs(), c, options);
                     if (s.satisfiable()) {
                         validate(s);
                         if (s.isIncremental()) {

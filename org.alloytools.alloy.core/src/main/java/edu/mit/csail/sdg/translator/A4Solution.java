@@ -131,10 +131,10 @@ import kodkod.util.ints.IndexedEntry;
  *           supports additional iteration operations provided by the kodkod
  *           backend
  *
- * @modified [portus] extracted SolutionInterface and used in other packages
+ * @modified [portus] extracted AlloySolution and used in other packages
  */
 
-public final class A4Solution implements SolutionInterface {
+public final class A4Solution implements AlloySolution {
 
     // ====== static immutable fields
     // ====================================================================//

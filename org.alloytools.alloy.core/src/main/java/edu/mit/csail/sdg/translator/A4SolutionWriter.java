@@ -38,7 +38,7 @@ import edu.mit.csail.sdg.ast.Sig.SubsetSig;
 import edu.mit.csail.sdg.ast.Type;
 
 /**
- * This helper class contains helper routines for writing a SolutionInterface
+ * This helper class contains helper routines for writing an AlloySolution
  * object out as an XML file.
  *
  * @modified [electrum] prints full trace instance into XML; each state is added
@@ -52,7 +52,7 @@ import edu.mit.csail.sdg.ast.Type;
  *           (from auxiliary functions) may be empty in certain states and
  *           should still be printed (so empty skolem vars are always printed);
  *
- * @modified [portus] write out a general SolutionInterface rather than
+ * @modified [portus] write out a general AlloySolution rather than
  *           specifically an A4Solution so Fortress solutions can be written
  *           too; make writeInstance() public
  */
@@ -63,7 +63,7 @@ public final class A4SolutionWriter {
     private final IdentityHashMap<Expr,String> map       = new IdentityHashMap<Expr,String>();
 
     /** This is the solution we're writing out. */
-    private final SolutionInterface            sol;
+    private final AlloySolution sol;
 
     /**
      * This is the A4Reporter that we're sending diagnostic messages to; can be null
@@ -258,7 +258,7 @@ public final class A4SolutionWriter {
      * If sol==null, write the list of Sigs as a Metamodel, else write the solution
      * as an XML file.
      */
-    private A4SolutionWriter(A4Reporter rep, SolutionInterface sol, Iterable<Sig> sigs, int bitwidth, int maxseq, int mintrace, int maxtrace, int tracelength, int backloop, String originalCommand, String originalFileName, PrintWriter out, Iterable<Func> extraSkolems, int state) throws Err {
+    private A4SolutionWriter(A4Reporter rep, AlloySolution sol, Iterable<Sig> sigs, int bitwidth, int maxseq, int mintrace, int maxtrace, int tracelength, int backloop, String originalCommand, String originalFileName, PrintWriter out, Iterable<Func> extraSkolems, int state) throws Err {
         this.rep = rep;
         this.out = out;
         this.sol = sol;
@@ -325,7 +325,7 @@ public final class A4SolutionWriter {
      *
      * @modified [portus] made public
      */
-    public static void writeInstance(A4Reporter rep, SolutionInterface sol, PrintWriter out, Iterable<Func> extraSkolems, Map<String,String> sources) throws Err {
+    public static void writeInstance(A4Reporter rep, AlloySolution sol, PrintWriter out, Iterable<Func> extraSkolems, Map<String,String> sources) throws Err {
         if (!sol.satisfiable())
             throw new ErrorAPI("This solution is unsatisfiable.");
         try {
