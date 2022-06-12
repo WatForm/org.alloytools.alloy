@@ -2,6 +2,7 @@ package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.Err;
 import edu.mit.csail.sdg.alloy4.SafeList;
+import edu.mit.csail.sdg.ast.Assert;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprBinary;
 import edu.mit.csail.sdg.ast.ExprCall;
@@ -13,7 +14,9 @@ import edu.mit.csail.sdg.ast.ExprList;
 import edu.mit.csail.sdg.ast.ExprQt;
 import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.ExprVar;
+import edu.mit.csail.sdg.ast.Func;
 import edu.mit.csail.sdg.ast.Sig;
+import edu.mit.csail.sdg.parser.Macro;
 import fortress.msfol.Var;
 import org.hamcrest.Description;
 import org.hamcrest.TypeSafeMatcher;
@@ -261,6 +264,24 @@ public class AlloyASTMatcher extends TypeSafeMatcher<Expr> {
             Sig.Field y = (Sig.Field) testing;
             return equivalent(x.decl().expr, y.decl().expr)
                     && visitVariableName(x.label, y.label);
+        }
+
+        @Override
+        public Boolean visit(Func x) throws Err {
+            throw new UnsupportedOperationException(
+                    "Alpha-equivalence is not yet supported for Func");
+        }
+
+        @Override
+        public Boolean visit(Assert x) throws Err {
+            throw new UnsupportedOperationException(
+                    "Alpha-equivalence is not yet supported for Assert");
+        }
+
+        @Override
+        public Boolean visit(Macro macro) throws Err {
+            throw new UnsupportedOperationException(
+                    "Alpha-equivalence is not yet supported for Macro");
         }
 
         // compare two variable names for alpha-equivalence and deal with side effects

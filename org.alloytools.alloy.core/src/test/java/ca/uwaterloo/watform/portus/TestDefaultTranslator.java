@@ -2,6 +2,7 @@ package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.alloy4.ConstList;
+import edu.mit.csail.sdg.alloy4.Pos;
 import edu.mit.csail.sdg.ast.Attr;
 import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
@@ -69,6 +70,12 @@ public class TestDefaultTranslator {
         context = new TranslationContext(new FortressOptions(), A4Reporter.NOP, mockScoper);
     }
 
+    // Convience function to make a PrimSig with a (non-null) parent sig.
+    private Sig.PrimSig makePrimSigWithParent(String label, Sig.PrimSig parent) {
+        assert parent != null;
+        return new Sig.PrimSig(null, label, new Pos("<test>", 0, 0), parent);
+    }
+
     // Alloy test variables are used as placeholders in Alloy test expressions.
     private ExprVar makeTestVariable(String label) {
         return ExprVar.make(null, label);
@@ -80,12 +87,12 @@ public class TestDefaultTranslator {
 
     // Convenience function to make a Func representing a predicate.
     private Func makeTestPred(String label, List<Decl> decls, Expr body) {
-        return new Func(null, label, decls, null, body);
+        return new Func(null, null, label, decls, null, body);
     }
 
     // Convenience function to make a Func representing a function.
     private Func makeTestFunc(String label, List<Decl> decls, Expr returnExpr, Expr body) {
-        return new Func(null, label, decls, returnExpr, body);
+        return new Func(null, null, label, decls, returnExpr, body);
     }
 
     // Fortress flag constants are used as mock return values of translations.
@@ -214,7 +221,7 @@ public class TestDefaultTranslator {
     public void testTranslate_primSig_oneSubsigWithExactScope() {
         // signature with subsig with exact scope
         Sig.PrimSig parent = new Sig.PrimSig("Parent");
-        Sig.PrimSig child = new Sig.PrimSig("Child", parent);
+        Sig.PrimSig child = makePrimSigWithParent("Child", parent);
         when(mockScoper.sig2scope(parent)).thenReturn(2);
         when(mockScoper.isExact(parent)).thenReturn(true);
         when(mockScoper.sig2scope(child)).thenReturn(1);
@@ -290,8 +297,8 @@ public class TestDefaultTranslator {
     public void testTranslate_primSig_abstractTwoSubsigsOneExact() {
         // abstract signature with two subsigs, one exact and one not
         Sig.PrimSig parent = new Sig.PrimSig("Parent", Attr.ABSTRACT);
-        Sig.PrimSig child1 = new Sig.PrimSig("Child1", parent);
-        Sig.PrimSig child2 = new Sig.PrimSig("Child2", parent);
+        Sig.PrimSig child1 = makePrimSigWithParent("Child1", parent);
+        Sig.PrimSig child2 = makePrimSigWithParent("Child2", parent);
         when(mockScoper.sig2scope(parent)).thenReturn(2);
         when(mockScoper.isExact(parent)).thenReturn(true);
         when(mockScoper.sig2scope(child1)).thenReturn(1);

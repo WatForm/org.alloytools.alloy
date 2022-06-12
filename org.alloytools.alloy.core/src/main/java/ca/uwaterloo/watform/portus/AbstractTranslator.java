@@ -4,6 +4,7 @@ import edu.mit.csail.sdg.alloy4.ConstList;
 import edu.mit.csail.sdg.alloy4.Err;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.alloy4.UniqueNameGenerator;
+import edu.mit.csail.sdg.ast.Assert;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprBinary;
 import edu.mit.csail.sdg.ast.ExprCall;
@@ -14,7 +15,9 @@ import edu.mit.csail.sdg.ast.ExprList;
 import edu.mit.csail.sdg.ast.ExprQt;
 import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.ExprVar;
+import edu.mit.csail.sdg.ast.Func;
 import edu.mit.csail.sdg.ast.Sig;
+import edu.mit.csail.sdg.parser.Macro;
 import fortress.msfol.Term;
 import fortress.msfol.Var;
 
@@ -307,6 +310,24 @@ abstract class AbstractTranslator implements Translator {
         public Term visit(Sig.Field expr) throws Err {
             // assume it's a declaration
             return translate(expr, context);
+        }
+
+        @Override
+        public Term visit(Func x) throws Err {
+            // TODO - when is this visited?
+            throw new ErrorFatal("Translating Func isn't supported!");
+        }
+
+        @Override
+        public Term visit(Assert x) throws Err {
+            // TODO - when is this visited?
+            throw new ErrorFatal("Translating Assert isn't supported!");
+        }
+
+        @Override
+        public Term visit(Macro macro) throws Err {
+            // TODO - when is this visited?
+            throw new ErrorFatal("Translating Macro isn't supported!");
         }
 
     }
