@@ -53,18 +53,27 @@ public class DashPythonTranslationTest {
 
     @Test
     public void testTransitions() throws Exception {
-        String dashModel = "conc state topConcStateA { event A{} default state s1{} state s2{} trans t1 {on A goto s1} trans t2 {on A goto s2} }";
+        String dashModel = "conc state topConcStateA { event A{} default state s1{} state s2{} trans t1 {from s2 on A goto s1} trans t2 {from s1 on A goto s2} }";
 
         DashModule dashModule = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
         DashToCoreDash.transformToCoreDash(dashModule);
 
         DashPythonTranslation translation = new DashPythonTranslation(dashModule);
 
-        List<String> transitionNames = findStateInTranslation(translation, "topConcStateA")
-                .getTransitions().stream().map(transition -> transition.getTransName()).collect(Collectors.toList());
-        assertEquals(2, findStateInTranslation(translation, "topConcStateA").getTransitions().size());
-        assertTrue(transitionNames.contains("t1"));
-        assertTrue(transitionNames.contains("t2"));
+        DashPythonTranslation.State topState = translation.getStates().get(0);
+        assertEquals("topConcStateA", topState.getName());
+
+        DashPythonTranslation.State s1 =
+                topState.getSubstates().stream().filter(state -> state.getName().equals("topConcStateA_s1")).findAny().get();
+        assertEquals(1, s1.getTransitions().size());
+        assertEquals("topConcStateA_s1", s1.getTransitions().get(0).getStateName());
+        assertEquals("t2", s1.getTransitions().get(0).getTransName());
+
+        DashPythonTranslation.State s2 =
+                topState.getSubstates().stream().filter(state -> state.getName().equals("topConcStateA_s2")).findAny().get();
+        assertEquals(1, s2.getTransitions().size());
+        assertEquals("topConcStateA_s2", s2.getTransitions().get(0).getStateName());
+        assertEquals("t1", s2.getTransitions().get(0).getTransName());
     }
 
     @Test
