@@ -69,15 +69,28 @@ public class DashPythonTranslationTest {
 
     @Test
     public void testSignatures() throws Exception {
-        String dashModel = " sig Patient {} sig Medication {}";
+        String dashModel = "sig Floor {}\n" +
+                "one sig Chicken {}\n" +
+                "some sig SomeSig {}\n" +
+                "lone sig LoneSig {}";
 
         DashModule dashModule = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
         DashToCoreDash.transformToCoreDash(dashModule);
 
         DashPythonTranslation translation = new DashPythonTranslation(dashModule);
 
-        assertEquals(2, translation.basicSigLabels.size());
-        assertTrue(translation.basicSigLabels.contains("Patient"));
-        assertTrue(translation.basicSigLabels.contains("Medication"));
+        assertEquals(4, translation.signatures.size());
+        assertEquals(translation.signatures.get(0).name, "Floor");
+        assertEquals(translation.signatures.get(0).multiplicity, "set");
+        assertEquals(translation.signatures.get(0).cardinality, 3);
+        assertEquals(translation.signatures.get(1).name, "Chicken");
+        assertEquals(translation.signatures.get(1).multiplicity, "one");
+        assertEquals(translation.signatures.get(1).cardinality, 1);
+        assertEquals(translation.signatures.get(2).name, "SomeSig");
+        assertEquals(translation.signatures.get(2).multiplicity, "some");
+        assertEquals(translation.signatures.get(2).cardinality, 3);
+        assertEquals(translation.signatures.get(3).name, "LoneSig");
+        assertEquals(translation.signatures.get(3).multiplicity, "lone");
+        assertEquals(translation.signatures.get(3).cardinality, 1);
     }
 }
