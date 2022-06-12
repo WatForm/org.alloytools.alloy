@@ -139,7 +139,11 @@ public class DashPythonTranslation {
         public Transition(DashTrans dashTrans){
             // set default transition information
             this.transName = dashTrans.getRawName();
-            this.stateName = ((DashConcState)dashTrans.getParent()).getRawName();   // TODO: not sure if this name is fully qualified
+            if (dashTrans.getParent() instanceof DashConcState) {
+                this.stateName = ((DashConcState)dashTrans.getParent()).getFullyQualName();
+            } else {
+                this.stateName = ((DashState)dashTrans.getParent()).getFullyQualName();
+            }
             this.fromStateName = stateName;
 
             // System.out.println("[Debug]: transition: " + dashTrans.name + ", state name: " + this.stateName);
