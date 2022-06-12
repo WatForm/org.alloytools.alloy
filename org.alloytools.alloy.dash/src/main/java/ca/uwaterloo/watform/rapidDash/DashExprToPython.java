@@ -32,7 +32,7 @@ public class DashExprToPython<ExprType> {
     private void parseExpr(){
         // TODO: need to handle predicates with multiple lines
         if(specialExpr instanceof DashWhenExpr){
-            sb.append(genExpr(((DashWhenExpr)this.specialExpr).expr, ((DashWhenExpr)this.specialExpr).exprList.size()));
+            sb.append(genExpr(((DashWhenExpr)this.specialExpr).getExpr(), ((DashWhenExpr)this.specialExpr).getAllExpressions().size()));
         } else if (specialExpr instanceof DashDoExpr){
             // TODO: Do expr should be different since actions are needed, not just evaluation statements
         }
