@@ -161,15 +161,11 @@ public class DashPythonTranslation {
             } else {
                 this.stateName = ((DashState)dashTrans.getParent()).getFullyQualName();
             }
-            this.fromStateName = stateName;
-
             // System.out.println("[Debug]: transition: " + dashTrans.name + ", state name: " + this.stateName);
 
             // check keywords
             if(dashTrans.getOrigin() != null){    // determines which state this transition belongs to
-                // set state name
-                this.fromStateName = dashTrans.getOrigin().toString();
-                // TODO: need implementation, currently fromStateName is just the statename, which is ok for now
+                this.fromStateName = dashTrans.getOrigin().getAllOrigins().get(0);
             }
             if(dashTrans.getTriggerEvent() != null){      // determines the trigger event
                 // TODO: event related
