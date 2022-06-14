@@ -20,11 +20,25 @@ public class DashPythonTranslation {
 
     private DashModule dashModule;
 
-    public List<String> basicSigLabels;
-
-    public List<String> oneSigLabels;
+    public List<Signature> signatures;
 
     private Map<String, State> concStateMap;
+
+    public class Signature {
+        public String name;
+        public String multiplicity;
+        public int cardinality;
+
+        public Signature(String name, String multiplicity, int cardinality) {
+            this.name = name;
+            this.multiplicity = multiplicity;
+            this.cardinality = cardinality;
+        }
+
+        public String getName() { return name; }
+        public String getMultiplicity() { return multiplicity; }
+        public int getCardinality() { return cardinality; }
+    }
 
     /**
      * Constructs a new DashPythonTranslation object
@@ -34,15 +48,8 @@ public class DashPythonTranslation {
         this.dashModule = dashModule;
 
         // get signature names
-        this.basicSigLabels = dashModule.sigs.values().stream()
-                .filter(this::isSubSig)
-                .map(sig -> clean(sig.label))
-                .collect(Collectors.toList());
-
-        // get signature names
-        this.oneSigLabels = dashModule.sigs.values().stream()
-                .filter(this::isOneSig)
-                .map(sig -> clean(sig.label))
+        this.signatures = dashModule.sigs.values().stream()
+                .map(sig -> new Signature(clean(sig.label), getMultiplicity(sig), getCardinality(sig)))
                 .collect(Collectors.toList());
 
         // get state hierarchy
@@ -82,16 +89,20 @@ public class DashPythonTranslation {
         }
     }
 
-    private Boolean isSubSig(Sig sig) {
-        return sig.isSubsig != null & sig.isOne == null & sig.isAbstract == null & sig.isEnum == null &
-                sig.isLone == null & sig.isMeta == null & sig.isPrivate == null & sig.isSome == null & sig.isSubset == null &
-                sig.isVariable == null;
+    private String getMultiplicity(Sig sig) {
+        if (sig.isLone != null)
+            return "lone";
+        if (sig.isOne != null)
+            return "one";
+        if (sig.isSome != null)
+            return "some";
+        return "set";
     }
 
-    private Boolean isOneSig(Sig sig) {
-        return sig.isOne != null & sig.isAbstract == null & sig.isEnum == null &
-                sig.isLone == null & sig.isMeta == null & sig.isPrivate == null & sig.isSome == null & sig.isSubset == null &
-                sig.isVariable == null;
+    private int getCardinality(Sig sig) {
+        if (sig.isOne !=null || sig.isLone != null)
+            return 1;
+        return 3;
     }
 
     // return all states that aren't substates (to prevent them from appearing multiple times)
