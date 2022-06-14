@@ -144,14 +144,11 @@ public class DashPythonTranslation {
             } else {
                 this.stateName = ((DashState)dashTrans.parentState).modifiedName;
             }
-            this.fromStateName = stateName;
-
             // System.out.println("[Debug]: transition: " + dashTrans.name + ", state name: " + this.stateName);
 
             // check keywords
             if(dashTrans.fromExpr != null){    // determines which state this transition belongs to
-                // set state name
-                // TODO: need implementation, currently fromStateName is just the statename, which is ok for now
+                this.fromStateName = dashTrans.fromExpr.fromExpr.get(0);
             }
             if(dashTrans.onExpr != null){      // determines the trigger event
                 // TODO: event related
