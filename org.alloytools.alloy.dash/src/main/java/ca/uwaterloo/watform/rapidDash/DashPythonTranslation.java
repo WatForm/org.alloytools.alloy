@@ -3,9 +3,14 @@ package ca.uwaterloo.watform.rapidDash;
 import ca.uwaterloo.watform.ast.DashConcState;
 import ca.uwaterloo.watform.ast.DashState;
 import ca.uwaterloo.watform.ast.DashTrans;
+import ca.uwaterloo.watform.ast.DashInit;
 import ca.uwaterloo.watform.ast.DashWhenExpr;
 import ca.uwaterloo.watform.parser.DashModule;
+import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Sig;
+import edu.mit.csail.sdg.ast.Expr;
+import edu.mit.csail.sdg.ast.ExprBinary;
+import edu.mit.csail.sdg.ast.ExprUnary;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -61,13 +66,40 @@ public class DashPythonTranslation {
         for(String stateName: dashModule.getORStates().keySet()){
             this.concStateMap.put(stateName, new State(stateName));
         }
-        
-        // add substates to conc states
+
         for(DashConcState state: dashModule.getAllConcurrentStates().values()) {
-        	for(DashConcState substate: state.getInnerConcStates()) {
-        		this.concStateMap.get(state.getFullyQualName()).addSubstate(this.concStateMap.get(substate.getFullyQualName()));
-        		this.concStateMap.get(substate.getFullyQualName()).parent = concStateMap.get(state.getFullyQualName());
+        	// add state variable declarations (decls)
+        	for(Decl decl: state.getVariables()) {
+        		DashExprToPython dashExprTranslator = new DashExprToPython<>(decl.expr);
+        		dashExprTranslator.isDecl = true;
+        		this.concStateMap.get(state.getFullyQualName()).addDecl("self." + decl.get() + " = " + dashExprTranslator.toString());
         	}
+        	// add state variable initializations and constraints (inits and init_constraints)
+        	for(DashInit init: state.getInitialConds()) {
+        		for(Expr expr: init.getAllExpressions()) {
+        			// if the Dash init func is empty, there will be one expr that says "true"
+        			if(expr.toString().equals("true")) {
+        				continue;
+        			}
+        			DashExprToPython dashExprTranslator = new DashExprToPython<>(expr);
+        			// TODO: this (and DashExprToPython) needs to be cleaned up
+        			dashExprTranslator.isInit = true;
+        			dashExprTranslator.reparseExpr();
+        			
+        			// if the expression is a constraint on a variable's cardinality, add "assert"
+        			// TODO: are other initialization constraint types possible? They need to be handled here
+        			if(expr instanceof ExprBinary) {
+        				ExprBinary binaryNode = (ExprBinary) expr;
+        				if(binaryNode.left instanceof ExprUnary && ((ExprUnary)binaryNode.left).op == ExprUnary.Op.CARDINALITY) {
+        					this.concStateMap.get(state.getFullyQualName()).addInitConstraint("assert " + dashExprTranslator.toString());
+        					continue;
+        				}
+        			}
+            		this.concStateMap.get(state.getFullyQualName()).addInit(dashExprTranslator.toString());
+        		}
+        	}
+        	
+        	// add substates to conc states
         	for(DashState substate: state.getInnerORStates()) {
         		this.concStateMap.get(state.getFullyQualName()).addSubstate(this.concStateMap.get(substate.getFullyQualName()));
         		this.concStateMap.get(substate.getFullyQualName()).parent = concStateMap.get(state.getFullyQualName());
@@ -76,6 +108,7 @@ public class DashPythonTranslation {
         
         // add substates to dash states
         for(DashState state: dashModule.getORStates().values()) {
+            System.out.println(state);
         	for(DashState substate: state.getInnerORStates()) {
         		this.concStateMap.get(state.getFullyQualName()).addSubstate(this.concStateMap.get(substate.getFullyQualName()));
         		this.concStateMap.get(substate.getFullyQualName()).parent = concStateMap.get(state.getFullyQualName());
@@ -126,11 +159,17 @@ public class DashPythonTranslation {
         private String stateName;                       // state name
         private List<Transition>  transitions;   // store the translated code for transitions
         private List<State> substates;
+        private List<String> decls;
+        private List<String> inits;
+        private List<String> init_constraints;
         public State parent = null;
         public State(String stateName){
             this.stateName = stateName;
             this.transitions = new ArrayList<>();
             this.substates = new ArrayList<State>();
+            this.decls = new ArrayList<String>();
+            this.inits = new ArrayList<String>();
+            this.init_constraints = new ArrayList<String>();
         }
         public void addTransition(Transition transition){
             this.transitions.add(transition);
@@ -138,7 +177,13 @@ public class DashPythonTranslation {
         public String getName(){return stateName;}
         public List<Transition> getTransitions() {return transitions.stream().collect(Collectors.toList());}
         public List<State> getSubstates() { return substates.stream().collect(Collectors.toList()); }
+        public List<String> getDecls() { return decls.stream().collect(Collectors.toList()); }
+        public List<String> getInits() { return inits.stream().collect(Collectors.toList()); }
+        public List<String> getInitConstraints() { return init_constraints.stream().collect(Collectors.toList()); }
         public void addSubstate(State s) { substates.add(s); }
+        public void addDecl(String s) { decls.add(s); }
+        public void addInit(String s) { inits.add(s); }
+        public void addInitConstraint(String s) { init_constraints.add(s); }
     }
 
     public class Transition{
@@ -180,7 +225,7 @@ public class DashPythonTranslation {
             }
             if(dashTrans.getAction() != null){      // determines the action
                 // TODO: need to be able to translate the actions first
-                DashExprToPython dashExprTranslator = new DashExprToPython<>(dashTrans.doExpr);
+                DashExprToPython dashExprTranslator = new DashExprToPython<>(dashTrans.getAction());
 
                 // set action
                 this.action = dashExprTranslator.toString();
