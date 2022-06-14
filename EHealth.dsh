@@ -1,0 +1,97 @@
+/*******************************************************************************
+ * Title: EHealth.dsh
+ * Authors: Jose Serna - jserna@uwaterloo.ca
+ * Created: 2018-06-20
+ * Last modified: 2018-06-20
+ *
+ * Notes: Adaptation to DASH of original model developed in TLA.
+ *        This model uses env declarations inside the main state to represent
+ *        environmental inputs.
+ *
+ *        The model is an adaptation of the case study presented on: 
+ *        Technical Report EECS-2017-02
+ *
+ **************************
+ ****************************************************/
+
+ sig Patient {}
+ sig Medication {}
+
+conc state EHealthSystem {
+    env in_p: lone Patient
+    env in_m1, in_m2: lone Medication
+    medications: set Medication
+    patients: set Patient
+    prescriptions: Patient -> set Medication
+    interactions: Medication -> set Medication
+
+    invariant symmetry {
+        all m1, m2: Medication |
+            m1 -> m2  in interactions iff m2 -> m1 in interactions
+    }
+
+    invariant no_self_interaction {
+        all m: medications | not (m -> m in interactions)
+    }
+
+    invariant safe_prescriptions {
+        all m1, m2: medications, p: patients |
+            m1 -> m2 in interactions =>
+                !((p -> m1 in prescriptions) and (p -> m2 in prescriptions))
+    }
+
+    trans add_patient {
+        when !(in_p in patients)
+        do patients' = patients + in_p
+    }
+
+    trans add_medication {
+        when !(in_m1 in medications)
+        do medications' = medications + in_m1
+    }
+
+    trans add_interaction {
+        when {
+            in_m1 != in_m2 
+            (!(in_m1 -> in_m2 in interactions) and !(in_m2 -> in_m1 in interactions))
+            in_m1 in medications
+            in_m2 in medications
+        }
+        do interactions' = interactions + {in_m1->in_m2 + in_m2->in_m1}
+    }
+
+    trans add_prescription {
+        when {
+                in_p in patients
+                !(in_p->in_m1 in prescriptions)
+                all x: in_p.prescriptions| 
+                    !(in_m1->x in interactions)
+            }
+        do prescriptions' = prescriptions + in_p->in_m1
+    }
+
+    trans remove_interaction {
+        when {
+            in_m1 in medications
+            in_m2 in medications
+            in_m1 -> in_m2 in interactions
+        }
+        do interactions' = interactions - {in_m1->in_m2 + in_m2->in_m1}
+    }
+
+    trans remove_prescription {
+        when {
+            in_p in patients
+            in_m1 in medications
+            in_p->in_m1 in prescriptions
+        }
+        do prescriptions' = prescriptions - in_p->in_m1
+    }
+
+    init {
+        no medications
+        no prescriptions
+        no patients
+        no interactions
+    }
+}
