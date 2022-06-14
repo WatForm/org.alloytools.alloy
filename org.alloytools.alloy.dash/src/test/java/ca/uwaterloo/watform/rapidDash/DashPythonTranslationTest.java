@@ -7,9 +7,7 @@ import ca.uwaterloo.watform.transform.DashToCoreDash;
 import edu.mit.csail.sdg.alloy4.A4Reporter;
 import org.junit.Test;
 
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static org.junit.Assert.assertEquals;
@@ -104,4 +102,81 @@ public class DashPythonTranslationTest {
         assertEquals(translation.signatures.get(3).multiplicity, "lone");
         assertEquals(translation.signatures.get(3).cardinality, 1);
     }
+
+    @Test
+    public void testWhenExpr_1() throws Exception {
+        String dashModel = "abstract sig Object {} one sig SigA, SigB extends Object {} conc state StateA { " +
+                "near: set Object far: set Object \n" +
+                "trans trans_When_test_in { when SigA in near } \n" +
+                "trans trans_When_test_not_in { when SigA not in near } \n" +
+                "trans trans_When_test_unary_not_2 { when !(SigA not in near) }\n" +
+                "trans trans_When_test_unequal { when SigA != SigB }\n" +
+                "trans trans_When_test_unary_not_1 { when !(SigA) }\n" +
+                "trans trans_When_test_unequal_bang {when !(SigA != SigB)} }";
+
+        DashModule dashModule = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
+        DashToCoreDash.transformToCoreDash(dashModule);
+
+        DashPythonTranslation translation = new DashPythonTranslation(dashModule);
+
+        List<DashPythonTranslation.Transition> transitions = translation.getStates().get(0).getTransitions();
+        assertEquals( 6,transitions.size());
+
+        List<String> expectedString = Arrays.asList(
+                "SigA.issubset(near)",
+                "not SigA.issubset(near)",
+                "not(not SigA.issubset(near))",
+                "SigA != SigB",
+                "not(SigA)",
+                "not(SigA != SigB)");
+
+        for(int index = 0; index < transitions.size(); index++){
+            assertEquals(expectedString.get(index), transitions.get(index).getGuardCondition());
+        }
+    }
+
+    @Test
+    public void testDoExpr_1() throws Exception {
+        String dashModel = "abstract sig Object {} one sig SigA, SigB extends Object {} conc state StateA {near: set Object far: set Object direction: one Direction\n" +
+                "trans trans_Do_assign_assign_without_brace_no { do far = far }\n" +
+                "trans trans_Do_assign_assign_without_brace {do far' = far}\n" +
+                "trans trans_Do_assign_assign_with_brace {do{ far' = far} }\n" +
+                "trans trans_Do_assign_assign_union_2 {do{ far' = far + SigA} }\n" +
+                "trans trans_Do_assign_assign_union_3 {do{ far' = far + SigA + SigB} }\n" +
+                "trans trans_Do_assign_assign_union_3_paren_1 {do{ far' = (far + SigA) + SigB} }\n" +
+                "trans trans_Do_assign_assign_union_3_paren_2 {do{ far' = far + (SigB + SigA)} }\n" +
+                "trans trans_Do_assign_assign_subtract_2 {do{ far' = far - SigA} }\n" +
+                "trans trans_Do_assign_assign_subtract_3 {do{ far' = far - SigA - SigB} }\n" +
+                "trans trans_Do_assign_assign_subtract_3_paren_1 {do{ far' = (far - SigA) - SigB} }\n" +
+                "trans trans_Do_assign_assign_subtract_3_paren_2 {do{ far' = far - (SigA - SigB)} }\n" +
+                "trans trans_Do_assign_assign_4_paren {do{ far' = ((far + SigA) - (SigB - far))} }\n" +
+                "}";
+
+        DashModule dashModule = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
+        DashToCoreDash.transformToCoreDash(dashModule);
+
+        DashPythonTranslation translation = new DashPythonTranslation(dashModule);
+
+        List<DashPythonTranslation.Transition> transitions = translation.getStates().get(0).getTransitions();
+        assertEquals(12, transitions.size());
+
+        List<String> expectedString = Arrays.asList(
+                "far = far",
+                "far = far",
+                "far = far",
+                "far = (far | SigA)",
+                "far = (far | SigA | SigB)",
+                "far = (far | SigA | SigB)",
+                "far = (far | (SigB | SigA))",
+                "far = (far - SigA)",
+                "far = (far - SigA - SigB)",
+                "far = (far - SigA - SigB)",
+                "far = (far - (SigA - SigB))",
+                "far = (far | SigA - (SigB - far))");
+
+        for (int index = 0; index < transitions.size(); index++) {
+            assertEquals(expectedString.get(index), transitions.get(index).getAction());
+        }
+    }
+
 }
