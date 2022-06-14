@@ -166,10 +166,10 @@ public class DashPythonTranslation {
             }
             if(dashTrans.doExpr != null){      // determines the action
                 // TODO: need to be able to translate the actions first
-                // String predicate = ...;
+                DashExprToPython dashExprTranslator = new DashExprToPython<>(dashTrans.doExpr);
 
                 // set action
-                this.action = "pass\t# <placeholder for Action>";
+                this.action = dashExprTranslator.toString();
             }
             if(dashTrans.gotoExpr != null){    // determine the next state
                 this.toStateName = dashTrans.gotoExpr.toString();
