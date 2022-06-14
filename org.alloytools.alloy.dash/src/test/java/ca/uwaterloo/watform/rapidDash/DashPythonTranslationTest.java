@@ -67,12 +67,14 @@ public class DashPythonTranslationTest {
                 topState.getSubstates().stream().filter(state -> state.getName().equals("topConcStateA_s1")).findAny().get();
         assertEquals(1, s1.getTransitions().size());
         assertEquals("topConcStateA_s1", s1.getTransitions().get(0).getStateName());
+        assertEquals("topConcStateA_s1", s1.getTransitions().get(0).getFromStateName());
         assertEquals("t2", s1.getTransitions().get(0).getTransName());
 
         DashPythonTranslation.State s2 =
                 topState.getSubstates().stream().filter(state -> state.getName().equals("topConcStateA_s2")).findAny().get();
         assertEquals(1, s2.getTransitions().size());
         assertEquals("topConcStateA_s2", s2.getTransitions().get(0).getStateName());
+        assertEquals("topConcStateA_s2", s2.getTransitions().get(0).getFromStateName());
         assertEquals("t1", s2.getTransitions().get(0).getTransName());
     }
 
