@@ -85,6 +85,11 @@ public final class OurTabbedSyntaxWidget {
      */
     private boolean                     syntaxHighlighting;
 
+    /**
+     * Whether line numbers are currently enable to displayr or not.
+     */
+    private boolean                     lineNumbers;
+
     /** The list of clickable tabs. */
     private final JPanel                tabBar;
 
@@ -161,7 +166,7 @@ public final class OurTabbedSyntaxWidget {
     private final JFrame                parent;
 
     /** Constructs a tabbed editor pane. */
-    public OurTabbedSyntaxWidget(String fontName, int fontSize, int tabSize, JFrame parent) {
+    public OurTabbedSyntaxWidget(String fontName, int fontSize, int tabSize, boolean lineNumbers, JFrame parent) {
         this.parent = parent;
         component.setBorder(null);
         component.setLayout(new BorderLayout());
@@ -178,6 +183,7 @@ public final class OurTabbedSyntaxWidget {
         tabBarScroller.setFocusable(false);
         tabBarScroller.setBorder(null);
         setFont(fontName, fontSize, tabSize);
+        this.lineNumbers = lineNumbers;
         newtab(null);
         tabBarScroller.addComponentListener(new ComponentListener() {
 
@@ -381,9 +387,18 @@ public final class OurTabbedSyntaxWidget {
             t.enableSyntax(flag);
     }
 
+    public void enableLineNumbers(boolean flag) {
+        lineNumbers = flag;
+        for ( OurSyntaxWidget t : tabs) {
+            t.enableLineNumbers(flag);
+        }
+    }
+
     /** Returns the JTextArea of the current text buffer. */
     public OurSyntaxWidget get() {
-        return (me >= 0 && me < tabs.size()) ? tabs.get(me) : new OurSyntaxWidget(this);
+        return (me >= 0 && me < tabs.size()) ? tabs.get(me) :
+                new OurSyntaxWidget(this,
+                    syntaxHighlighting, "", fontName, fontSize, tabSize, lineNumbers, null, null);
     }
 
     /**
