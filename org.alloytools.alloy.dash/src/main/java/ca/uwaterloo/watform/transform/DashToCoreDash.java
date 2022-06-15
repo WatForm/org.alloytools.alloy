@@ -20,7 +20,6 @@ import ca.uwaterloo.watform.ast.DashTrans;
 import ca.uwaterloo.watform.ast.DashTransTemplate;
 import ca.uwaterloo.watform.ast.DashWhenExpr;
 import ca.uwaterloo.watform.parser.DashModule;
-import ca.uwaterloo.watform.parser.DashValidation;
 import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprList;
@@ -129,7 +128,14 @@ public class DashToCoreDash {
                     modifiedTransName = parent.modifiedName + "_t_" + (++transitionCount);
                 generateTransition(transition, fromExpr, modifiedTransName, module);
             }
-        } else {
+        } else if (transition.fromExpr != null && transition.fromExpr.fromAll) {
+            for (DashState state : parent.states) {
+            	transition.fromExpr = new DashFrom(state.name, false);
+            	transition.modifiedName = parent.modifiedName + "_" + transition.name + "__" + (++transitionCount);
+                module.transitions.put(transition.modifiedName, new DashTrans(transition));
+            }
+        } 
+        else {
             if (transition.name == null)
                 modifiedTransName = parent.modifiedName + "_t_" + (++transitionCount);
             transition.modifiedName = modifiedTransName;
@@ -155,6 +161,12 @@ public class DashToCoreDash {
                 if (transition.name == null)
                     modifiedTransName = parent.modifiedName + "_t_" + (++transitionCount);
                 generateTransition(transition, fromExpr, modifiedTransName, module);
+            }
+        } else if (transition.fromExpr != null && transition.fromExpr.fromAll) {
+            for (DashState state : parent.states) {
+            	transition.fromExpr = new DashFrom(state.name, false);
+            	transition.modifiedName = parent.modifiedName + "_" + transition.name + "__" + (++transitionCount);
+                module.transitions.put(transition.modifiedName, new DashTrans(transition));
             }
         } else {
             if (transition.name == null)
