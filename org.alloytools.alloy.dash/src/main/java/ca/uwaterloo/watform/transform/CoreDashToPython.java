@@ -1,13 +1,18 @@
 package ca.uwaterloo.watform.transform;
 
 import ca.uwaterloo.watform.parser.DashModule;
+import ca.uwaterloo.watform.parser.DashOptions;
 import ca.uwaterloo.watform.rapidDash.DashPythonTranslation;
+import ca.uwaterloo.watform.rapidDash.RapidDashOptions;
 import org.apache.velocity.Template;
 import org.apache.velocity.VelocityContext;
 import org.apache.velocity.app.VelocityEngine;
 import org.apache.velocity.runtime.RuntimeConstants;
 import org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader;
 
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.io.StringWriter;
 
 public class CoreDashToPython {
@@ -17,7 +22,23 @@ public class CoreDashToPython {
         return new DashPythonTranslation(module);
     }
 
-    public static String toString(DashPythonTranslation dashPythonTranslation) {
+    /**
+     * Print to the standard output (command line)
+     */
+    public static void print(DashPythonTranslation dashPythonTranslation){
+        System.out.println(convert2String(dashPythonTranslation));
+    }
+
+    /**
+     * Output to the file indicated in RapidDashOptions
+     */
+    public static void toFile(DashPythonTranslation dashPythonTranslation) throws IOException {
+        BufferedWriter writer = new BufferedWriter(new FileWriter(RapidDashOptions.outputDir + ".py"));
+        writer.write(convert2String(dashPythonTranslation));
+        writer.close();
+    }
+
+    public static String convert2String(DashPythonTranslation dashPythonTranslation) {
         // create velocity objects necessary for translation
         VelocityEngine ve = new VelocityEngine();
         ve.setProperty(RuntimeConstants.RESOURCE_LOADERS, "classpath");
