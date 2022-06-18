@@ -4,6 +4,7 @@ import ca.uwaterloo.watform.parser.DashModule;
 import ca.uwaterloo.watform.parser.DashOptions;
 import ca.uwaterloo.watform.parser.DashUtil;
 import ca.uwaterloo.watform.rapidDash.DashPythonTranslation;
+import ca.uwaterloo.watform.rapidDash.RapidDashOptions;
 import ca.uwaterloo.watform.transform.CoreDashToPython;
 import ca.uwaterloo.watform.transform.DashToCoreDash;
 import edu.mit.csail.sdg.alloy4.A4Reporter;
@@ -31,12 +32,16 @@ public class RapidDash {
         Path fileName = path.getFileName();
         Path directory = path.getParent();
         DashOptions.outputDir = (directory.toString() + '/' + fileName.toString().substring(0, fileName.toString().indexOf(".")) + "AST");
-        if (directory.toString() != null)
+        RapidDashOptions.outputDir = (directory.toString() + '/' + fileName.toString().substring(0, fileName.toString().indexOf(".")));
+        if (directory.toString() != null){
             DashOptions.dashModelLocation = directory.toString();
+            RapidDashOptions.dashModelLocation = directory.toString();
+        }
 
         A4Reporter rep = new A4Reporter();
 
         boolean parse = true;
+        boolean toFile = false;
 
         if (parse) {
 
@@ -47,9 +52,16 @@ public class RapidDash {
 
             DashModule dash = DashUtil.parseEverything_fromFileDash(rep, null, actual);
             DashModule coreDash = new DashToCoreDash().transformToCoreDash(dash, fileName.toString(), "");
-            // Start our translation from here
+
+            // Translate to our data-structure that has everything to be put into the template file
             DashPythonTranslation dashPythonTranslation = CoreDashToPython.convertToPythonTranslation(coreDash);
-            System.out.println(CoreDashToPython.toString(dashPythonTranslation));
+
+            // Output to file or print to standard output
+            if(toFile){
+                CoreDashToPython.toFile(dashPythonTranslation);
+            }else{
+                CoreDashToPython.print(dashPythonTranslation);
+            }
         }
     }
 }
