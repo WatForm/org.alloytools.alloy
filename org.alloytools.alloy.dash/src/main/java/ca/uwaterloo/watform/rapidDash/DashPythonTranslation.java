@@ -1,6 +1,7 @@
 package ca.uwaterloo.watform.rapidDash;
 
 import ca.uwaterloo.watform.ast.DashConcState;
+import ca.uwaterloo.watform.ast.DashEvent;
 import ca.uwaterloo.watform.ast.DashState;
 import ca.uwaterloo.watform.ast.DashTrans;
 import ca.uwaterloo.watform.ast.DashInit;
@@ -27,7 +28,8 @@ public class DashPythonTranslation {
     private DashModule dashModule;
 
     public List<Signature> signatures;
-
+    public List<Event> allEvents;
+    public State rootState = null;
     private Map<String, State> concStateMap;
 
     public class Signature {
@@ -78,6 +80,24 @@ public class DashPythonTranslation {
                 return "True";
             return "False";
         }
+    }
+    
+    public class Event {
+    	private String name;
+    	private String modifiedName;
+    	private String type; // env event vs event
+    	private State parent;
+    	
+    	public Event(String name, String modifiedName, String type, State parent) {
+    		this.name = name;
+    		this.modifiedName = modifiedName;
+    		this.type = type;
+    		this.parent = parent;
+    	}
+    	
+    	public String getName() {
+    		return name;
+    	}
     }
 
     /**
@@ -133,10 +153,12 @@ public class DashPythonTranslation {
                             sig.isSubset != null, parents, isSubsig, parent, sig.isAbstract != null);
                 })
                 .collect(Collectors.toList());
+        
+        this.allEvents = new ArrayList<Event>();
 
         // get state hierarchy
         this.concStateMap = new HashMap<>();
-        // initialize all states instances, TODO: state will have more member variables, here is only used for transitions
+        // initialize all states instances
         for(String stateName: dashModule.getAllConcurrentStates().keySet()){
             this.concStateMap.put(stateName, new State(stateName));
         }
@@ -145,6 +167,10 @@ public class DashPythonTranslation {
         }
 
         for(DashConcState state: dashModule.getAllConcurrentStates().values()) {
+            if(rootState == null) {
+                rootState = this.concStateMap.get(state.getFullyQualName());
+            }
+
         	// add state variable declarations (decls)
         	for(Decl decl: state.getVariables()) {
         		DashExprToPython dashExprTranslator = new DashExprToPython<>(decl.expr);
@@ -176,6 +202,13 @@ public class DashPythonTranslation {
         		}
         	}
         	
+        	// add state events
+        	for(DashEvent event: state.getEvents()) {
+        		Event newEvent = new Event(event.getRawName(), event.getFullyQualName(), event.getType(), this.concStateMap.get(state.getFullyQualName()));
+        		this.concStateMap.get(newEvent);
+        		allEvents.add(newEvent);
+        	}
+        	     	
         	// add substates to conc states
         	for(DashState substate: state.getInnerORStates()) {
         		this.concStateMap.get(state.getFullyQualName()).addSubstate(this.concStateMap.get(substate.getFullyQualName()));
@@ -241,6 +274,7 @@ public class DashPythonTranslation {
         private List<String> decls;
         private List<String> inits;
         private List<String> init_constraints;
+        private List<Event> events;
         public State parent = null;
         public State(String stateName){
             this.stateName = stateName;
@@ -259,10 +293,12 @@ public class DashPythonTranslation {
         public List<String> getDecls() { return decls.stream().collect(Collectors.toList()); }
         public List<String> getInits() { return inits.stream().collect(Collectors.toList()); }
         public List<String> getInitConstraints() { return init_constraints.stream().collect(Collectors.toList()); }
+        public List<Event> getEvents() { return events.stream().collect(Collectors.toList()); }
         public void addSubstate(State s) { substates.add(s); }
         public void addDecl(String s) { decls.add(s); }
         public void addInit(String s) { inits.add(s); }
         public void addInitConstraint(String s) { init_constraints.add(s); }
+        public void addEvent(Event e) { events.add(e); }
     }
 
     public class Transition{

@@ -57,6 +57,11 @@ public class CoreDashToPython {
 
         // add concurrent states
         vc.put("concStateList", dashPythonTranslation.getStates());
+        
+        // add events
+        vc.put("allEvents", dashPythonTranslation.allEvents);
+        
+        vc.put("rootState", dashPythonTranslation.rootState);
 
         // print modified template file
         StringWriter sw = new StringWriter();
