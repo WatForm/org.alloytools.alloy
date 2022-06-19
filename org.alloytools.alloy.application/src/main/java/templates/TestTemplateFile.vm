@@ -45,6 +45,21 @@ class State(ABC):
     def change_state(self, state: State):
         logging.info(f"{self._state} => {state}")
         self._state = state
+        
+    def handleEvent(self, eventName: str):
+        possible_transitions = []
+        for k, v in self.transitions.items():
+            if k(eventName):
+                possible_transitions.append(v)
+        
+        if(possible_transitions):
+            chosen_transition = random.randint(0, len(possible_transitions) - 1)
+            nextEvent = possible_transitions[chosen_transition]()
+            return nextEvent if nextEvent != "" else eventName
+        elif(self._state != self):
+            return self._state.handleEvent(eventName)
+        else:
+            return "STABLE"
 
 
 class Signature:
