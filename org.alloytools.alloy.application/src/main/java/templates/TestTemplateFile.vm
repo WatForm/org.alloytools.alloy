@@ -133,27 +133,31 @@ $padding    # substate
 $padding    def __init__(self, context: State, root_context: State) -> None:
 $padding        super(${concState.getName()}_State, self).__init__(self) # init superclass
 $padding        self.change_state(root_context)  # go to default state
-$padding
+                #if($concState.getDecls())
+
 $padding        # state variable declarations
 	            #foreach($decl in $concState.getDecls())
 $padding        $decl
-	            #end
+                #end#end
+                #if($concState.getInits())
 
 $padding        # state variable initializations
 	            #foreach($init in $concState.getInits())
 $padding        self.$init
-	            #end
+                #end#end
+                #if($concState.getInitConstraints())
 
 $padding        # state variable constraint assertions
                 #foreach($init_constraint in $concState.getInitConstraints())
 $padding        $init_constraint
-	            #end
+                #end#end
+                #if($concState.getTransitions())
 
 $padding        # initialize state transition dictionary
 $padding        self.transitions = dict()
 	            #foreach($trans in $concState.getTransitions())
 $padding        self.transitions[self._trans_${trans.getTransName()}_guard] = self._trans_${trans.getTransName()}
-	            #end
+                #end#end
 
         #if($concState.getTransitions())
 $padding    # transitions
@@ -168,7 +172,7 @@ $padding            return False
 $padding        if not (${trans.getGuardCondition()}):
 $padding            return False
                 #end
-$padding        logging.log(GCLOG,f"Guard of [${trans.getTransName()}] triggered.")
+$padding        logging.log(GCLOG,f"Guard of [${concState.getName()}_${trans.getTransName()}] triggered.")
 $padding        return True
 
 $padding    # transition ${trans.getTransName()} execution function
@@ -178,7 +182,7 @@ $padding        # TODO: global variables (signatures used in this state)
                 #foreach($globalVar in $globalVariables)
 $padding        global ${globalVar}
                 #end#end
-$padding        logging.log(ACLOG,f"Execution of [${trans.getTransName()}] triggered.")
+$padding        logging.log(ACLOG,f"Execution of [${concState.getName()}_${trans.getTransName()}] triggered.")
                 #if($trans.getAction())
 $padding        ${trans.getAction()}
                 #end
@@ -194,6 +198,7 @@ $padding        return "${trans.getTriggerEvent()}"
 	#generateState($concState "")
 #end
 # --- Central Controller ---
+
 class CentralController:
 
     def __init__(self):
@@ -223,12 +228,10 @@ class CentralController:
                         break
             elif(eventName != "QUIT"):
                 print("Invalid event name")
-            
+
+
 # --- Run the Model ---
 
 cc: CentralController = CentralController()
 cc.run()
 print("Terminating RapidDash Model")
-
-
-
