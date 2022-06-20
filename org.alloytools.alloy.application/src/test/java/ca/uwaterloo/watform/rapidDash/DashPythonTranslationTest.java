@@ -1,17 +1,19 @@
 package ca.uwaterloo.watform.rapidDash;
 
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+
+import org.junit.Test;
+
 import ca.uwaterloo.watform.parser.DashModule;
 import ca.uwaterloo.watform.parser.DashUtil;
 import ca.uwaterloo.watform.transform.DashToCoreDash;
 import edu.mit.csail.sdg.alloy4.A4Reporter;
-import org.junit.Test;
-
-import java.util.*;
-import java.util.stream.Collectors;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 
 public class DashPythonTranslationTest {
@@ -47,6 +49,29 @@ public class DashPythonTranslationTest {
 
         assertEquals(1, tertiary_states.size());
         assertEquals("concState_topStateA_innerState", tertiary_states.get(0).getName());
+    }
+
+    @Test
+    public void testStateInit() throws Exception {
+        String dashModel = "sig Chair {} sig Player {} conc state Game { active_players: set Player active_chairs: set Chair occupied: Chair set -> set Player init { active_players = Player active_chairs = Chair occupied = none -> none}}";
+        DashModule dashModule = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
+        DashToCoreDash.transformToCoreDash(dashModule);
+        DashPythonTranslation translation = new DashPythonTranslation(dashModule);
+        assertEquals(1, translation.getStates().size());
+
+        DashPythonTranslation.State gameState = translation.getStates().get(0);
+        assertEquals(3, gameState.getDecls().size());
+        assertEquals(3, gameState.getInits().size());
+
+        for (String decl : gameState.getDecls()) {
+            assertTrue(decl.contains("="));
+            assertTrue(decl.contains("self."));
+            assertTrue(decl.contains("set()") || decl.contains("dict()"));
+        }
+
+        for (String init : gameState.getInits()) {
+            assertTrue(init.contains("="));
+        }
     }
 
     @Test
