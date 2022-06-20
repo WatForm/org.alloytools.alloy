@@ -20,28 +20,26 @@ logging.addLevelName(CALOG, "CALLED")
 # ===== Base Classes =====
 
 class State(ABC):
-    """" State base class """
 
     def __init__(self, *args) -> None:
-        """
-        State() => doesn't do anything
-        State(context: State) => set _context to context
-        State(context: State, root_context: State) => also set root context
-        """
-
+        # State() => doesn't do anything
+        # State(parent_state: State) => set _parent_state
+        # State(parent_state: State, root_state: State) => also set _root_state
+        self._state = None
+        self.transitions = dict()
         if len(args) >= 2 and isinstance(args[1], State):
-            self._set_root_context(args[1])
+            self._set_root_state(args[1])
         if len(args) >= 1 and isinstance(args[0], State):
-            self._set_context(args[0])
+            self._set_parent_state(args[0])
 
     def __repr__(self):
         return f"State {self.__class__.__name__}"
 
-    def _set_context(self, context: State):
-        self._context = context
+    def _set_parent_state(self, state: State):
+        self._parent_state = state
 
-    def _set_root_context(self, context: State):
-        self._root_context = context
+    def _set_root_state(self, state: State):
+        self._root_state = state
 
     def change_state(self, state: State):
         logging.info(f"{self._state} => {state}")
@@ -214,12 +212,21 @@ ${padding}class ${concState.getName()}_State(State):
 	#foreach($substate in $concState.getSubstates())
 		#set($tab = "    ")
 		#set($newpadding = "$padding$tab")
-$padding    # substate
+$padding    # substate(s)
 		#generateState($substate $newpadding)
 	#end
-$padding    def __init__(self, context: State, root_context: State) -> None:
-$padding        super(${concState.getName()}_State, self).__init__(self) # init superclass
-$padding        self.change_state(root_context)  # go to default state
+$padding    def __init__(self, parent_state: State, root_state: State) -> None:
+	#if(${padding} == "")
+$padding        super(${concState.getName()}_State, self).__init__(self, None, self) # init superclass
+	#else
+$padding        super(parent_state.${concState.getName()}_State, self).__init__(self, parent_state, root_state) # init superclass
+	#end
+    #if($concState.getSubstates())
+$padding        self.change_state(self.${concState.getSubstates().get(0).getName()}_State(self, root_state))  # go to default state 
+    #else
+$padding        self.change_state(self)  # go to default state
+    #end
+
                 #if($concState.getDecls())
 
 $padding        # state variable declarations
@@ -241,7 +248,6 @@ $padding        $init_constraint
                 #if($concState.getTransitions())
 
 $padding        # initialize state transition dictionary
-$padding        self.transitions = dict()
 	            #foreach($trans in $concState.getTransitions())
 $padding        self.transitions[self._trans_${trans.getTransName()}_guard] = self._trans_${trans.getTransName()}
                 #end#end
@@ -273,7 +279,7 @@ $padding        logging.log(ACLOG,f"Execution of [${concState.getName()}_${trans
                 #if($trans.getAction())
 $padding        ${trans.getAction()}
                 #end
-$padding        self._context.change_state(self._context.${trans.getFromStateName()}(self._context, self._root_context))
+$padding        self._parent_state.change_state(self._parent_state.${trans.getFromStateName()}_State(self._parent_state, self._root_state))
 $padding        return "${trans.getTriggerEvent()}"
 
             #end
@@ -289,7 +295,7 @@ $padding        return "${trans.getTriggerEvent()}"
 class CentralController:
 
     def __init__(self):
-        self.concState = $!{rootState.getName()}_State()
+        self.concState = $!{rootState.getName()}_State(None, None)
         self.possibleEvents = {#if(${allEvents.size()} > 0)"${allEvents.get(0).getModifiedName()}"#foreach($event in ${allEvents.subList(1, ${allEvents.size()})}), "$!{event.getModifiedName()}"#end#end}
     
     def run(self) -> None:
