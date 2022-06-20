@@ -43,21 +43,28 @@ class State(ABC):
     def change_state(self, state: State):
         logging.info(f"{self._state} => {state}")
         self._state = state
-        
-    def handleEvent(self, eventName: str):
+
+    def __eq__(self, obj):
+        return type(self) == type(obj)
+
+    def __ne__(self, obj):
+        return type(self) != type(obj)
+
+    def handleEvent(self, eventName: str, vistedStates: set):
+        vistedStates.add(type(self._state))
         possible_transitions = []
         for k, v in self.transitions.items():
             if k(eventName):
                 possible_transitions.append(v)
-        
+
         if(possible_transitions):
             chosen_transition = random.randint(0, len(possible_transitions) - 1)
             nextEvent = possible_transitions[chosen_transition]()
-            return nextEvent if nextEvent != "" else eventName
+            return nextEvent if (type(self._state) not in vistedStates) else ""
         elif(self._state != self):
-            return self._state.handleEvent(eventName)
+            return self._state.handleEvent(eventName, vistedStates)
         else:
-            return "STABLE"
+            return ""
 
 
 #if($signatures)
@@ -227,8 +234,9 @@ class CentralController:
             if(eventName in self.possibleEvents):
                 # continue to process cascading events until the system is stable
                 while(True):
-                    new_event = self.concState.handleEvent(eventName)
-                    if(new_event != "STABLE"): 
+                    vistedStates = set()
+                    new_event = self.concState.handleEvent(eventName, vistedStates)
+                    if(new_event != ""):
                         eventName = new_event
                     else:
                         break
