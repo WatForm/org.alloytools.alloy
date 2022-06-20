@@ -303,14 +303,14 @@ public class DashPythonTranslation {
     public class Transition{
         private String stateName;                       // state name
 
-        private String fromStateName;
-        private String toStateName;
-        private String transName;                       // transition name
-        private String action;                          // the logic for this transition to be executed
-        private String guardCondition;                  // the guard condition of this transition
+        private String fromStateName = "";
+        private String toStateName = "";
+        private String transName = "";                       // transition name
+        private String action = "";                          // the logic for this transition to be executed
+        private String guardCondition = "";                  // the guard condition of this transition
         private String eventCondition = "";
         private String triggerEvent = "";
-        private String transTemplate;
+        private String transTemplate = "";
 
         public Transition(DashTrans dashTrans){
             // set default transition information
@@ -320,7 +320,6 @@ public class DashPythonTranslation {
             } else {
                 this.stateName = ((DashState)dashTrans.getParent()).getFullyQualName();
             }
-            // System.out.println("[Debug]: transition: " + dashTrans.name + ", state name: " + this.stateName);
 
             // check keywords
             if(dashTrans.getOrigin() != null){    // determines which state this transition belongs to
