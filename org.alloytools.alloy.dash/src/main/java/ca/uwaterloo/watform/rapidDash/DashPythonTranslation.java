@@ -60,8 +60,8 @@ public class DashPythonTranslation {
     		this.parent = parent;
     	}
     	
-    	public String getName() {
-    		return name;
+    	public String getModifiedName() {
+    		return modifiedName;
     	}
     }
 
@@ -88,7 +88,6 @@ public class DashPythonTranslation {
         for(String stateName: dashModule.states.keySet()){
             this.concStateMap.put(stateName, new State(stateName));
         }
-        
         
         for(DashConcState state: dashModule.concStates.values()) {
         	if(rootState == null) {
@@ -145,7 +144,6 @@ public class DashPythonTranslation {
         
         // add substates to dash states
         for(DashState state: dashModule.states.values()) {
-        	System.out.println(state);
         	for(DashState substate: state.states) {
         		this.concStateMap.get(state.modifiedName).addSubstate(this.concStateMap.get(substate.modifiedName));
         		this.concStateMap.get(substate.modifiedName).parent = concStateMap.get(state.modifiedName);
@@ -228,8 +226,8 @@ public class DashPythonTranslation {
         private String transName;                       // transition name
         private String action;                          // the logic for this transition to be executed
         private String guardCondition;                  // the guard condition of this transition
-        private String eventCondition;
-        private String triggerEvent;
+        private String eventCondition = "";
+        private String triggerEvent = "";
         private String transTemplate;
 
         public Transition(DashTrans dashTrans){
@@ -247,8 +245,7 @@ public class DashPythonTranslation {
                 this.fromStateName = dashTrans.fromExpr.fromExpr.get(0);
             }
             if(dashTrans.onExpr != null){      // determines the trigger event
-                // TODO: event related
-                this.eventCondition = "pass\t# <placeholder for Event>";
+                this.eventCondition = dashTrans.onExpr.name;
             }
             if(dashTrans.whenExpr != null){    // determines the guard_condition (if statement)
                 // TODO: need to be able to translate the predicates first
@@ -268,7 +265,7 @@ public class DashPythonTranslation {
                 this.toStateName = dashTrans.gotoExpr.toString();
             }
             if(dashTrans.sendExpr != null){    // determines the event to send
-                this.triggerEvent = "pass\t# <placeholder for Triggering event>";
+                this.triggerEvent = dashTrans.sendExpr.name;
             }
             if(dashTrans.transTemplate != null){   // TODO: don't know what this does
                 this.transTemplate = "pass\t# <placeholder for Trans Template>";
