@@ -130,16 +130,16 @@ $padding    # substate(s)
 	#end
 $padding    def __init__(self, parent_state: State, root_state: State) -> None:
 	#if(${padding} == "")
-$padding        super(${concState.getName()}_State, self).__init__(self, None, self) # init superclass
-	#else
-$padding        super(parent_state.${concState.getName()}_State, self).__init__(self, parent_state, root_state) # init superclass
-	#end
-    #if($concState.getSubstates())
-$padding        self.change_state(self.${concState.getSubstates().get(0).getName()}_State(self, root_state))  # go to default state 
+$padding        super(${concState.getName()}_State, self).__init__(None, self) # init superclass
+$padding        self.change_state(self.${concState.getSubstates().get(0).getName()}_State(self, self))  # This is a root state
     #else
+$padding        super(parent_state.${concState.getName()}_State, self).__init__(parent_state, root_state) # init superclass
+        #if($concState.getSubstates())
+$padding        self.change_state(self.${concState.getSubstates().get(0).getName()}_State(self, root_state))  # go to default state
+        #else
 $padding        self.change_state(self)  # go to default state
-    #end
-
+        #end
+	#end
                 #if($concState.getDecls())
 
 $padding        # state variable declarations
