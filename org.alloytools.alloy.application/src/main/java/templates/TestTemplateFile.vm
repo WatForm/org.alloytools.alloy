@@ -14,7 +14,7 @@ CALOG = logging.DEBUG+3  # used for feedback on adding called
 logging.basicConfig(level=ACLOG)
 logging.addLevelName(GCLOG, "GUARD")
 logging.addLevelName(ACLOG, "ACTION")
-logging.addLevelName(CALOG, "CALLED")\
+logging.addLevelName(CALOG, "CALLED")
 
 # ===== Base Classes =====
 
@@ -62,6 +62,7 @@ class State(ABC):
             return "STABLE"
 
 
+#if($signatures)
 class Signature:
     name = "default_signature_name"
     _value = {}
@@ -111,79 +112,91 @@ class Signature:
     def __repr__(self):
         return f"{self.name} {self._value}"
 
+
 # --- Signatures ---
 
 #foreach($signature in $signatures)
 ${signature.Name} = Signature("${signature.Name}", "${signature.Multiplicity}", ${signature.Cardinality})
 #end
 
+#end
 # --- Conc States ---
 #macro(generateState $concState $padding)
 ${padding}class ${concState.getName()}_State(State):
 
-$padding    # substates
 	#foreach($substate in $concState.getSubstates())
 		#set($tab = "    ")
 		#set($newpadding = "$padding$tab")
+$padding    # substate
 		#generateState($substate $newpadding)
 	#end
-
 $padding    def __init__(self, context: State, root_context: State) -> None:
 $padding        super(${concState.getName()}_State, self).__init__(self) # init superclass
 $padding        self.change_state(root_context)  # go to default state
-$padding
+                #if($concState.getDecls())
+
 $padding        # state variable declarations
-	#foreach($decl in $concState.getDecls())
+	            #foreach($decl in $concState.getDecls())
 $padding        $decl
-	#end
+                #end#end
+                #if($concState.getInits())
 
 $padding        # state variable initializations
-	#foreach($init in $concState.getInits())
+	            #foreach($init in $concState.getInits())
 $padding        self.$init
-	#end
+                #end#end
+                #if($concState.getInitConstraints())
 
 $padding        # state variable constraint assertions
-	#foreach($init_constraint in $concState.getInitConstraints())
+                #foreach($init_constraint in $concState.getInitConstraints())
 $padding        $init_constraint
-	#end
+                #end#end
+                #if($concState.getTransitions())
 
 $padding        # initialize state transition dictionary
 $padding        self.transitions = dict()
-	#foreach($trans in $concState.getTransitions())
+	            #foreach($trans in $concState.getTransitions())
 $padding        self.transitions[self._trans_${trans.getTransName()}_guard] = self._trans_${trans.getTransName()}
-	#end
+                #end#end
 
+        #if($concState.getTransitions())
 $padding    # transitions
-       #foreach($trans in $concState.getTransitions())
+            #foreach($trans in $concState.getTransitions())
 $padding    # transition ${trans.getTransName()} guard function
 $padding    def _trans_${trans.getTransName()}_guard(self, current_event: str) -> bool:
-		#if(${trans.getEventCondition()} != "")
+		        #if(${trans.getEventCondition()})
 $padding        if(current_event != "${trans.getEventCondition()}"):
 $padding            return False
-		#end
-$padding        # if not (${trans.getGuardCondition()}):
-$padding            # return False  
+		        #end
+                #if($trans.getGuardCondition())
+$padding        if not (${trans.getGuardCondition()}):
+$padding            return False
+                #end
+$padding        logging.log(GCLOG,f"Guard of [${concState.getName()}_${trans.getTransName()}] triggered.")
 $padding        return True
 
 $padding    # transition ${trans.getTransName()} execution function
 $padding    def _trans_${trans.getTransName()}(self) -> str:
+                #if($globalVariables)
 $padding        # TODO: global variables (signatures used in this state)
-        #foreach($globalVar in $globalVariables)
+                #foreach($globalVar in $globalVariables)
 $padding        global ${globalVar}
-        #end
-$padding        logging.log(ACLOG,f" action of [${trans.getTransName()}] triggered.")
-$padding        # TODO: transition action
-$padding        # ${trans.getAction()}
+                #end#end
+$padding        logging.log(ACLOG,f"Execution of [${concState.getName()}_${trans.getTransName()}] triggered.")
+                #if($trans.getAction())
+$padding        ${trans.getAction()}
+                #end
 $padding        self._context.change_state(self._context.${trans.getFromStateName()}(self._context, self._root_context))
 $padding        return "${trans.getTriggerEvent()}"
 
+            #end
         #end
+
 #end
 
 #foreach($concState in $concStateList)
 	#generateState($concState "")
 #end
-
 # --- Central Controller ---
 
 class CentralController:
@@ -198,7 +211,7 @@ class CentralController:
         while(eventName != "QUIT"):
             eventName = input("Please enter an event to be processed by the model. Type \"help\" for a list of possible events\n")
 
-       	    while(eventName == "help"):
+            while(eventName == "help"):
                 for x in self.possibleEvents:
                     print(x)
                 print("QUIT")
@@ -215,12 +228,10 @@ class CentralController:
                         break
             elif(eventName != "QUIT"):
                 print("Invalid event name")
-            
+
+
 # --- Run the Model ---
 
 cc: CentralController = CentralController()
 cc.run()
 print("Terminating RapidDash Model")
-
-
-
