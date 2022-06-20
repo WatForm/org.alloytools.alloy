@@ -95,8 +95,8 @@ public class DashPythonTranslation {
     		this.parent = parent;
     	}
     	
-    	public String getName() {
-    		return name;
+    	public String getModifiedName() {
+    		return modifiedName;
     	}
     }
 
@@ -218,7 +218,6 @@ public class DashPythonTranslation {
         
         // add substates to dash states
         for(DashState state: dashModule.getORStates().values()) {
-            System.out.println(state);
         	for(DashState substate: state.getInnerORStates()) {
         		this.concStateMap.get(state.getFullyQualName()).addSubstate(this.concStateMap.get(substate.getFullyQualName()));
         		this.concStateMap.get(substate.getFullyQualName()).parent = concStateMap.get(state.getFullyQualName());
@@ -309,8 +308,8 @@ public class DashPythonTranslation {
         private String transName;                       // transition name
         private String action;                          // the logic for this transition to be executed
         private String guardCondition;                  // the guard condition of this transition
-        private String eventCondition;
-        private String triggerEvent;
+        private String eventCondition = "";
+        private String triggerEvent = "";
         private String transTemplate;
 
         public Transition(DashTrans dashTrans){
@@ -328,8 +327,7 @@ public class DashPythonTranslation {
                 this.fromStateName = dashTrans.getOrigin().getAllOrigins().get(0);
             }
             if(dashTrans.getTriggerEvent() != null){      // determines the trigger event
-                // TODO: event related
-                this.eventCondition = "pass\t# <placeholder for Event>";
+                this.eventCondition = dashTrans.getTriggerEvent().getRawName();
             }
             if(dashTrans.getCondition() != null){    // determines the guard_condition (if statement)
                 // TODO: need to be able to translate the predicates first
@@ -349,7 +347,7 @@ public class DashPythonTranslation {
                 this.toStateName = dashTrans.getDestination().toString();
             }
             if(dashTrans.getEventsTriggered() != null){    // determines the event to send
-                this.triggerEvent = "pass\t# <placeholder for Triggering event>";
+                this.triggerEvent = dashTrans.getEventsTriggered().getRawName();
             }
             if(dashTrans.getTransTemplate() != null){   // TODO: don't know what this does
                 this.transTemplate = "pass\t# <placeholder for Trans Template>";
