@@ -11,7 +11,7 @@ GCLOG = logging.DEBUG+1  # used for guard condition
 ACLOG = logging.DEBUG+2  # used for action chosen
 CALOG = logging.DEBUG+3  # used for feedback on adding called
 
-logging.basicConfig(level=ACLOG)
+logging.basicConfig(level=logging.INFO)
 logging.addLevelName(GCLOG, "GUARD")
 logging.addLevelName(ACLOG, "ACTION")
 logging.addLevelName(CALOG, "CALLED")
@@ -32,7 +32,7 @@ class State(ABC):
             self._set_parent_state(args[0])
 
     def __repr__(self):
-        return f"State {self.__class__.__name__}"
+        return f"{self.__class__.__name__}"
 
     def _set_parent_state(self, state: State):
         self._parent_state = state
@@ -41,23 +41,31 @@ class State(ABC):
         self._root_state = state
 
     def change_state(self, state: State):
-        logging.info(f"{self._state} => {state}")
+        if(self._state is not None):
+            logging.info(f"{self._state} => {state}")
         self._state = state
-        
-    def handleEvent(self, eventName: str):
+
+    def __eq__(self, obj):
+        return type(self) == type(obj)
+
+    def __ne__(self, obj):
+        return type(self) != type(obj)
+
+    def handleEvent(self, eventName: str, vistedStates: set):
+        vistedStates.add(type(self._state))
         possible_transitions = []
         for k, v in self.transitions.items():
             if k(eventName):
                 possible_transitions.append(v)
-        
+
         if(possible_transitions):
             chosen_transition = random.randint(0, len(possible_transitions) - 1)
             nextEvent = possible_transitions[chosen_transition]()
-            return nextEvent if nextEvent != "" else eventName
+            return nextEvent if (type(self._state) not in vistedStates) else ""
         elif(self._state != self):
-            return self._state.handleEvent(eventName)
+            return self._state.handleEvent(eventName, vistedStates)
         else:
-            return "STABLE"
+            return ""
 
 
 #if($signatures)
@@ -130,16 +138,16 @@ $padding    # substate(s)
 	#end
 $padding    def __init__(self, parent_state: State, root_state: State) -> None:
 	#if(${padding} == "")
-$padding        super(${concState.getName()}_State, self).__init__(self, None, self) # init superclass
-	#else
-$padding        super(parent_state.${concState.getName()}_State, self).__init__(self, parent_state, root_state) # init superclass
-	#end
-    #if($concState.getSubstates())
-$padding        self.change_state(self.${concState.getSubstates().get(0).getName()}_State(self, root_state))  # go to default state 
+$padding        super(${concState.getName()}_State, self).__init__(None, self) # init superclass
+$padding        self.change_state(self.${concState.getSubstates().get(0).getName()}_State(self, self))  # This is a root state
     #else
+$padding        super(parent_state.${concState.getName()}_State, self).__init__(parent_state, root_state) # init superclass
+        #if($concState.getSubstates())
+$padding        self.change_state(self.${concState.getSubstates().get(0).getName()}_State(self, root_state))  # go to default state
+        #else
 $padding        self.change_state(self)  # go to default state
-    #end
-
+        #end
+	#end
                 #if($concState.getDecls())
 
 $padding        # state variable declarations
@@ -192,7 +200,7 @@ $padding        logging.log(ACLOG,f"Execution of [${concState.getName()}_${trans
                 #if($trans.getAction())
 $padding        ${trans.getAction()}
                 #end
-$padding        self._parent_state.change_state(self._parent_state.${trans.getFromStateName()}_State(self._parent_state, self._root_state))
+$padding        self._parent_state.change_state(self._parent_state.${trans.getToStateName()}_State(self._parent_state, self._root_state))
 $padding        return "${trans.getTriggerEvent()}"
 
             #end
@@ -226,9 +234,10 @@ class CentralController:
 
             if(eventName in self.possibleEvents):
                 # continue to process cascading events until the system is stable
+                vistedStates = set()
                 while(True):
-                    new_event = self.concState.handleEvent(eventName)
-                    if(new_event != "STABLE"): 
+                    new_event = self.concState.handleEvent(eventName, vistedStates)
+                    if(new_event != ""):
                         eventName = new_event
                     else:
                         break

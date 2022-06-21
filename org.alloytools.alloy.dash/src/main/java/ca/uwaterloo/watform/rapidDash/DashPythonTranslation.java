@@ -247,21 +247,19 @@ public class DashPythonTranslation {
                 this.eventCondition = dashTrans.onExpr.name;
             }
             if(dashTrans.whenExpr != null){    // determines the guard_condition (if statement)
-                // TODO: need to be able to translate the predicates first
                 DashExprToPython dashExprTranslator = new DashExprToPython<>(dashTrans.whenExpr);
 
                 // set condition
                 this.guardCondition = dashExprTranslator.toString();
             }
             if(dashTrans.doExpr != null){      // determines the action
-                // TODO: need to be able to translate the actions first
                 DashExprToPython dashExprTranslator = new DashExprToPython<>(dashTrans.doExpr);
 
                 // set action
                 this.action = dashExprTranslator.toString();
             }
             if(dashTrans.gotoExpr != null){    // determine the next state
-                this.toStateName = dashTrans.gotoExpr.toString();
+                this.toStateName = dashTrans.gotoExpr.gotoExpr.get(0);
             }
             if(dashTrans.sendExpr != null){    // determines the event to send
                 this.triggerEvent = dashTrans.sendExpr.name;
