@@ -329,14 +329,12 @@ public class DashPythonTranslation {
                 this.eventCondition = dashTrans.getTriggerEvent().getRawName();
             }
             if(dashTrans.getCondition() != null){    // determines the guard_condition (if statement)
-                // TODO: need to be able to translate the predicates first
                 DashExprToPython dashExprTranslator = new DashExprToPython<>(dashTrans.getCondition());
 
                 // set condition
                 this.guardCondition = dashExprTranslator.toString();
             }
             if(dashTrans.getAction() != null){      // determines the action
-                // TODO: need to be able to translate the actions first
                 DashExprToPython dashExprTranslator = new DashExprToPython<>(dashTrans.getAction());
 
                 // set action
