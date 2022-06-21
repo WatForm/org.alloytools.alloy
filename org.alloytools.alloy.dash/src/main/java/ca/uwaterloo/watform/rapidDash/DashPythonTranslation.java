@@ -1,6 +1,7 @@
 package ca.uwaterloo.watform.rapidDash;
 
 import ca.uwaterloo.watform.ast.DashConcState;
+import ca.uwaterloo.watform.ast.DashEvent;
 import ca.uwaterloo.watform.ast.DashState;
 import ca.uwaterloo.watform.ast.DashTrans;
 import ca.uwaterloo.watform.ast.DashInit;
@@ -26,7 +27,8 @@ public class DashPythonTranslation {
     private DashModule dashModule;
 
     public List<Signature> signatures;
-
+    public List<Event> allEvents;
+    public State rootState = null;
     private Map<String, State> concStateMap;
 
     public class Signature {
@@ -44,6 +46,24 @@ public class DashPythonTranslation {
         public String getMultiplicity() { return multiplicity; }
         public int getCardinality() { return cardinality; }
     }
+    
+    public class Event {
+    	private String name;
+    	private String modifiedName;
+    	private String type; // env event vs event
+    	private State parent;
+    	
+    	public Event(String name, String modifiedName, String type, State parent) {
+    		this.name = name;
+    		this.modifiedName = modifiedName;
+    		this.type = type;
+    		this.parent = parent;
+    	}
+    	
+    	public String getModifiedName() {
+    		return modifiedName;
+    	}
+    }
 
     /**
      * Constructs a new DashPythonTranslation object
@@ -56,10 +76,12 @@ public class DashPythonTranslation {
         this.signatures = dashModule.sigs.values().stream()
                 .map(sig -> new Signature(clean(sig.label), getMultiplicity(sig), getCardinality(sig)))
                 .collect(Collectors.toList());
+        
+        this.allEvents = new ArrayList<Event>();
 
         // get state hierarchy
         this.concStateMap = new HashMap<>();
-        // initialize all states instances, TODO: state will have more member variables, here is only used for transitions
+        // initialize all states instances
         for(String stateName: dashModule.concStates.keySet()){
             this.concStateMap.put(stateName, new State(stateName));
         }
@@ -67,8 +89,10 @@ public class DashPythonTranslation {
             this.concStateMap.put(stateName, new State(stateName));
         }
         
-        
         for(DashConcState state: dashModule.concStates.values()) {
+        	if(rootState == null) {
+        		rootState = this.concStateMap.get(state.modifiedName);
+        	}
         	// add state variable declarations (decls)
         	for(Decl decl: state.decls) {
         		DashExprToPython dashExprTranslator = new DashExprToPython<>(decl.expr);
@@ -100,6 +124,13 @@ public class DashPythonTranslation {
         		}
         	}
         	
+        	// add state events
+        	for(DashEvent event: state.events) {
+        		Event newEvent = new Event(event.name, event.modifiedName, event.type, this.concStateMap.get(state.modifiedName));
+        		this.concStateMap.get(newEvent);
+        		allEvents.add(newEvent);
+        	}
+        	     	
         	// add substates to conc states
         	for(DashConcState substate: state.concStates) {
         		this.concStateMap.get(state.modifiedName).addSubstate(this.concStateMap.get(substate.modifiedName));
@@ -113,7 +144,6 @@ public class DashPythonTranslation {
         
         // add substates to dash states
         for(DashState state: dashModule.states.values()) {
-        	System.out.println(state);
         	for(DashState substate: state.states) {
         		this.concStateMap.get(state.modifiedName).addSubstate(this.concStateMap.get(substate.modifiedName));
         		this.concStateMap.get(substate.modifiedName).parent = concStateMap.get(state.modifiedName);
@@ -161,6 +191,7 @@ public class DashPythonTranslation {
         private List<String> decls;
         private List<String> inits;
         private List<String> init_constraints;
+        private List<Event> events;
         public State parent = null;
         public State(String stateName){
             this.stateName = stateName;
@@ -179,23 +210,25 @@ public class DashPythonTranslation {
         public List<String> getDecls() { return decls.stream().collect(Collectors.toList()); }
         public List<String> getInits() { return inits.stream().collect(Collectors.toList()); }
         public List<String> getInitConstraints() { return init_constraints.stream().collect(Collectors.toList()); }
+        public List<Event> getEvents() { return events.stream().collect(Collectors.toList()); }
         public void addSubstate(State s) { substates.add(s); }
         public void addDecl(String s) { decls.add(s); }
         public void addInit(String s) { inits.add(s); }
         public void addInitConstraint(String s) { init_constraints.add(s); }
+        public void addEvent(Event e) { events.add(e); }
     }
 
     public class Transition{
         private String stateName;                       // state name
 
-        private String fromStateName;
-        private String toStateName;
-        private String transName;                       // transition name
-        private String action;                          // the logic for this transition to be executed
-        private String guardCondition;                  // the guard condition of this transition
-        private String eventCondition;
-        private String triggerEvent;
-        private String transTemplate;
+        private String fromStateName = "";
+        private String toStateName = "";
+        private String transName = "";                       // transition name
+        private String action = "";                          // the logic for this transition to be executed
+        private String guardCondition = "";                  // the guard condition of this transition
+        private String eventCondition = "";
+        private String triggerEvent = "";
+        private String transTemplate = "";
 
         public Transition(DashTrans dashTrans){
             // set default transition information
@@ -205,35 +238,31 @@ public class DashPythonTranslation {
             } else {
                 this.stateName = ((DashState)dashTrans.parentState).modifiedName;
             }
-            // System.out.println("[Debug]: transition: " + dashTrans.name + ", state name: " + this.stateName);
 
             // check keywords
             if(dashTrans.fromExpr != null){    // determines which state this transition belongs to
                 this.fromStateName = dashTrans.fromExpr.fromExpr.get(0);
             }
             if(dashTrans.onExpr != null){      // determines the trigger event
-                // TODO: event related
-                this.eventCondition = "pass\t# <placeholder for Event>";
+                this.eventCondition = dashTrans.onExpr.name;
             }
             if(dashTrans.whenExpr != null){    // determines the guard_condition (if statement)
-                // TODO: need to be able to translate the predicates first
                 DashExprToPython dashExprTranslator = new DashExprToPython<>(dashTrans.whenExpr);
 
                 // set condition
                 this.guardCondition = dashExprTranslator.toString();
             }
             if(dashTrans.doExpr != null){      // determines the action
-                // TODO: need to be able to translate the actions first
                 DashExprToPython dashExprTranslator = new DashExprToPython<>(dashTrans.doExpr);
 
                 // set action
                 this.action = dashExprTranslator.toString();
             }
             if(dashTrans.gotoExpr != null){    // determine the next state
-                this.toStateName = dashTrans.gotoExpr.toString();
+                this.toStateName = dashTrans.gotoExpr.gotoExpr.get(0);
             }
             if(dashTrans.sendExpr != null){    // determines the event to send
-                this.triggerEvent = "pass\t# <placeholder for Triggering event>";
+                this.triggerEvent = dashTrans.sendExpr.name;
             }
             if(dashTrans.transTemplate != null){   // TODO: don't know what this does
                 this.transTemplate = "pass\t# <placeholder for Trans Template>";
