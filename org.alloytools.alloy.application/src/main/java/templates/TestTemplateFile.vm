@@ -15,7 +15,7 @@ SVLOG = logging.DEBUG+4  # used for signature validity check
 logging.basicConfig(level=logging.INFO)
 logging.addLevelName(GCLOG, "GUARD")
 logging.addLevelName(ACLOG, "ACTION")
-logging.addLevelName(CALOG, "CALLED
+logging.addLevelName(CALOG, "CALLED")
 logging.addLevelName(SVLOG, "SIG")
 
 # ===== Base Classes =====
@@ -205,7 +205,6 @@ class Signature:
     def __repr__(self):
         return f"{self.name} {self.get_value()}"
 
-
 # --- Signatures ---
 
 #foreach($signature in $signatures)
@@ -218,7 +217,7 @@ for sig in signatures:
     if not sig.check_validity(sig.get_value()):
         raise Exception("Invalid initial value for signature: " + sig.name)
     print(sig)
-
+#end
 
 # --- Conc States ---
 #macro(generateState $concState $padding)
