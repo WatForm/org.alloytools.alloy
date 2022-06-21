@@ -10,11 +10,13 @@ from abc import ABC
 GCLOG = logging.DEBUG+1  # used for guard condition
 ACLOG = logging.DEBUG+2  # used for action chosen
 CALOG = logging.DEBUG+3  # used for feedback on adding called
+SVLOG = logging.DEBUG + 4  # used for signature validity check
 
 logging.basicConfig(level=ACLOG)
 logging.addLevelName(GCLOG, "GUARD")
 logging.addLevelName(ACLOG, "ACTION")
-logging.addLevelName(CALOG, "CALLED")\
+logging.addLevelName(CALOG, "CALLED")
+logging.addLevelName(SVLOG, "SIG")
 
 # ===== Base Classes =====
 
@@ -50,8 +52,40 @@ class State(ABC):
 class Signature:
     name = "default_signature_name"
     _value = {}
+    lower = 0
+    upper = None
 
-    def __init__(self, name, multiplicity=None, cardinality=1):
+    isSubset = False
+    parents = set()
+
+    isSubsig = False
+    parent = None
+    isAbstract = False
+
+    def __init__(self, name, multiplicity=None, cardinality=1, isSubset=False, parents=None, isSubsig=False,
+                 parent=None, isAbstract=False):
+        """
+        Initialize a Signature object. For abstract signatures, the cardinality denotes the number of additional atoms
+        other than the atoms contained in its subsigs.
+
+        :param str name: The signature's name
+        :param int multiplicity: The multiplicity keyword, can be one of "one", "some", "lone" and "set". Default to be
+        "set"
+        :param int cardinality: The number of atoms in the signature. If the signature is abstract, then this is the
+        number of additional atoms other than the atoms contained in its subsigs
+        :param bool isSubset: If the signature is declared with keyword "in"
+        :param set[Signature] parents: The union of signatures this signature is subset of, declared with "in"
+        :param bool isSubsig: If the signature is declared with keyword "extends"
+        :param Signature parent: The signature this signature is disjoint subset of, declared with "extends"
+        :param bool isAbstract: If the signature is declared with keyword "extends"
+
+        :param priority: The priority of the message, can be a number 1-5
+        :raises ValueError: if the message_body exceeds 160 characters
+        :raises TypeError: if the message_body is not a basestring
+        """
+        if parents is None:
+            parents = set()
+
         self.name = name
         if not multiplicity:
             self.lower = 0
@@ -68,39 +102,109 @@ class Signature:
         elif multiplicity == "set":
             self.lower = 0
             self.upper = None
+
+        # Subset
+        self.isSubset = isSubset
+        self.parents = parents
+        self.subsets = set()
+        for p in self.parents:
+            p.subsets.add(self)
+
+        # Subsig
+        self.isSubsig = isSubsig
+        self.parent = parent
+        self.subsigs = set()
+        if self.parent:
+            self.parent.subsigs.add(self)
+        self.isAbstract = isAbstract
+
+        if not self.isSubset:
+            value = {name + str(i + 1) for i in range(cardinality)}
         else:
-            self.lower = 0
-            self.upper = None
-        value = {name + str(i + 1) for i in range(cardinality)}
-        if self.set_value(value) is None:
-            raise Exception("Invalid initial value for signature: " + name)
+            superset = [v for parent in self.parents for v in parent.get_value()]
+            if len(superset) < cardinality:
+                raise Exception("Invalid cardinality for subset signature: " + name)
+            value = set(superset[:cardinality])
+
+        self.set_value_no_constraints(value)
 
     def check_validity(self, value) -> bool:
         assert isinstance(value, set), "Signature has to be a set"
-        if self.upper:
-            return self.lower <= len(value) <= self.upper
-        else:
-            return self.lower <= len(value)
+        # Subset
+        if self.isSubset:
+            superset = [v for parent in self.parents for v in parent.get_value()]
+            if not value.issubset(superset):
+                logging.log(SVLOG, self.name + " is not a valid subset.")
+                return False
+        if self.subsets:
+            value_copy = self._value
+            self.set_value_no_constraints(value)
+            for subset in self.subsets:
+                if not subset.check_validity(subset.get_value()):
+                    logging.log(SVLOG, self.name + "'s subsets are no longer valid subsets.")
+                    return False
+            self._value = value_copy
+
+        # Subsig
+        if self.subsigs:
+            subset = set([v for subsig in self.subsigs for v in subsig.get_value()])
+            if not subset.issubset(value):
+                logging.log(SVLOG, self.name + " does not contain all the atoms in its subsigs.")
+                return False
+            if self.isAbstract and not len(subset) == len(value):
+                logging.log(SVLOG, self.name + " does not conform to the abstract constraint.")
+                return False
+        if self.isSubsig:
+            siblings = [v for subsig in self.parent.subsigs - {self} for v in subsig.get_value()]
+            if len(value.intersection(siblings)) != 0:
+                logging.log(SVLOG, self.name + " is not a disjoint subset of " + self.parent.name + ".")
+                return False
+            if not self.parent.check_validity(self.parent.get_value()):
+                logging.log(SVLOG, self.name + "'s parent " + self.parent.name + " does not have valid value.")
+                return False
+
+        # Multiplicity
+        if (self.upper and len(value) > self.upper) or self.lower > len(value):
+            logging.log(SVLOG, self.name + " violates the multiplicity rule.")
+            return False
+
+        return True
 
     def get_value(self):
+        if self.subsigs:
+            subset = set([v for subsig in self.subsigs for v in subsig.get_value()])
+            return subset.union(self._value)
         return self._value
 
     # Returns None if the value intended to be set is invalid
     def set_value(self, value):
         if self.check_validity(value):
-            self._value = value
+            subset = set([v for subsig in self.subsigs for v in subsig.get_value()])
+            self._value = value - subset
             return self._value
         else:
             return None
 
+    def set_value_no_constraints(self, value):
+        subset = set([v for subsig in self.subsigs for v in subsig.get_value()])
+        self._value = value - subset
+        return self._value
+
     def __repr__(self):
-        return f"{self.name} {self._value}"
+        return f"{self.name} {self.get_value()}"
 
 # --- Signatures ---
 
 #foreach($signature in $signatures)
-${signature.Name} = Signature("${signature.Name}", "${signature.Multiplicity}", ${signature.Cardinality})
+${signature.Name} = Signature("${signature.Name}", "${signature.Multiplicity}", ${signature.Cardinality}, ${signature.IsSubset}, ${signature.Parents}, ${signature.IsSubsig}, ${signature.Parent}, ${signature.IsAbstract})
 #end
+
+signatures = ${signaturesList}
+for sig in signatures:
+    if not sig.check_validity(sig.get_value()):
+        raise Exception("Invalid initial value for signature: " + sig.name)
+    print(sig)
+
 
 # --- Conc States ---
 #macro(generateState $concState $padding)
