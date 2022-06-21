@@ -1,0 +1,61 @@
+/*******************************************************************************
+ * Title: farmer.dsh
+ * Authors: Jose Serna
+ * Created: 2018-06-11
+ * Last modified: 2018-11-14
+ *
+ * Notes: Adaptation to DASH from the original model available in the Alloy's
+ *        libraries
+ *
+ ******************************************************************************/
+
+abstract sig Object {
+    eats: set Object
+}
+one sig Chicken, Farmer, Fox, Grain extends Object {}
+
+fact eating {
+    eats = Fox -> Chicken + Chicken -> Grain
+}
+
+conc state Puzzle {
+    near: set Object - Fox
+    far: set Object
+
+    init {
+        near = Object
+        no far
+    }
+
+    trans near2far {
+        when Farmer in near
+        do {
+            // Farmer takes one Object
+            (one x: near - Farmer | {
+                near' = near - Farmer - x - near'.eats
+                far' = far + Farmer + x
+            }) or
+            // Farmer crosses alone
+            {
+                near' = near - Farmer - near'.eats
+                far' = far + Farmer
+            }
+        }
+    }
+
+    trans far2near {
+        when Farmer in far
+        do {
+            // Farmer takes one Object
+            (one x: far - Farmer | {
+                far' = far - Farmer - x - far'.eats
+                near' = near + Farmer + x
+            }) or
+            // Farmer crosses alone
+            {
+                far' = far - Farmer - far'.eats
+                near' = near + Farmer
+            }
+        }
+    }
+}
