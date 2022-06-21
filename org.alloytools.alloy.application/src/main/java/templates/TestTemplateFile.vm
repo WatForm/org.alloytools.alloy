@@ -16,6 +16,10 @@ logging.basicConfig(level=logging.INFO)
 logging.addLevelName(GCLOG, "GUARD")
 logging.addLevelName(ACLOG, "ACTION")
 logging.addLevelName(CALOG, "CALLED")
+<<<<<<< HEAD
+=======
+logging.addLevelName(SVLOG, "SIG")
+>>>>>>> 1052dc8 (Requested changes - bug fix)
 
 # ===== Base Classes =====
 
@@ -204,13 +208,17 @@ class Signature:
     def __repr__(self):
         return f"{self.name} {self.get_value()}"
 
-
 # --- Signatures ---
 
 #foreach($signature in $signatures)
 ${signature.Name} = Signature("${signature.Name}", "${signature.Multiplicity}", ${signature.Cardinality}, ${signature.IsSubset}, ${signature.Parents}, ${signature.IsSubsig}, ${signature.Parent}, ${signature.IsAbstract})
 #end
 
+signatures = ${signaturesList}
+for sig in signatures:
+    if not sig.check_validity(sig.get_value()):
+        raise Exception("Invalid initial value for signature: " + sig.name)
+    print(sig)
 #end
 
 # --- Conc States ---
