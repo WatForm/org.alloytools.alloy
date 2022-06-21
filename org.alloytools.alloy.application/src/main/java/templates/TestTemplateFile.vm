@@ -12,43 +12,65 @@ ACLOG = logging.DEBUG+2  # used for action chosen
 CALOG = logging.DEBUG+3  # used for feedback on adding called
 SVLOG = logging.DEBUG+4  # used for signature validity check
 
-logging.basicConfig(level=ACLOG)
+logging.basicConfig(level=logging.INFO)
 logging.addLevelName(GCLOG, "GUARD")
 logging.addLevelName(ACLOG, "ACTION")
-logging.addLevelName(CALOG, "CALLED")
+logging.addLevelName(CALOG, "CALLED
 logging.addLevelName(SVLOG, "SIG")
 
 # ===== Base Classes =====
 
 class State(ABC):
-    """" State base class """
 
     def __init__(self, *args) -> None:
-        """
-        State() => doesn't do anything
-        State(context: State) => set _context to context
-        State(context: State, root_context: State) => also set root context
-        """
-
+        # State() => doesn't do anything
+        # State(parent_state: State) => set _parent_state
+        # State(parent_state: State, root_state: State) => also set _root_state
+        self._state = None
+        self.transitions = dict()
         if len(args) >= 2 and isinstance(args[1], State):
-            self._set_root_context(args[1])
+            self._set_root_state(args[1])
         if len(args) >= 1 and isinstance(args[0], State):
-            self._set_context(args[0])
+            self._set_parent_state(args[0])
 
     def __repr__(self):
-        return f"State {self.__class__.__name__}"
+        return f"{self.__class__.__name__}"
 
-    def _set_context(self, context: State):
-        self._context = context
+    def _set_parent_state(self, state: State):
+        self._parent_state = state
 
-    def _set_root_context(self, context: State):
-        self._root_context = context
+    def _set_root_state(self, state: State):
+        self._root_state = state
 
     def change_state(self, state: State):
-        logging.info(f"{self._state} => {state}")
+        if(self._state is not None):
+            logging.info(f"{self._state} => {state}")
         self._state = state
 
+    def __eq__(self, obj):
+        return type(self) == type(obj)
 
+    def __ne__(self, obj):
+        return type(self) != type(obj)
+
+    def handleEvent(self, eventName: str, vistedStates: set):
+        vistedStates.add(type(self._state))
+        possible_transitions = []
+        for k, v in self.transitions.items():
+            if k(eventName):
+                possible_transitions.append(v)
+
+        if(possible_transitions):
+            chosen_transition = random.randint(0, len(possible_transitions) - 1)
+            nextEvent = possible_transitions[chosen_transition]()
+            return nextEvent if (type(self._state) not in vistedStates) else ""
+        elif(self._state != self):
+            return self._state.handleEvent(eventName, vistedStates)
+        else:
+            return ""
+
+
+#if($signatures)
 class Signature:
     def __init__(self, name, multiplicity=None, cardinality=1, isSubset=False, parents=None, isSubsig=False,
                  parent=None, isAbstract=False):
@@ -183,11 +205,13 @@ class Signature:
     def __repr__(self):
         return f"{self.name} {self.get_value()}"
 
+
 # --- Signatures ---
 
 #foreach($signature in $signatures)
 ${signature.Name} = Signature("${signature.Name}", "${signature.Multiplicity}", ${signature.Cardinality}, ${signature.IsSubset}, ${signature.Parents}, ${signature.IsSubsig}, ${signature.Parent}, ${signature.IsAbstract})
 #end
+
 
 signatures = ${signaturesList}
 for sig in signatures:
@@ -199,67 +223,81 @@ for sig in signatures:
 # --- Conc States ---
 #macro(generateState $concState $padding)
 ${padding}class ${concState.getName()}_State(State):
-$padding     # substates
+
 	#foreach($substate in $concState.getSubstates())
 		#set($tab = "    ")
 		#set($newpadding = "$padding$tab")
+$padding    # substate(s)
 		#generateState($substate $newpadding)
 	#end
-
-$padding    """ The wrapper state for ${concState.getName()} """
-
-$padding    def __init__(self, context: State, root_context: State) -> None:
-$padding        super(${concState.getName()}, self).__init__(self) # init superclass
-$padding        self.change_state(root_context)  # go to default state
-$padding
-$padding        # state variable declarations
-	#foreach($decl in $concState.getDecls())
-$padding        $decl
+$padding    def __init__(self, parent_state: State, root_state: State) -> None:
+	#if(${padding} == "")
+$padding        super(${concState.getName()}_State, self).__init__(None, self) # init superclass
+$padding        self.change_state(self.${concState.getSubstates().get(0).getName()}_State(self, self))  # This is a root state
+    #else
+$padding        super(parent_state.${concState.getName()}_State, self).__init__(parent_state, root_state) # init superclass
+        #if($concState.getSubstates())
+$padding        self.change_state(self.${concState.getSubstates().get(0).getName()}_State(self, root_state))  # go to default state
+        #else
+$padding        self.change_state(self)  # go to default state
+        #end
 	#end
+                #if($concState.getDecls())
+
+$padding        # state variable declarations
+	            #foreach($decl in $concState.getDecls())
+$padding        $decl
+                #end#end
+                #if($concState.getInits())
 
 $padding        # state variable initializations
-	#foreach($init in $concState.getInits())
+	            #foreach($init in $concState.getInits())
 $padding        self.$init
-	#end
+                #end#end
+                #if($concState.getInitConstraints())
 
 $padding        # state variable constraint assertions
-	#foreach($init_constraint in $concState.getInitConstraints())
+                #foreach($init_constraint in $concState.getInitConstraints())
 $padding        $init_constraint
-	#end
+                #end#end
+                #if($concState.getTransitions())
 
+$padding        # initialize state transition dictionary
+	            #foreach($trans in $concState.getTransitions())
+$padding        self.transitions[self._trans_${trans.getTransName()}_guard] = self._trans_${trans.getTransName()}
+                #end#end
 
-$padding    class ${concState.getName()}(State):
-$padding        """ the concrete state that does the work """
+        #if($concState.getTransitions())
+$padding    # transitions
+            #foreach($trans in $concState.getTransitions())
+$padding    # transition ${trans.getTransName()} guard function
+$padding    def _trans_${trans.getTransName()}_guard(self, current_event: str) -> bool:
+		        #if(${trans.getEventCondition()})
+$padding        if(current_event != "${trans.getEventCondition()}"):
+$padding            return False
+		        #end
+                #if($trans.getGuardCondition())
+$padding        if not (${trans.getGuardCondition()}):
+$padding            return False
+                #end
+$padding        logging.log(GCLOG,f"Guard of [${concState.getName()}_${trans.getTransName()}] triggered.")
+$padding        return True
 
-$padding        # transitions
-       #foreach($trans in $concState.getTransitions())
-$padding        # trans - ${trans.getTransName()}
-$padding        def _trans_${trans.getTransName()}(self, is_event: bool) -> bool:
-$padding            r""" Execute a transition if possible
-$padding            :param is_event: is it triggered by event?
-$padding            :return: false to continue the loop in the executor
-$padding                     true to stop the loop
-$padding            """
-$padding            # TODO: global variables (signatures used in this state)
-$padding            #foreach($globalVar in $globalVariables)
-$padding            global ${globalVar}
-                    #end
+$padding    # transition ${trans.getTransName()} execution function
+$padding    def _trans_${trans.getTransName()}(self) -> str:
+                #if($globalVariables)
+$padding        # TODO: global variables (signatures used in this state)
+                #foreach($globalVar in $globalVariables)
+$padding        global ${globalVar}
+                #end#end
+$padding        logging.log(ACLOG,f"Execution of [${concState.getName()}_${trans.getTransName()}] triggered.")
+                #if($trans.getAction())
+$padding        ${trans.getAction()}
+                #end
+$padding        self._parent_state.change_state(self._parent_state.${trans.getToStateName()}_State(self._parent_state, self._root_state))
+$padding        return "${trans.getTriggerEvent()}"
 
-$padding            if (is_event):
-$padding                return False
-$padding            else:
-$padding                logging.log(GCLOG, f" test guard condition of ${trans.getTransName()}.")
-$padding                # TODO: transition guard condition
-$padding                if not (${trans.getGuardCondition()}):
-$padding                    return False
-
-$padding            logging.log(ACLOG,f" action of [${trans.getTransName()}] triggered.")
-$padding            # TODO: transition action
-$padding            ${trans.getAction()}
-
-$padding            self._context.change_state(self._context.${trans.getFromStateName()}(self._context, self._root_context))
-$padding            return True
-
+            #end
         #end
 
 #end
@@ -267,5 +305,42 @@ $padding            return True
 #foreach($concState in $concStateList)
 	#generateState($concState "")
 #end
+# --- Central Controller ---
+
+class CentralController:
+
+    def __init__(self):
+        self.concState = $!{rootState.getName()}_State(None, None)
+        self.possibleEvents = {#if(${allEvents.size()} > 0)"${allEvents.get(0).getModifiedName()}"#foreach($event in ${allEvents.subList(1, ${allEvents.size()})}), "$!{event.getModifiedName()}"#end#end}
+    
+    def run(self) -> None:
+        eventName = ""
+        # big step
+        while(eventName != "QUIT"):
+            eventName = input("Please enter an event to be processed by the model. Type \"help\" for a list of possible events\n")
+
+            while(eventName == "help"):
+                for x in self.possibleEvents:
+                    print(x)
+                print("QUIT")
+
+                eventName = input("Please enter an event to be processed by the model. Type \"help\" for a list of possible events\n")
+
+            if(eventName in self.possibleEvents):
+                # continue to process cascading events until the system is stable
+                vistedStates = set()
+                while(True):
+                    new_event = self.concState.handleEvent(eventName, vistedStates)
+                    if(new_event != ""):
+                        eventName = new_event
+                    else:
+                        break
+            elif(eventName != "QUIT"):
+                print("Invalid event name")
 
 
+# --- Run the Model ---
+
+cc: CentralController = CentralController()
+cc.run()
+print("Terminating RapidDash Model")
