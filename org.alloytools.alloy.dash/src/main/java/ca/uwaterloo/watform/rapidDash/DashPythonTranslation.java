@@ -16,6 +16,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static edu.mit.csail.sdg.alloy4.TableView.clean;
+import edu.mit.csail.sdg.alloy4.ConstList;
 
 /**
  * Mutable; this class represents an Dash to Python translation module
@@ -33,16 +34,50 @@ public class DashPythonTranslation {
         public String name;
         public String multiplicity;
         public int cardinality;
+        public boolean isSubset;
+        public List<String> parents;
+        public boolean isSubsig;
+        public String parent;
+        public boolean isAbstract;
 
-        public Signature(String name, String multiplicity, int cardinality) {
+        public Signature(String name, String multiplicity, int cardinality, boolean isSubset, List<String> parents
+                , boolean isSubsig, String parent, boolean isAbstract) {
             this.name = name;
             this.multiplicity = multiplicity;
             this.cardinality = cardinality;
+            this.isSubset = isSubset;
+            this.parents = parents;
+            this.isSubsig = isSubsig;
+            this.parent = parent;
+            this.isAbstract = isAbstract;
         }
 
         public String getName() { return name; }
         public String getMultiplicity() { return multiplicity; }
         public int getCardinality() { return cardinality; }
+        public String getIsSubset() {
+            if (this.isSubset)
+                return "True";
+            return "False";
+        }
+        public String getParents() {
+            return "{" + String.join(",", this.parents) + "}";
+        }
+        public String getIsSubsig() {
+            if (this.isSubsig)
+                return "True";
+            return "False";
+        }
+        public String getParent() {
+            if (this.parent != null)
+                return this.parent;
+            return "None";
+        }
+        public String getIsAbstract() {
+            if (this.isAbstract)
+                return "True";
+            return "False";
+        }
     }
 
     /**
@@ -52,9 +87,51 @@ public class DashPythonTranslation {
     public DashPythonTranslation(DashModule dashModule) {
         this.dashModule = dashModule;
 
+        // Sort the signatures based on dependencies
+        // TODO may need topological sort later to improve performance
+        // I am using a not efficient starightforward sorting algorithm for now
+        ArrayList<Sig> signaturesOriginalList = new ArrayList<Sig>(dashModule.sigs.values());
+        ArrayList<Sig> signaturesSortedList = new ArrayList<Sig>();
+        ArrayList<String> covered = new ArrayList<String>();
+        while (signaturesOriginalList.size() != 0) {
+            for (Sig sig : signaturesOriginalList){
+                if (sig.isSubsig != null) {
+                    if (((Sig.PrimSig) sig).parent == Sig.UNIV || covered.contains(clean(((Sig.PrimSig) sig).parent.label))) {
+                        signaturesSortedList.add(sig);
+                        signaturesOriginalList.remove(sig);
+                        covered.add(clean(sig.label));
+                        break;
+                    }
+                }
+                if (sig.isSubset != null) {
+                    ArrayList<String> parentsList = new ArrayList<String>();
+                    for (Sig p : ((Sig.SubsetSig) sig).parents)
+                        parentsList.add(clean(p.label));
+                    if (covered.containsAll(parentsList)) {
+                        signaturesSortedList.add(sig);
+                        signaturesOriginalList.remove(sig);
+                        covered.add(clean(sig.label));
+                        break;
+                    }
+                }
+            }
+
+        }
+
         // get signature names
-        this.signatures = dashModule.sigs.values().stream()
-                .map(sig -> new Signature(clean(sig.label), getMultiplicity(sig), getCardinality(sig)))
+        this.signatures = signaturesSortedList.stream()
+                .map(sig -> {
+                    List<String> parents = new ArrayList<String>();
+                    if (sig.isSubset != null)
+                        for (Sig p : ((Sig.SubsetSig) sig).parents)
+                            parents.add(clean(p.label));
+                    boolean isSubsig = sig.isSubsig != null && ((Sig.PrimSig) sig).parent != Sig.UNIV;
+                    String parent = null;
+                    if (isSubsig)
+                        parent = clean(((Sig.PrimSig) sig).parent.label);
+                    return new Signature(clean(sig.label), getMultiplicity(sig), getCardinality(sig),
+                            sig.isSubset != null, parents, isSubsig, parent, sig.isAbstract != null);
+                })
                 .collect(Collectors.toList());
 
         // get state hierarchy
@@ -138,6 +215,8 @@ public class DashPythonTranslation {
     }
 
     private int getCardinality(Sig sig) {
+        if (sig.isAbstract != null)
+            return 0;
         if (sig.isOne !=null || sig.isLone != null)
             return 1;
         return 3;

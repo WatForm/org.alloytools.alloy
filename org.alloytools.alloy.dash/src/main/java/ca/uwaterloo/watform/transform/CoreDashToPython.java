@@ -15,6 +15,8 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.StringWriter;
 
+import java.util.stream.Collectors;
+
 public class CoreDashToPython {
     static DashPythonTranslation dashPythonTranslation;
 
@@ -51,6 +53,7 @@ public class CoreDashToPython {
 
         // add signatures
         vc.put("signatures", dashPythonTranslation.signatures);
+        vc.put("signaturesList", "[" + String.join(", ", dashPythonTranslation.signatures.stream().map(sig -> sig.getName()).collect(Collectors.toList())) + "]");
 
         // add concurrent states
         vc.put("concStateList", dashPythonTranslation.getStates());
