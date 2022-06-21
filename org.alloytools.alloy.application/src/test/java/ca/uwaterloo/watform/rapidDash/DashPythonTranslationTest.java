@@ -102,7 +102,7 @@ public class DashPythonTranslationTest {
     }
 
     @Test
-    public void testSignatures() throws Exception {
+    public void testSignaturesMultiplicity() throws Exception {
         String dashModel = "sig Floor {}\n" +
                 "one sig Chicken {}\n" +
                 "some sig SomeSig {}\n" +
@@ -127,6 +127,41 @@ public class DashPythonTranslationTest {
         assertEquals(translation.signatures.get(3).multiplicity, "lone");
         assertEquals(translation.signatures.get(3).cardinality, 1);
     }
+
+    @Test
+    public void testSignaturesSubsetRelationships() throws Exception {
+        String dashModel = "abstract sig A {}\n" +
+                "sig B {}\n" +
+                "sig C in A + B {}\n" +
+                "sig D in C + A {}\n" +
+                "sig AA extends A {}\n" +
+                "sig AAA extends AA {}";
+
+        DashModule dashModule = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
+        DashToCoreDash.transformToCoreDash(dashModule);
+
+        DashPythonTranslation translation = new DashPythonTranslation(dashModule);
+
+        assertEquals(6, translation.signatures.size());
+        assertEquals(translation.signatures.get(0).name, "A");
+        assertEquals(translation.signatures.get(0).cardinality, 0);
+        assertEquals(translation.signatures.get(1).name, "B");
+        assertEquals(translation.signatures.get(1).isSubset, false);
+        assertEquals(translation.signatures.get(1).parents.size(), 0);
+        assertEquals(translation.signatures.get(2).name, "C");
+        assertEquals(translation.signatures.get(2).isSubset, true);
+        assertEquals(translation.signatures.get(2).parents, Arrays.asList("A", "B"));
+        assertEquals(translation.signatures.get(3).name, "D");
+        assertEquals(translation.signatures.get(3).isSubset, true);
+        assertEquals(translation.signatures.get(3).parents, Arrays.asList("C", "A"));
+        assertEquals(translation.signatures.get(4).name, "AA");
+        assertEquals(translation.signatures.get(4).isSubsig, true);
+        assertEquals(translation.signatures.get(4).parent, "A");
+        assertEquals(translation.signatures.get(5).name, "AAA");
+        assertEquals(translation.signatures.get(5).isSubsig, true);
+        assertEquals(translation.signatures.get(5).parent, "AA");
+    }
+
 
     @Test
     public void testWhenExpr_1() throws Exception {
