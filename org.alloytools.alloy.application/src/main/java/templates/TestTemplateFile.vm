@@ -56,10 +56,10 @@ class State(ABC):
     def __ne__(self, obj):
         return type(self) != type(obj)
 
-    def handleEvent(self, eventName: str):
+    def handleEvent(self):
         possible_transitions = []
         for k, v in self.transitions.items():
-            if k(eventName):
+            if k():
                 possible_transitions.append(v)
 
         if(possible_transitions):
@@ -67,7 +67,7 @@ class State(ABC):
             possible_transitions[chosen_transition]()
             return ""
         elif(self._state != self):
-            return self._state.handleEvent(eventName)
+            return self._state.handleEvent()
         else:
             return ""
 
@@ -275,7 +275,7 @@ $padding        self.transitions[self._trans_${trans.getTransName()}_guard] = se
 $padding    # transitions
             #foreach($trans in $concState.getTransitions())
 $padding    # transition ${trans.getTransName()} guard function
-$padding    def _trans_${trans.getTransName()}_guard(self, current_event: str) -> bool:
+$padding    def _trans_${trans.getTransName()}_guard(self) -> bool:
 		        #if(${trans.getEventCondition()})
 $padding        if(not ("${trans.getEventCondition()}" in activeEvents)):
 $padding            return False
@@ -336,7 +336,7 @@ class CentralController:
                 activeEvents.add(eventName)
                 # TODO: refactor to only allow 1 transition per conc state in a big step
                 while(True):
-                    new_event = self.concState.handleEvent(eventName)
+                    new_event = self.concState.handleEvent()
                     if(new_event != ""):
                         eventName = new_event
                     else:
