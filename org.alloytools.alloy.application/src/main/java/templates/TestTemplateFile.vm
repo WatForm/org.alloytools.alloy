@@ -53,8 +53,7 @@ class State(ABC):
     def __ne__(self, obj):
         return type(self) != type(obj)
 
-    def handleEvent(self, eventName: str, vistedStates: set):
-        vistedStates.add(type(self._state))
+    def handleEvent(self, eventName: str):
         possible_transitions = []
         for k, v in self.transitions.items():
             if k(eventName):
@@ -62,10 +61,10 @@ class State(ABC):
 
         if(possible_transitions):
             chosen_transition = random.randint(0, len(possible_transitions) - 1)
-            nextEvent = possible_transitions[chosen_transition]()
-            return nextEvent if (type(self._state) not in vistedStates) else ""
+            possible_transitions[chosen_transition]()
+            return ""
         elif(self._state != self):
-            return self._state.handleEvent(eventName, vistedStates)
+            return self._state.handleEvent(eventName)
         else:
             return ""
 
@@ -219,6 +218,10 @@ for sig in signatures:
     print(sig)
 #end
 
+# --- Active Event Tracker ---
+
+activeEvents = set()
+
 # --- Conc States ---
 #macro(generateState $concState $padding)
 ${padding}class ${concState.getName()}_State(State):
@@ -272,7 +275,7 @@ $padding    # transitions
 $padding    # transition ${trans.getTransName()} guard function
 $padding    def _trans_${trans.getTransName()}_guard(self, current_event: str) -> bool:
 		        #if(${trans.getEventCondition()})
-$padding        if(current_event != "${trans.getEventCondition()}"):
+$padding        if(not ("${trans.getEventCondition()}" in activeEvents)):
 $padding            return False
 		        #end
                 #if($trans.getGuardCondition())
@@ -293,8 +296,9 @@ $padding        logging.log(ACLOG,f"Execution of [${concState.getName()}_${trans
                 #if($trans.getAction())
 $padding        ${trans.getAction()}
                 #end
-$padding        self._parent_state.change_state(self._parent_state.${trans.getToStateName()}_State(self._parent_state, self._root_state))
-$padding        return "${trans.getTriggerEvent()}"
+$padding        new_state = self._parent_state.${trans.getToStateName()}_State(self._parent_state, self._root_state)      
+$padding        self._parent_state.change_state(new_state)
+$padding        #if(${trans.getTriggerEvent()})activeEvents.add("${trans.getTriggerEvent()}") #end
 
             #end
         #end
@@ -310,7 +314,7 @@ class CentralController:
 
     def __init__(self):
         self.concState = $!{rootState.getName()}_State(None, None)
-        self.possibleEvents = {#if(${allEvents.size()} > 0)"${allEvents.get(0).getModifiedName()}"#foreach($event in ${allEvents.subList(1, ${allEvents.size()})}), "$!{event.getModifiedName()}"#end#end}
+        self.possibleEvents = {#if(${allEnvEvents.size()} > 0)"${allEnvEvents.get(0).getModifiedName()}"#foreach($event in ${allEnvEvents.subList(1, ${allEncEvents.size()})}), "$!{event.getModifiedName()}"#end#end}
     
     def run(self) -> None:
         eventName = ""
@@ -326,10 +330,11 @@ class CentralController:
                 eventName = input("Please enter an event to be processed by the model. Type \"help\" for a list of possible events\n")
 
             if(eventName in self.possibleEvents):
-                # continue to process cascading events until the system is stable
-                vistedStates = set()
+                activeEvents.clear()
+                activeEvents.add(eventName)
+                # TODO: refactor to only allow 1 transition per conc state in a big step
                 while(True):
-                    new_event = self.concState.handleEvent(eventName, vistedStates)
+                    new_event = self.concState.handleEvent(eventName)
                     if(new_event != ""):
                         eventName = new_event
                     else:

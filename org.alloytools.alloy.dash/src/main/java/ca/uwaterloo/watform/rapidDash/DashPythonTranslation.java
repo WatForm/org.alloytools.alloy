@@ -28,7 +28,7 @@ public class DashPythonTranslation {
     private DashModule dashModule;
 
     public List<Signature> signatures;
-    public List<Event> allEvents;
+    public List<Event> allEnvEvents = new ArrayList<Event>();
     public State rootState = null;
     private Map<String, State> concStateMap;
 
@@ -85,13 +85,13 @@ public class DashPythonTranslation {
     public class Event {
     	private String name;
     	private String modifiedName;
-    	private String type; // env event vs event
+    	private boolean isEnvEvent;
     	private State parent;
     	
     	public Event(String name, String modifiedName, String type, State parent) {
     		this.name = name;
     		this.modifiedName = modifiedName;
-    		this.type = type;
+    		this.isEnvEvent = type.equals("env event");
     		this.parent = parent;
     	}
     	
@@ -153,8 +153,6 @@ public class DashPythonTranslation {
                             sig.isSubset != null, parents, isSubsig, parent, sig.isAbstract != null);
                 })
                 .collect(Collectors.toList());
-        
-        this.allEvents = new ArrayList<Event>();
 
         // get state hierarchy
         this.concStateMap = new HashMap<>();
@@ -205,7 +203,9 @@ public class DashPythonTranslation {
         	for(DashEvent event: state.events) {
         		Event newEvent = new Event(event.name, event.modifiedName, event.type, this.concStateMap.get(state.modifiedName));
         		this.concStateMap.get(newEvent);
-        		allEvents.add(newEvent);
+        		if(newEvent.isEnvEvent) {
+        			allEnvEvents.add(newEvent);
+        		}
         	}
         	     	
         	// add substates to conc states

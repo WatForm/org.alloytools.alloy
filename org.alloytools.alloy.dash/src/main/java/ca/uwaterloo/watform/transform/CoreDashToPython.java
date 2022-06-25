@@ -59,7 +59,7 @@ public class CoreDashToPython {
         vc.put("concStateList", dashPythonTranslation.getStates());
         
         // add events
-        vc.put("allEvents", dashPythonTranslation.allEvents);
+        vc.put("allEnvEvents", dashPythonTranslation.allEnvEvents);
         
         vc.put("rootState", dashPythonTranslation.rootState);
 
