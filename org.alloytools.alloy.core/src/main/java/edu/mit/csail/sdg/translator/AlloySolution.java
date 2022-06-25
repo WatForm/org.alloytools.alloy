@@ -30,12 +30,6 @@ public interface AlloySolution {
     int getBitwidth();
 
     /**
-     * Returns the maximum allowed sequence length; always between 0 and
-     * 2^(bitwidth-1)-1.
-     */
-    int getMaxSeq();
-
-    /**
      * Returns the largest allowed integer, or -1 if no integers are allowed.
      */
     int max();
@@ -44,6 +38,12 @@ public interface AlloySolution {
      * Returns the smallest allowed integer, or 0 if no integers are allowed
      */
     int min();
+
+    /**
+     * Returns the maximum allowed sequence length; always between 0 and
+     * 2^(bitwidth-1)-1.
+     */
+    int getMaxSeq();
 
     /**
      * Returns the maximum number of allowed loop unrolling or recursion level.

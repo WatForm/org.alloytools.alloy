@@ -2,6 +2,7 @@ package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.alloy4.ConstList;
+import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.alloy4.Pos;
 import edu.mit.csail.sdg.ast.Attr;
 import edu.mit.csail.sdg.ast.Decl;
@@ -18,6 +19,7 @@ import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.ast.Type;
 import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.msfol.FuncDecl;
+import fortress.msfol.IntegerLiteral;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
 import fortress.msfol.Theory;
@@ -32,6 +34,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiFunction;
 
 import static ca.uwaterloo.watform.portus.AlloyASTMatcher.isAlphaEquivalent;
 import static ca.uwaterloo.watform.portus.FortressASTMatcher.isAlphaEquivalentTerm;
@@ -155,7 +158,8 @@ public class TestDefaultTranslator {
                                 Term.mkEq(y, x2))))));
 
         // this should be the only axiom
-        Set<Term> axioms = CollectionConverters.asJava(context.getTheory().axioms());
+        @SuppressWarnings("unchecked") // IntelliJ gives a false positive
+        Set<Term> axioms = CollectionConverters.<Term>asJava(context.getTheory().axioms());
         assertThat(axioms, contains(isAlphaEquivalentTerm(exactScopeAxiom)));
 
         // should have no constants, one function for the membership predicate
@@ -203,7 +207,8 @@ public class TestDefaultTranslator {
                                 Term.mkEq(x1, x2))));
 
         // this should be the only axiom
-        Set<Term> axioms = CollectionConverters.asJava(context.getTheory().axioms());
+        @SuppressWarnings("unchecked") // IntelliJ gives a false positive
+        Set<Term> axioms = CollectionConverters.<Term>asJava(context.getTheory().axioms());
         assertThat(axioms, contains(isAlphaEquivalentTerm(nonExactScopeAxiom)));
 
         // should have no constants, one function for the membership predicate
@@ -271,7 +276,8 @@ public class TestDefaultTranslator {
                         inChildFlag, Term.mkEq(y, x1))));
 
         // should have two axioms: subset and exact scope
-        Set<Term> axioms = CollectionConverters.asJava(context.getTheory().axioms());
+        @SuppressWarnings("unchecked") // IntelliJ gives a false positive
+        Set<Term> axioms = CollectionConverters.<Term>asJava(context.getTheory().axioms());
         //noinspection unchecked
         assertThat(axioms, containsInAnyOrder(
                 is(subsetFlag),
@@ -381,7 +387,8 @@ public class TestDefaultTranslator {
                         Term.mkEq(x0, x1)));
 
         // should have exactly these axioms
-        Set<Term> axioms = CollectionConverters.asJava(context.getTheory().axioms());
+        @SuppressWarnings("unchecked") // IntelliJ gives a false positive
+        Set<Term> axioms = CollectionConverters.<Term>asJava(context.getTheory().axioms());
         //noinspection unchecked
         assertThat(axioms, containsInAnyOrder(
                 is(makeFlagConstant("subset_one_Child1")), // subset axiom, child1
@@ -456,7 +463,8 @@ public class TestDefaultTranslator {
         assertEquals(Sort.Bool(), relationPred.resultSort());
 
         // make sure the domain axiom is the only axiom
-        Set<Term> axioms = CollectionConverters.asJava(context.getTheory().axioms());
+        @SuppressWarnings("unchecked") // IntelliJ gives a false positive
+        Set<Term> axioms = CollectionConverters.<Term>asJava(context.getTheory().axioms());
         assertThat(axioms, containsInAnyOrder(domainAxiom));
 
         // should have no constants
@@ -488,7 +496,8 @@ public class TestDefaultTranslator {
         assertEquals(Sort.Bool(), relationPred.resultSort());
 
         // make sure the domain axiom is the only axiom
-        Set<Term> axioms = CollectionConverters.asJava(context.getTheory().axioms());
+        @SuppressWarnings("unchecked") // IntelliJ gives a false positive
+        Set<Term> axioms = CollectionConverters.<Term>asJava(context.getTheory().axioms());
         assertThat(axioms, containsInAnyOrder(domainAxiom));
 
         // should have no constants
@@ -519,7 +528,8 @@ public class TestDefaultTranslator {
         assertEquals(Sort.Bool(), relationPred.resultSort());
 
         // make sure the domain axiom is the only axiom
-        Set<Term> axioms = CollectionConverters.asJava(context.getTheory().axioms());
+        @SuppressWarnings("unchecked") // IntelliJ gives a false positive
+        Set<Term> axioms = CollectionConverters.<Term>asJava(context.getTheory().axioms());
         assertThat(axioms, containsInAnyOrder(domainAxiom));
 
         // should have no constants
@@ -550,7 +560,8 @@ public class TestDefaultTranslator {
         assertEquals(Sort.Bool(), relationPred.resultSort());
 
         // make sure the domain axiom is the only axiom
-        Set<Term> axioms = CollectionConverters.asJava(context.getTheory().axioms());
+        @SuppressWarnings("unchecked") // IntelliJ gives a false positive
+        Set<Term> axioms = CollectionConverters.<Term>asJava(context.getTheory().axioms());
         assertThat(axioms, containsInAnyOrder(domainAxiom));
 
         // should have no constants
@@ -581,7 +592,8 @@ public class TestDefaultTranslator {
         assertEquals(Sort.Bool(), relationPred.resultSort());
 
         // make sure the domain axiom is the only axiom
-        Set<Term> axioms = CollectionConverters.asJava(context.getTheory().axioms());
+        @SuppressWarnings("unchecked") // IntelliJ gives a false positive
+        Set<Term> axioms = CollectionConverters.<Term>asJava(context.getTheory().axioms());
         assertThat(axioms, containsInAnyOrder(domainAxiom));
 
         // should have no constants
@@ -2098,6 +2110,150 @@ public class TestDefaultTranslator {
     }
 
     @Test
+    public void testTranslate_varAsExpression() {
+        // test [[x]] := x (as an [integer] expression)
+        Var x = Term.mkVar("x");
+        context.addVarMapping("x", x);
+        Term result = translator.translate(makeTestVariable("x"), context);
+        assertEquals(Term.mkVar("x"), result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_int_literal() {
+        // test [[2]] := 2 (as an integer literal)
+        Term result = translator.translate(ExprConstant.makeNUMBER(2), context);
+        assertEquals(IntegerLiteral.apply(2), result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_int_inIntLiteral() {
+        // test [[x \in 2]] := [[x]] = 2
+        Var x = Term.mkVar("x");
+        Term result = translator.translate(ExprElementOf.make(x, ExprConstant.makeNUMBER(2)), context);
+        assertEquals(Term.mkEq(x, IntegerLiteral.apply(2)), result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_int_quantifyOverInt() {
+        // test [[all x: Int | f]] := forall x: Int . true => [[f]]
+        // the 'true' is due to skipping the [[x \in Int]] condition
+        Decl x = Sig.SIGINT.oneOf("x");
+        ExprVar f = makeTestVariable("f");
+
+        Term flagF = makeFlagConstant("flagF");
+        AtomicReference<Var> fortressX = new AtomicReference<>();
+        when(mockRoot.translate(eq(f), any())).then(ctx -> {
+            // make sure x has a mapping here and capture it
+            TranslationContext context = ctx.getArgument(1);
+            assertTrue(context.hasVarMapping("x"));
+            fortressX.set(context.getVarMapping("x"));
+            return flagF;
+        });
+
+        Term result = translator.translate(f.forAll(x), context);
+        assertEquals(Term.mkForall(fortressX.get().of(Sort.Int()), Term.mkImp(Term.mkTop(), flagF)), result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_int_inLiterals() {
+        // unoptimized: test [[2 in 3]] := forall x: Int . [[x \in 2]] => [[x \in 3]]
+        Var x = Term.mkVar("x0");
+
+        Term flagIn2 = makeFlagConstant("in2"), flagIn3 = makeFlagConstant("in3");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(x, ExprConstant.makeNUMBER(2)))), any()))
+                .thenReturn(flagIn2);
+        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(x, ExprConstant.makeNUMBER(3)))), any()))
+                .thenReturn(flagIn3);
+
+        Term result = translator.translate(ExprConstant.makeNUMBER(2).in(ExprConstant.makeNUMBER(3)), context);
+        assertEquals(Term.mkForall(x.of(Sort.Int()), Term.mkImp(flagIn2, flagIn3)), result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_int_eqLiterals() {
+        // unoptimized: test [[2 = 3]] := forall x: Int . [[x \in 2]] <=> [[x \in 3]]
+        Var x = Term.mkVar("x0");
+
+        Term flagIn2 = makeFlagConstant("in2"), flagIn3 = makeFlagConstant("in3");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(x, ExprConstant.makeNUMBER(2)))), any()))
+                .thenReturn(flagIn2);
+        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(x, ExprConstant.makeNUMBER(3)))), any()))
+                .thenReturn(flagIn3);
+
+        Term result = translator.translate(ExprConstant.makeNUMBER(2).equal(ExprConstant.makeNUMBER(3)), context);
+        assertEquals(Term.mkForall(x.of(Sort.Int()), Term.mkIff(flagIn2, flagIn3)), result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_int_eqIntVars() {
+        // unoptimized: recursively translating,
+        // test [[some x: Int | x = 2]] := exists x: Int | true && (forall y: Int | y = x <=> y = 2]])
+        // "true" from the lack of a quantification condition for Int
+        Decl alloyX = Sig.SIGINT.oneOf("x");
+        Var x = Term.mkVar("x"), y = Term.mkVar("y");
+
+        delegateToRealTranslator();
+        Term result = translator.translate(alloyX.get().equal(ExprConstant.makeNUMBER(2)).forSome(alloyX), context);
+        Term expected = Term.mkExists(x.of(Sort.Int()),
+                Term.mkAnd(Term.mkTop(),
+                        Term.mkForall(y.of(Sort.Int()),
+                                Term.mkIff(Term.mkEq(y, x), Term.mkEq(y, IntegerLiteral.apply(2))))));
+        assertThat(result, isAlphaEquivalentTerm(expected));
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_int_binaryComparisonsAndOperations() {
+        // test [[2 X 3]] := 2 [[X]] 3 for X a binary comparison or arithmetic operation
+        // unfortunately JUnit4 doesn't support parameterized tests...
+        List<Pair<ExprBinary.Op, BiFunction<Term, Term, Term>>> alloyToFortressOps = Arrays.asList(
+                new Pair<>(ExprBinary.Op.GT, Term::mkGT), // >
+                new Pair<>(ExprBinary.Op.NOT_LTE, Term::mkGT), // !=<
+                new Pair<>(ExprBinary.Op.GTE, Term::mkGE), // >=
+                new Pair<>(ExprBinary.Op.NOT_LT, Term::mkGE), // !<
+                new Pair<>(ExprBinary.Op.LT, Term::mkLT), // <
+                new Pair<>(ExprBinary.Op.NOT_GTE, Term::mkLT), // !>=
+                new Pair<>(ExprBinary.Op.LTE, Term::mkLE), // =<
+                new Pair<>(ExprBinary.Op.NOT_GT, Term::mkLE), // !>
+                new Pair<>(ExprBinary.Op.IPLUS, Term::mkPlus), // @+ (integer plus)
+                new Pair<>(ExprBinary.Op.IMINUS, Term::mkSub), // @- (integer minus)
+                new Pair<>(ExprBinary.Op.MUL, Term::mkMult), // *
+                new Pair<>(ExprBinary.Op.DIV, Term::mkDiv), // /
+                new Pair<>(ExprBinary.Op.REM, Term::mkMod)); // %
+
+        delegateToRealTranslator();
+        for (Pair<ExprBinary.Op, BiFunction<Term, Term, Term>> alloyToFortressOp : alloyToFortressOps) {
+            ExprBinary.Op alloyOp = alloyToFortressOp.a;
+            BiFunction<Term, Term, Term> fortressOp = alloyToFortressOp.b;
+
+            Term result = translator.translate(
+                    alloyOp.make(null, null, ExprConstant.makeNUMBER(2), ExprConstant.makeNUMBER(3)), context);
+            Term expected = fortressOp.apply(IntegerLiteral.apply(2), IntegerLiteral.apply(3));
+            assertEquals(expected, result);
+            assertContextEmpty();
+        }
+    }
+
+    @Test
+    public void testTranslate_int_chainedPlus() {
+        // test [[2.plus[1].plus[3]]] := (2+1)+3
+        delegateToRealTranslator();
+        Term result = translator.translate(
+                ExprConstant.makeNUMBER(2).iplus(ExprConstant.makeNUMBER(1)).iplus(ExprConstant.makeNUMBER(3)),
+                context);
+        Term expected = Term.mkPlus(
+                Term.mkPlus(IntegerLiteral.apply(2), IntegerLiteral.apply(1)), IntegerLiteral.apply(3));
+        assertEquals(expected, result);
+        assertContextEmpty();
+    }
+
+    @Test
     public void testTranslate_univ() {
         // test [[x \in univ]] := true
         Var x = Term.mkVar("x");
@@ -2190,6 +2346,58 @@ public class TestDefaultTranslator {
 
         Expr testExpr = ExprElementOf.make(x, ExprUnary.Op.NOOP.make(null,
                 ExprUnary.Op.NOOP.make(null, e)));
+        Term result = translator.translate(testExpr, context);
+        assertEquals(flagE, result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_cast2int() {
+        // test cast2int is ignored: [[cast2int(e)]] := [[e]]
+        ExprVar e = makeTestVariable("e");
+        Var flagE = makeFlagConstant("flagE");
+        when(mockRoot.translate(eq(e), any())).thenReturn(flagE);
+        Term result = translator.translate(ExprUnary.Op.CAST2INT.make(null, e), context);
+        assertEquals(flagE, result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_cast2sigint() {
+        // test cast2sigint is ignored: [[cast2sigint(e)]] := [[e]]
+        ExprVar e = makeTestVariable("e");
+        Var flagE = makeFlagConstant("flagE");
+        when(mockRoot.translate(eq(e), any())).thenReturn(flagE);
+        Term result = translator.translate(ExprUnary.Op.CAST2SIGINT.make(null, e), context);
+        assertEquals(flagE, result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_inCast2int() {
+        // test cast2int is ignored: [[x \in cast2int(e)]] := [[x \in e]]
+        ExprVar e = makeTestVariable("e");
+        Var flagE = makeFlagConstant("flagE");
+        Var x = Term.mkVar("x");
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(x, e))), any()))
+                .thenReturn(flagE);
+
+        Expr testExpr = ExprElementOf.make(x, ExprUnary.Op.CAST2INT.make(null, e));
+        Term result = translator.translate(testExpr, context);
+        assertEquals(flagE, result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_inCast2sigint() {
+        // test cast2sigint is ignored: [[x \in cast2sigint(e)]] := [[x \in e]]
+        ExprVar e = makeTestVariable("e");
+        Var flagE = makeFlagConstant("flagE");
+        Var x = Term.mkVar("x");
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(x, e))), any()))
+                .thenReturn(flagE);
+
+        Expr testExpr = ExprElementOf.make(x, ExprUnary.Op.CAST2SIGINT.make(null, e));
         Term result = translator.translate(testExpr, context);
         assertEquals(flagE, result);
         assertContextEmpty();

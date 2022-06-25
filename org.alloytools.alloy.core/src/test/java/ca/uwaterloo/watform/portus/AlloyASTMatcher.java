@@ -75,7 +75,25 @@ public class AlloyASTMatcher extends TypeSafeMatcher<Expr> {
 
         private AlphaEquivalenceTester() {}
 
+        private Expr stripNoop(Expr expr) {
+            // strip NOOP, CAST2INT, CAST2SIGINT
+            while (expr instanceof ExprUnary) {
+                ExprUnary unary = (ExprUnary) expr;
+                if (unary.op == ExprUnary.Op.NOOP
+                        || unary.op == ExprUnary.Op.CAST2INT 
+                        || unary.op == ExprUnary.Op.CAST2SIGINT) {
+                    expr = unary.sub;
+                } else {
+                    break;
+                }
+            }
+            return expr;
+        }
+
         private boolean equivalent(Expr a, Expr b) {
+            a = stripNoop(a);
+            b = stripNoop(b);
+
             // hacky workaround to pass through multiple exprs
             Expr prev = testing;
             testing = b;

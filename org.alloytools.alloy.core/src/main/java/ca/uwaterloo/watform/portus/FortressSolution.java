@@ -8,6 +8,7 @@ import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.alloy4.Pos;
 import edu.mit.csail.sdg.alloy4.SafeList;
+import edu.mit.csail.sdg.alloy4.Util;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Func;
@@ -83,26 +84,22 @@ public final class FortressSolution implements AlloySolution {
 
     @Override
     public int getBitwidth() {
-        // TODO - integers
-        return 0;
-    }
-
-    @Override
-    public int getMaxSeq() {
-        // TODO - integers (?)
-        return 0;
+        return context.scoper.getBitwidth();
     }
 
     @Override
     public int max() {
-        // TODO - integers
-        return 0;
+        return Util.max(getBitwidth());
     }
 
     @Override
     public int min() {
-        // TODO - integers
-        return 0;
+        return Util.min(getBitwidth());
+    }
+
+    @Override
+    public int getMaxSeq() {
+        return context.scoper.getMaxSeq();
     }
 
     @Override

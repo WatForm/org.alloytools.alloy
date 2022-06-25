@@ -4,6 +4,7 @@ import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.alloy4.Env;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.translator.ScopeComputer;
+import fortress.modelfind.IntegerSemantics;
 import fortress.modelfind.ModelFinder;
 import fortress.msfol.AnnotatedVar;
 import fortress.msfol.FuncDecl;
@@ -146,6 +147,8 @@ final class TranslationContext {
         finder.setTheory(theory);
         // Make sure the sort is non-empty, even if there are no sigs in the model
         finder.setAnalysisScope(univSort, Math.min(totalScope, 1));
+        // TODO - allow configuring modular vs unbounded ints
+        finder.setBoundedIntegers(IntegerSemantics.ModularSignedSemantics(scoper.getBitwidth()));
     }
 
     /**

@@ -5,6 +5,8 @@
 - Added the `org.alloytools.fortress.core` bundle as a dependency of `org.alloytools.alloy.core`.
 - Made the `ScopeComputer` class public so Portus's translation process can use it, and made it not final 
   so it can be mocked in unit tests. Also make `ScopeComputer.compute` public so we can use it.
+- Added public `getBitwidth` and `getMaxSeq` methods in `ScopeComputer`, because the information is
+  accessible from `sig2scope(SIGINT)` anyways and we need the bitwidth and max sequence length directly.
 - Added Mockito 4.3.1 as a test dependency, as well as its dependencies ByteBuddy and Objenesis.
 - Made Expr's primary constructor protected so `ExprElementOf` can call it.
 - Made `Type.make(Sig.PrimSig)` public, so our tests can call it.

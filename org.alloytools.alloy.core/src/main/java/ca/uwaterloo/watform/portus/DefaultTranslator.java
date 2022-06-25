@@ -19,6 +19,7 @@ import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Sig;
 import fortress.msfol.AnnotatedVar;
 import fortress.msfol.FuncDecl;
+import fortress.msfol.IntegerLiteral;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
 import fortress.msfol.Var;
@@ -313,6 +314,16 @@ final class DefaultTranslator extends AbstractTranslator {
                 return translateRangeRestriction(tuple, expr.left, expr.right, context);
             case PLUSPLUS:
                 return translateOverride(tuple, expr.left, expr.right, context);
+            case IPLUS:
+            case IMINUS:
+            case MUL:
+            case DIV:
+            case REM:
+                if (tuple.size() != 1) {
+                    throw new ErrorFatal("The arity of an arithmetic operation must be 1.");
+                }
+                return Term.mkEq(tuple.get(0), translateArithmeticOperation(
+                        expr.op, expr.left, expr.right, context));
             default:
                 // others are either not supported or not terms
                 throw new ErrorFatal("Unsupported ExprBinary term: " + expr.op);
@@ -452,7 +463,7 @@ final class DefaultTranslator extends AbstractTranslator {
                 inBase, Term.mkNot(Term.mkExists(annotatedVars, firstInOverride))));
     }
 
-    /** Translate an ExprBinary formula. */
+    /** Translate an ExprBinary formula or integer-valued expression. */
     @Override
     public Term translate(ExprBinary expr, TranslationContext context) {
         if (PortusUtil.isDeclarationFormula(expr)) {
@@ -482,6 +493,22 @@ final class DefaultTranslator extends AbstractTranslator {
                 Expr interpretation = expr.left.equal(expr.right).not();
                 return recursivelyTranslate(interpretation, context);
             }
+            case LT:
+            case LTE:
+            case GT:
+            case GTE:
+            case NOT_LT:
+            case NOT_LTE:
+            case NOT_GT:
+            case NOT_GTE:
+                return translateArithmeticComparison(expr.op, expr.left, expr.right, context);
+            case IPLUS:
+            case IMINUS:
+            case MUL:
+            case DIV:
+            case REM:
+                // these are integer expressions and not formulas
+                return translateArithmeticOperation(expr.op, expr.left, expr.right, context);
             case AND:
             case OR:
                 // confusingly, AND and OR aren't real ExprBinary ops
@@ -552,9 +579,10 @@ final class DefaultTranslator extends AbstractTranslator {
         assert e1.type().arity() == e2.type().arity();
 
         // create the variables
+        boolean isInt = checkAllInt(e1, e2);
         List<AnnotatedVar> varDecls = IntStream.range(0, e1.type().arity())
                 .mapToObj(idx ->Term.mkVar(uniqueNameGenerator.make("x" + idx))
-                        .of(context.univSort))
+                        .of(isInt ? Sort.Int() : context.univSort))
                 .collect(Collectors.toList());
         ConstList<Var> vars = ConstList.make(varDecls.stream()
                 .map(AnnotatedVar::variable)
@@ -570,6 +598,52 @@ final class DefaultTranslator extends AbstractTranslator {
         }
 
         return Term.mkForall(varDecls, condition);
+    }
+
+    /** Translate "lhs op rhs", where op is an arithmetic comparison like <, >, =<, >=.  */
+    private Term translateArithmeticComparison(ExprBinary.Op op, Expr lhs, Expr rhs, TranslationContext context) {
+        ensureAllInt(op + " requires both sides to be integers!", lhs, rhs);
+
+        Term left = recursivelyTranslate(lhs, context);
+        Term right = recursivelyTranslate(rhs, context);
+        switch (op) {
+            case LT:
+            case NOT_GTE:
+                return Term.mkLT(left, right);
+            case LTE:
+            case NOT_GT:
+                return Term.mkLE(left, right);
+            case GT:
+            case NOT_LTE:
+                return Term.mkGT(left, right);
+            case GTE:
+            case NOT_LT:
+                return Term.mkGE(left, right);
+            default:
+                throw new ErrorFatal("Unsupported arithmetic comparison operator: " + op);
+        }
+    }
+
+    /** Translate "lhs op rhs", where op is an arithmetic operation. */
+    private Term translateArithmeticOperation(ExprBinary.Op op, Expr lhs, Expr rhs, TranslationContext context) {
+        ensureAllInt(op + " requires both sides to be integer expressions!", lhs, rhs);
+
+        Term left = recursivelyTranslate(lhs, context);
+        Term right = recursivelyTranslate(rhs, context);
+        switch (op) {
+            case IPLUS:
+                return Term.mkPlus(left, right);
+            case IMINUS:
+                return Term.mkSub(left, right);
+            case MUL:
+                return Term.mkMult(left, right);
+            case DIV:
+                return Term.mkDiv(left, right);
+            case REM:
+                return Term.mkMod(left, right);
+            default:
+                throw new ErrorFatal("Unsupported arithmetic operation: " + op);
+        }
     }
 
     /** Translate the formula "f1 => f2 else f3". */
@@ -611,6 +685,10 @@ final class DefaultTranslator extends AbstractTranslator {
                 return translateQuantifiedExpr(ExprQt.Op.ONE, expr.sub, context);
             case SOME:
                 return translateQuantifiedExpr(ExprQt.Op.SOME, expr.sub, context);
+            case CAST2INT:
+            case CAST2SIGINT:
+                // These appear to be for internal use in the Alloy->Kodkod translation, ignore for now.
+                return recursivelyTranslate(expr.sub, context);
             default:
                 // others are either not supported or not formulas
                 throw new ErrorFatal("Unsupported ExprUnary formula: " + expr.op);
@@ -634,6 +712,10 @@ final class DefaultTranslator extends AbstractTranslator {
                 return recursivelyTranslate(ExprElementOf.make(tuple, expr.deNOP()), context);
             case TRANSPOSE:
                 return translateTranspose(tuple, expr.sub, context);
+            case CAST2INT:
+            case CAST2SIGINT:
+                // These appear to be for internal use in the Alloy->Kodkod translation, ignore for now.
+                return recursivelyTranslate(ExprElementOf.make(tuple, expr.sub), context);
             default:
                 // others are either not supported or not terms
                 throw new ErrorFatal("Unsupported ExprUnary term: " + expr.op);
@@ -842,17 +924,30 @@ final class DefaultTranslator extends AbstractTranslator {
         return Term.mkEq(tuple.get(0), checkAndMapVarName(expr.label, context));
     }
 
-    /** Translate an ExprConstant formula. */
+    /** Translate an ExprVar integer expression. */
+    @Override
+    public Term translate(ExprVar expr, TranslationContext context) {
+        // Check if it's mapped to a let-expression - if so, use that instead
+        if (context.hasLetMapping(expr.label)) {
+            return recursivelyTranslate(context.getLetMapping(expr.label), context);
+        }
+        return checkAndMapVarName(expr.label, context);
+    }
+
+    /** Translate an ExprConstant formula/integer expression. */
     @Override
     public Term translate(ExprConstant expr, TranslationContext context) {
         // The only ExprConstant formulas are TRUE and FALSE - we generate them in recursive translations.
+        // Also translate numbers since they're integer expressions (standalone).
         switch (expr.op) {
             case TRUE:
                 return Term.mkTop();
             case FALSE:
                 return Term.mkBottom();
+            case NUMBER:
+                return IntegerLiteral.apply(expr.num);
             default:
-                throw new ErrorFatal("Unsupported ExprConstant formula: " + expr);
+                throw new ErrorFatal("Unsupported ExprConstant formula/int expression: " + expr);
         }
     }
 
@@ -865,6 +960,8 @@ final class DefaultTranslator extends AbstractTranslator {
             case EMPTYNESS:
                 // "tuple \in none" is always false
                 return Term.mkBottom();
+            case NUMBER:
+                return translateVarInIntConstant(tuple, expr.num);
             default:
                 throw new ErrorFatal("Unsupported ExprConstant expression: " + expr);
         }
@@ -880,7 +977,16 @@ final class DefaultTranslator extends AbstractTranslator {
         return Term.mkEq(tuple.get(0), tuple.get(1));
     }
 
-    /** Translate a predicate call. */
+    /** Translate "tuple \in integer", where integer is an Int constant. */
+    private Term translateVarInIntConstant(ConstList<Var> tuple, int integer) {
+        if (tuple.size() != 1) {
+            throw new ErrorFatal(
+                    "Integer constants can only be compared to arity 1 variables! Got " + tuple.size());
+        }
+        return Term.mkEq(tuple.get(0), IntegerLiteral.apply(integer));
+    }
+
+    /** Translate a predicate or integer-valued function call. */
     @Override
     public Term translate(ExprCall call, TranslationContext context) {
         return translateCall(call.fun.getBody(), call, context);
@@ -917,6 +1023,37 @@ final class DefaultTranslator extends AbstractTranslator {
         return result;
     }
 
+    /**
+     * Verify that either all of `exprs` are Int exprs or none are, and return whether they all are
+     * (and there's at least one expr specified - on empty input return false).
+     */
+    private boolean checkAllInt(Expr... exprs) {
+        boolean allInt = false;
+        boolean decided = false;
+        for (Expr expr : exprs) {
+            boolean isInt = expr.type().is_int() // Int is the first sig in one of the product types
+                    && expr.type().size() == 1   // and there's only one product type
+                    && expr.type().arity() == 1; // and it only has one sig
+            if (decided) {
+                if (isInt != allInt) {
+                    throw new ErrorFatal("Portus does not support sets with integers and other atoms mixed!");
+                }
+            } else {
+                decided = true;
+                allInt = isInt;
+            }
+        }
+        return allInt;
+    }
+
+    /** Like checkAllIns, but throw an error if they aren't all integer expressions. */
+    private void ensureAllInt(String message, Expr... exprs) {
+        boolean allInts = checkAllInt(exprs);
+        if (!allInts) {
+            throw new ErrorFatal(message);
+        }
+    }
+
     /** Map an Alloy variable name to a Fortress term, or throw an error. */
     private Term checkAndMapVarName(String label, TranslationContext context) {
         // the Alloy variable must be mapped to a Fortress var in the current lexical scope
@@ -940,12 +1077,6 @@ final class DefaultTranslator extends AbstractTranslator {
         for (Decl decl : decls) {
             // Alloy typechecked that it has arity 1
             for (ExprHasName name : decl.names) {
-                Var var = Term.mkVar(uniqueNameGenerator.make(name.label));
-                namesToVars.put(name.label, var.of(context.univSort));
-
-                // Add it to the lexical scope in order to translate the condition
-                context.addVarMapping(name.label, var);
-
                 // Ensure decl.expr is ONEOF: we don't support other multiplicities in quantifiers (yet)
                 // TODO: try to skolemize it like Kodkod does?
                 if (decl.expr.mult() != ExprUnary.Op.ONEOF) {
@@ -957,7 +1088,20 @@ final class DefaultTranslator extends AbstractTranslator {
                 // We know this is an ExprUnary because decl.expr.mult() returned ONEOF,
                 // which it only does if there's an ExprUnary somewhere in the chain.
                 ExprUnary wrappedDeclExpr = (ExprUnary) decl.expr.deNOP();
-                Expr declExpr = wrappedDeclExpr.sub;
+                Expr declExpr = wrappedDeclExpr.sub.deNOP();
+
+                // Create var and it to the lexical scope to translate the condition and subformula
+                Var var = Term.mkVar(uniqueNameGenerator.make(name.label));
+                context.addVarMapping(name.label, var);
+
+                if (declExpr == Sig.SIGINT) {
+                    // Special case for the Int sig: we don't support it in arbitrary expressions
+                    // Int is a separate Fortress sort so we have to special case it
+                    namesToVars.put(name.label, var.of(Sort.Int()));
+                    continue;
+                }
+
+                namesToVars.put(name.label, var.of(context.univSort));
 
                 // Add the condition "var \in declExpr" to restrict the domain of var
                 conditions.add(recursivelyTranslate(
@@ -966,7 +1110,7 @@ final class DefaultTranslator extends AbstractTranslator {
         }
 
         // All the conditions must be true for a set of variables to be used
-        Term condition = Term.mkAnd(conditions);
+        Term condition = conditions.isEmpty() ? Term.mkTop() : Term.mkAnd(conditions);
         return new Pair<>(namesToVars, condition);
     }
 

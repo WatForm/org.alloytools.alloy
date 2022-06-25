@@ -178,6 +178,14 @@ public class ScopeComputer {
     }
 
     /**
+     * Returns the integer bitwidth of this solution's model; always between 1 and 30.
+     * @since Added by Portus.
+     */
+    public int getBitwidth() {
+        return bitwidth;
+    }
+
+    /**
      * Modifies the integer bitwidth of this solution's model (and sets the max
      * sequence length to 0).
      */
@@ -201,6 +209,14 @@ public class ScopeComputer {
     /** Modifies the minimum trace length of this solution's model. */
     private void setMinTraceLength(Pos pos, int newTracelength) throws ErrorAPI, ErrorSyntax {
         mintrace = newTracelength;
+    }
+
+    /**
+     * Returns the maximum sequence length; always between 0 and (2^(bitwidth-1))-1.
+     * @since Added by Portus.
+     */
+    public int getMaxSeq() {
+        return maxseq;
     }
 
     /** Modifies the maximum sequence length. */

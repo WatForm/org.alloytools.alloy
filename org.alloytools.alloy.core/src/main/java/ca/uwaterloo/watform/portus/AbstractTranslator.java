@@ -80,7 +80,7 @@ abstract class AbstractTranslator implements Translator {
         return null;
     }
 
-    /** Translate a predicate ExprCall Alloy formula. `expr` must be a predicate. */
+    /** Translate a pred/integer func ExprCall Alloy formula. `expr` must be a predicate or integer function. */
     public Term translate(ExprCall expr, TranslationContext context) {
         return null;
     }
@@ -145,6 +145,11 @@ abstract class AbstractTranslator implements Translator {
 
     /** Translate "tuple \in expr", where expr is an ExprVar. */
     public Term translate(ConstList<Var> tuple, ExprVar expr, TranslationContext context) {
+        return null;
+    }
+
+    /** Translate an ExprVar integer expression. */
+    public Term translate(ExprVar expr, TranslationContext context) {
         return null;
     }
 
@@ -254,11 +259,8 @@ abstract class AbstractTranslator implements Translator {
 
         @Override
         public Term visit(ExprCall expr) throws Err {
-            if (expr.fun.isPred) {
-                return translate(expr, context);
-            } else {
-                throw new ErrorFatal("Function ExprCalls must be wrapped with ExprElementOf.");
-            }
+            // assume it's a predicate/integer function
+            return translate(expr, context);
         }
 
         @Override
@@ -290,8 +292,8 @@ abstract class AbstractTranslator implements Translator {
 
         @Override
         public Term visit(ExprVar expr) throws Err {
-            // not a formula: must wrap it to pass down contextual info
-            throw new ErrorFatal("ExprVar must be wrapped with ExprElementOf");
+            // assume it's an integer expression
+            return translate(expr, context);
         }
 
         @Override
