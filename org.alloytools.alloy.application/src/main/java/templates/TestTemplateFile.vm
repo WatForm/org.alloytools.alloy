@@ -1,5 +1,6 @@
 from __future__ import annotations
 from operator import methodcaller
+from typing import List
 import logging
 import random
 from abc import ABC
@@ -26,7 +27,8 @@ class State(ABC):
         # State() => doesn't do anything
         # State(parent_state: State) => set _parent_state
         # State(parent_state: State, root_state: State) => also set _root_state
-        self._state = None
+        self._state: State = None # used when there is only one child state
+        self._states: List[State] = [] # used when there is multple children conc states
         self.transitions = dict()
         if len(args) >= 2 and isinstance(args[1], State):
             self._set_root_state(args[1])
@@ -62,9 +64,11 @@ class State(ABC):
         if(possible_transitions):
             chosen_transition = random.randint(0, len(possible_transitions) - 1)
             possible_transitions[chosen_transition]()
-        elif(self._state != self):
+        elif(self._state):
             self._state.handleEvent()
-        
+        elif(self._states):
+            for s in self._states:
+                s.handleEvent()
 
 #if($signatures)
 class Signature:
@@ -230,17 +234,20 @@ $padding    # substate(s)
 		#generateState($substate $newpadding)
 	#end
 $padding    def __init__(self, parent_state: State, root_state: State) -> None:
-	#if(${padding} == "")
-$padding        super(${concState.getName()}_State, self).__init__(None, self) # init superclass
-$padding        self.change_state(self.${concState.getSubstates().get(0).getName()}_State(self, self))  # This is a root state
-    #else
-$padding        super(parent_state.${concState.getName()}_State, self).__init__(parent_state, root_state) # init superclass
-        #if($concState.getSubstates())
-$padding        self.change_state(self.${concState.getSubstates().get(0).getName()}_State(self, root_state))  # go to default state
+    #set($rootStateName = "#if(${padding} == '')self#{else}root_state#end")
+    #set($parentStateName = "#if(${padding} == '')None#{else}parent_state#end")
+$padding        super(#if(${padding} == '')#{else}parent_state.#end${concState.getName()}_State, self).__init__($parentStateName, $rootStateName) # init superclass
+    #if($concState.getSubstates())
+        #if(${concState.getSubstates().get(0).getIsConc()})
+            #foreach ($subState in $concState.getSubstates())
+$padding        self._states.append(self.${subState.getName()}_State(self, $rootStateName))
+            #end
         #else
-$padding        self.change_state(self)  # go to default state
+$padding        self.change_state(self.${concState.getSubstates().get(0).getName()}_State(self, $rootStateName))  # go to default state
         #end
-	#end
+    #else
+$padding        # No substate for this state, so default state is None
+    #end
                 #if($concState.getDecls())
 
 $padding        # state variable declarations
