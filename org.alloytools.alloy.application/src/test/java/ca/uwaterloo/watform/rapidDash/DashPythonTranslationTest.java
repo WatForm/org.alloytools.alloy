@@ -33,6 +33,7 @@ public class DashPythonTranslationTest {
         DashPythonTranslation translation = new DashPythonTranslation(dashModule);
         assertEquals(1, translation.getStates().size());
         assertEquals("concState", translation.getStates().get(0).getName());
+        assertTrue("concState", translation.getStates().get(0).getIsConc());
 
         List<DashPythonTranslation.State> secondary_states = translation.getStates().get(0).getSubstates();
 
