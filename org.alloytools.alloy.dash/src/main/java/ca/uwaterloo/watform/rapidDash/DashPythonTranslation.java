@@ -158,10 +158,10 @@ public class DashPythonTranslation {
         this.concStateMap = new HashMap<>();
         // initialize all states instances
         for(String stateName: dashModule.getAllConcurrentStates().keySet()){
-            this.concStateMap.put(stateName, new State(stateName));
+            this.concStateMap.put(stateName, new State(stateName, true));
         }
         for(String stateName: dashModule.getORStates().keySet()){
-            this.concStateMap.put(stateName, new State(stateName));
+            this.concStateMap.put(stateName, new State(stateName, false));
         }
 
         for(DashConcState state: dashModule.getAllConcurrentStates().values()) {
@@ -273,15 +273,18 @@ public class DashPythonTranslation {
         private List<String> decls;
         private List<String> inits;
         private List<String> init_constraints;
+
+        private boolean isConc;
         private List<Event> events;
         public State parent = null;
-        public State(String stateName){
+        public State(String stateName, boolean isConc){
             this.stateName = stateName;
             this.transitions = new ArrayList<>();
             this.substates = new ArrayList<State>();
             this.decls = new ArrayList<String>();
             this.inits = new ArrayList<String>();
             this.init_constraints = new ArrayList<String>();
+            this.isConc = isConc;
         }
         public void addTransition(Transition transition){
             this.transitions.add(transition);
@@ -293,6 +296,9 @@ public class DashPythonTranslation {
         public List<String> getInits() { return inits.stream().collect(Collectors.toList()); }
         public List<String> getInitConstraints() { return init_constraints.stream().collect(Collectors.toList()); }
         public List<Event> getEvents() { return events.stream().collect(Collectors.toList()); }
+
+        public boolean getIsConc() {return isConc;}
+
         public void addSubstate(State s) { substates.add(s); }
         public void addDecl(String s) { decls.add(s); }
         public void addInit(String s) { inits.add(s); }
