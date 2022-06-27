@@ -30,8 +30,8 @@ class State(ABC):
         # State() => doesn't do anything
         # State(parent_state: State) => set _parent_state
         # State(parent_state: State, root_state: State) => also set _root_state
-        self._state: State = None # used when there is only one child state
-        self._states: List[State] = [] # used when there is multple children conc states
+        self._active_state: State = None # used when there is only one active child state
+        self._conc_states: List[State] = [] # used when there is multple children conc states
         self.transitions = dict()
         if len(args) >= 2 and isinstance(args[1], State):
             self._set_root_state(args[1])
@@ -48,9 +48,9 @@ class State(ABC):
         self._root_state = state
 
     def change_state(self, state: State):
-        if(self._state is not None):
-            logging.info(f"{self._state} => {state}")
-        self._state = state
+        if(self._active_state is not None):
+            logging.info(f"{self._active_state} => {state}")
+        self._active_state = state
 
     def __eq__(self, obj):
         return type(self) == type(obj)
@@ -67,10 +67,10 @@ class State(ABC):
         if(possible_transitions):
             chosen_transition = random.randint(0, len(possible_transitions) - 1)
             possible_transitions[chosen_transition]()
-        elif(self._state):
-            self._state.handleEvent()
-        elif(self._states):
-            for s in self._states:
+        elif(self._active_state):
+            self._active_state.handleEvent()
+        elif(self._conc_states):
+            for s in self._conc_states:
                 s.handleEvent()
 
 #if($signatures)
@@ -242,7 +242,7 @@ $padding        super(#if(${padding} == '')#{else}parent_state.#end${concState.g
     #if($concState.getSubstates())
         #if(${concState.getSubstates().get(0).getIsConc()})
             #foreach ($subState in $concState.getSubstates())
-$padding        self._states.append(self.${subState.getName()}_State(self, $rootStateName))
+$padding        self._conc_states.append(self.${subState.getName()}_State(self, $rootStateName))
             #end
         #else
 $padding        self.change_state(self.${concState.getSubstates().get(0).getName()}_State(self, $rootStateName))  # go to default state
