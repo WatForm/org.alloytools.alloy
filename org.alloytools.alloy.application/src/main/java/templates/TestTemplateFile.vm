@@ -62,12 +62,9 @@ class State(ABC):
         if(possible_transitions):
             chosen_transition = random.randint(0, len(possible_transitions) - 1)
             possible_transitions[chosen_transition]()
-            return ""
         elif(self._state != self):
-            return self._state.handleEvent()
-        else:
-            return ""
-
+            self._state.handleEvent()
+        
 
 #if($signatures)
 class Signature:
@@ -286,7 +283,7 @@ $padding        logging.log(GCLOG,f"Guard of [${concState.getName()}_${trans.get
 $padding        return True
 
 $padding    # transition ${trans.getTransName()} execution function
-$padding    def _trans_${trans.getTransName()}(self) -> str:
+$padding    def _trans_${trans.getTransName()}(self):
                 #if($globalVariables)
 $padding        # TODO: global variables (signatures used in this state)
                 #foreach($globalVar in $globalVariables)
@@ -333,12 +330,7 @@ class CentralController:
                 activeEvents.clear()
                 activeEvents.add(eventName)
                 # TODO: refactor to only allow 1 transition per conc state in a big step
-                while(True):
-                    new_event = self.concState.handleEvent()
-                    if(new_event != ""):
-                        eventName = new_event
-                    else:
-                        break
+                self.concState.handleEvent()
             elif(eventName != "QUIT"):
                 print("Invalid event name")
 
