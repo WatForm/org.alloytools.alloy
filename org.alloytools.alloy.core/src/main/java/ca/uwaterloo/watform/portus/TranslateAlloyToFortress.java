@@ -24,6 +24,10 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Writer;
+import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -80,7 +84,11 @@ public final class TranslateAlloyToFortress implements CommandRunner {
         // TODO: append all the facts and field facts to the formula (copy/abstract makeFacts)
         context.addAxiom(translator.translate(command.formula, context));
 
-        // Write raw SMTLIB to file if the appropriate solver is chosen
+        // Write raw MSFOL or SMT-LIB to file if the appropriate solver is chosen
+        if (options.solver == A4Options.SatSolver.FORTRESS_MSFOL) {
+            writeFortressToFile(reporter, options, context);
+            return null;
+        }
         if (options.solver == A4Options.SatSolver.SMTLIB) {
             writeSmtlibToFile(reporter, options, context);
             return null;
@@ -97,6 +105,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
                     interpretation, translator, context, sigs, options.originalFilename, command.toString());
         }
     }
+
     private void translateSigs(Iterable<Sig> sigs, Translator translator, TranslationContext context) {
         // We translate sigs in the following order:
         // 1. Each top-level PrimSig; translators should translate child PrimSigs.
@@ -154,6 +163,16 @@ public final class TranslateAlloyToFortress implements CommandRunner {
                 }
             }
         }
+    }
+
+    private void writeFortressToFile(A4Reporter reporter, A4Options options, TranslationContext context)
+            throws IOException {
+        File fortressFile = File.createTempFile("tmp", ".msfol", new File(options.tempDirectory));
+        Files.write(
+                Paths.get(fortressFile.getAbsolutePath()),
+                Collections.singletonList(context.getTheory().toString()),
+                Charset.defaultCharset());
+        reporter.resultCNF(fortressFile.getAbsolutePath());
     }
 
     private void writeSmtlibToFile(A4Reporter reporter, A4Options options, TranslationContext context)
