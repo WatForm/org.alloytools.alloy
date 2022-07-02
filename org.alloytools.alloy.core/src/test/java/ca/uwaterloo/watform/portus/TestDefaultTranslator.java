@@ -2,6 +2,7 @@ package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.alloy4.ConstList;
+import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.alloy4.Pos;
 import edu.mit.csail.sdg.ast.Attr;
@@ -50,6 +51,7 @@ import static org.hamcrest.Matchers.startsWith;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.AdditionalMatchers.or;
 import static org.mockito.ArgumentMatchers.any;
@@ -2503,6 +2505,56 @@ public class TestDefaultTranslator {
         Term result = translator.translate(e.cardinality(), context);
         assertEquals(sumFlag, result);
         assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_binaryOperationExpression_mixedIntNonInt_fails() {
+        // test [[S X 2]] fails for select binary operations X, since we disallow mixing integers with non-integers
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        List<ExprBinary.Op> binOps = Arrays.asList(
+                ExprBinary.Op.IPLUS,
+                ExprBinary.Op.IMINUS,
+                ExprBinary.Op.MUL,
+                ExprBinary.Op.DIV,
+                ExprBinary.Op.REM,
+                ExprBinary.Op.EQUALS,
+                ExprBinary.Op.NOT_EQUALS,
+                ExprBinary.Op.IN,
+                ExprBinary.Op.NOT_IN,
+                ExprBinary.Op.GT,
+                ExprBinary.Op.NOT_GT,
+                ExprBinary.Op.GTE,
+                ExprBinary.Op.NOT_GTE,
+                ExprBinary.Op.LT,
+                ExprBinary.Op.NOT_LT,
+                ExprBinary.Op.LTE,
+                ExprBinary.Op.NOT_LTE);
+        for (ExprBinary.Op op : binOps) {
+            Expr mixedExpr = op.make(null, null, sig, ExprConstant.makeNUMBER(2));
+            assertThrows("Should reject mixing integers with non-integers: " + op, ErrorFatal.class,
+                    () -> translator.translate(mixedExpr, context));
+        }
+    }
+
+    @Test
+    public void testTranslate_inBinaryOperation_mixedIntNonInt_fails() {
+        // test [[x \in S X 2]] fails for select binary operations X, since we disallow mixing ints with non-integers
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        Var x = Term.mkVar("x");
+        List<ExprBinary.Op> binOps = Arrays.asList(
+                ExprBinary.Op.PLUS,
+                ExprBinary.Op.MINUS,
+                ExprBinary.Op.INTERSECT,
+                ExprBinary.Op.JOIN,
+                ExprBinary.Op.DOMAIN,
+                ExprBinary.Op.RANGE,
+                ExprBinary.Op.PLUSPLUS,
+                ExprBinary.Op.ARROW);
+        for (ExprBinary.Op op : binOps) {
+            Expr mixedExpr = ExprElementOf.make(x, op.make(null, null, sig, ExprConstant.makeNUMBER(2)));
+            assertThrows("Should reject mixing integers with non-integers: " + op, ErrorFatal.class,
+                    () -> translator.translate(mixedExpr, context));
+        }
     }
 
     @Test

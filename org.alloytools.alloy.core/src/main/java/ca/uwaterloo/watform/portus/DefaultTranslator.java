@@ -298,6 +298,9 @@ final class DefaultTranslator extends AbstractTranslator {
     /** Translate "tuple \in expr", where expr is an ExprBinary term. */
     @Override
     public Term translate(ConstList<Var> tuple, ExprBinary expr, TranslationContext context) {
+        // Both sides or neither side should be integers, we don't support mixing
+        checkAllInt(expr.left, expr.right);
+
         switch (expr.op) {
             case PLUS:
                 return translateUnion(tuple, expr.left, expr.right, context);
@@ -470,6 +473,9 @@ final class DefaultTranslator extends AbstractTranslator {
         if (PortusUtil.isDeclarationFormula(expr)) {
             return translateDeclarationFormula(expr.left, (ExprBinary) expr.right, context);
         }
+
+        // Both sides or neither side should be integers, we don't support mixing
+        checkAllInt(expr.left, expr.right);
 
         switch (expr.op) {
             // see KT figure 4.6
