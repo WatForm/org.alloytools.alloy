@@ -1,6 +1,5 @@
 package ca.uwaterloo.watform.portus;
 
-import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.alloy4.Env;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.translator.ScopeComputer;
@@ -22,9 +21,6 @@ final class TranslationContext {
     // The Fortress options to be used for the translation.
     public final FortressOptions options;
 
-    // A reporter that translators can use to log output.
-    public final A4Reporter reporter;
-
     // Calculates the scopes for each signature.
     public final ScopeComputer scoper;
 
@@ -43,9 +39,8 @@ final class TranslationContext {
     // We use a single Env so these types of mappings can shadow each other.
     private final Env<String, Either<Var, Expr>> alloyVarMapping;
 
-    public TranslationContext(FortressOptions options, A4Reporter reporter, ScopeComputer scoper) {
+    public TranslationContext(FortressOptions options, ScopeComputer scoper) {
         this.options = options;
-        this.reporter = (reporter == null) ? A4Reporter.NOP : reporter;
         this.scoper = scoper;
         this.alloyVarMapping = new Env<>();
     }
@@ -53,7 +48,6 @@ final class TranslationContext {
     // Copy constructor: copy the context so changes to the new context don't affect the original.
     public TranslationContext(TranslationContext context) {
         this.options = context.options;
-        this.reporter = context.reporter;
         this.scoper = context.scoper;
         this.theory = context.theory; // theory is immutable
         this.totalScope = context.totalScope;
@@ -173,10 +167,10 @@ final class TranslationContext {
     }
 
     /**
-     * Get the theory being built. This is for testing; for production use prefer
+     * Get the theory being built. This is for debugging and visibilitiy; for solving prefer
      * {@link #configureModelFinder(ModelFinder)}.
      */
-    Theory getTheory() {
+    public Theory getTheory() {
         return theory;
     }
 

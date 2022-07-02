@@ -74,7 +74,7 @@ public class TestDefaultTranslator {
         mockRoot = mock(Translator.class);
         translator = new DefaultTranslator(mockRoot);
         mockScoper = mock(ScopeComputer.class);
-        context = new TranslationContext(new FortressOptions(), A4Reporter.NOP, mockScoper);
+        context = new TranslationContext(new FortressOptions(), mockScoper);
     }
 
     // Convience function to make a PrimSig with a (non-null) parent sig.
