@@ -18,6 +18,7 @@ import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Sig;
 import fortress.msfol.AnnotatedVar;
+import fortress.msfol.DomainElement;
 import fortress.msfol.FuncDecl;
 import fortress.msfol.IntegerLiteral;
 import fortress.msfol.Sort;
@@ -689,6 +690,8 @@ final class DefaultTranslator extends AbstractTranslator {
             case CAST2SIGINT:
                 // These appear to be for internal use in the Alloy->Kodkod translation, ignore for now.
                 return recursivelyTranslate(expr.sub, context);
+            case CARDINALITY:
+                return translateCardinality(expr.sub, context);
             default:
                 // others are either not supported or not formulas
                 throw new ErrorFatal("Unsupported ExprUnary formula: " + expr.op);
@@ -703,6 +706,13 @@ final class DefaultTranslator extends AbstractTranslator {
         return recursivelyTranslate(formula, context);
     }
 
+    /** Translate "#e", as an integer expression. */
+    private Term translateCardinality(Expr expr, TranslationContext context) {
+        // Equivalent to "sum x: e | 1", so translate as such for simplicity
+        Expr sum = ExprConstant.ONE.sumOver(expr.oneOf("x"));
+        return recursivelyTranslate(sum, context);
+    }
+
     /** Translate "tuple \in expr", where expr is an ExprUnary formula. */
     @Override
     public Term translate(ConstList<Var> tuple, ExprUnary expr, TranslationContext context) {
@@ -712,6 +722,8 @@ final class DefaultTranslator extends AbstractTranslator {
                 return recursivelyTranslate(ExprElementOf.make(tuple, expr.deNOP()), context);
             case TRANSPOSE:
                 return translateTranspose(tuple, expr.sub, context);
+            case CARDINALITY:
+                return translateInIntExpr(tuple, expr, context);
             case CAST2INT:
             case CAST2SIGINT:
                 // These appear to be for internal use in the Alloy->Kodkod translation, ignore for now.
@@ -799,8 +811,8 @@ final class DefaultTranslator extends AbstractTranslator {
                 // naive for now
                 // forall x, y: S . [[x \in e]] && [[y \in e]] && [[f]] && [[f[x/y]]] => x = y
                 List<AnnotatedVar> primed = prime(vars);
-                Term primedCondition = PortusUtil.substitute(vars, primed, condition);
-                Term primedSub = PortusUtil.substitute(vars, primed, sub);
+                Term primedCondition = PortusUtil.substituteVars(vars, primed, condition);
+                Term primedSub = PortusUtil.substituteVars(vars, primed, sub);
                 Term equal = PortusUtil.mkVarsEqual(vars, primed);
                 vars.addAll(primed); // add both at the same time
                 return Term.mkForall(vars, Term.mkImp(
@@ -812,18 +824,53 @@ final class DefaultTranslator extends AbstractTranslator {
                 // exists x: S . [[x \in e]] && [[f]] && forall y: S . [[y \in e]]
                 //   && [[f[x/y]]] => x = y
                 List<AnnotatedVar> primed = prime(vars);
-                Term primedCondition = PortusUtil.substitute(vars, primed, condition);
-                Term primedSub = PortusUtil.substitute(vars, primed, sub);
+                Term primedCondition = PortusUtil.substituteVars(vars, primed, condition);
+                Term primedSub = PortusUtil.substituteVars(vars, primed, sub);
                 Term equal = PortusUtil.mkVarsEqual(vars, primed);
                 return Term.mkExists(vars, Term.mkAnd(condition, sub,
                         Term.mkForall(primed, Term.mkImp(
                                 Term.mkAnd(primedCondition, primedSub),
                                 equal))));
             }
+            case SUM:
+                return translateSum(sub, condition, vars, context);
             default:
                 // unsupported or not formula - NO is handled above
                 throw new ErrorFatal("Unsupported ExprQt formula: " + expr.op);
         }
+    }
+
+    // Translate "sum x: e | f" where sub translates [[f]] and condition translates [[x \in e]].
+    private Term translateSum(Term sub, Term condition, List<AnnotatedVar> vars, TranslationContext context) {
+        // naive for now: manually expand "sum y: univ | [[y \in e]] => [[f[y/x]]] else 0"
+        // nest the additions naively left-to-right: ((((1 + 1) + 1) + 1) + ...)
+        List<Sort> sorts = new ArrayList<>();
+        List<Integer> sortScopes = new ArrayList<>();
+        List<Integer> currentIdxs = new ArrayList<>(); // indexes of the current domain elements
+        for (AnnotatedVar var : vars) {
+            sorts.add(var.sort());
+            sortScopes.add(var.sort() == context.univSort ? context.getUnivScope() : context.getIntScope());
+            currentIdxs.add(1);
+        }
+
+        Term result = null;
+        do {
+            // substitute with the domain elements for each combination
+            List<DomainElement> domainElements = IntStream.range(0, vars.size())
+                    .mapToObj(i -> DomainElement.apply(currentIdxs.get(i), sorts.get(i)))
+                    .collect(Collectors.toList());
+            Term domElemCondition = PortusUtil.substitute(vars, domainElements, condition);
+            Term domElemSub = PortusUtil.substitute(vars, domainElements, sub);
+
+            // add "condition => sub else 0" to the result
+            Term addend = Term.mkIfThenElse(domElemCondition, domElemSub, IntegerLiteral.apply(0));
+            if (result == null) {
+                result = addend;
+            } else {
+                result = Term.mkPlus(result, addend);
+            }
+        } while (PortusUtil.nextCombination(currentIdxs, sortScopes));
+        return result;
     }
 
     /** Translate "tuple \in expr", where expr is an ExprQt. */
@@ -833,7 +880,7 @@ final class DefaultTranslator extends AbstractTranslator {
             case COMPREHENSION:
                 return translateComprehension(tuple, expr, context);
             case SUM:
-                // TODO
+                return translateInIntExpr(tuple, expr, context);
             default:
                 // unsupported or not expression
                 throw new ErrorFatal("Unsupported ExprQt expression: " + expr.op);
@@ -961,7 +1008,7 @@ final class DefaultTranslator extends AbstractTranslator {
                 // "tuple \in none" is always false
                 return Term.mkBottom();
             case NUMBER:
-                return translateVarInIntConstant(tuple, expr.num);
+                return translateInIntExpr(tuple, expr, context);
             default:
                 throw new ErrorFatal("Unsupported ExprConstant expression: " + expr);
         }
@@ -975,15 +1022,6 @@ final class DefaultTranslator extends AbstractTranslator {
             throw new ErrorFatal("iden expects arity 2, but got " + tuple.size());
         }
         return Term.mkEq(tuple.get(0), tuple.get(1));
-    }
-
-    /** Translate "tuple \in integer", where integer is an Int constant. */
-    private Term translateVarInIntConstant(ConstList<Var> tuple, int integer) {
-        if (tuple.size() != 1) {
-            throw new ErrorFatal(
-                    "Integer constants can only be compared to arity 1 variables! Got " + tuple.size());
-        }
-        return Term.mkEq(tuple.get(0), IntegerLiteral.apply(integer));
     }
 
     /** Translate a predicate or integer-valued function call. */
@@ -1021,6 +1059,13 @@ final class DefaultTranslator extends AbstractTranslator {
             context.removeMapping(param.label);
         }
         return result;
+    }
+
+    private Term translateInIntExpr(ConstList<Var> tuple, Expr intExpr, TranslationContext context) {
+        if (tuple.size() != 1) {
+            throw new ErrorSyntax("Int expression '" + intExpr + "' requires arity 1");
+        }
+        return Term.mkEq(tuple.get(0), recursivelyTranslate(intExpr, context));
     }
 
     /**
@@ -1094,14 +1139,14 @@ final class DefaultTranslator extends AbstractTranslator {
                 Var var = Term.mkVar(uniqueNameGenerator.make(name.label));
                 context.addVarMapping(name.label, var);
 
+                // Use Int if it's an integer expression, otherwise univ
+                Sort varSort = checkAllInt(declExpr) ? Sort.Int() : context.univSort;
+                namesToVars.put(name.label, var.of(varSort));
+
                 if (declExpr == Sig.SIGINT) {
-                    // Special case for the Int sig: we don't support it in arbitrary expressions
-                    // Int is a separate Fortress sort so we have to special case it
-                    namesToVars.put(name.label, var.of(Sort.Int()));
+                    // Special case for the Int sig: don't bother translating the "var \in Int" condition
                     continue;
                 }
-
-                namesToVars.put(name.label, var.of(context.univSort));
 
                 // Add the condition "var \in declExpr" to restrict the domain of var
                 conditions.add(recursivelyTranslate(

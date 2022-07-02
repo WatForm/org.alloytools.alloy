@@ -66,6 +66,27 @@ final class TranslationContext {
         totalScope += scope;
     }
 
+    /**
+     * Get the total scope needed for the universal sort.
+     */
+    public int getUnivScope() {
+        return totalScope;
+    }
+
+    /**
+     * Get the scope of the `Int` sort (equal to 2^bitwidth).
+     */
+    public int getIntScope() {
+        return 1 << getBitwidth();
+    }
+
+    /**
+     * Get the bitwidth used for the `Int` sort.
+     */
+    public int getBitwidth() {
+        return scoper.getBitwidth();
+    }
+
     public void addAxiom(Term axiom) {
         theory = theory.withAxiom(axiom);
     }
@@ -146,7 +167,7 @@ final class TranslationContext {
     public void configureModelFinder(ModelFinder finder) {
         finder.setTheory(theory);
         // Make sure the sort is non-empty, even if there are no sigs in the model
-        finder.setAnalysisScope(univSort, Math.min(totalScope, 1));
+        finder.setAnalysisScope(univSort, Math.max(totalScope, 1));
         // TODO - allow configuring modular vs unbounded ints
         finder.setBoundedIntegers(IntegerSemantics.ModularSignedSemantics(scoper.getBitwidth()));
     }
@@ -157,14 +178,6 @@ final class TranslationContext {
      */
     Theory getTheory() {
         return theory;
-    }
-
-    /**
-     * Get the total scope (i.e. the scope of the univ sort). This is for testing;
-     * for production use prefer {@link #configureModelFinder(ModelFinder)}.
-     */
-    int getTotalScope() {
-        return totalScope;
     }
 
 }

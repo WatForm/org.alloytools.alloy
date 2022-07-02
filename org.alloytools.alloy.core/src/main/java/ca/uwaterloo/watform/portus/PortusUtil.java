@@ -13,6 +13,7 @@ import scala.collection.immutable.HashSet;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * General-purpose utility functions used in Portus.
@@ -117,17 +118,26 @@ final class PortusUtil {
      * For each pair of vars (v1, v2) in zip(a, b), substitute v1 -> v2 in term.
      * We require that a and b have the same size.
      */
-    public static Term substitute(List<AnnotatedVar> a, List<AnnotatedVar> b, Term term) {
+    public static Term substituteVars(List<AnnotatedVar> a, List<AnnotatedVar> b, Term term) {
+        return substitute(a, b.stream().map(AnnotatedVar::variable).collect(Collectors.toList()), term);
+    }
+
+    /**
+     * For each (var, term) pair (v, t) in zip(a, b), substitute v -> t in term.
+     * We require that a and b have the same size.
+     */
+    public static Term substitute(List<AnnotatedVar> a, List<? extends Term> b, Term term) {
         if (a.size() != b.size()) {
             throw new IllegalArgumentException("a and b must have same size");
         }
 
         // TODO: can we use FastSubstituter in some cases?
-        NameGenerator nameGen = new IntSuffixNameGenerator(new HashSet<>(), 0);
+        @SuppressWarnings("unchecked") // IntelliJ false positive
+        NameGenerator nameGen = new IntSuffixNameGenerator(new HashSet<String>(), 0);
         for (int i = 0; i < a.size(); i++) {
-            Var v1 = a.get(i).variable();
-            Var v2 = b.get(i).variable();
-            term = Substituter.apply(v1, v2, term, nameGen);
+            Var from = a.get(i).variable();
+            Term to = b.get(i);
+            term = Substituter.apply(from, to, term, nameGen);
         }
         return term;
     }
@@ -145,6 +155,26 @@ final class PortusUtil {
             conjuncts.add(Term.mkEq(a.get(i).variable(), b.get(i).variable()));
         }
         return Term.mkAnd(conjuncts);
+    }
+
+    /**
+     * Given a current list of integers [x1,...,xn] and a list of maximums [m1,...,mn],
+     * mutate current to the next element in the Cartesian product {1,...,m1}x...x{1,...,mn}.
+     * Return true if we got a new combination or false if current is the last combination.
+     */
+    public static boolean nextCombination(List<Integer> current, List<Integer> max) {
+        if (current.size() != max.size()) {
+            throw new IllegalArgumentException("current and max must have the same size");
+        }
+        for (int i = max.size() - 1; i >= 0; i--) {
+            if (current.get(i) < max.get(i)) {
+                current.set(i, current.get(i) + 1);
+                return true;
+            } else {
+                current.set(i, 1);
+            }
+        }
+        return false;
     }
 
 }

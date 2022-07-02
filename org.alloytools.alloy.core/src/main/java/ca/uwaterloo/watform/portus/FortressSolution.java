@@ -84,7 +84,7 @@ public final class FortressSolution implements AlloySolution {
 
     @Override
     public int getBitwidth() {
-        return context.scoper.getBitwidth();
+        return context.getBitwidth();
     }
 
     @Override
