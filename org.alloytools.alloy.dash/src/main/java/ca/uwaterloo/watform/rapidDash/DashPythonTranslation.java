@@ -210,9 +210,16 @@ public class DashPythonTranslation {
         	}
         	     	
         	// add substates to conc states
+        	for(DashConcState substate: state.getInnerConcStates()) {
+        		this.concStateMap.get(state.getFullyQualName()).addSubstate(this.concStateMap.get(substate.getFullyQualName()));
+        		this.concStateMap.get(substate.getFullyQualName()).parent = concStateMap.get(state.getFullyQualName());
+        	}
         	for(DashState substate: state.getInnerORStates()) {
         		this.concStateMap.get(state.getFullyQualName()).addSubstate(this.concStateMap.get(substate.getFullyQualName()));
         		this.concStateMap.get(substate.getFullyQualName()).parent = concStateMap.get(state.getFullyQualName());
+        		if(substate.isDefault() && this.concStateMap.get(state.getFullyQualName()).defaultSubstate == null) {
+        			this.concStateMap.get(state.getFullyQualName()).defaultSubstate = this.concStateMap.get(substate.getFullyQualName());
+        		}
         	}
         }
         
@@ -277,6 +284,7 @@ public class DashPythonTranslation {
         private boolean isConc;
         private List<Event> events;
         public State parent = null;
+        public State defaultSubstate = null;
         public State(String stateName, boolean isConc){
             this.stateName = stateName;
             this.transitions = new ArrayList<>();
@@ -304,6 +312,9 @@ public class DashPythonTranslation {
         public void addInit(String s) { inits.add(s); }
         public void addInitConstraint(String s) { init_constraints.add(s); }
         public void addEvent(Event e) { events.add(e); }
+        public State getDefaultSubstate() {
+        	return defaultSubstate != null ? defaultSubstate : substates.get(0);
+        }
     }
 
     public class Transition{
