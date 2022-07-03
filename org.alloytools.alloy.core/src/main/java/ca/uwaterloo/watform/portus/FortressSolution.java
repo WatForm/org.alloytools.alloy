@@ -62,6 +62,9 @@ public final class FortressSolution implements AlloySolution {
     /** Map atoms from Fortress to Alloy. */
     private final Map<Value, ExprVar> fortressToAlloyAtoms = new HashMap<>();
 
+    /** The single Kodkod universe of atoms - Alloy requires a consistent Universe object. */
+    private final Universe universe;
+
     FortressSolution(Interpretation interpretation, Translator translator, TranslationContext context,
                      Iterable<Sig> sigs, String originalFilename, String originalCommand) {
         this.interpretation = interpretation;
@@ -79,6 +82,9 @@ public final class FortressSolution implements AlloySolution {
                 ExprVar alloyAtom = ExprVar.make(null, atom.toString());
                 fortressToAlloyAtoms.put(atom, alloyAtom);
             }
+            this.universe = new Universe(fortressAtoms);
+        } else {
+            this.universe = null;
         }
     }
 
@@ -249,7 +255,6 @@ public final class FortressSolution implements AlloySolution {
         }
 
         // Convert the tuple set to the A4TupleSet that Alloy expects
-        Universe universe = new Universe(atoms);
         TupleFactory tupleFactory = universe.factory();
         List<Tuple> tuples = tupleSet.stream()
                 .map(tupleFactory::tuple)

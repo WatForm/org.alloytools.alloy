@@ -239,7 +239,8 @@ final class DefaultTranslator extends AbstractTranslator {
         String relName = uniqueNameGenerator.make(field.label);
         relationPredicates.put(field, vars -> {
             if (vars.size() != field.type().arity()) {
-                throw new ErrorFatal("Internal error: bad field relation predicate arity.");
+                throw new ErrorFatal("Field predicate arity mismatch: expected arity " + field.type().arity()
+                        + " but got " + vars.size() + ".");
             }
             return Term.mkApp(relName, vars);
         });
