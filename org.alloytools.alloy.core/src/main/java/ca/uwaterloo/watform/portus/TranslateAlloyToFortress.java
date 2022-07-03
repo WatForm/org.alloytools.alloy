@@ -100,8 +100,8 @@ public final class TranslateAlloyToFortress implements CommandRunner {
         // 2. All SubsetSigs, in such an order that for each SubsetSig, all of its parent SubsetSigs
         // have been translated before it is translated.
 
-        // 1. Each top-level PrimSig. (Also count the number of sigs since we only have an Iterable.)
-        int numSigs = 0;
+        // 1. Each top-level PrimSig. (Also count the number of subset sigs since we only have an Iterable.)
+        int numSubsetSigs = 0;
         Set<String> sigNamesSeen = new HashSet<>();
         for (Sig sig : sigs) {
             if (!sig.builtin) {
@@ -109,13 +109,16 @@ public final class TranslateAlloyToFortress implements CommandRunner {
                     translator.translate(sig, context);
                     sigNamesSeen.add(sig.label);
                 }
-                numSigs++;
+                if (sig instanceof Sig.SubsetSig) {
+                    numSubsetSigs++;
+                }
             }
         }
 
         // 2. SubsetSigs, in the specified order.
         // If this becomes a performance bottleneck, consider a topological sort instead.
         boolean changed;
+        int numSubsetSigsTranslated = 0;
         do {
             changed = false;
             for (Sig sig : sigs) {
@@ -127,14 +130,15 @@ public final class TranslateAlloyToFortress implements CommandRunner {
                             p -> p instanceof Sig.PrimSig || sigNamesSeen.contains(p.label))) {
                         translator.translate(subsetSig, context);
                         sigNamesSeen.add(sig.label);
+                        numSubsetSigsTranslated++;
                         changed = true;
                     }
                 }
             }
         } while (changed);
 
-        if (sigNamesSeen.size() != numSigs) {
-            // If there's anything left, there's a cycle somewhere. Should be caught by parser.
+        if (numSubsetSigsTranslated != numSubsetSigs) {
+            // If there's any subset sigs left, there's a cycle somewhere. Should be caught by parser.
             throw new ErrorFatal("Cyclic inheritance in subset sigs!");
         }
     }
