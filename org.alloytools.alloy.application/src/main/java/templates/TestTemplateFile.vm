@@ -245,7 +245,7 @@ $padding        super(#if(${padding} == '')#{else}parent_state.#end${concState.g
 $padding        self._conc_states.append(self.${subState.getName()}_State(self, $rootStateName))
             #end
         #else
-$padding        self.change_state(self.${concState.getSubstates().get(0).getName()}_State(self, $rootStateName))  # go to default state
+$padding        self.change_state(self.${concState.getDefaultSubstate().getName()}_State(self, $rootStateName))  # go to default state
         #end
     #else
 $padding        # No substate for this state, so default state is None
