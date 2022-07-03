@@ -1,6 +1,5 @@
 package ca.uwaterloo.watform.portus;
 
-import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.alloy4.ConstList;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.alloy4.Pair;
@@ -754,20 +753,20 @@ public class TestDefaultTranslator {
 
     @Test
     public void testTranslate_ifThenElse() {
-        // test [[a => b else c]] := ([[a]] => [[b]]) && (![[a]] => [[c]])
+        // test [[a => b else c]] := IfThenElse([[a]], [[b]], [[c]])
         ExprVar a = makeTestVariable("a"), b = makeTestVariable("b"), c = makeTestVariable("c");
         Var flagA = makeFlagConstant("a"), flagB = makeFlagConstant("b"), flagC = makeFlagConstant("c");
         when(mockRoot.translate(eq(a), any())).thenReturn(flagA);
         when(mockRoot.translate(eq(b), any())).thenReturn(flagB);
         when(mockRoot.translate(eq(c), any())).thenReturn(flagC);
         Term result = translator.translate(a.ite(b, c), context);
-        assertEquals(Term.mkAnd(Term.mkImp(flagA, flagB), Term.mkImp(Term.mkNot(flagA), flagC)), result);
+        assertEquals(Term.mkIfThenElse(flagA, flagB, flagC), result);
         assertContextEmpty();
     }
 
     @Test
     public void testTranslate_ifThenElse_expr() {
-        // test [[x \in f => e1 else e2]] := ([[f]] => [[x \in e1]]) && (![[f]] => [[x \in e2]])
+        // test [[x \in f => e1 else e2]] := IfThenElse([[f]], [[x \in e1]], [[x \in e2]])
         ExprVar f = makeTestVariable("f"), e1 = makeTestVariable("e1"), e2 = makeTestVariable("e2");
         Var x = Term.mkVar("x");
         ConstList<Var> varList = ConstList.make(Collections.singletonList(x));
@@ -776,7 +775,7 @@ public class TestDefaultTranslator {
         when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(varList, e1))), any())).thenReturn(flagInE1);
         when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(varList, e2))), any())).thenReturn(flagInE2);
         Term result = translator.translate(ExprElementOf.make(varList, f.ite(e1, e2)), context);
-        assertEquals(Term.mkAnd(Term.mkImp(flagF, flagInE1), Term.mkImp(Term.mkNot(flagF), flagInE2)), result);
+        assertEquals(Term.mkIfThenElse(flagF, flagInE1, flagInE2), result);
         assertContextEmpty();
     }
 
