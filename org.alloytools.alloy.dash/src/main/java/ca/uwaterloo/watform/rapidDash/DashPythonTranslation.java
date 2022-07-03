@@ -216,6 +216,9 @@ public class DashPythonTranslation {
         	for(DashState substate: state.states) {
         		this.concStateMap.get(state.modifiedName).addSubstate(this.concStateMap.get(substate.modifiedName));
         		this.concStateMap.get(substate.modifiedName).parent = concStateMap.get(state.modifiedName);
+        		if(substate.isDefault && this.concStateMap.get(state.modifiedName).defaultSubstate == null) {
+        			this.concStateMap.get(state.modifiedName).defaultSubstate = this.concStateMap.get(substate.modifiedName);
+        		}
         	}
         }
         
@@ -274,6 +277,7 @@ public class DashPythonTranslation {
         private boolean isConc;
         private List<Event> events;
         public State parent = null;
+        public State defaultSubstate = null;
         public State(String stateName, boolean isConc){
             this.stateName = stateName;
             this.transitions = new ArrayList<>();
@@ -301,6 +305,9 @@ public class DashPythonTranslation {
         public void addInit(String s) { inits.add(s); }
         public void addInitConstraint(String s) { init_constraints.add(s); }
         public void addEvent(Event e) { events.add(e); }
+        public State getDefaultSubstate() {
+        	return defaultSubstate != null ? defaultSubstate : substates.get(0);
+        }
     }
 
     public class Transition{
