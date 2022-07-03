@@ -477,7 +477,7 @@ public class TestDefaultTranslator {
         // get the relation predicate, it should be the only function
         assertThat(context.getTheory().functionDeclarations().size(), is(1));
         FuncDecl relationPred = context.getTheory().functionDeclarations().head();
-        assertEquals("f", relationPred.name());
+        assertEquals("f_0", relationPred.name());
         assertEquals(2, relationPred.arity());
         assertEquals(Sort.Bool(), relationPred.resultSort());
 
@@ -510,7 +510,7 @@ public class TestDefaultTranslator {
         // get the relation predicate, it should be the only function
         assertThat(context.getTheory().functionDeclarations().size(), is(1));
         FuncDecl relationPred = context.getTheory().functionDeclarations().head();
-        assertEquals("f", relationPred.name());
+        assertEquals("f_0", relationPred.name());
         assertEquals(3, relationPred.arity()); // arity of A->e1->e2
         assertEquals(Sort.Bool(), relationPred.resultSort());
 
@@ -542,7 +542,7 @@ public class TestDefaultTranslator {
         // get the relation predicate, it should be the only function
         assertThat(context.getTheory().functionDeclarations().size(), is(1));
         FuncDecl relationPred = context.getTheory().functionDeclarations().head();
-        assertEquals("f", relationPred.name());
+        assertEquals("f_0", relationPred.name());
         assertEquals(2, relationPred.arity());
         assertEquals(Sort.Bool(), relationPred.resultSort());
 
@@ -574,7 +574,7 @@ public class TestDefaultTranslator {
         // get the relation predicate, it should be the only function
         assertThat(context.getTheory().functionDeclarations().size(), is(1));
         FuncDecl relationPred = context.getTheory().functionDeclarations().head();
-        assertEquals("f", relationPred.name());
+        assertEquals("f_0", relationPred.name());
         assertEquals(2, relationPred.arity());
         assertEquals(Sort.Bool(), relationPred.resultSort());
 
@@ -606,7 +606,7 @@ public class TestDefaultTranslator {
         // get the relation predicate, it should be the only function
         assertThat(context.getTheory().functionDeclarations().size(), is(1));
         FuncDecl relationPred = context.getTheory().functionDeclarations().head();
-        assertEquals("f", relationPred.name());
+        assertEquals("f_0", relationPred.name());
         assertEquals(2, relationPred.arity());
         assertEquals(Sort.Bool(), relationPred.resultSort());
 
@@ -1313,7 +1313,7 @@ public class TestDefaultTranslator {
         ExprVar e1 = makeTestVarWithType("e1", Type.make(sig).product(Type.make(sig)));
         ExprVar e2 = makeTestVarWithType("e2", Type.make(sig).product(Type.make(sig)));
         // note: use y0 to match the generated variable name for more robust testing
-        Var x1 = Term.mkVar("x1"), x2 = Term.mkVar("x2"), y = Term.mkVar("y0");
+        Var x1 = Term.mkVar("x1_0"), x2 = Term.mkVar("x2_0"), y = Term.mkVar("y0_0");
 
         // mock out all the element-of checks
         Var flagBothInE1 = makeFlagConstant("bothInE1");
@@ -1346,9 +1346,9 @@ public class TestDefaultTranslator {
                 .product(Type.make(sig)));
         ExprVar e2 = makeTestVarWithType("e2", Type.make(sig).product(Type.make(sig))
                 .product(Type.make(sig)));
-        Var x1 = Term.mkVar("x1"), x2 = Term.mkVar("x2"), x3 = Term.mkVar("x3");
+        Var x1 = Term.mkVar("x1_0"), x2 = Term.mkVar("x2_0"), x3 = Term.mkVar("x3_0");
         // match the generated variable names
-        Var y1 = Term.mkVar("y0"), y2 = Term.mkVar("y1");
+        Var y1 = Term.mkVar("y0_0"), y2 = Term.mkVar("y1_0");
 
         // mock out all the element-of checks
         Var flagAllInE1 = makeFlagConstant("allInE1");
@@ -1702,7 +1702,7 @@ public class TestDefaultTranslator {
     }
 
     @Test
-    public void testTranslate_sum_oneVar_univScope1() {
+    public void testTranslate_sum_oneVar_scope1() {
         // test [[sum x: e | f]] := ([[x \in e]] => [[f]] else 0)[x/@1]
         // where univ has scope 1 and @n is the nth domain element in univ
         context.addToUnivScope(1);
@@ -1732,7 +1732,7 @@ public class TestDefaultTranslator {
     }
 
     @Test
-    public void testTranslate_sum_oneVar_univScope2() {
+    public void testTranslate_sum_oneVar_scope2() {
         // test [[sum x: e | f]] := ([[x \in e]] => [[f]] else 0)[x/@1] + ([[x \in e]] => [[f]] else 0)[x/@2]
         // where univ has scope 2 and @n is the nth domain element in univ
         context.addToUnivScope(2);
@@ -1768,7 +1768,7 @@ public class TestDefaultTranslator {
     }
 
     @Test
-    public void testTranslate_sum_twoVars_univScope1() {
+    public void testTranslate_sum_twoVars_scope1() {
         // test [[sum x: e1, y: e2 | f]] := (([[x \in e1]] && [[y \in e2]]) => [[f]] else 0)[x/@1,y/@1]
         // where univ has scope 1 and @n is the nth domain element in univ
         context.addToUnivScope(1);
@@ -1780,9 +1780,9 @@ public class TestDefaultTranslator {
         ExprVar f = makeTestVariable("f");
 
         // translate [[x \in e1]] with a function inE1(x) and similar for [[y \in e2]] and inE2(y)
-        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(Term.mkVar("x"), e1))), any()))
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(Term.mkVar("x_0"), e1))), any()))
                 .then(useTestFunction("inE1", "x"));
-        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(Term.mkVar("y"), e2))), any()))
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(Term.mkVar("y_0"), e2))), any()))
                 .then(useTestFunction("inE2", "y"));
 
         // translate [[f]] with a function f(x,y)
@@ -1804,7 +1804,7 @@ public class TestDefaultTranslator {
     }
 
     @Test
-    public void testTranslate_sum_twoVars_univScope2() {
+    public void testTranslate_sum_twoVars_scope2() {
         // test [[sum x: e1, y: e2 | f]] := (([[x \in e1]] && [[y \in e2]]) => [[f]] else 0)[x/@1,y/@1]
         //   + (([[x \in e1]] && [[y \in e2]]) => [[f]] else 0)[x/@1,y/@2]
         //   + (([[x \in e1]] && [[y \in e2]]) => [[f]] else 0)[x/@2,y/@1]
@@ -1819,9 +1819,9 @@ public class TestDefaultTranslator {
         ExprVar f = makeTestVariable("f");
 
         // translate [[x \in e1]] with a function inE1(x) and similar for [[y \in e2]] and inE2(y)
-        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(Term.mkVar("x"), e1))), any()))
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(Term.mkVar("x_0"), e1))), any()))
                 .then(useTestFunction("inE1", "x"));
-        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(Term.mkVar("y"), e2))), any()))
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(Term.mkVar("y_0"), e2))), any()))
                 .then(useTestFunction("inE2", "y"));
 
         // translate [[f]] with a function f(x,y)
@@ -1899,9 +1899,9 @@ public class TestDefaultTranslator {
         ExprVar f = makeTestVariable("f");
 
         // translate [[x \in e1]] with a function inE1(x) and similar for [[y \in e2]] and inE2(y)
-        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(Term.mkVar("x"), e1))), any()))
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(Term.mkVar("x_0"), e1))), any()))
                 .then(useTestFunction("inE1", "x"));
-        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(Term.mkVar("y"), e2))), any()))
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(Term.mkVar("y_0"), e2))), any()))
                 .then(useTestFunction("inE2", "y"));
 
         // translate [[f]] with a function f(x,y)
@@ -1937,6 +1937,142 @@ public class TestDefaultTranslator {
 
         Term result = translator.translate(ExprElementOf.make(x, sum), context);
         assertEquals(Term.mkEq(x, flagSum), result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_cardinality_unary_scope1() {
+        // test [[#e]] := ([[x0 \in e]] => 1 else 0)[x0/@1]
+        // where e is unary, univ has scope 1, and @n is the nth domain element in univ
+        context.addToUnivScope(1);
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e = makeTestVarWithType("e", Type.make(sig));
+
+        // translate [[x0 \in e]] with a function inE(x)
+        when(mockRoot.translate(argThat(isAlphaEquivalent(
+                ExprElementOf.make(Term.mkVar("x0"), e))), any()))
+                .then(ctx -> {
+                    ExprElementOf translated = ctx.getArgument(0);
+                    return Term.mkApp("inE", translated.tuple.get(0));
+                });
+
+        DomainElement domElem = DomainElement.apply(1, context.univSort);
+        Term expected = Term.mkIfThenElse(Term.mkApp("inE", domElem), IntegerLiteral.apply(1), IntegerLiteral.apply(0));
+        Term result = translator.translate(e.cardinality(), context);
+        assertEquals(expected, result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_cardinality_binary_scope1() {
+        // test [[#e]] := ([[(x0,x1) \in e]] => 1 else 0)[x0/@1,x1/@1]
+        // where e is binary, univ has scope 1, and @n is the nth domain element in univ
+        context.addToUnivScope(1);
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e = makeTestVarWithType("e", Type.make(sig).product(Type.make(sig)));
+
+        // translate [[x0 \in e]] with a function inE(x)
+        when(mockRoot.translate(argThat(isAlphaEquivalent(
+                ExprElementOf.make(ConstList.make(Arrays.asList(Term.mkVar("x0"), Term.mkVar("x1"))), e))), any()))
+                .then(ctx -> {
+                    ExprElementOf translated = ctx.getArgument(0);
+                    return Term.mkApp("inE", translated.tuple.get(0), translated.tuple.get(1));
+                });
+
+        DomainElement domElem = DomainElement.apply(1, context.univSort);
+        Term expected = Term.mkIfThenElse(Term.mkApp("inE", domElem, domElem),
+                IntegerLiteral.apply(1), IntegerLiteral.apply(0));
+        Term result = translator.translate(e.cardinality(), context);
+        assertEquals(expected, result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_cardinality_binaryWithInt_scope1() {
+        // test [[#e]] := ([[(x0,x1) \in e]] => 1 else 0)[x0/@1u,x1/@1i]
+        // where e is binary with the second sig being Int, univ has scope 1, @nu is the nth domain element in univ,
+        // and @ni is the nth domain element in Int
+        context.addToUnivScope(1);
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e = makeTestVarWithType("e", Type.make(sig).product(Type.make(Sig.SIGINT)));
+
+        // translate [[x0 \in e]] with a function inE(x)
+        when(mockRoot.translate(argThat(isAlphaEquivalent(
+                ExprElementOf.make(ConstList.make(Arrays.asList(Term.mkVar("x0"), Term.mkVar("x1"))), e))), any()))
+                .then(ctx -> {
+                    ExprElementOf translated = ctx.getArgument(0);
+                    return Term.mkApp("inE", translated.tuple.get(0), translated.tuple.get(1));
+                });
+
+        DomainElement domElemUniv = DomainElement.apply(1, context.univSort);
+        DomainElement domElemInt = DomainElement.apply(1, Sort.Int());
+        Term expected = Term.mkIfThenElse(Term.mkApp("inE", domElemUniv, domElemInt),
+                IntegerLiteral.apply(1), IntegerLiteral.apply(0));
+        Term result = translator.translate(e.cardinality(), context);
+        assertEquals(expected, result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_cardinality_unary_univScope2() {
+        // test [[#e]] := ([[x0 \in e]] => 1 else 0)[x0/@1] + ([[x0 \in e]] => 1 else 0)[x0/@2]
+        // where e is unary, univ has scope 2, and @n is the nth domain element in univ
+        context.addToUnivScope(2);
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e = makeTestVarWithType("e", Type.make(sig));
+
+        // translate [[x0 \in e]] with a function inE(x)
+        when(mockRoot.translate(argThat(isAlphaEquivalent(
+                ExprElementOf.make(Term.mkVar("x0"), e))), any()))
+                .then(ctx -> {
+                    ExprElementOf translated = ctx.getArgument(0);
+                    return Term.mkApp("inE", translated.tuple.get(0));
+                });
+
+        DomainElement domElem1 = DomainElement.apply(1, context.univSort);
+        DomainElement domElem2 = DomainElement.apply(2, context.univSort);
+        Term expected = Term.mkPlus(
+                Term.mkIfThenElse(Term.mkApp("inE", domElem1), IntegerLiteral.apply(1), IntegerLiteral.apply(0)),
+                Term.mkIfThenElse(Term.mkApp("inE", domElem2), IntegerLiteral.apply(1), IntegerLiteral.apply(0)));
+        Term result = translator.translate(e.cardinality(), context);
+        assertEquals(expected, result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_cardinality_binary_univScope2() {
+        // test [[#e]] := ([[(x0,x1) \in e]] => 1 else 0)[x0/@1,x1/@1]
+        //   + ([[(x0,x1) \in e]] => 1 else 0)[x0/@1,x1/@2]
+        //   + ([[(x0,x1) \in e]] => 1 else 0)[x0/@2,x1/@1]
+        //   + ([[(x0,x1) \in e]] => 1 else 0)[x0/@1,x1/@2]
+        // where e is binary, univ has scope 2, and @n is the nth domain element in univ, adding left-to-right
+        context.addToUnivScope(2);
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e = makeTestVarWithType("e", Type.make(sig).product(Type.make(sig)));
+
+        // translate [[x0 \in e]] with a function inE(x)
+        when(mockRoot.translate(argThat(isAlphaEquivalent(
+                ExprElementOf.make(ConstList.make(Arrays.asList(Term.mkVar("x0"), Term.mkVar("x1"))), e))), any()))
+                .then(ctx -> {
+                    ExprElementOf translated = ctx.getArgument(0);
+                    return Term.mkApp("inE", translated.tuple.get(0), translated.tuple.get(1));
+                });
+
+        DomainElement domElem1 = DomainElement.apply(1, context.univSort);
+        DomainElement domElem2 = DomainElement.apply(2, context.univSort);
+        Term expected = Term.mkPlus(
+                Term.mkPlus(
+                        Term.mkPlus(
+                            Term.mkIfThenElse(Term.mkApp("inE", domElem1, domElem1),
+                                IntegerLiteral.apply(1), IntegerLiteral.apply(0)),
+                            Term.mkIfThenElse(Term.mkApp("inE", domElem1, domElem2),
+                                IntegerLiteral.apply(1), IntegerLiteral.apply(0))),
+                        Term.mkIfThenElse(Term.mkApp("inE", domElem2, domElem1),
+                                IntegerLiteral.apply(1), IntegerLiteral.apply(0))),
+                    Term.mkIfThenElse(Term.mkApp("inE", domElem2, domElem2),
+                            IntegerLiteral.apply(1), IntegerLiteral.apply(0)));
+        Term result = translator.translate(e.cardinality(), context);
+        assertEquals(expected, result);
         assertContextEmpty();
     }
 
@@ -2402,7 +2538,7 @@ public class TestDefaultTranslator {
     @Test
     public void testTranslate_int_inLiterals() {
         // unoptimized: test [[2 in 3]] := forall x: Int . [[x \in 2]] => [[x \in 3]]
-        Var x = Term.mkVar("x0");
+        Var x = Term.mkVar("x0_0");
 
         Term flagIn2 = makeFlagConstant("in2"), flagIn3 = makeFlagConstant("in3");
         when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(x, ExprConstant.makeNUMBER(2)))), any()))
@@ -2418,7 +2554,7 @@ public class TestDefaultTranslator {
     @Test
     public void testTranslate_int_eqLiterals() {
         // unoptimized: test [[2 = 3]] := forall x: Int . [[x \in 2]] <=> [[x \in 3]]
-        Var x = Term.mkVar("x0");
+        Var x = Term.mkVar("x0_0");
 
         Term flagIn2 = makeFlagConstant("in2"), flagIn3 = makeFlagConstant("in3");
         when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(x, ExprConstant.makeNUMBER(2)))), any()))
@@ -2491,18 +2627,6 @@ public class TestDefaultTranslator {
         Term expected = Term.mkPlus(
                 Term.mkPlus(IntegerLiteral.apply(2), IntegerLiteral.apply(1)), IntegerLiteral.apply(3));
         assertEquals(expected, result);
-        assertContextEmpty();
-    }
-
-    @Test
-    public void testTranslate_cardinalityDelegatesToSum() {
-        // test [[#e]] := [[sum x: e | 1]]
-        ExprVar e = makeTestVariable("e");
-        Expr sumExpr = ExprConstant.ONE.sumOver(e.oneOf("x"));
-        Var sumFlag = makeFlagConstant("sumFlag");
-        when(mockRoot.translate(argThat(isAlphaEquivalent(sumExpr)), any())).thenReturn(sumFlag);
-        Term result = translator.translate(e.cardinality(), context);
-        assertEquals(sumFlag, result);
         assertContextEmpty();
     }
 

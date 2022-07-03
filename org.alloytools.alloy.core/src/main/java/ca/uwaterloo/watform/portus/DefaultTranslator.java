@@ -17,6 +17,7 @@ import edu.mit.csail.sdg.ast.ExprQt;
 import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Sig;
+import edu.mit.csail.sdg.ast.Type;
 import fortress.msfol.AnnotatedVar;
 import fortress.msfol.DomainElement;
 import fortress.msfol.FuncDecl;
@@ -61,7 +62,7 @@ final class DefaultTranslator extends AbstractTranslator {
         }
 
         // Make a new predicate for membership
-        String memPredName = uniqueNameGenerator.make("in" + sig.label);
+        String memPredName = nameGenerator.freshName("in" + sig.label);
         sigMemberPredicates.put(sig, var -> Term.mkApp(memPredName, var));
         context.addFunctionDeclaration(FuncDecl.mkFuncDecl(memPredName, context.univSort, Sort.Bool()));
 
@@ -236,7 +237,7 @@ final class DefaultTranslator extends AbstractTranslator {
     @Override
     public Term translate(Sig.Field field, TranslationContext context) {
         // Make a new predicate for the field relation (no function optimization yet).
-        String relName = uniqueNameGenerator.make(field.label);
+        String relName = nameGenerator.freshName(field.label);
         relationPredicates.put(field, vars -> {
             if (vars.size() != field.type().arity()) {
                 throw new ErrorFatal("Field predicate arity mismatch: expected arity " + field.type().arity()
@@ -365,7 +366,7 @@ final class DefaultTranslator extends AbstractTranslator {
         // Naive join implementation without optimizations (see KT figure 4.11).
         // [[(x1,...,xn) \in e1 . e2]] := exists y: univ . [[(x1,...,xm,y) \in e1]] &&
         //   [[(y,x{m+1},...,xn) \in e2]] where arity(e1) = m+1 and arity(e2) = n-m+1 and m<n
-        Var y = Term.mkVar(uniqueNameGenerator.make("y"));
+        Var y = Term.mkVar(nameGenerator.freshName("y"));
 
         // build up the tuples we'll recurse on
         int partitionIdx = left.type().arity() - 1; // so that adding y gives the arity
@@ -455,7 +456,7 @@ final class DefaultTranslator extends AbstractTranslator {
         List<Var> overrideVars = new ArrayList<>(arity);
         overrideVars.add(tuple.get(0));
         for (int i = 0; i < arity - 1; i++) {
-            Var y = Term.mkVar(uniqueNameGenerator.make("y" + i));
+            Var y = Term.mkVar(nameGenerator.freshName("y" + i));
             overrideVars.add(y);
             annotatedVars.add(y.of(context.univSort));
         }
@@ -589,7 +590,7 @@ final class DefaultTranslator extends AbstractTranslator {
         // create the variables
         boolean isInt = checkAllInt(e1, e2);
         List<AnnotatedVar> varDecls = IntStream.range(0, e1.type().arity())
-                .mapToObj(idx ->Term.mkVar(uniqueNameGenerator.make("x" + idx))
+                .mapToObj(idx ->Term.mkVar(nameGenerator.freshName("x" + idx))
                         .of(isInt ? Sort.Int() : context.univSort))
                 .collect(Collectors.toList());
         ConstList<Var> vars = ConstList.make(varDecls.stream()
@@ -715,9 +716,30 @@ final class DefaultTranslator extends AbstractTranslator {
 
     /** Translate "#e", as an integer expression. */
     private Term translateCardinality(Expr expr, TranslationContext context) {
-        // Equivalent to "sum x: e | 1", so translate as such for simplicity
-        Expr sum = ExprConstant.ONE.sumOver(expr.oneOf("x"));
-        return recursivelyTranslate(sum, context);
+        // Equivalent to "sum x1,...,xn: univ | ((x1,...,xn) \in e) => 1 else 0" where n = arity(e),
+        // so translate as such for simplicity. Use translateSum() directly instead of recursively translating because
+        // to translate the Alloy above directly, we'd need to augment ExprElementOf to allow taking ExprVars and
+        // delaying their evaluation into Fortress Vars until we're within the sum's scope and x1,...,xn are bound.
+        List<Type.ProductType> productTypes = new ArrayList<>();
+        expr.type().forEach(productTypes::add);
+
+        List<Var> vars = new ArrayList<>();
+        List<AnnotatedVar> annotatedVars = new ArrayList<>();
+        for (int i = 0; i < expr.type().arity(); i++) {
+            Var var = Term.mkVar("x" + i);
+            vars.add(var);
+
+            // Ensure that all variations are either int or non-int, we don't support mixing
+            final int finalI = i; // work around Java requirement that lambda-captured locals must be final
+            boolean isInt = checkAllInt(productTypes.stream()
+                    .map(type -> type.get(finalI))
+                    .collect(Collectors.toList()));
+            Sort sort = (isInt) ? Sort.Int() : context.univSort;
+            annotatedVars.add(var.of(sort));
+        }
+
+        Term condition = recursivelyTranslate(ExprElementOf.make(ConstList.make(vars), expr), context);
+        return translateSum(IntegerLiteral.apply(1), condition, annotatedVars, context);
     }
 
     /** Translate "tuple \in expr", where expr is an ExprUnary formula. */
@@ -1079,7 +1101,7 @@ final class DefaultTranslator extends AbstractTranslator {
      * Verify that either all of `exprs` are Int exprs or none are, and return whether they all are
      * (and there's at least one expr specified - on empty input return false).
      */
-    private boolean checkAllInt(Expr... exprs) {
+    private boolean checkAllInt(Iterable<? extends Expr> exprs) {
         boolean allInt = false;
         boolean decided = false;
         for (Expr expr : exprs) {
@@ -1096,6 +1118,11 @@ final class DefaultTranslator extends AbstractTranslator {
             }
         }
         return allInt;
+    }
+
+    /** Convenience overload to pass in exprs manually. */
+    private boolean checkAllInt(Expr... exprs) {
+        return checkAllInt(Arrays.asList(exprs));
     }
 
     /** Like checkAllIns, but throw an error if they aren't all integer expressions. */
@@ -1143,7 +1170,7 @@ final class DefaultTranslator extends AbstractTranslator {
                 Expr declExpr = wrappedDeclExpr.sub.deNOP();
 
                 // Create var and it to the lexical scope to translate the condition and subformula
-                Var var = Term.mkVar(uniqueNameGenerator.make(name.label));
+                Var var = Term.mkVar(nameGenerator.freshName(name.label));
                 context.addVarMapping(name.label, var);
 
                 // Use Int if it's an integer expression, otherwise univ
@@ -1169,7 +1196,7 @@ final class DefaultTranslator extends AbstractTranslator {
     /** Generate a copy of `vars` with each variable suffixed with "_prime". */
     private List<AnnotatedVar> prime(List<AnnotatedVar> vars) {
         return vars.stream()
-                .map(var -> Term.mkVar(uniqueNameGenerator.make(var.variable().name() + "_prime"))
+                .map(var -> Term.mkVar(nameGenerator.freshName(var.variable().name() + "_prime"))
                         .of(var.sort()))
                 .collect(Collectors.toList());
     }
