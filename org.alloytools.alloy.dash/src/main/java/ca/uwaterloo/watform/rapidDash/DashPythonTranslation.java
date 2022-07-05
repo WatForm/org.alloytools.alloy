@@ -7,14 +7,19 @@ import ca.uwaterloo.watform.ast.DashTrans;
 import ca.uwaterloo.watform.ast.DashInit;
 import ca.uwaterloo.watform.ast.DashWhenExpr;
 import ca.uwaterloo.watform.parser.DashModule;
+import edu.mit.csail.sdg.alloy4.Pair;
+import edu.mit.csail.sdg.alloy4.SafeList;
 import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprBinary;
 import edu.mit.csail.sdg.ast.ExprUnary;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static edu.mit.csail.sdg.alloy4.TableView.clean;
 import edu.mit.csail.sdg.alloy4.ConstList;
@@ -35,51 +40,96 @@ public class DashPythonTranslation {
     public class Signature {
         public String name;
         public String multiplicity;
-        public int cardinality;
         public boolean isSubset;
-        public List<String> parents;
         public boolean isSubsig;
-        public String parent;
-        public boolean isAbstract;
+        public boolean isAbstract;      // TODO: might not need this
+        public boolean hasChildSubsig;
+        public int scope;
+        public List<String> parentNames;
+        public String parentName;
+        public List<String> objectNames;
+        public List<Integer> bounds;
+        public List<String> subsigNames;
 
-        public Signature(String name, String multiplicity, int cardinality, boolean isSubset, List<String> parents
-                , boolean isSubsig, String parent, boolean isAbstract) {
-            this.name = name;
-            this.multiplicity = multiplicity;
-            this.cardinality = cardinality;
-            this.isSubset = isSubset;
-            this.parents = parents;
-            this.isSubsig = isSubsig;
-            this.parent = parent;
-            this.isAbstract = isAbstract;
+        public Signature(Sig sig, int scope, ArrayList<Sig> allSigs) {
+            this.name = clean(sig.label);
+            this.multiplicity = setMultiplicity(sig);
+            this.isSubset = sig.isSubset != null;
+            this.isSubsig = sig.isSubsig != null && ((Sig.PrimSig) sig).parent != Sig.UNIV;
+            this.isAbstract = sig.isAbstract != null;
+            this.scope = scope;
+
+            // get parent names
+            this.parentNames = new ArrayList<>();
+            if (sig.isSubset != null)
+                for (Sig p : ((Sig.SubsetSig) sig).parents)
+                    this.parentNames.add(clean(p.label));
+
+            if (this.isSubsig)
+                this.parentName = clean(((Sig.PrimSig) sig).parent.label);
+
+            // possible objects (strings)
+            this.objectNames = new ArrayList<>();
+            if(!isSubset){
+                for(int i = 0; i < scope; i++){
+                    this.objectNames.add(name + "$" + (i+1));
+                }
+            }
+
+            // list of subsigs
+            this.subsigNames = new ArrayList<>();
+            for(Sig otherSig : allSigs){
+                if(otherSig.isSubsig != null && clean(((Sig.PrimSig) otherSig).parent.label).equals(this.name)){
+                    this.subsigNames.add(clean(otherSig.label));
+                }
+            }
+            this.hasChildSubsig = !this.subsigNames.isEmpty();
+
+            // constraint on size
+            this.bounds = new ArrayList<>();
+            this.bounds.add(0);           // TODO: what if scope doesn't start from 0?
+            this.bounds.add(scope);
+        }
+
+        private String setMultiplicity(Sig sig) {
+            if (sig.isLone != null)
+                return "lone";
+            if (sig.isOne != null)
+                return "one";
+            if (sig.isSome != null)
+                return "some";
+            return "set";
         }
 
         public String getName() { return name; }
         public String getMultiplicity() { return multiplicity; }
-        public int getCardinality() { return cardinality; }
-        public String getIsSubset() {
-            if (this.isSubset)
-                return "True";
-            return "False";
+        public int getCardinality() { return scope; }
+        public String getParentName() {
+            if (this.parentName != null)
+                return this.parentName;
+            return "";
         }
-        public String getParents() {
-            return "{" + String.join(",", this.parents) + "}";
+        public String getParentsName() {return String.join(", ", this.parentNames);}
+        public List<String> getParentNames() {return this.parentNames;}
+        public List<String> getSubsigNames() {return this.subsigNames;}
+        public String getObjectNames() {
+            StringJoiner joiner = new StringJoiner("\", \"", "\"", "\"");
+            for (CharSequence cs: this.objectNames) {
+                joiner.add(cs);
+            }
+            return joiner.toString();
         }
-        public String getIsSubsig() {
-            if (this.isSubsig)
-                return "True";
-            return "False";
+        public void addObjects(List<String> objName) {
+            this.objectNames.addAll(objName);
+            this.scope += objName.size();
         }
-        public String getParent() {
-            if (this.parent != null)
-                return this.parent;
-            return "None";
-        }
-        public String getIsAbstract() {
-            if (this.isAbstract)
-                return "True";
-            return "False";
-        }
+
+        public boolean isSubsig() {return isSubsig;}
+        public boolean isSubset() {return isSubset;}
+        public boolean isAbstract() {return isAbstract;}
+        public boolean hasChildSubsig() {return hasChildSubsig;}
+        public int getLowerBound() {return bounds.get(0);}
+        public int getUpperBound() {return bounds.get(1);}
     }
     
     public class Event {
@@ -135,24 +185,16 @@ public class DashPythonTranslation {
                     }
                 }
             }
-
         }
 
-        // get signature names
-        this.signatures = signaturesSortedList.stream()
-                .map(sig -> {
-                    List<String> parents = new ArrayList<String>();
-                    if (sig.isSubset != null)
-                        for (Sig p : ((Sig.SubsetSig) sig).parents)
-                            parents.add(clean(p.label));
-                    boolean isSubsig = sig.isSubsig != null && ((Sig.PrimSig) sig).parent != Sig.UNIV;
-                    String parent = null;
-                    if (isSubsig)
-                        parent = clean(((Sig.PrimSig) sig).parent.label);
-                    return new Signature(clean(sig.label), getMultiplicity(sig), getCardinality(sig),
-                            sig.isSubset != null, parents, isSubsig, parent, sig.isAbstract != null);
-                })
-                .collect(Collectors.toList());
+        // TODO: read a config file for this model if exists
+        // TODO: if no config file exists, read from user input and generate a config file
+        BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+        // get signatures
+        this.signatures = new ArrayList<>();
+        for(Sig sig : signaturesSortedList){
+            this.signatures.add(new Signature(sig, getScopes(sig, br), signaturesSortedList));
+        }
 
         // get state hierarchy
         this.concStateMap = new HashMap<>();
@@ -237,22 +279,26 @@ public class DashPythonTranslation {
         }
     }
 
-    private String getMultiplicity(Sig sig) {
-        if (sig.isLone != null)
-            return "lone";
-        if (sig.isOne != null)
-            return "one";
-        if (sig.isSome != null)
-            return "some";
-        return "set";
-    }
-
-    private int getCardinality(Sig sig) {
-        if (sig.isAbstract != null)
-            return 0;
-        if (sig.isOne !=null || sig.isLone != null)
+    private int getScopes(Sig sig, BufferedReader br) {
+        if (sig.isOne !=null || sig.isLone != null){
             return 1;
-        return 3;
+        }
+        String input;
+        while(true){
+            // TODO: check the value for subsig/subset
+            // scope of the subsig/subset should not exceed the scope of its parent(s)
+            // TODO: add default in the futrue (and or change this part to be reading from a config file)
+            // System.out.printf("Choose a scope for %s, (type \"d\" for default):%n", clean(sig.label));
+            System.out.printf("Choose a scope for %s:%n", clean(sig.label));
+            try{
+                input = br.readLine();
+                return Integer.parseInt(input);
+            } catch(NumberFormatException ex){
+                System.out.print("Please input a number! ");
+            } catch (Exception ex){
+                System.out.print(ex);
+            }
+        }
     }
 
     // return all states that aren't substates (to prevent them from appearing multiple times)
