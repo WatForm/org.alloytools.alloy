@@ -4,6 +4,7 @@ from typing import List
 import logging
 import random
 from abc import ABC
+from collections.abc import Iterable
 
 
 # ===== logging =====
@@ -205,6 +206,64 @@ class Signature:
     def __repr__(self):
         return f"{self.name} {self.get_value()}"
 
+
+class Relation:
+    structure = []
+    tuples = []
+
+    def arity_of(self, struc):
+        def flatten(xs):
+            for x in xs:
+                if isinstance(x, Iterable) and not isinstance(x, (str, bytes)):
+                    yield from flatten(x)
+                else:
+                    yield x
+
+        return len([v for v in list(flatten(struc)) if not isinstance(v, str)])
+
+    def satisfy_multiplicity(self, multiplicity, number):
+        if multiplicity == "set":
+            return number >= 0
+        elif multiplicity == "one":
+            return number == 1
+        elif multiplicity == "some":
+            return number >= 1
+        elif multiplicity == "lone":
+            return 0 <= number <= 1
+        else:
+            assert False, "Invalid multiplicity " + multiplicity
+
+    def check_validity(self, struc, values):
+        assert len(struc) == 2
+        left_arity = self.arity_of(struc[0])
+        right_arity = self.arity_of(struc[1])
+        left_values = list(set([v[:left_arity] for v in values]))
+        right_values = list(set([v[-right_arity:] for v in values]))
+        if left_arity > 2:
+            if not self.check_validity(struc[0], left_values):
+                return False
+        if right_arity > 2:
+            if not self.check_validity(struc[1], right_values):
+                return False
+        if right_arity == 1:
+            for i in right_values:
+                if not i.isinstance(struc[1][1]):
+                    return False
+            if struc[1][0] != "set":
+                for i in left_values:
+                    if not self.satisfy_multiplicity(struc[1][0], len([v for v in values if v[:left_arity] == i])):
+                        return False
+        if left_arity == 1:
+            for i in left_values:
+                if not i.isinstance(struc[0][1]):
+                    return False
+            if struc[0][0] != "set":
+                for i in right_values:
+                    if not self.satisfy_multiplicity(struc[0][0], len([v for v in values if v[-right_arity:] == i])):
+                        return False
+        return True
+
+
 # --- Signatures ---
 
 #foreach($signature in $signatures)
@@ -217,6 +276,15 @@ for sig in signatures:
     if not sig.check_validity(sig.get_value()):
         raise Exception("Invalid initial value for signature: " + sig.name)
     print(sig)
+#end
+
+# --- Relations ---
+
+#foreach($relation in $relations)
+class ${relation.Name}(Relation):
+    structure = ${relation.structure}
+    tuples = []
+
 #end
 
 # --- Active Event Tracker ---

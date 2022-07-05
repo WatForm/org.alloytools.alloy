@@ -12,11 +12,15 @@ import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprBinary;
 import edu.mit.csail.sdg.ast.ExprUnary;
+import edu.mit.csail.sdg.ast.ExprVar;
+
 
 import java.util.*;
 import java.util.stream.Collectors;
 
 import static edu.mit.csail.sdg.alloy4.TableView.clean;
+import static edu.mit.csail.sdg.ast.ExprUnary.Op.*;
+
 import edu.mit.csail.sdg.alloy4.ConstList;
 
 /**
@@ -28,6 +32,7 @@ public class DashPythonTranslation {
     private DashModule dashModule;
 
     public List<Signature> signatures;
+    public List<Relation> relations;
     public List<Event> allEnvEvents = new ArrayList<Event>();
     public State rootState = null;
     private Map<String, State> concStateMap;
@@ -81,7 +86,20 @@ public class DashPythonTranslation {
             return "False";
         }
     }
-    
+
+    public class Relation {
+        public String name;
+        public String structure;
+
+        public Relation(String name, String structure) {
+            this.name = name;
+            this.structure = structure;
+        }
+
+        public String getName() { return name; }
+        public String getStructure() { return structure; }
+    }
+
     public class Event {
     	private String name;
     	private String modifiedName;
@@ -153,6 +171,25 @@ public class DashPythonTranslation {
                             sig.isSubset != null, parents, isSubsig, parent, sig.isAbstract != null);
                 })
                 .collect(Collectors.toList());
+
+        // get relations
+        this.relations = new ArrayList<>();
+
+        Set<Sig> keys = dashModule.old2fields.keySet();
+        for (Sig key : keys) {
+            for (Decl decl : dashModule.old2fields.get(key)) {
+                String structure = "";
+                if (decl.expr instanceof ExprUnary) {
+                    structure = "[(\"set\", " + clean(key.label) + "), " + fieldDeclExprToString(decl.expr) + "]";
+                } else {
+                    structure = "[(\"set\", " + clean(key.label) + "), (\"set\", " + fieldDeclExprToString(decl.expr) + ")]";
+                }
+
+                for (int i = 0; i < decl.names.size(); i++) {
+                    relations.add(new Relation(((ExprVar) decl.names.get(i)).label, structure));
+                }
+            }
+        }
 
         // get state hierarchy
         this.concStateMap = new HashMap<>();
@@ -235,6 +272,92 @@ public class DashPythonTranslation {
             Transition trans = new Transition(dashTrans);
             this.concStateMap.get(trans.getStateName()).addTransition(trans);
         }
+    }
+
+    private String fieldDeclExprToString(Expr expr) {
+        if (expr instanceof ExprVar) {
+            return ((ExprVar) expr).label;
+        } else if (expr instanceof ExprUnary) {
+            String mul = "set";
+            switch (((ExprUnary) expr).op) {
+                case SOMEOF:
+                    mul = "some";
+                    break;
+                case LONEOF:
+                    mul = "lone";
+                    break;
+                case ONEOF:
+                    mul = "one";
+                    break;
+                case SETOF:
+                    mul = "set";
+                    break;
+            }
+            return "(\"" + mul + "\", " + ((ExprVar) ((ExprUnary) expr).sub).label + ")";
+        } else if (expr instanceof ExprBinary){
+            String mul1 = "set";
+            String mul2 = "set";
+            switch (((ExprBinary) expr).op) {
+                case ARROW:
+                    break;
+                case ANY_ARROW_SOME:
+                    mul2 = "some";
+                    break;
+                case ANY_ARROW_ONE:
+                    mul2 = "one";
+                    break;
+                case ANY_ARROW_LONE:
+                    mul2 = "lone";
+                    break;
+                case SOME_ARROW_ANY:
+                    mul1 = "some";
+                    break;
+                case SOME_ARROW_SOME:
+                    mul1 = "some";
+                    mul2 = "some";
+                    break;
+                case SOME_ARROW_ONE:
+                    mul1 = "some";
+                    mul2 = "one";
+                    break;
+                case SOME_ARROW_LONE:
+                    mul1 = "some";
+                    mul2 = "lone";
+                    break;
+                case ONE_ARROW_ANY:
+                    mul1 = "one";
+                    break;
+                case ONE_ARROW_SOME:
+                    mul1 = "one";
+                    mul2 = "some";
+                    break;
+                case ONE_ARROW_ONE:
+                    mul1 = "one";
+                    mul2 = "one";
+                    break;
+                case ONE_ARROW_LONE:
+                    mul1 = "one";
+                    mul2 = "lone";
+                    break;
+                case LONE_ARROW_ANY:
+                    mul1 = "lone";
+                    break;
+                case LONE_ARROW_SOME:
+                    mul1 = "lone";
+                    mul2 = "some";
+                    break;
+                case LONE_ARROW_ONE:
+                    mul1 = "lone";
+                    mul2 = "one";
+                    break;
+                case LONE_ARROW_LONE:
+                    mul1 = "lone";
+                    mul2 = "lone";
+                    break;
+            }
+            return "[(\"" + mul1 + "\", " + fieldDeclExprToString(((ExprBinary) expr).left) + "), (\"" + mul2 + "\", " + fieldDeclExprToString(((ExprBinary) expr).right) + ")]";
+        }
+        return "";
     }
 
     private String getMultiplicity(Sig sig) {
