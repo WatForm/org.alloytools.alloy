@@ -55,21 +55,23 @@ public class CoreDashToPythonTest {
         DashPythonTranslation translation = new DashPythonTranslation(dashModule);
 
         List<String> expectedTranslation = Arrays.asList("class Floor(Signature):",
-                "sig_objects = {\"Floor$1\", \"Floor$2\", \"Floor$3\"}",
+                "sig_objects = {\"Floor$0\", \"Floor$1\", \"Floor$2\"}",
                 "class Medication(Signature):",
-                "sig_objects = {\"Medication$1\", \"Medication$2\", \"Medication$3\"}",
+                "sig_objects = {\"Medication$0\", \"Medication$1\", \"Medication$2\"}",
                 "class Chicken(Signature):",
-                "sig_objects = {\"Chicken$1\"}",
+                "sig_objects = {\"Chicken$0\"}",
                 "class Farmer(Signature):",
-                "sig_objects = {\"Farmer$1\"}",
+                "sig_objects = {\"Farmer$0\"}",
                 "class Fox(Signature):",
-                "sig_objects = {\"Fox$1\"}",
+                "sig_objects = {\"Fox$0\"}",
                 "class Grain(Signature):",
-                "sig_objects = {\"Grain$1\"}",
+                "sig_objects = {\"Grain$0\"}",
                 "class SomeSig(Signature):",
-                "sig_objects = {\"SomeSig$1\", \"SomeSig$2\", \"SomeSig$3\"}",
+                "sig_objects = {\"SomeSig$0\", \"SomeSig$1\", \"SomeSig$2\"}",
                 "class LoneSig(Signature):",
-                "sig_objects = {\"LoneSig$1\"}");
+                "sig_objects = {}");
+
+        CoreDashToPython.print(translation);
 
         for(String sigTrans : expectedTranslation){
             assert (CoreDashToPython.convert2String(translation).contains(sigTrans));
@@ -90,12 +92,12 @@ public class CoreDashToPythonTest {
         DashToCoreDash.transformToCoreDash(dashModule);
         DashPythonTranslation translation = new DashPythonTranslation(dashModule);
 
-        List<String> expectedTranslation = Arrays.asList("class Asubset1(A):",
-                "class Asubset2(A):",
-                "class AAsubset1(Asubset1):",
-                "class C(A, B):",
-                "class D(C, A):",
-                "class E(A):",
+        List<String> expectedTranslation = Arrays.asList("class Asubset1(Signature):",
+                "class Asubset2(Signature):",
+                "class AAsubset1(Signature):",
+                "class C(Signature):",
+                "class D(Signature):",
+                "class E(Signature):",
                 "class A(Signature):",
                 "class B(Signature):");
 

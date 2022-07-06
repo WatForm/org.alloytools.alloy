@@ -75,104 +75,136 @@ class State(ABC):
 #end
 #if($signatures)
 class MetaSignature(type):
-    # Signature (static) function
+    """
+    Used by Signatures (statically)
+    - the member variables and functions will be used by Signature Classes themselves, not the instances
+    """
+
+    class Set:
+        """
+        used to make more operations between Signature and instances of Signatures easier
+        """
+        def __init__(self, initvalue=()):
+            if isinstance(initvalue, MetaSignature.Set):
+                self._set = initvalue._set
+            elif isinstance(initvalue, set):
+                self._set = initvalue
+            elif isinstance(initvalue, MetaSignature):
+                self._set = initvalue.objects()
+            elif isinstance(initvalue, Signature):
+                self._set = initvalue.elements
+            elif isinstance(initvalue, str):
+                self._set = {initvalue}
+            elif isinstance(initvalue, int):
+                self._set = {initvalue}
+            else:
+                print("Exception, unsupported type in MetaSignature::Set: %s", type(initvalue))
+        def __iter__(self):
+            return iter(self._set)
+        def __repr__(self):
+            return str(self._set)
+
+        # override "in" operator, e.g.,: other in cls
+        def __contains__(cls, other) -> bool:
+            if not isinstance(other, MetaSignature.Set):
+                return MetaSignature.Set(other) in cls
+            return other._set.issubset(cls._set)
+
+        # override "+" operator, e.g.,: cls + other
+        def __add__(cls, other) -> MetaSignature.Set:
+            if not isinstance(other, MetaSignature.Set):
+                return cls + MetaSignature.Set(other)
+            return MetaSignature.Set(cls._set.union(other._set))
+
+        # override "-" operator, e.g.,: cls - other
+        def __sub__(cls, other) -> MetaSignature.Set:
+            if not isinstance(other, MetaSignature.Set):
+                return cls - MetaSignature.Set(other)
+            return MetaSignature.Set(cls._set.difference(other._set))
+
+    # override "in" operator, e.g.,: other in cls
     def __contains__(cls, other):
-        if isinstance(other, MetaSignature):
-            return other.possible_objects().issubset(cls.possible_objects())
-        if isinstance(other, Signature):
-            return other.elements.issubset(cls.possible_objects())
-        if isinstance(other, str):
-            return other in cls.possible_objects()
-        return False
+        return  MetaSignature.Set(other) in MetaSignature.Set(cls.objects())
+
+    # override "+" operator, e.g.,: cls + other
+    def __add__(cls, other):
+        return MetaSignature.Set(cls.objects()) + MetaSignature.Set(other)
+
+    # override "-" operator, e.g.,: cls - other
+    def __sub__(cls, other):
+        return MetaSignature.Set(cls.objects()) - MetaSignature.Set(other)
+
+    # all objects in this Signature
+    def objects(cls) -> set:
+        return cls.sig_objects
+
+    # the scope of this Signature
+    def scope(cls) -> int:
+        return len(cls.objects())
 
 
 class Signature(metaclass = MetaSignature):
-    def __init__(self, name):
+    def __init__(self, name, instance_scope):
         """
-        Initialize a Signature object. For abstract signatures, the cardinality denotes the number of additional atoms
-        other than the atoms contained in its subsigs.
+        Used by state variables
+        - the member variables and functions will be used by state variables
 
         :param str name: the name of this state variable
-
+        :param int instance_scope: the scope of this state variable
         :member set elements: all the elements in this instance (state variable)
         """
+        # for state variables:
         self.name = name
+        self.instance_scope = instance_scope
         self.elements = set()
+        # TODO: delete this comment
+        # Note: state variables are not implemented yet, this only aims to help in the future implementation of state variables
 
     # State variable functions
     def get_elements(self) -> set:
         return self.elements
 
+    # check if the new set of elements is valid for this state variable
+    def is_valid(self, new_elements) -> bool:
+        if(len(self.elements) > self.instance_scope):
+            return False
+        if(new_elements - type(self).objects()):
+            return False
+        return True
+
+    # returns true if successfully set the new set of elements for this state variable
+    def set_passed(self, new_elements) -> bool:
+        if(self.is_valid(new_elements)):
+            self.elements = new_elements
+            return True
+        return False
+
     def __repr__(self):
         return f"{self.sigName} - {self.name} : {self.elements}" if self.elements else f"{self.sigName} - {self.name} : Empty"
 
+    # override "in" operator, e.g.,: other in self
     def __contains__(self, other):
-        if isinstance(other, MetaSignature):
-            return other.possible_objects().issubset(self.elements)
-        if isinstance(other, Signature):
-            return other.elements.issubset(self.elements)
-        if isinstance(other, str):
-            return other in self.elements
-        return False
+        return  MetaSignature.Set(other) in MetaSignature.Set(self.elements)
 
+    # override "+" operator, e.g.,: self + other
+    def __add__(self, other):
+        return MetaSignature.Set(self.elements) + MetaSignature.Set(other)
 
-    def set_failed(self, new_elements) -> bool:
-        if(type(self).is_valid(new_elements)):
-            self.elements = new_elements
-            return False
-        return True
+    # override "-" operator, e.g.,: self - other
+    def __sub__(self, other):
+        return MetaSignature.Set(self.elements) - MetaSignature.Set(other)
 
 
 # --- Signatures ---
 
 #foreach($sig in $signatures)
-    #if(${sig.isSubset()})
-class ${sig.Name}(${sig.getParentsName()}):
-    #elseif(${sig.isSubsig()})
-class ${sig.Name}(${sig.getParentName()}):
-    #else
 class ${sig.Name}(Signature):
-    #end
     # Signature (static) information
     sig_objects = {${sig.getObjectNames()}}
     sigName = "${sig.Name}"
 
-    def __init__(self, name):
-    #if(${sig.isSubset()})
-        # TODO: maybe we don't need to initialize using super() for subsets
-        #foreach($parentName in $sig.getParentNames())
-        ${parentName}.__init__(self, name)
-        #end
-    #elseif(${sig.isSubsig()})
-        ${sig.getParentName()}.__init__(self, name)
-    #else
-        Signature.__init__(self, name)
-    #end
 
-    def possible_objects() -> set:
-    #if(${sig.isSubset()})
-        return ${sig.Name}.sig_objects.union(${sig.getParentNames().get(0)}.possible_objects()#foreach($parentName in ${sig.getParentNames().subList(1, ${sig.getParentNames().size()})}), ${parentName}.possible_objects()#end)
-    #else
-        #if(${sig.hasChildSubsig()})
-        return ${sig.Name}.sig_objects.union(${sig.getSubsigNames().get(0)}.possible_objects()#foreach($subsigName in ${sig.getSubsigNames().subList(1, ${sig.getSubsigNames().size()})}), ${subsigName}.possible_objects()#end)
-        #else
-        return ${sig.Name}.sig_objects
-        #end
-    #end
-
-    def is_valid(elements) -> bool:
-        #if(${sig.getLowerBound()} != 0)
-        if(len(elements) < ${sig.getLowerBound()} or len(elements) > ${sig.getUpperBound()}):
-        #else
-        if(len(elements) > ${sig.getUpperBound()}):
-        #end
-            return False
-        if(elements - ${sig.Name}.possible_objects()):
-            return False
-        return True
-
-
-    #end
+#end
 #end
 
 #if(${allEnvEvents.size()}> 0)

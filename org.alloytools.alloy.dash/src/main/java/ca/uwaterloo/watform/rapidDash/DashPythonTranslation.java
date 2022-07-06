@@ -39,56 +39,128 @@ public class DashPythonTranslation {
 
     public class Signature {
         public String name;
-        public String multiplicity;
+        public String multiplicity;     // TODO: could delete this
         public boolean isSubset;
         public boolean isSubsig;
-        public boolean isAbstract;      // TODO: might not need this
+        public boolean isAbstract;
         public boolean hasChildSubsig;
         public int scope;
+        public boolean isOne;
+        public boolean isLone;
         public List<String> parentNames;
         public String parentName;
         public List<String> objectNames;
-        public List<Integer> bounds;
         public List<String> subsigNames;
+        public List<Signature> subsigs;
 
-        public Signature(Sig sig, int scope, ArrayList<Sig> allSigs) {
+        public Signature(Sig sig, BufferedReader br, List<Signature> allSigs) {
             this.name = clean(sig.label);
-            this.multiplicity = setMultiplicity(sig);
+            this.multiplicity = setMultiplicity(sig);       // TODO: could delete this
             this.isSubset = sig.isSubset != null;
             this.isSubsig = sig.isSubsig != null && ((Sig.PrimSig) sig).parent != Sig.UNIV;
             this.isAbstract = sig.isAbstract != null;
-            this.scope = scope;
+            this.isOne = sig.isOne != null;
+            this.isLone = sig.isLone != null;
 
             // get parent names
-            this.parentNames = new ArrayList<>();
-            if (sig.isSubset != null)
-                for (Sig p : ((Sig.SubsetSig) sig).parents)
-                    this.parentNames.add(clean(p.label));
-
-            if (this.isSubsig)
-                this.parentName = clean(((Sig.PrimSig) sig).parent.label);
-
-            // possible objects (strings)
-            this.objectNames = new ArrayList<>();
-            if(!isSubset){
-                for(int i = 0; i < scope; i++){
-                    this.objectNames.add(name + "$" + (i+1));
-                }
-            }
+            this.parentNames = (sig instanceof Sig.SubsetSig)? ((Sig.SubsetSig) sig).parents.stream().map(elem -> clean(elem.label)).collect(Collectors.toList()) : new ArrayList<>();
+            this.parentName = (this.isSubsig)? clean(((Sig.PrimSig) sig).parent.label) : "";
 
             // list of subsigs
             this.subsigNames = new ArrayList<>();
-            for(Sig otherSig : allSigs){
-                if(otherSig.isSubsig != null && clean(((Sig.PrimSig) otherSig).parent.label).equals(this.name)){
-                    this.subsigNames.add(clean(otherSig.label));
+            this.subsigs = new ArrayList<>();
+            for(Signature otherSig : allSigs){
+                if(otherSig.isSubsig && otherSig.parentName.equals(name)){
+                    this.subsigs.add(otherSig);
+                    this.subsigNames.add(otherSig.name);
                 }
             }
             this.hasChildSubsig = !this.subsigNames.isEmpty();
 
-            // constraint on size
-            this.bounds = new ArrayList<>();
-            this.bounds.add(0);           // TODO: what if scope doesn't start from 0?
-            this.bounds.add(scope);
+            // calculating objects (strings) and the final scope
+            this.objectNames = new ArrayList<>();
+            scope = getScopes(sig, this.objectNames.size(), br);
+            if(isSubset) {
+                // subset signatures will always take objects in its "parents"
+                for (Signature otherSig : allSigs){
+                    // TODO: might want to add some non-determinism here
+                    if(parentNames.contains(otherSig.name)){
+                        if(otherSig.objectNames.size() < (scope - this.objectNames.size())){
+                            this.objectNames.addAll(otherSig.objectNames);
+                        }else{
+                            for(int i = this.objectNames.size(), j = 0; i < scope; i++, j++){
+                                this.objectNames.add(otherSig.objectNames.get(j));
+                            }
+                            break;
+                        }
+                    }
+                }
+            }else{
+                // regular signatures
+                int sum_children_scope = 0;
+                if(hasChildSubsig){
+                    if(isLone){
+                        // assume the Alloy model is correct, then there will only be at most 1 One subsig and multiple Lone subsig
+                        // if One sig exists, make this Lone sig in fact a One sig
+                        for(Signature subsig : this.subsigs){
+                            if(subsig.isOne){
+                                this.objectNames.addAll(subsig.objectNames);
+                                break;
+                            }
+                        }
+                    }else if(isOne){
+                        // assume the Alloy model is correct, then there will only be at most 1 One subsig and multiple Lone subsig
+                        // if One sig exists, use One sig
+                        for(Signature subsig : this.subsigs){
+                            if(subsig.isOne){
+                                sum_children_scope = 1;
+                                this.objectNames.addAll(subsig.objectNames);
+                                break;
+                            }
+                        }
+                        // otherwise, use Lone sig and make the lone sig in fact a One sig
+                        // TODO: might want to add some non-determinism here
+                        if(this.objectNames.isEmpty()){
+                            for(Signature subsig : this.subsigs){
+                                if(subsig.isLone){
+                                    sum_children_scope = 1;
+                                    if(subsig.scope == 0){
+                                        subsig.addObject(subsig.name + "$0");
+                                    }
+                                    this.objectNames.addAll(subsig.objectNames);
+                                    break;
+                                }
+                            }
+                        }
+                    }else{
+                        if(isAbstract){
+                            for(Signature subsig : this.subsigs){
+                                this.objectNames.addAll(subsig.objectNames);
+                            }
+                        }else{
+                            for(Signature subsig : this.subsigs){
+                                sum_children_scope += subsig.scope;
+                                if(subsig.objectNames.size() < (scope - this.objectNames.size())){
+                                    this.objectNames.addAll(subsig.objectNames);
+                                }else{
+                                    for(int i = this.objectNames.size(), j = 0; i < scope; i++, j++){
+                                        this.objectNames.add(subsig.objectNames.get(j));
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                // add more elements if not reached the scope required
+                if(!isAbstract){
+                    for(int i = sum_children_scope; i < scope; i++) {
+                        this.objectNames.add(name + "$" + i);
+                    }
+                }
+            }
+            this.objectNames.sort(Comparator.comparing(item -> item));
+            scope = this.objectNames.size();
         }
 
         private String setMultiplicity(Sig sig) {
@@ -101,9 +173,41 @@ public class DashPythonTranslation {
             return "set";
         }
 
+        private int getScopes(Sig sig, int minimal_size, BufferedReader br) {
+            if(isLone){return 0;}
+            if(isOne){return 1;}
+            if(sig.isSome != null){
+                minimal_size = 1;
+            }else if(minimal_size < 0){
+                minimal_size = 0;
+            }
+            String input;
+            while(true){
+                // TODO: check the value for subsig/subset
+                // scope of the subsig/subset should not exceed the scope of its parent(s)
+                // TODO: add default in the future (and or change this part to be reading from a config file)
+                // System.out.printf("Choose a scope for %s, (type \"d\" for default):%n", clean(sig.label));
+                if(minimal_size != 0){
+                    System.out.printf("Choose a scope for %s (at least %d, input < %d will be seen as %d):%n", clean(sig.label), minimal_size, minimal_size, minimal_size);
+                }else{
+                    System.out.printf("Choose a scope for %s (at least 0):%n", clean(sig.label));
+                }
+                try{
+                    input = br.readLine();
+                    int val = Integer.parseInt(input);
+                    if(val < minimal_size){
+                        val = minimal_size;
+                    }
+                    return val;
+                } catch(NumberFormatException ex){
+                    System.out.print("Please input a number! ");
+                } catch (Exception ex){
+                    System.out.print(ex);
+                }
+            }
+        }
         public String getName() { return name; }
-        public String getMultiplicity() { return multiplicity; }
-        public int getCardinality() { return scope; }
+        public String getMultiplicity() { return multiplicity; }    // TODO: could delete this
         public String getParentName() {
             if (this.parentName != null)
                 return this.parentName;
@@ -113,6 +217,9 @@ public class DashPythonTranslation {
         public List<String> getParentNames() {return this.parentNames;}
         public List<String> getSubsigNames() {return this.subsigNames;}
         public String getObjectNames() {
+            if(this.objectNames.isEmpty()){
+                return "";
+            }
             StringJoiner joiner = new StringJoiner("\", \"", "\"", "\"");
             for (CharSequence cs: this.objectNames) {
                 joiner.add(cs);
@@ -123,13 +230,14 @@ public class DashPythonTranslation {
             this.objectNames.addAll(objName);
             this.scope += objName.size();
         }
-
+        public void addObject(String objName) {
+            this.objectNames.add(objName);
+            this.scope++;
+        }
         public boolean isSubsig() {return isSubsig;}
         public boolean isSubset() {return isSubset;}
         public boolean isAbstract() {return isAbstract;}
         public boolean hasChildSubsig() {return hasChildSubsig;}
-        public int getLowerBound() {return bounds.get(0);}
-        public int getUpperBound() {return bounds.get(1);}
     }
     
     public class Event {
@@ -157,44 +265,30 @@ public class DashPythonTranslation {
     public DashPythonTranslation(DashModule dashModule) {
         this.dashModule = dashModule;
 
-        // Sort the signatures based on dependencies
-        // TODO may need topological sort later to improve performance
-        // I am using a not efficient starightforward sorting algorithm for now
-        ArrayList<Sig> signaturesOriginalList = new ArrayList<Sig>(dashModule.sigs.values());
-        ArrayList<Sig> signaturesSortedList = new ArrayList<Sig>();
-        ArrayList<String> covered = new ArrayList<String>();
-        while (signaturesOriginalList.size() != 0) {
-            for (Sig sig : signaturesOriginalList){
-                if (sig.isSubsig != null) {
-                    if (((Sig.PrimSig) sig).parent == Sig.UNIV || covered.contains(clean(((Sig.PrimSig) sig).parent.label))) {
-                        signaturesSortedList.add(sig);
-                        signaturesOriginalList.remove(sig);
-                        covered.add(clean(sig.label));
-                        break;
-                    }
-                }
-                if (sig.isSubset != null) {
-                    ArrayList<String> parentsList = new ArrayList<String>();
-                    for (Sig p : ((Sig.SubsetSig) sig).parents)
-                        parentsList.add(clean(p.label));
-                    if (covered.containsAll(parentsList)) {
-                        signaturesSortedList.add(sig);
-                        signaturesOriginalList.remove(sig);
-                        covered.add(clean(sig.label));
-                        break;
-                    }
-                }
-            }
+        // Sort the signatures based on dependencies (sort the list of signatures in topological order)
+        List<Sig> signaturesOriginalList = new ArrayList<Sig>(dashModule.sigs.values());
+        List<Sig> signaturesSortedList = topoSortSig(signaturesOriginalList);
+        // subsigs <- sigs <- subsets
+
+        // TODO: read a config file for this dash model, if exists
+        // TODO: if no config file exists, read from user input and generate a config file
+        // get signatures
+        BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+        this.signatures = new ArrayList<>();
+        for(Sig sig : signaturesSortedList) {
+            this.signatures.add(new Signature(sig, br, this.signatures));
         }
 
-        // TODO: read a config file for this model if exists
-        // TODO: if no config file exists, read from user input and generate a config file
-        BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
-        // get signatures
-        this.signatures = new ArrayList<>();
-        for(Sig sig : signaturesSortedList){
-            this.signatures.add(new Signature(sig, getScopes(sig, br), signaturesSortedList));
-        }
+        // sort the signatures again, so it is in the same order as the input dash file
+        Collections.sort(this.signatures, Comparator.comparing(item -> {
+            for(int i = 0; i < signaturesOriginalList.size(); i++){
+                if(item.name.equals(clean(signaturesOriginalList.get(i).label))){
+                    return i;
+                }
+            }
+            return -1;
+        }));
+
 
         // get state hierarchy
         this.concStateMap = new HashMap<>();
@@ -205,7 +299,7 @@ public class DashPythonTranslation {
         for(String stateName: dashModule.states.keySet()){
             this.concStateMap.put(stateName, new State(stateName, false));
         }
-        
+
         for(DashConcState state: dashModule.concStates.values()) {
         	if(rootState == null) {
         		rootState = this.concStateMap.get(state.modifiedName);
@@ -227,7 +321,7 @@ public class DashPythonTranslation {
         			// TODO: this (and DashExprToPython) needs to be cleaned up
         			dashExprTranslator.isInit = true;
         			dashExprTranslator.reparseExpr();
-        			
+
         			// if the expression is a constraint on a variable's cardinality, add "assert"
         			// TODO: are other initialization constraint types possible? They need to be handled here
         			if(expr instanceof ExprBinary) {
@@ -240,7 +334,7 @@ public class DashPythonTranslation {
             		this.concStateMap.get(state.modifiedName).addInit(dashExprTranslator.toString());
         		}
         	}
-        	
+
         	// add state events
         	for(DashEvent event: state.events) {
         		Event newEvent = new Event(event.name, event.modifiedName, event.type, this.concStateMap.get(state.modifiedName));
@@ -249,7 +343,7 @@ public class DashPythonTranslation {
         			allEnvEvents.add(newEvent);
         		}
         	}
-        	     	
+
         	// add substates to conc states
         	for(DashConcState substate: state.concStates) {
         		this.concStateMap.get(state.modifiedName).addSubstate(this.concStateMap.get(substate.modifiedName));
@@ -263,7 +357,7 @@ public class DashPythonTranslation {
         		}
         	}
         }
-        
+
         // add substates to dash states
         for(DashState state: dashModule.states.values()) {
         	for(DashState substate: state.states) {
@@ -279,28 +373,6 @@ public class DashPythonTranslation {
         }
     }
 
-    private int getScopes(Sig sig, BufferedReader br) {
-        if (sig.isOne !=null || sig.isLone != null){
-            return 1;
-        }
-        String input;
-        while(true){
-            // TODO: check the value for subsig/subset
-            // scope of the subsig/subset should not exceed the scope of its parent(s)
-            // TODO: add default in the futrue (and or change this part to be reading from a config file)
-            // System.out.printf("Choose a scope for %s, (type \"d\" for default):%n", clean(sig.label));
-            System.out.printf("Choose a scope for %s:%n", clean(sig.label));
-            try{
-                input = br.readLine();
-                return Integer.parseInt(input);
-            } catch(NumberFormatException ex){
-                System.out.print("Please input a number! ");
-            } catch (Exception ex){
-                System.out.print(ex);
-            }
-        }
-    }
-
     // return all states that aren't substates (to prevent them from appearing multiple times)
     public List<State> getStates() {
     	List<State> states = new ArrayList<State>();
@@ -310,6 +382,32 @@ public class DashPythonTranslation {
     		}
     	}
     	return states;
+    }
+
+    private void dfs(List<Sig> outputList, Set<String> covered, Set<Sig> subsets, Sig sig){
+        if(covered.contains(clean(sig.label))){
+            return;
+        }
+        if(sig instanceof Sig.PrimSig && ((Sig.PrimSig) sig).parent != null) {
+            dfs(outputList, covered, subsets, ((Sig.PrimSig) sig).parent);
+            outputList.add(sig);
+        }else if(sig instanceof Sig.SubsetSig && ((Sig.SubsetSig) sig).parents != null){
+            subsets.add(sig);
+        }
+        covered.add(clean(sig.label));
+    }
+    private List<Sig> topoSortSig(List<Sig> list){
+        Deque<Sig> signaturesOriginalQueue = new ArrayDeque<Sig>(list);
+        List<Sig> signaturesSortedList = new ArrayList<Sig>();
+        Set<String> covered = new HashSet<String>();
+        Set<Sig> subsets = new HashSet<Sig>();
+        while (signaturesOriginalQueue.size() != 0) {
+            Sig sig = signaturesOriginalQueue.pop();
+            dfs(signaturesSortedList, covered, subsets, sig);
+        }
+        Collections.reverse(signaturesSortedList);
+        signaturesSortedList.addAll(subsets);
+        return signaturesSortedList;
     }
 
     public class State{

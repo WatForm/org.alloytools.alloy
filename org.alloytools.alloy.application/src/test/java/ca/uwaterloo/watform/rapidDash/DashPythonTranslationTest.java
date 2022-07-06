@@ -143,7 +143,7 @@ public class DashPythonTranslationTest {
         assertEquals(translation.signatures.get(2).scope, 3);
         assertEquals(translation.signatures.get(3).name, "LoneSig");
         assertEquals(translation.signatures.get(3).multiplicity, "lone");
-        assertEquals(translation.signatures.get(3).scope, 1);
+        assertEquals(translation.signatures.get(3).scope, 0);
     }
 
     @Test
@@ -203,53 +203,68 @@ public class DashPythonTranslationTest {
             }
         }
 
-        String dashModel = "sig A {}\n" +
-        "sig A1 extends A {}\n" +
-        "sig A2 extends A {}\n" +
+        String dashModel =
+            "sig A {}\n" +
+            "sig A1 extends A {}\n" +
+            "sig A2 extends A {}\n" +
 
-        "abstract sig B {}\n" +
-        "sig B1 extends B {}\n" +
-        "sig B2 extends B {}\n" +
+            "abstract sig B {}\n" +
+            "sig B1 extends B {}\n" +
+            "sig B2 extends B {}\n" +
 
-        "sig C1 {}\n" +
-        "sig C2 {}\n" +
-        "sig C3 {}\n" +
-        "sig C in C1 + C2 + C3 {}\n" +
+            "sig C1 {}\n" +
+            "sig C2 {}\n" +
+            "sig C3 {}\n" +
+            "sig C in C1 + C2 + C3 {}\n" +
 
-        "lone sig SLone {}\n" +
-        "one sig SOne {}\n" +
-        "some sig SSome {}\n" +
 
-        "lone sig SLone1 in SLone {}\n" +
-        "one sig SLone2 in SLone {}\n" +
-        "some sig SLone3 in SLone {}\n" +
-        "lone sig SLone4 extends SLone {}\n" +
-        "one sig SLone5 extends SLone {}\n" +
-        "some sig SLone6 extends SLone {}\n" +
+            "lone sig SLone_Lone {}\n" +
+            "lone sig SLone_Lone_sub1 extends SLone_Lone {}\n" +
+            "lone sig SLone_Lone_sub2 extends SLone_Lone {}\n" +
 
-        "lone sig SOne1 in SOne {}\n" +
-        "one sig SOne2 in SOne {}\n" +
-        "some sig SOne3 in SOne {}\n" +
-        "lone sig SOne4 extends SOne {}\n" +
-        "one sig SOne5 extends SOne {}\n" +
-        "some sig SOne6 extends SOne {}\n" +
 
-        "lone sig SSome1 in SSome {}\n" +
-        "one sig SSome2 in SSome {}\n" +
-        "some sig SSome3 in SSome {}\n" +
-        "lone sig SSome4 extends SSome {}\n" +
-        "one sig SSome5 extends SSome {}\n" +
-        "some sig SSome6 extends SSome {}\n" +
+            "one sig SOne_One {}\n" +
+            "lone sig SOne_Lone_sub1 extends SOne_One {}\n" +
+            "lone sig SOne_Lone_sub2 extends SOne_One {}\n" +
 
-        "abstract sig Object {}\n" +
-        "one sig Chicken, Farmer, Fox extends Object {}\n";
+
+            "lone sig SLone {}\n" +
+
+            "lone sig SLone_Subsig_Lone extends SLone {}\n" +
+            "one sig SLone_Subsig_One extends SLone {}\n" +
+            "lone sig SLone_Subset_Lone in SLone {}\n" +
+            "one sig SLone_Subset_One in SLone {}\n" +
+            "some sig SLone_Subset_Some in SLone {}\n" +
+
+
+            "one sig SOne {}\n" +
+
+            "lone sig SOne_Subsig_Lone extends SOne {}\n" +
+            "one sig SOne_Subsig_One extends SOne {}\n" +
+            "lone sig SOne_Subset_Lone in SOne {}\n" +
+            "one sig SOne_Subset_One in SOne {}\n" +
+            "some sig SOne_Subset_Some in SOne {}\n" +
+
+
+            "some sig SSome {}\n" +
+
+            "lone sig SSome_Subsig_Lone extends SSome {}\n" +
+            "one sig SSome_Subsig_One extends SSome {}\n" +
+            "some sig SSome_Subsig_Some extends SSome {}\n" +
+            "lone sig SSome_Subset_Lone in SSome {}\n" +
+            "one sig SSome_Subset_One in SSome {}\n" +
+            "some sig SSome_Subset_Some in SSome {}\n" +
+
+
+            "abstract sig Object {}\n" +
+            "one sig Chicken, Farmer, Fox extends Object {}\n";
 
         List<Data> expectedResults = Arrays.asList(
             new Data("A", 3, false, false, false, true,"", ""),
             new Data("A1", 3, false, true, false,false,"A", ""),
             new Data("A2", 3, false, true, false,false,"A", ""),
 
-            new Data("B", 3, false, false, true, true,"", ""),
+            new Data("B", 6, false, false, true, true,"", ""),
             new Data("B1", 3, false, true, false,false,"B", ""),
             new Data("B2", 3, false, true, false,false,"B", ""),
 
@@ -258,30 +273,43 @@ public class DashPythonTranslationTest {
             new Data("C3", 3, false, false, false, false,"", ""),
             new Data("C", 3, true, false, false,false,"", "C1, C2, C3"),
 
+            new Data("SLone_Lone", 0, false, false, false, true,"", ""),
+            new Data("SLone_Lone_sub1", 0, false, true, false, false,"SLone_Lone", ""),
+            new Data("SLone_Lone_sub2", 0, false, true, false, false,"SLone_Lone", ""),
+
+            new Data("SOne_One", 1, false, false, false, true,"", ""),
+            // TODO: currently no non-determinism is happening when picking the subsig to put the object
+            new Data("SOne_Lone_sub1", 0, false, true, false, false,"SOne_One", ""),
+            new Data("SOne_Lone_sub2", 1, false, true, false, false,"SOne_One", ""),
+
+
             new Data("SLone", 1, false, false, false, true,"", ""),
+            new Data("SLone_Subsig_Lone", 0, false, true, false,false,"SLone", ""),
+            new Data("SLone_Subsig_One", 1, false, true, false,false,"SLone", ""),
+
+            new Data("SLone_Subset_Lone", 0, true, false, false,false,"", "SLone"),
+            new Data("SLone_Subset_One", 1, true, false, false,false,"", "SLone"),
+            new Data("SLone_Subset_Some", 1, true, false, false,false,"", "SLone"),
+
+
             new Data("SOne", 1, false, false, false, true,"", ""),
+            new Data("SOne_Subsig_Lone", 0, false, true, false,false,"SOne", ""),
+            new Data("SOne_Subsig_One", 1, false, true, false,false,"SOne", ""),
+
+            new Data("SOne_Subset_Lone", 0, true, false, false,false,"", "SOne"),
+            new Data("SOne_Subset_One", 1, true, false, false,false,"", "SOne"),
+            new Data("SOne_Subset_Some", 1, true, false, false,false,"", "SOne"),
+
+
             new Data("SSome", 3, false, false, false, true,"", ""),
+            new Data("SSome_Subsig_Lone", 0, false, true, false,false,"SSome", ""),
+            new Data("SSome_Subsig_One", 1, false, true, false,false,"SSome", ""),
+            new Data("SSome_Subsig_Some", 3, false, true, false,false,"SSome", ""),
 
-            new Data("SLone1", 1, true, false, false,false,"", "SLone"),
-            new Data("SLone2", 1, true, false, false,false,"", "SLone"),
-            new Data("SLone3", 3, true, false, false,false,"", "SLone"),
-            new Data("SLone4", 1, false, true, false,false,"SLone", ""),
-            new Data("SLone5", 1, false, true, false,false,"SLone", ""),
-            new Data("SLone6", 3, false, true, false,false,"SLone", ""),
+            new Data("SSome_Subset_Lone", 0, true, false, false,false,"", "SSome"),
+            new Data("SSome_Subset_One", 1, true, false, false,false,"", "SSome"),
+            new Data("SSome_Subset_Some", 3, true, false, false,false,"", "SSome"),
 
-            new Data("SOne1", 1, true, false, false,false,"", "SOne"),
-            new Data("SOne2", 1, true, false, false,false,"", "SOne"),
-            new Data("SOne3", 3, true, false, false,false,"", "SOne"),
-            new Data("SOne4", 1, false, true, false,false,"SOne", ""),
-            new Data("SOne5", 1, false, true, false,false,"SOne", ""),
-            new Data("SOne6", 3, false, true, false,false,"SOne", ""),
-
-            new Data("SSome1", 1, true, false, false,false,"", "SSome"),
-            new Data("SSome2", 1, true, false, false,false,"", "SSome"),
-            new Data("SSome3", 3, true, false, false,false,"", "SSome"),
-            new Data("SSome4", 1, false, true, false,false,"SSome", ""),
-            new Data("SSome5", 1, false, true, false,false,"SSome", ""),
-            new Data("SSome6", 3, false, true, false,false,"SSome", ""),
 
             new Data("Object", 3, false, false, true,true,"", ""),
             new Data("Chicken", 1, false, true, false,false,"Object", ""),
@@ -302,6 +330,7 @@ public class DashPythonTranslationTest {
             assertEquals(expectedResults.get(index).parentName, translation.signatures.get(index).getParentName());
             assertEquals(expectedResults.get(index).parentNames, translation.signatures.get(index).getParentsName());
         }
+        CoreDashToPython.print(translation);
     }
 
     @Test
