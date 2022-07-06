@@ -4,9 +4,13 @@ import ca.uwaterloo.watform.parser.DashModule;
 import ca.uwaterloo.watform.parser.DashUtil;
 import ca.uwaterloo.watform.rapidDash.DashPythonTranslation;
 import edu.mit.csail.sdg.alloy4.A4Reporter;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Arrays;
 import java.util.List;
 
@@ -14,6 +18,20 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
 public class CoreDashToPythonTest {
+
+    private InputStream sysInBackup;
+    @Before
+    public void initInput(){
+        sysInBackup = System.in;
+        String userInput = new String(new char[30]).replace("\0", "3" + System.lineSeparator());
+        System.setIn(new ByteArrayInputStream(userInput.getBytes()));
+    }
+
+    @After
+    public void closeInput(){
+        System.setIn(sysInBackup);
+    }
+
     // right now this is just a sanity check
     @Test
     public void testStates() throws IOException {
@@ -36,14 +54,24 @@ public class CoreDashToPythonTest {
         DashToCoreDash.transformToCoreDash(dashModule);
         DashPythonTranslation translation = new DashPythonTranslation(dashModule);
 
-        List<String> expectedTranslation = Arrays.asList("Floor = Signature(\"Floor\", \"set\", 3, False, {}, False, None, False)\n",
-                "Medication = Signature(\"Medication\", \"set\", 3, False, {}, False, None, False)\n",
-                "Chicken = Signature(\"Chicken\", \"one\", 1, False, {}, False, None, False)\n",
-                "Farmer = Signature(\"Farmer\", \"one\", 1, False, {}, False, None, False)\n",
-                "Fox = Signature(\"Fox\", \"one\", 1, False, {}, False, None, False)\n",
-                "Grain = Signature(\"Grain\", \"one\", 1, False, {}, False, None, False)\n",
-                "SomeSig = Signature(\"SomeSig\", \"some\", 3, False, {}, False, None, False)\n",
-                "LoneSig = Signature(\"LoneSig\", \"lone\", 1, False, {}, False, None, False)");
+        List<String> expectedTranslation = Arrays.asList("class Floor(Signature):",
+                "sig_objects = {\"Floor$0\", \"Floor$1\", \"Floor$2\"}",
+                "class Medication(Signature):",
+                "sig_objects = {\"Medication$0\", \"Medication$1\", \"Medication$2\"}",
+                "class Chicken(Signature):",
+                "sig_objects = {\"Chicken$0\"}",
+                "class Farmer(Signature):",
+                "sig_objects = {\"Farmer$0\"}",
+                "class Fox(Signature):",
+                "sig_objects = {\"Fox$0\"}",
+                "class Grain(Signature):",
+                "sig_objects = {\"Grain$0\"}",
+                "class SomeSig(Signature):",
+                "sig_objects = {\"SomeSig$0\", \"SomeSig$1\", \"SomeSig$2\"}",
+                "class LoneSig(Signature):",
+                "sig_objects = {}");
+
+        CoreDashToPython.print(translation);
 
         for(String sigTrans : expectedTranslation){
             assert (CoreDashToPython.convert2String(translation).contains(sigTrans));
@@ -64,14 +92,14 @@ public class CoreDashToPythonTest {
         DashToCoreDash.transformToCoreDash(dashModule);
         DashPythonTranslation translation = new DashPythonTranslation(dashModule);
 
-        List<String> expectedTranslation = Arrays.asList("A = Signature(\"A\", \"set\", 3, False, {}, False, None, False)",
-                "Asubset1 = Signature(\"Asubset1\", \"set\", 3, False, {}, True, A, False)",
-                "Asubset2 = Signature(\"Asubset2\", \"set\", 3, False, {}, True, A, False)",
-                "AAsubset1 = Signature(\"AAsubset1\", \"set\", 3, False, {}, True, Asubset1, False)",
-                "E = Signature(\"E\", \"set\", 3, False, {}, True, A, False)",
-                "B = Signature(\"B\", \"set\", 3, False, {}, False, None, False)",
-                "C = Signature(\"C\", \"set\", 3, True, {A,B}, False, None, False)",
-                "D = Signature(\"D\", \"set\", 3, True, {C,A}, False, None, False)");
+        List<String> expectedTranslation = Arrays.asList("class Asubset1(Signature):",
+                "class Asubset2(Signature):",
+                "class AAsubset1(Signature):",
+                "class C(Signature):",
+                "class D(Signature):",
+                "class E(Signature):",
+                "class A(Signature):",
+                "class B(Signature):");
 
         for(String sigTrans : expectedTranslation){
             assert (CoreDashToPython.convert2String(translation).contains(sigTrans));

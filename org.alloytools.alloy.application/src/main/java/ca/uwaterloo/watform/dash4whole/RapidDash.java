@@ -26,7 +26,6 @@ public class RapidDash {
             System.err.println("File not supported.\nExpected a Dash file with 'dsh' extension");
             return;
         }
-        sc.close();
 
         Path path = Paths.get(actual);
         Path fileName = path.getFileName();
@@ -63,5 +62,6 @@ public class RapidDash {
                 CoreDashToPython.print(dashPythonTranslation);
             }
         }
+        sc.close();
     }
 }

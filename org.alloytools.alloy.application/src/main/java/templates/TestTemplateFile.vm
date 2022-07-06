@@ -21,6 +21,7 @@ logging.addLevelName(SVLOG, "SIG")
 
 # ===== Base Classes =====
 
+#if($concState)
 class State(ABC):
 
     def __init__(self, *args) -> None:
@@ -70,159 +71,149 @@ class State(ABC):
             for s in self._conc_states:
                 s.handleEvent()
 
+
+#end
 #if($signatures)
-class Signature:
-    def __init__(self, name, multiplicity=None, cardinality=1, isSubset=False, parents=None, isSubsig=False,
-                 parent=None, isAbstract=False):
+class MetaSignature(type):
+    """
+    Used by Signatures (statically)
+    - the member variables and functions will be used by Signature Classes themselves, not the instances
+    """
+
+    class Set:
         """
-        Initialize a Signature object. For abstract signatures, the cardinality denotes the number of additional atoms
-        other than the atoms contained in its subsigs.
-
-        :param str name: The signature's name
-        :param int multiplicity: The multiplicity keyword, can be one of "one", "some", "lone" and "set". Default to be
-        "set"
-        :param int cardinality: The number of atoms in the signature. If the signature is abstract, then this is the
-        number of additional atoms other than the atoms contained in its subsigs
-        :param bool isSubset: If the signature is declared with keyword "in"
-        :param set[Signature] parents: The union of signatures this signature is subset of, declared with "in"
-        :param bool isSubsig: If the signature is declared with keyword "extends"
-        :param Signature parent: The signature this signature is disjoint subset of, declared with "extends"
-        :param bool isAbstract: If the signature is declared with keyword "abstract"
-
-        :raises Exception: If the input cardinality is invalid
+        used to make more operations between Signature and instances of Signatures easier
         """
-        self._value = {}
-        self.lower = 0
-        self.upper = None
+        def __init__(self, initvalue=()):
+            if isinstance(initvalue, MetaSignature.Set):
+                self._set = initvalue._set
+            elif isinstance(initvalue, set):
+                self._set = initvalue
+            elif isinstance(initvalue, MetaSignature):
+                self._set = initvalue.objects()
+            elif isinstance(initvalue, Signature):
+                self._set = initvalue.elements
+            elif isinstance(initvalue, str):
+                self._set = {initvalue}
+            elif isinstance(initvalue, int):
+                self._set = {initvalue}
+            else:
+                print("Exception, unsupported type in MetaSignature::Set: %s", type(initvalue))
+        def __iter__(self):
+            return iter(self._set)
+        def __repr__(self):
+            return str(self._set)
 
-        if parents is None:
-            parents = {}
+        # override "in" operator, e.g.,: other in cls
+        def __contains__(cls, other) -> bool:
+            if not isinstance(other, MetaSignature.Set):
+                return MetaSignature.Set(other) in cls
+            return other._set.issubset(cls._set)
 
+        # override "+" operator, e.g.,: cls + other
+        def __add__(cls, other) -> MetaSignature.Set:
+            if not isinstance(other, MetaSignature.Set):
+                return cls + MetaSignature.Set(other)
+            return MetaSignature.Set(cls._set.union(other._set))
+
+        # override "-" operator, e.g.,: cls - other
+        def __sub__(cls, other) -> MetaSignature.Set:
+            if not isinstance(other, MetaSignature.Set):
+                return cls - MetaSignature.Set(other)
+            return MetaSignature.Set(cls._set.difference(other._set))
+
+    # override "in" operator, e.g.,: other in cls
+    def __contains__(cls, other):
+        return  MetaSignature.Set(other) in MetaSignature.Set(cls.objects())
+
+    # override "+" operator, e.g.,: cls + other
+    def __add__(cls, other):
+        return MetaSignature.Set(cls.objects()) + MetaSignature.Set(other)
+
+    # override "-" operator, e.g.,: cls - other
+    def __sub__(cls, other):
+        return MetaSignature.Set(cls.objects()) - MetaSignature.Set(other)
+
+    # all objects in this Signature
+    def objects(cls) -> set:
+        return cls.sig_objects
+
+    # the scope of this Signature
+    def scope(cls) -> int:
+        return len(cls.objects())
+
+
+class Signature(metaclass = MetaSignature):
+    def __init__(self, name, instance_scope):
+        """
+        Used by state variables
+        - the member variables and functions will be used by state variables
+
+        :param str name: the name of this state variable
+        :param int instance_scope: the scope of this state variable
+        :member set elements: all the elements in this instance (state variable)
+        """
+        # for state variables:
         self.name = name
-        if not multiplicity:
-            self.lower = 0
-            self.upper = None
-        elif multiplicity == "one":
-            self.lower = 1
-            self.upper = 1
-        elif multiplicity == "some":
-            self.lower = 1
-            self.upper = None
-        elif multiplicity == "lone":
-            self.lower = 0
-            self.upper = 1
-        elif multiplicity == "set":
-            self.lower = 0
-            self.upper = None
+        self.instance_scope = instance_scope
+        self.elements = set()
+        # TODO: delete this comment
+        # Note: state variables are not implemented yet, this only aims to help in the future implementation of state variables
 
-        # Subset
-        self.isSubset = isSubset
-        self.parents = parents
-        self.subsets = set()
-        for p in self.parents:
-            p.subsets.add(self)
+    # State variable functions
+    def get_elements(self) -> set:
+        return self.elements
 
-        # Subsig
-        self.isSubsig = isSubsig
-        self.parent = parent
-        self.subsigs = set()
-        if self.parent:
-            self.parent.subsigs.add(self)
-        self.isAbstract = isAbstract
-
-        if not self.isSubset:
-            value = {name + str(i + 1) for i in range(cardinality)}
-        else:
-            superset = [v for parent in self.parents for v in parent.get_value()]
-            if len(superset) < cardinality:
-                raise Exception("Invalid cardinality for subset signature: " + name)
-            value = set(superset[:cardinality])
-
-        self.set_value_no_constraints(value)
-
-    def check_validity(self, value) -> bool:
-        assert isinstance(value, set), "Signature has to be a set"
-        # Subset
-        if self.isSubset:
-            superset = [v for parent in self.parents for v in parent.get_value()]
-            if not value.issubset(superset):
-                logging.log(SVLOG, self.name + " is not a valid subset.")
-                return False
-        if self.subsets:
-            value_copy = self._value
-            self.set_value_no_constraints(value)
-            for subset in self.subsets:
-                if not subset.check_validity(subset.get_value()):
-                    logging.log(SVLOG, self.name + "'s subsets are no longer valid subsets.")
-                    return False
-            self._value = value_copy
-
-        # Subsig
-        if self.subsigs:
-            subset = set([v for subsig in self.subsigs for v in subsig.get_value()])
-            if not subset.issubset(value):
-                logging.log(SVLOG, self.name + " does not contain all the atoms in its subsigs.")
-                return False
-            if self.isAbstract and not len(subset) == len(value):
-                logging.log(SVLOG, self.name + " does not conform to the abstract constraint.")
-                return False
-        if self.isSubsig:
-            siblings = [v for subsig in self.parent.subsigs - {self} for v in subsig.get_value()]
-            if len(value.intersection(siblings)) != 0:
-                logging.log(SVLOG, self.name + " is not a disjoint subset of " + self.parent.name + ".")
-                return False
-            if not self.parent.check_validity(self.parent.get_value()):
-                logging.log(SVLOG, self.name + "'s parent " + self.parent.name + " does not have valid value.")
-                return False
-
-        # Multiplicity
-        if (self.upper and len(value) > self.upper) or self.lower > len(value):
-            logging.log(SVLOG, self.name + " violates the multiplicity rule.")
+    # check if the new set of elements is valid for this state variable
+    def is_valid(self, new_elements) -> bool:
+        if(len(self.elements) > self.instance_scope):
             return False
-
+        if(new_elements - type(self).objects()):
+            return False
         return True
 
-    def get_value(self):
-        if self.subsigs:
-            subset = set([v for subsig in self.subsigs for v in subsig.get_value()])
-            return subset.union(self._value)
-        return self._value
-
-    # Returns None if the value intended to be set is invalid
-    def set_value(self, value):
-        if self.check_validity(value):
-            subset = set([v for subsig in self.subsigs for v in subsig.get_value()])
-            self._value = value - subset
-            return self._value
-        else:
-            return None
-
-    def set_value_no_constraints(self, value):
-        subset = set([v for subsig in self.subsigs for v in subsig.get_value()])
-        self._value = value - subset
-        return self._value
+    # returns true if successfully set the new set of elements for this state variable
+    def set_passed(self, new_elements) -> bool:
+        if(self.is_valid(new_elements)):
+            self.elements = new_elements
+            return True
+        return False
 
     def __repr__(self):
-        return f"{self.name} {self.get_value()}"
+        return f"{self.sigName} - {self.name} : {self.elements}" if self.elements else f"{self.sigName} - {self.name} : Empty"
+
+    # override "in" operator, e.g.,: other in self
+    def __contains__(self, other):
+        return  MetaSignature.Set(other) in MetaSignature.Set(self.elements)
+
+    # override "+" operator, e.g.,: self + other
+    def __add__(self, other):
+        return MetaSignature.Set(self.elements) + MetaSignature.Set(other)
+
+    # override "-" operator, e.g.,: self - other
+    def __sub__(self, other):
+        return MetaSignature.Set(self.elements) - MetaSignature.Set(other)
+
 
 # --- Signatures ---
 
-#foreach($signature in $signatures)
-${signature.Name} = Signature("${signature.Name}", "${signature.Multiplicity}", ${signature.Cardinality}, ${signature.IsSubset}, ${signature.Parents}, ${signature.IsSubsig}, ${signature.Parent}, ${signature.IsAbstract})
+#foreach($sig in $signatures)
+class ${sig.Name}(Signature):
+    # Signature (static) information
+    sig_objects = {${sig.getObjectNames()}}
+    sigName = "${sig.Name}"
+
+
+#end
 #end
 
-
-signatures = ${signaturesList}
-for sig in signatures:
-    if not sig.check_validity(sig.get_value()):
-        raise Exception("Invalid initial value for signature: " + sig.name)
-    print(sig)
-#end
-
+#if(${allEnvEvents.size()}> 0)
 # --- Active Event Tracker ---
 
 activeEvents = set()
+#end
 
+#if($concState)
 # --- Conc States ---
 #macro(generateState $concState $padding)
 ${padding}class ${concState.getName()}_State(State):
@@ -306,19 +297,22 @@ $padding        #if(${trans.getTriggerEvent()})activeEvents.add("${trans.getTrig
 
             #end
         #end
-
+    #end
 #end
 
 #foreach($concState in $concStateList)
 	#generateState($concState "")
 #end
+#if($concState)
 # --- Central Controller ---
 
 class CentralController:
 
     def __init__(self):
         self.concState = $!{rootState.getName()}_State(None, None)
-        self.possibleEvents = {#if(${allEnvEvents.size()} > 0)"${allEnvEvents.get(0).getModifiedName()}"#foreach($event in ${allEnvEvents.subList(1, ${allEncEvents.size()})}), "$!{event.getModifiedName()}"#end#end}
+        #if(${allEnvEvents.size()}> 0)
+        self.possibleEvents = {"${allEnvEvents.get(0).getModifiedName()}"#foreach($event in ${allEnvEvents.subList(1, ${allEncEvents.size()})}), "$!{event.getModifiedName()}"#end}
+        #end
     
     def run(self) -> None:
         eventName = ""
@@ -347,3 +341,4 @@ class CentralController:
 cc: CentralController = CentralController()
 cc.run()
 print("Terminating RapidDash Model")
+#end
