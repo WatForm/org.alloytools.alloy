@@ -83,7 +83,9 @@ public class DashPythonTranslation {
             if(isSubset) {
                 // subset signatures will always take objects in its "parents"
                 for (Signature otherSig : allSigs){
-                    // TODO: might want to add some non-determinism here
+                    // TODO: might want to add some non-determinism here:
+                    // since there are multiple possible sets of objects for a subset
+                    // currently, we are only filling in the subset in a "fixed" way
                     if(parentNames.contains(otherSig.name)){
                         if(otherSig.objectNames.size() < (scope - this.objectNames.size())){
                             this.objectNames.addAll(otherSig.objectNames);
@@ -114,6 +116,9 @@ public class DashPythonTranslation {
                                 this.objectNames.addAll(subsig.objectNames);
                             }
                         }else{
+                            // TODO: might want to add some non-determinism:
+                            // since there could be multiple subsigs for this signature
+                            // currently, we are only filling in the signature in a "fixed" way
                             for(Signature subsig : this.subsigs){
                                 sum_children_scope += subsig.scope;
                                 if(subsig.objectNames.size() < (scope - this.objectNames.size())){
