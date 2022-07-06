@@ -99,41 +99,17 @@ public class DashPythonTranslation {
                 // regular signatures
                 int sum_children_scope = 0;
                 if(hasChildSubsig){
-                    if(isLone){
+                    if(isLone) {
                         // assume the Alloy model is correct, then there will only be at most 1 One subsig and multiple Lone subsig
                         // if One sig exists, make this Lone sig in fact a One sig
-                        for(Signature subsig : this.subsigs){
-                            if(subsig.isOne){
+                        for (Signature subsig : this.subsigs) {
+                            if (subsig.isOne) {
                                 this.objectNames.addAll(subsig.objectNames);
                                 break;
-                            }
-                        }
-                    }else if(isOne){
-                        // assume the Alloy model is correct, then there will only be at most 1 One subsig and multiple Lone subsig
-                        // if One sig exists, use One sig
-                        for(Signature subsig : this.subsigs){
-                            if(subsig.isOne){
-                                sum_children_scope = 1;
-                                this.objectNames.addAll(subsig.objectNames);
-                                break;
-                            }
-                        }
-                        // otherwise, use Lone sig and make the lone sig in fact a One sig
-                        // TODO: might want to add some non-determinism here
-                        if(this.objectNames.isEmpty()){
-                            for(Signature subsig : this.subsigs){
-                                if(subsig.isLone){
-                                    sum_children_scope = 1;
-                                    if(subsig.scope == 0){
-                                        subsig.addObject(subsig.name + "$0");
-                                    }
-                                    this.objectNames.addAll(subsig.objectNames);
-                                    break;
-                                }
                             }
                         }
                     }else{
-                        if(isAbstract){
+                        if(isAbstract && !isLone && !isOne){
                             for(Signature subsig : this.subsigs){
                                 this.objectNames.addAll(subsig.objectNames);
                             }

@@ -280,7 +280,7 @@ public class DashPythonTranslationTest {
             new Data("SOne_One", 1, false, false, false, true,"", ""),
             // TODO: currently no non-determinism is happening when picking the subsig to put the object
             new Data("SOne_Lone_sub1", 0, false, true, false, false,"SOne_One", ""),
-            new Data("SOne_Lone_sub2", 1, false, true, false, false,"SOne_One", ""),
+            new Data("SOne_Lone_sub2", 0, false, true, false, false,"SOne_One", ""),
 
 
             new Data("SLone", 1, false, false, false, true,"", ""),
@@ -322,6 +322,7 @@ public class DashPythonTranslationTest {
         DashPythonTranslation translation = new DashPythonTranslation(dashModule);
 
         for (int index = 0; index < expectedResults.size(); index++) {
+            assertEquals(expectedResults.get(index).scope, translation.signatures.get(index).scope);
             assertEquals(expectedResults.get(index).name, translation.signatures.get(index).name);
             assertEquals(expectedResults.get(index).isSubsig, translation.signatures.get(index).isSubsig);
             assertEquals(expectedResults.get(index).isSubset, translation.signatures.get(index).isSubset);
@@ -330,7 +331,6 @@ public class DashPythonTranslationTest {
             assertEquals(expectedResults.get(index).parentName, translation.signatures.get(index).getParentName());
             assertEquals(expectedResults.get(index).parentNames, translation.signatures.get(index).getParentsName());
         }
-        CoreDashToPython.print(translation);
     }
 
     @Test
