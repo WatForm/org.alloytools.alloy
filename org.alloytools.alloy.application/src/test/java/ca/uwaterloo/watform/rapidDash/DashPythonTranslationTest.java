@@ -4,10 +4,14 @@ package ca.uwaterloo.watform.rapidDash;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import java.io.*;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 
+import ca.uwaterloo.watform.transform.CoreDashToPython;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 
 import ca.uwaterloo.watform.parser.DashModule;
@@ -17,6 +21,8 @@ import edu.mit.csail.sdg.alloy4.A4Reporter;
 
 
 public class DashPythonTranslationTest {
+    private InputStream sysInBackup;
+
     private long findStateOccurncesInTranslation(DashPythonTranslation translation, String stateName) {
         return translation.getStates().stream().filter(state -> state.getName().equals(stateName)).count();
     }
@@ -25,6 +31,17 @@ public class DashPythonTranslationTest {
         return translation.getStates().stream().filter(state -> state.getName().equals(stateName)).findAny().get();
     }
 
+    @Before
+    public void initInput(){
+        sysInBackup = System.in;
+        String userInput = new String(new char[30]).replace("\0", "3" + System.lineSeparator());
+        System.setIn(new ByteArrayInputStream(userInput.getBytes()));
+    }
+
+    @After
+    public void closeInput(){
+        System.setIn(sysInBackup);
+    }
     @Test
     public void testStates() throws Exception {
         String dashModel = "conc state concState { default state topStateA { default state innerState{}} state topStateB{}}";
@@ -117,16 +134,16 @@ public class DashPythonTranslationTest {
         assertEquals(4, translation.signatures.size());
         assertEquals(translation.signatures.get(0).name, "Floor");
         assertEquals(translation.signatures.get(0).multiplicity, "set");
-        assertEquals(translation.signatures.get(0).cardinality, 3);
+        assertEquals(translation.signatures.get(0).scope, 3);
         assertEquals(translation.signatures.get(1).name, "Chicken");
         assertEquals(translation.signatures.get(1).multiplicity, "one");
-        assertEquals(translation.signatures.get(1).cardinality, 1);
+        assertEquals(translation.signatures.get(1).scope, 1);
         assertEquals(translation.signatures.get(2).name, "SomeSig");
         assertEquals(translation.signatures.get(2).multiplicity, "some");
-        assertEquals(translation.signatures.get(2).cardinality, 3);
+        assertEquals(translation.signatures.get(2).scope, 3);
         assertEquals(translation.signatures.get(3).name, "LoneSig");
         assertEquals(translation.signatures.get(3).multiplicity, "lone");
-        assertEquals(translation.signatures.get(3).cardinality, 1);
+        assertEquals(translation.signatures.get(3).scope, 0);
     }
 
     @Test
@@ -145,24 +162,176 @@ public class DashPythonTranslationTest {
 
         assertEquals(6, translation.signatures.size());
         assertEquals(translation.signatures.get(0).name, "A");
-        assertEquals(translation.signatures.get(0).cardinality, 0);
+        assertEquals(translation.signatures.get(0).scope, 3);
         assertEquals(translation.signatures.get(1).name, "B");
         assertEquals(translation.signatures.get(1).isSubset, false);
-        assertEquals(translation.signatures.get(1).parents.size(), 0);
+        assertEquals(translation.signatures.get(1).parentNames.size(), 0);
         assertEquals(translation.signatures.get(2).name, "C");
         assertEquals(translation.signatures.get(2).isSubset, true);
-        assertEquals(translation.signatures.get(2).parents, Arrays.asList("A", "B"));
+        assertEquals(translation.signatures.get(2).parentNames, Arrays.asList("A", "B"));
         assertEquals(translation.signatures.get(3).name, "D");
         assertEquals(translation.signatures.get(3).isSubset, true);
-        assertEquals(translation.signatures.get(3).parents, Arrays.asList("C", "A"));
+        assertEquals(translation.signatures.get(3).parentNames, Arrays.asList("C", "A"));
         assertEquals(translation.signatures.get(4).name, "AA");
         assertEquals(translation.signatures.get(4).isSubsig, true);
-        assertEquals(translation.signatures.get(4).parent, "A");
+        assertEquals(translation.signatures.get(4).parentName, "A");
         assertEquals(translation.signatures.get(5).name, "AAA");
         assertEquals(translation.signatures.get(5).isSubsig, true);
-        assertEquals(translation.signatures.get(5).parent, "AA");
+        assertEquals(translation.signatures.get(5).parentName, "AA");
     }
 
+    @Test
+    public void testSignatureAttributes() throws Exception {
+        class Data{
+            public String name;
+            public int scope;
+            public boolean isSubset;
+            public boolean isSubsig;
+            public boolean isAbstract;
+            public String parentName;
+            public String parentNames;
+            public boolean hasChildSubsig;
+            public Data(String name, int scope, boolean isSubset, boolean isSubsig, boolean isAbstract, boolean hasChildSubsig, String parentName, String parentNames){
+                this.name = name;
+                this.scope = scope;
+                this.isSubset = isSubset;
+                this.isSubsig = isSubsig;
+                this.isAbstract = isAbstract;
+                this.hasChildSubsig = hasChildSubsig;
+                this.parentName = parentName;
+                this.parentNames = parentNames;
+            }
+        }
+
+        String dashModel =
+            "sig A {}\n" +
+            "sig A1 extends A {}\n" +
+            "sig A2 extends A {}\n" +
+
+            "abstract sig B {}\n" +
+            "sig B1 extends B {}\n" +
+            "sig B2 extends B {}\n" +
+
+            "sig C1 {}\n" +
+            "sig C2 {}\n" +
+            "sig C3 {}\n" +
+            "sig C in C1 + C2 + C3 {}\n" +
+
+
+            "lone sig SLone_Lone {}\n" +
+            "lone sig SLone_Lone_sub1 extends SLone_Lone {}\n" +
+            "lone sig SLone_Lone_sub2 extends SLone_Lone {}\n" +
+
+
+            "one sig SOne_One {}\n" +
+            "lone sig SOne_Lone_sub1 extends SOne_One {}\n" +
+            "lone sig SOne_Lone_sub2 extends SOne_One {}\n" +
+
+
+            "lone sig SLone {}\n" +
+
+            "lone sig SLone_Subsig_Lone extends SLone {}\n" +
+            "one sig SLone_Subsig_One extends SLone {}\n" +
+            "lone sig SLone_Subset_Lone in SLone {}\n" +
+            "one sig SLone_Subset_One in SLone {}\n" +
+            "some sig SLone_Subset_Some in SLone {}\n" +
+
+
+            "one sig SOne {}\n" +
+
+            "lone sig SOne_Subsig_Lone extends SOne {}\n" +
+            "one sig SOne_Subsig_One extends SOne {}\n" +
+            "lone sig SOne_Subset_Lone in SOne {}\n" +
+            "one sig SOne_Subset_One in SOne {}\n" +
+            "some sig SOne_Subset_Some in SOne {}\n" +
+
+
+            "some sig SSome {}\n" +
+
+            "lone sig SSome_Subsig_Lone extends SSome {}\n" +
+            "one sig SSome_Subsig_One extends SSome {}\n" +
+            "some sig SSome_Subsig_Some extends SSome {}\n" +
+            "lone sig SSome_Subset_Lone in SSome {}\n" +
+            "one sig SSome_Subset_One in SSome {}\n" +
+            "some sig SSome_Subset_Some in SSome {}\n" +
+
+
+            "abstract sig Object {}\n" +
+            "one sig Chicken, Farmer, Fox extends Object {}\n";
+
+        List<Data> expectedResults = Arrays.asList(
+            new Data("A", 3, false, false, false, true,"", ""),
+            new Data("A1", 3, false, true, false,false,"A", ""),
+            new Data("A2", 3, false, true, false,false,"A", ""),
+
+            new Data("B", 6, false, false, true, true,"", ""),
+            new Data("B1", 3, false, true, false,false,"B", ""),
+            new Data("B2", 3, false, true, false,false,"B", ""),
+
+            new Data("C1", 3, false, false, false, false,"", ""),
+            new Data("C2", 3, false, false, false, false,"", ""),
+            new Data("C3", 3, false, false, false, false,"", ""),
+            new Data("C", 3, true, false, false,false,"", "C1, C2, C3"),
+
+            new Data("SLone_Lone", 0, false, false, false, true,"", ""),
+            new Data("SLone_Lone_sub1", 0, false, true, false, false,"SLone_Lone", ""),
+            new Data("SLone_Lone_sub2", 0, false, true, false, false,"SLone_Lone", ""),
+
+            new Data("SOne_One", 1, false, false, false, true,"", ""),
+            // TODO: currently no non-determinism is happening when picking the subsig to put the object
+            new Data("SOne_Lone_sub1", 0, false, true, false, false,"SOne_One", ""),
+            new Data("SOne_Lone_sub2", 0, false, true, false, false,"SOne_One", ""),
+
+
+            new Data("SLone", 1, false, false, false, true,"", ""),
+            new Data("SLone_Subsig_Lone", 0, false, true, false,false,"SLone", ""),
+            new Data("SLone_Subsig_One", 1, false, true, false,false,"SLone", ""),
+
+            new Data("SLone_Subset_Lone", 0, true, false, false,false,"", "SLone"),
+            new Data("SLone_Subset_One", 1, true, false, false,false,"", "SLone"),
+            new Data("SLone_Subset_Some", 1, true, false, false,false,"", "SLone"),
+
+
+            new Data("SOne", 1, false, false, false, true,"", ""),
+            new Data("SOne_Subsig_Lone", 0, false, true, false,false,"SOne", ""),
+            new Data("SOne_Subsig_One", 1, false, true, false,false,"SOne", ""),
+
+            new Data("SOne_Subset_Lone", 0, true, false, false,false,"", "SOne"),
+            new Data("SOne_Subset_One", 1, true, false, false,false,"", "SOne"),
+            new Data("SOne_Subset_Some", 1, true, false, false,false,"", "SOne"),
+
+
+            new Data("SSome", 3, false, false, false, true,"", ""),
+            new Data("SSome_Subsig_Lone", 0, false, true, false,false,"SSome", ""),
+            new Data("SSome_Subsig_One", 1, false, true, false,false,"SSome", ""),
+            new Data("SSome_Subsig_Some", 3, false, true, false,false,"SSome", ""),
+
+            new Data("SSome_Subset_Lone", 0, true, false, false,false,"", "SSome"),
+            new Data("SSome_Subset_One", 1, true, false, false,false,"", "SSome"),
+            new Data("SSome_Subset_Some", 3, true, false, false,false,"", "SSome"),
+
+
+            new Data("Object", 3, false, false, true,true,"", ""),
+            new Data("Chicken", 1, false, true, false,false,"Object", ""),
+            new Data("Farmer", 1, false, true, false,false,"Object", ""),
+            new Data("Fox", 1, false, true, false,false, "Object", "")
+            );
+
+        DashModule dashModule = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
+        DashToCoreDash.transformToCoreDash(dashModule);
+        DashPythonTranslation translation = new DashPythonTranslation(dashModule);
+
+        for (int index = 0; index < expectedResults.size(); index++) {
+            assertEquals(expectedResults.get(index).scope, translation.signatures.get(index).scope);
+            assertEquals(expectedResults.get(index).name, translation.signatures.get(index).name);
+            assertEquals(expectedResults.get(index).isSubsig, translation.signatures.get(index).isSubsig);
+            assertEquals(expectedResults.get(index).isSubset, translation.signatures.get(index).isSubset);
+            assertEquals(expectedResults.get(index).isAbstract, translation.signatures.get(index).isAbstract);
+            assertEquals(expectedResults.get(index).hasChildSubsig, translation.signatures.get(index).hasChildSubsig);
+            assertEquals(expectedResults.get(index).parentName, translation.signatures.get(index).getParentName());
+            assertEquals(expectedResults.get(index).parentNames, translation.signatures.get(index).getParentsName());
+        }
+    }
 
     @Test
     public void testWhenExpr_1() throws Exception {
