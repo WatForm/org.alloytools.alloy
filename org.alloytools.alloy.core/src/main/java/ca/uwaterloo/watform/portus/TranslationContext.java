@@ -1,6 +1,7 @@
 package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.Env;
+import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.modelfind.IntegerSemantics;
@@ -17,6 +18,56 @@ import fortress.msfol.Var;
  * theory being built. Mutable, so translators can add items to the theory.
  */
 final class TranslationContext {
+
+    /**
+     * Represents the expression that an ExprVar is mapped to in "let" or a function/predicate call, as well as
+     * some metadata.
+     */
+    final class LetContext {
+        /** The expression a variable is mapped to in this "let". */
+        private final Expr expr;
+
+        /** The mapping of Alloy variable names to Fortress vars/lets at the place this "let" appears. */
+        private final Env<String, Either<Var, LetContext>> savedVarMapping;
+
+        /** The old Alloy variable name to Fortress var/let mapping when using useLetMapping(). */
+        private Env<String, Either<Var, LetContext>> oldMapping = null;
+
+        private LetContext(Expr expr, Env<String, Either<Var, LetContext>> alloyVarMapping) {
+            this.expr = expr;
+            this.savedVarMapping = alloyVarMapping;
+        }
+
+        /** Retrieve the expression mapped in this "let". */
+        public Expr getExpr() {
+            return expr;
+        }
+
+        /**
+         * Change this TranslationContext to use the old Alloy variable to Fortress var/let mapping which was in
+         * use at the time that this "let" was processed. Cannot be nested. Called {@link #resetMapping()} when done.
+         * Use this to translate {@link #getExpr()} in the correct context.
+         */
+        public void useLetMapping() {
+            if (oldMapping != null) {
+                throw new ErrorFatal("Internal Portus error: nested useLetMapping()");
+            }
+            oldMapping = TranslationContext.this.alloyVarMapping;
+            TranslationContext.this.alloyVarMapping = savedVarMapping;
+        }
+
+        /**
+         * Reset this TranslationContext to use the proper Alloy variable to Fortress var/let mapping. Must be called
+         * after {@link #useLetMapping()}.
+         */
+        public void resetMapping() {
+            if (oldMapping == null) {
+                throw new ErrorFatal("Internal Portus error: resetMapping() without useLetMapping()");
+            }
+            TranslationContext.this.alloyVarMapping = oldMapping;
+            oldMapping = null;
+        }
+    }
 
     // The Fortress options to be used for the translation.
     public final FortressOptions options;
@@ -37,7 +88,7 @@ final class TranslationContext {
     // The current lexical scope's mapping from Alloy variable labels to either
     // Fortress Vars or Alloy expressions as used in the "let x = e | ..." construct.
     // We use a single Env so these types of mappings can shadow each other.
-    private final Env<String, Either<Var, Expr>> alloyVarMapping;
+    private Env<String, Either<Var, LetContext>> alloyVarMapping;
 
     public TranslationContext(FortressOptions options, ScopeComputer scoper) {
         this.options = options;
@@ -127,7 +178,7 @@ final class TranslationContext {
      * of the scope with {@link #removeMapping(String)}.
      */
     public void addLetMapping(String alloyVarName, Expr boundExpr) {
-        alloyVarMapping.put(alloyVarName, Either.asSecond(boundExpr));
+        alloyVarMapping.put(alloyVarName, Either.asSecond(new LetContext(boundExpr, alloyVarMapping.dup())));
     }
 
     /**
@@ -142,7 +193,7 @@ final class TranslationContext {
      * Get the bound expression associated with an Alloy variable name in the
      * current lexical scope. Return null if there's no such expression bound.
      */
-    public Expr getLetMapping(String alloyVarName) {
+    public LetContext getLetMapping(String alloyVarName) {
         if (hasLetMapping(alloyVarName)) {
             return alloyVarMapping.get(alloyVarName).getSecond();
         }

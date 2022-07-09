@@ -821,11 +821,14 @@ final class DefaultTranslator extends AbstractTranslator {
         Term condition = varsAndCond.b;
 
         // Process subformula - Fortress vars were added to the lexical scope in translateDeclList()
-        Term sub = recursivelyTranslate(expr.sub, context);
-
-        // Remove the vars from the lexical scope since it's done
-        for (String alloyVarName : namesToVars.keySet()) {
-            context.removeMapping(alloyVarName);
+        Term sub;
+        try {
+            sub = recursivelyTranslate(expr.sub, context);
+        } finally {
+            // Remove the vars from the lexical scope since it's done (always, even if there's an exception)
+            for (String alloyVarName : namesToVars.keySet()) {
+                context.removeMapping(alloyVarName);
+            }
         }
 
         // Process the formula itself - see KT figure 4.6
@@ -962,12 +965,14 @@ final class DefaultTranslator extends AbstractTranslator {
         }
 
         // Map [[f(y1,...,yn)]]
-        conjuncts.add(recursivelyTranslate(expr.sub, context));
-
-        // Unmap all the yi's
-        for (Pair<Var, Pair<Decl, ExprHasName>> varAndDecl : varsAndDecls) {
-            ExprHasName name = varAndDecl.b.b;
-            context.removeMapping(name.label);
+        try {
+            conjuncts.add(recursivelyTranslate(expr.sub, context));
+        } finally {
+            // Unmap all the yi's (and do it even if there's an exception)
+            for (Pair<Var, Pair<Decl, ExprHasName>> varAndDecl : varsAndDecls) {
+                ExprHasName name = varAndDecl.b.b;
+                context.removeMapping(name.label);
+            }
         }
 
         return Term.mkAnd(conjuncts);
@@ -978,8 +983,12 @@ final class DefaultTranslator extends AbstractTranslator {
     public Term translate(ExprLet let, TranslationContext context) {
         // Bind the variable in the context, translate the subformula, and remove the variable.
         context.addLetMapping(let.var.label, let.expr);
-        Term result = recursivelyTranslate(let.sub, context);
-        context.removeMapping(let.var.label);
+        Term result;
+        try {
+            result = recursivelyTranslate(let.sub, context);
+        } finally { // ensure we always remove the mapping even if there's an exception
+            context.removeMapping(let.var.label);
+        }
         return result;
     }
 
@@ -988,9 +997,18 @@ final class DefaultTranslator extends AbstractTranslator {
     public Term translate(ConstList<Var> tuple, ExprVar expr, TranslationContext context) {
         // Check if it's mapped to a let-expression - if so, use that instead
         if (context.hasLetMapping(expr.label)) {
-            @SuppressWarnings("ConstantConditions") // IntelliJ gives a false positive nullable warning
-            Expr mapped = ExprElementOf.make(tuple, context.getLetMapping(expr.label));
-            return recursivelyTranslate(mapped, context);
+            TranslationContext.LetContext letContext = context.getLetMapping(expr.label);
+            assert letContext != null;
+
+            // Ensure we use the variable mappings from the let expression's location;
+            // this avoids e.g. infinite recursion on "let a = a"
+            letContext.useLetMapping();
+            try {
+                Expr mapped = ExprElementOf.make(tuple, letContext.getExpr());
+                return recursivelyTranslate(mapped, context);
+            } finally {
+                letContext.resetMapping();
+            }
         }
 
         // KT figure 4.12: [[x \in v]] := x = v
@@ -1005,7 +1023,14 @@ final class DefaultTranslator extends AbstractTranslator {
     public Term translate(ExprVar expr, TranslationContext context) {
         // Check if it's mapped to a let-expression - if so, use that instead
         if (context.hasLetMapping(expr.label)) {
-            return recursivelyTranslate(context.getLetMapping(expr.label), context);
+            TranslationContext.LetContext letContext = context.getLetMapping(expr.label);
+            assert letContext != null;
+            letContext.useLetMapping();
+            try {
+                return recursivelyTranslate(letContext.getExpr(), context);
+            } finally {
+                letContext.resetMapping();
+            }
         }
         return checkAndMapVarName(expr.label, context);
     }
@@ -1080,13 +1105,17 @@ final class DefaultTranslator extends AbstractTranslator {
             context.addLetMapping(param.label, arg);
         }
 
-        Term result = recursivelyTranslate(body, context);
-
-        // Remove all the parameters from the context.
-        for (int i = 0; i < call.fun.count(); i++) {
-            ExprVar param = call.fun.get(i);
-            context.removeMapping(param.label);
+        Term result;
+        try {
+            result = recursivelyTranslate(body, context);
+        } finally {
+            // Remove all the parameters from the context (and do it even if there's an exception).
+            for (int i = 0; i < call.fun.count(); i++) {
+                ExprVar param = call.fun.get(i);
+                context.removeMapping(param.label);
+            }
         }
+
         return result;
     }
 

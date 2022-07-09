@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
@@ -145,8 +146,13 @@ public class DefaultTranslatorTest {
     }
 
     // Assert that nothing has been added to the context (except the universal sort).
+    private void assertContextEmpty(TranslationContext testContext) {
+        assertThat(testContext.getTheory(), is(Theory.empty().withSort(testContext.univSort)));
+    }
+
+    // Convenience: do it on the global test context
     private void assertContextEmpty() {
-        assertThat(context.getTheory(), is(Theory.empty().withSort(context.univSort)));
+        assertContextEmpty(context);
     }
 
     @Test
@@ -2278,12 +2284,20 @@ public class DefaultTranslatorTest {
         ExprVar x = makeTestVariable("x");
         ExprVar f = makeTestVariable("f");
 
-        // make sure the argument is e
+        // make sure the argument is e and the context was saved
         Var flag = makeFlagConstant("flag");
         when(mockRoot.translate(eq(f), any())).then(ctx -> {
             TranslationContext context = ctx.getArgument(1);
             assertTrue(context.hasLetMapping("x"));
-            assertEquals(e, context.getLetMapping("x"));
+            TranslationContext.LetContext letContext = context.getLetMapping("x");
+            assertNotNull(letContext);
+            assertEquals(e, letContext.getExpr());
+
+            // make sure we saved the correct context (should be empty)
+            letContext.useLetMapping();
+            assertContextEmpty(context);
+            letContext.resetMapping();
+
             return flag;
         });
 
@@ -2294,6 +2308,46 @@ public class DefaultTranslatorTest {
         assertContextEmpty();
         assertFalse(context.hasLetMapping("x"));
         assertFalse(context.hasVarMapping("x"));
+    }
+
+    @Test
+    public void testTranslate_let_recursion() {
+        // test [[let x = x | f]] := [[f]] (and there's no infinite recursion)
+        ExprVar x = makeTestVariable("x");
+        ExprVar f = makeTestVariable("f");
+
+        delegateToRealTranslator();
+        Var flagF = makeFlagConstant("flag");
+        doReturn(flagF).when(mockRoot).translate(eq(f), any());
+
+        Term result = translator.translate(ExprLet.make(null, x, x, f), context);
+        assertEquals(flagF, result);
+        assertContextEmpty();
+        assertFalse(context.hasLetMapping("x"));
+        assertFalse(context.hasVarMapping("x"));
+    }
+
+    @Test
+    public void testTranslate_let_nested() {
+        // test [[let a = e | let e = x | a]] := [[e]], not [[x]]
+        // this tests that context is saved/restored correctly
+        ExprVar a = makeTestVariable("a");
+        ExprVar e = makeTestVariable("e");
+        ExprVar x = makeTestVariable("x");
+
+        Var fortressE = Term.mkVar("e");
+        context.addVarMapping("e", fortressE);
+        delegateToRealTranslator();
+
+        Term result = translator.translate(ExprLet.make(null, a, e, ExprLet.make(null, e, x, a)), context);
+        assertEquals(fortressE, result);
+
+        // make sure things are flushed from the context's mapping
+        assertContextEmpty();
+        assertFalse(context.hasLetMapping("a"));
+        assertFalse(context.hasVarMapping("a"));
+        assertTrue(context.hasVarMapping("e"));
+        assertEquals(fortressE, context.getVarMapping("e"));
     }
 
     @Test
@@ -2357,7 +2411,7 @@ public class DefaultTranslatorTest {
         when(mockRoot.translate(eq(f), any())).then(ctx -> {
             TranslationContext context = ctx.getArgument(1);
             assertTrue(context.hasLetMapping("x"));
-            assertEquals(y, context.getLetMapping("x"));
+            assertEquals(y, Objects.requireNonNull(context.getLetMapping("x")).getExpr());
             return flag;
         });
 
@@ -2387,8 +2441,8 @@ public class DefaultTranslatorTest {
             TranslationContext context = ctx.getArgument(1);
             assertTrue(context.hasLetMapping("x1"));
             assertTrue(context.hasLetMapping("x2"));
-            assertEquals(y1, context.getLetMapping("x1"));
-            assertEquals(y2, context.getLetMapping("x2"));
+            assertEquals(y1, Objects.requireNonNull(context.getLetMapping("x1")).getExpr());
+            assertEquals(y2, Objects.requireNonNull(context.getLetMapping("x2")).getExpr());
             return flag;
         });
 
@@ -2437,7 +2491,7 @@ public class DefaultTranslatorTest {
         when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(vars, f))), any())).then(ctx -> {
             TranslationContext context = ctx.getArgument(1);
             assertTrue(context.hasLetMapping("x"));
-            assertEquals(y, context.getLetMapping("x"));
+            assertEquals(y, Objects.requireNonNull(context.getLetMapping("x")).getExpr());
             return flag;
         });
 
@@ -2469,8 +2523,8 @@ public class DefaultTranslatorTest {
             TranslationContext context = ctx.getArgument(1);
             assertTrue(context.hasLetMapping("x1"));
             assertTrue(context.hasLetMapping("x2"));
-            assertEquals(y1, context.getLetMapping("x1"));
-            assertEquals(y2, context.getLetMapping("x2"));
+            assertEquals(y1, Objects.requireNonNull(context.getLetMapping("x1")).getExpr());
+            assertEquals(y2, Objects.requireNonNull(context.getLetMapping("x2")).getExpr());
             return flag;
         });
 
