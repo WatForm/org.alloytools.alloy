@@ -1,0 +1,104 @@
+package ca.uwaterloo.watform.portus;
+
+import edu.mit.csail.sdg.ast.Sig;
+import edu.mit.csail.sdg.translator.A4TupleSet;
+import edu.mit.csail.sdg.translator.ScopeComputer;
+import fortress.interpretation.BasicInterpretation;
+import fortress.interpretation.Interpretation;
+import fortress.msfol.AnnotatedVar;
+import fortress.msfol.DomainElement;
+import fortress.msfol.FuncDecl;
+import fortress.msfol.Sort;
+import fortress.msfol.Value;
+import org.junit.Before;
+import org.junit.Test;
+import scala.collection.immutable.Seq;
+import scala.jdk.javaapi.CollectionConverters;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.instanceOf;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.mock;
+
+public class FortressSolutionTest {
+
+    private static final int NUM_ELEMS = 3;
+
+    private FortressSolution solution;
+
+    private <A, B> scala.collection.immutable.Map<A, B> toScalaMap(Map<A, B> map) {
+        //noinspection unchecked - IntelliJ doesn't like Scala interop
+        return scala.collection.immutable.Map.from(CollectionConverters.asScala(map));
+    }
+
+    @Before
+    public void setUp() {
+        ScopeComputer mockScoper = mock(ScopeComputer.class);
+        TranslationContext context = new TranslationContext(new FortressOptions(), mockScoper);
+
+        Map<Sort, Seq<Value>> sorts = new HashMap<>();
+        List<Value> elems = new ArrayList<>();
+        for (int i = 1; i <= NUM_ELEMS; i++) {
+            elems.add(DomainElement.apply(i, context.univSort));
+        }
+        sorts.put(context.univSort, CollectionConverters.asScala(elems).toSeq());
+        Map<AnnotatedVar, Value> constants = new HashMap<>();
+        Map<FuncDecl, scala.collection.immutable.Map<Seq<Value>, Value>> functions = new HashMap<>();
+        Interpretation interpretation = new BasicInterpretation(
+                this.<Sort, Seq<Value>>toScalaMap(sorts),
+                this.<AnnotatedVar, Value>toScalaMap(constants),
+                this.<FuncDecl, scala.collection.immutable.Map<Seq<Value>, Value>>toScalaMap(functions));
+
+        solution = new FortressSolution(
+                interpretation, new TranslatorManager(context.options), context,
+                Collections.singletonList(Sig.UNIV), "", "");
+    }
+
+    @Test
+    public void testEval_sig() {
+        // the atoms won't be distinguishable, so check their size + arity
+        A4TupleSet tupleSet = solution.eval(Sig.UNIV);
+        assertEquals(1, tupleSet.arity());
+        assertEquals(NUM_ELEMS, tupleSet.size());
+    }
+
+    @Test
+    public void testEval_sigXsig() {
+        Object result = solution.eval(Sig.UNIV.product(Sig.UNIV));
+        assertThat(result, instanceOf(A4TupleSet.class));
+        A4TupleSet tupleSet = (A4TupleSet) result;
+        assertEquals(2, tupleSet.arity());
+        assertEquals(NUM_ELEMS * NUM_ELEMS, tupleSet.size());
+    }
+
+    @Test
+    public void testEval_trueFormula() {
+        Object result = solution.eval(Sig.UNIV.in(Sig.UNIV));
+        assertThat(result, instanceOf(Boolean.class));
+        assertTrue((boolean) result);
+    }
+
+    @Test
+    public void testEval_falseFormula() {
+        Object result = solution.eval(Sig.UNIV.no());
+        assertThat(result, instanceOf(Boolean.class));
+        assertFalse((boolean) result);
+    }
+
+    @Test
+    public void testEval_twiceSameUniverse() {
+        // Alloy requires that the universe is consistent, otherwise it fails with a cryptic error
+        A4TupleSet tupleSet1 = solution.eval(Sig.UNIV);
+        A4TupleSet tupleSet2 = solution.eval(Sig.UNIV);
+        assertEquals(tupleSet1.debugGetKodkodTupleset().universe(), tupleSet2.debugGetKodkodTupleset().universe());
+    }
+
+}

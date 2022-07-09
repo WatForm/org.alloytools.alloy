@@ -60,7 +60,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.mockito.hamcrest.MockitoHamcrest.argThat;
 
-public class TestDefaultTranslator {
+public class DefaultTranslatorTest {
 
     private Translator mockRoot;
     private Translator translator;

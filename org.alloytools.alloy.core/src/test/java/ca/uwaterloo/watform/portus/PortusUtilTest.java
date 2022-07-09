@@ -90,7 +90,6 @@ public class PortusUtilTest {
 
     @Test
     public void testIsDeclarationFormula_false_null() {
-        //noinspection ConstantConditions
         assertFalse(PortusUtil.isDeclarationFormula(null));
     }
 
