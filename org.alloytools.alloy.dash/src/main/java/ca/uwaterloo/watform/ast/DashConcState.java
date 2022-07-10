@@ -15,11 +15,14 @@ public class DashConcState {
     public String                  name         = "";
     public String                  modifiedName = "";
     public DashConcState           parent;
+    public DashState			   parentState;
+    public Object				   actualParent;
     public Boolean				   isParameterized = false;
 
     public List<DashConcState>     concStates   = new ArrayList<DashConcState>();
     public List<DashState>         states       = new ArrayList<DashState>();
     public String                  param        = new String();
+    public List<String>     	   IEs   		= new ArrayList<String>();
     public List<DashBuffer>        buffers      = new ArrayList<DashBuffer>();
     public List<DashTrans>         transitions  = new ArrayList<DashTrans>();
     public List<DashTemplateCall>  templateCall = new ArrayList<DashTemplateCall>();
@@ -74,6 +77,8 @@ public class DashConcState {
         	this.param = param.toString();
         	this.isParameterized = true;
         }
+        
+        this.IEs = new ArrayList<String>();
     }
 
 	public DashConcState(DashConcState concState) {
@@ -93,6 +98,7 @@ public class DashConcState {
 		this.action = concState.action;
 		this.condition = concState.condition;
 		this.buffers = concState.buffers;
+		this.IEs = concState.IEs;
 		this.isParameterized = concState.isParameterized;
 	}
 }

@@ -13,12 +13,13 @@ public class DashState {
     public String          modifiedName = "";
     public Object          parent       = null;
 
-    public List<DashState> states       = new ArrayList<DashState>();
-    public List<DashEnter> enter       = new ArrayList<DashEnter>();
-    public List<DashExit>  exit       = new ArrayList<DashExit>();
-    public List<DashTrans> transitions  = new ArrayList<DashTrans>();
-    public List<DashTrans> modifiedTransitions  = new ArrayList<DashTrans>(); 
-    public Boolean         isDefault;  //Specifies whether this state is a default state
+    public List<DashState> 		states       	    = new ArrayList<DashState>();
+    public List<DashConcState>  concStates          = new ArrayList<DashConcState>();
+    public List<DashEnter>		enter      			= new ArrayList<DashEnter>();
+    public List<DashExit>  		exit       			= new ArrayList<DashExit>();
+    public List<DashTrans> 		transitions  		= new ArrayList<DashTrans>();
+    public List<DashTrans> 		modifiedTransitions = new ArrayList<DashTrans>(); 
+    public Boolean         		isDefault;  		//Specifies whether this state is a default state
 
 
     /*
@@ -35,6 +36,8 @@ public class DashState {
             for (Object item : stateItems) {
                 if (item instanceof DashState)
                     this.states.add((DashState) item);
+                if (item instanceof DashConcState)
+                    this.concStates.add((DashConcState) item);
                 if (item instanceof DashTrans)
                     this.transitions.add((DashTrans) item);
                 if (item instanceof DashEnter) 
@@ -57,6 +60,7 @@ public class DashState {
         state.modifiedName = this.modifiedName;
         state.parent = this.parent;            
         state.states = this.states;
+        state.concStates = this.concStates;
         state.enter = this.enter;
         state.exit = this.exit;
         state.transitions = this.transitions;

@@ -106,8 +106,6 @@ public class DashModuleToString {
 	    		out.print("}").brk();
 			} else {
 				out.print(" in ");
-				
-				System.out.println("Sig: " + sig.label + " Field Size: " + sig.getFields().size());
 	    		if(sig.getFields().size() > 0) { 
 	                for(Field f: sig.getFields()) {
 	                    printExpr(f.decl().expr, out);
@@ -123,14 +121,22 @@ public class DashModuleToString {
     	for(ArrayList<Func> funcs: module.funcs.values()) {
 			for (Func func : funcs) {
 				printComments(module, func.label, out);
-				out.print("pred " + cleanLabel(func.label));
-
+				if (func.isPred)
+					out.print("pred " + cleanLabel(func.label));
+				else
+					out.print("fun " + cleanLabel(func.label));
+					
 				if (func.decls.size() > 0)
 					out.print("[").beginCInd();
 				printDecls(func.decls, out);
 				if (func.decls.size() > 0)
 					out.end().print("]");
-
+				
+				if (!func.isPred) {
+					out.print(" : ");
+					printExpr(func.returnDecl, out);
+				}
+				
 				out.print("{").beginCInd().brk();
 				printExpr(func.getBody(), out);
 				out.brk(1,-indent).end().print("}").brk().brk();

@@ -3,7 +3,9 @@ package ca.uwaterloo.watform.transform;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import ca.uwaterloo.watform.ast.DashAction;
 import ca.uwaterloo.watform.ast.DashConcState;
@@ -36,6 +38,7 @@ public class DashToCoreDash {
         getAllTransitions(module);
         modifyTransitions(module);
         modifyGoToCommands(module);   
+        modifyFromCommands(module);
         modifyTransitionParent(module); 
         return module;
     }
@@ -55,8 +58,7 @@ public class DashToCoreDash {
      * CoreDash to Alloy AST conversion. Then add this transition to the list of transitions for that state */
     static void modifyTransitionParent(DashModule module) {
         for (DashTrans trans : module.transitions.values()) {
-        	DashState sourceState = getStateFromName(trans.fromExpr.fromExpr.get(0).replace("/", "_"), module);
-       	
+        	DashState sourceState = getState(trans.fromExpr.fromExpr.get(0).replace("/", "_"), module); 	
         	if(sourceState != null) {
         		trans.parentState = sourceState;
         		
@@ -72,27 +74,117 @@ public class DashToCoreDash {
      * then that transition will need to transition to the default inner OR state */
     static void modifyGoToCommands(DashModule module) {
         for (DashTrans trans : module.transitions.values()) {
-        	DashState destinationState = getStateFromName(trans.gotoExpr.gotoExpr.get(0), module);
-        	
+        	DashState destinationState = getState(trans.gotoExpr.gotoExpr.get(0).replace("/", "_"), module);
         	String defaultInnerState = "";
         	/* destState is null if the destination state is a concurrent state (it has no OR states) */
-        	if(destinationState != null) {
-        		defaultInnerState = getDefaultState(trans, destinationState);
+        	if(destinationState != null && destinationState.concStates.size() == 0) {
+        		defaultInnerState = getDefaultState(destinationState);
+        		trans.gotoExpr.gotoConcState = getParentConcState(destinationState);
         		trans.gotoExpr = trans.gotoExpr.param == null ? new DashGoto(new ArrayList<String>(Arrays.asList(defaultInnerState))) : new DashGoto(null, new ArrayList<String>(Arrays.asList(defaultInnerState)), trans.gotoExpr.param);
-        	}     	
-       
+        	}
+        	else if (destinationState != null && destinationState.concStates.size() > 0) {
+        		Map<String, DashConcState> defaultStates = new LinkedHashMap<String, DashConcState>();
+        		for (DashConcState innerConcState: destinationState.concStates) {
+        			Map<String, DashConcState> defaultState = new LinkedHashMap<String, DashConcState>(getDefaultStates(innerConcState, module, new LinkedHashMap<String, DashConcState>()));
+        			for (String key: defaultState.keySet()) {
+        				defaultStates.put(key, defaultState.get(key));
+        			}
+        		}
+    			trans.gotoExpr.gotoExprs = new LinkedHashMap<String, DashConcState>(defaultStates);
+    			trans.gotoExpr.enteringDefaultStates = true;
+        	}   
+        }
+    }
+    
+    /* Check if leave a state will result in other concurrent states leaving their current state */
+    static void modifyFromCommands(DashModule module) {
+        for (DashTrans trans : module.transitions.values()) {
+        	DashState fromState = getState(trans.fromExpr.fromExpr.get(0).replace("/", "_"), module);
+        	DashState gotoState = getState(trans.gotoExpr.gotoExpr.get(0).replace("/", "_"), module);
+        	DashConcState fromParent = getParentConcState(fromState);
+        	DashConcState gotoParent = getParentConcState(gotoState);
+        	if (fromParent.modifiedName.equals(gotoParent.modifiedName)) {
+        		return;
+        	}
+        	while (fromParent.parent != null) {
+        		if (fromParent.parent.modifiedName.equals(gotoParent.modifiedName)) {
+        			trans.fromExpr.leavingMultipleStates = true;
+        			break;
+        		}
+        		fromParent = fromParent.parent;
+        	}
+        	
+        	if (trans.fromExpr.leavingMultipleStates) {
+        		Map<String, DashConcState> defaultStates = new LinkedHashMap<String, DashConcState>(getDefaultStates(fromParent, module));
+        		trans.fromExpr.fromExprs = new LinkedHashMap<String, DashConcState>(defaultStates);
+        		trans.fromExpr.concStateBeingExited = fromParent;
+        	}
         }
     }
      
     //Check to see if a state that we are transitioning to has an inner default state,
     //if it does, then the transition will need to transition to that state instead
-    static String getDefaultState(DashTrans trans, DashState state) { 
+    static String getDefaultState(DashState state) { 
     	for(DashState innerState: state.states) {
     		if(innerState.isDefault)
-    			return getDefaultState(trans, innerState);
+    			return getDefaultState(innerState);
     	}
 
         return state.modifiedName;
+    }
+    
+    //Check to see if a state that we are transitioning to has an inner default state,
+    //if it does, then the transition will need to transition to that state instead
+    static String getDefaultState(DashConcState state) { 
+    	for(DashState innerState: state.states) {
+    		if(innerState.isDefault)
+    			return getDefaultState(innerState);
+    	}
+
+        return state.modifiedName;
+    }
+
+    //Check to see if a state that we are transitioning to has an inner default state,
+    //if it does, then the transition will need to transition to that state instead
+    static Map<String, DashConcState> getDefaultStates(DashConcState concState, DashModule module) {
+    	Map<String, DashConcState> defaultStates = new LinkedHashMap<String, DashConcState>();
+    	for (DashConcState innerConcState: concState.concStates) {
+    		while (innerConcState.concStates.size() > 0) {
+    			innerConcState = innerConcState.parent;
+    		}
+    		DashState defaultState = getState(getDefaultState(innerConcState), module);
+    		if ((defaultState != null) && (defaultState.concStates.size() == 0)) {
+    			defaultStates.put(defaultState.modifiedName, innerConcState);
+    		}
+    	}
+    	for(DashState innerState: concState.states) {
+    		if(innerState.isDefault && innerState.concStates.size() == 0) {
+    			defaultStates.put(innerState.modifiedName, concState);
+    		}
+    	}
+
+        return defaultStates;
+    }
+    
+    //Check to see if a state that we are transitioning to has an inner default state,
+    //if it does, then the transition will need to transition to that state instead
+    static Map<String, DashConcState> getDefaultStates(DashConcState concState, DashModule module, Map<String, DashConcState> defaultStates) {
+    	for (DashConcState innerConcState: concState.concStates) {
+    		getDefaultStates(innerConcState, module, defaultStates);
+    	}
+    	for (DashState state: concState.states) {
+    		if (state.isDefault) {
+    			if (state.concStates.size() == 0) {
+	    			defaultStates.put(state.modifiedName, concState);
+    			}
+    			
+    			for (DashConcState innerConcState: state.concStates) {
+    				getDefaultStates(innerConcState, module, defaultStates);
+    			}
+    		}
+    	}
+
+        return defaultStates;
     }
 
     /* Fetch all the transitions in the model */
@@ -453,15 +545,6 @@ public class DashToCoreDash {
             //If we do not have a goto command, it should be equal to the origin of the transition
             completedGoToCommands.add(trans.fromExpr.fromExpr.get(0));
         }
-        
-        if (trans.gotoExpr != null) {
-        	if (trans.gotoExpr.param == null) {
-        		System.out.println("Trans: " + trans.modifiedName + " has no param");
-        	}
-        	else {
-        	System.out.println("Trans: " + trans.modifiedName + " Goto Param: " + trans.gotoExpr.param);
-        	}
-        }
  
         return trans.gotoExpr == null ? new DashGoto(null, completedGoToCommands, null) : new DashGoto(trans.gotoExpr.pos, completedGoToCommands, trans.gotoExpr.param);
     }
@@ -546,15 +629,11 @@ public class DashToCoreDash {
         if (parent instanceof DashState)
             return ((DashState) parent).parent;
         if (parent instanceof DashConcState)
-            return ((DashConcState) parent).parent;
+            return ((DashConcState) parent).actualParent;
         return null;
     }
     
-    static DashState getStateFromName(String stateName, DashModule module) {
-    	for(DashState state: module.states.values()) {
-    		if(state.modifiedName.equals(stateName))
-    			return state;
-    	}
-    	return null;
+    static DashState getState(String stateName, DashModule module) {
+    	return module.states.get(stateName);
     }
 }

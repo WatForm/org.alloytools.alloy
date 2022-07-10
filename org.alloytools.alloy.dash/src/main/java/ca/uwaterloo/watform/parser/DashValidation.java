@@ -89,7 +89,7 @@ public class DashValidation {
      * validation purposes. This is accessed by Alloy.cup when parsing a signature.
      */
     static List<String>                    sigRelations               = new ArrayList<String>();
-    static List<Decl>                    sigDecls               	  = new ArrayList<Decl>(); // Used by the Dash.cup file to store all the Signature relations.
+    static List<Decl>                      sigDecls               	  = new ArrayList<Decl>(); // Used by the Dash.cup file to store all the Signature relations.
 
     /*
      * A list of all the func and pred names in the DASH model. This is used for
@@ -116,12 +116,22 @@ public class DashValidation {
      * purposes.
      */
     public static Map<String,List<String>> eventNames             = new LinkedHashMap<String,List<String>>();
+    
+    /*
+     * A list of all the vars within the scope of a concState
+     */
+    public static Map<String,List<String>> concState2Vars             = new LinkedHashMap<String,List<String>>();
 
     /*
      * A list of all the event names in the DASH model. This is used for validation
      * purposes. This is accessed by Alloy.cup when parsing an event.
      */
     public static Map<String,List<String>> transitionNames        = new LinkedHashMap<String,List<String>>();
+    
+    /*
+     * A list of the parameters that have been declared for replicated components.
+     */
+    public static List<String> paramNames        = new ArrayList<String>();
 
 
     /*
@@ -143,7 +153,9 @@ public class DashValidation {
      */
     public static Map<String,List<Expr>>   expressions            = new LinkedHashMap<String,List<Expr>>();
 
-    static List<String>                    keywords               = Arrays.asList("none", "no", "one", "some", "all");
+    static List<String>                    keywords               = Arrays.asList("none", "no", "one", "some", "all", "this");
+    
+    static DashModule						module;
 
     /*
      * Make sure that transitions declared are legal. An illegal transition would be
@@ -209,32 +221,32 @@ public class DashValidation {
                 ExprList exprList = (ExprList) parentExprUnary.sub;
                 for (Expr expression : exprList.args) {
                     quantifierVars.clear(); //Clearly out previously stored quantified variables
-                    getVarFromParentExpr(expression);
+                    getVarFromParentExpr(expression, concState);
                 }
             } else { //We only have on expression as opposed to multiple ones
                 quantifierVars.clear();
-                getVarFromParentExpr(expr);
+                getVarFromParentExpr(expr, concState);
             }
         }
     }
 
-    private static String getVarFromParentExpr(Object parentExpr) {
+    private static String getVarFromParentExpr(Object parentExpr, DashConcState concState) {
         if (parentExpr instanceof ExprBinary) {
             ExprBinary exprBinary = (ExprBinary) parentExpr;
-            getVarFromBinary(exprBinary);
+            getVarFromBinary(exprBinary, concState);
         }
 
         if (parentExpr instanceof ExprUnary) {
             ExprUnary unary = (ExprUnary) parentExpr;
-            getVarFromUnary(unary);
+            getVarFromUnary(unary, concState);
         }
 
         if (parentExpr instanceof ExprQt) {
-            getVarFromExprQt((ExprQt) parentExpr);
+            getVarFromExprQt((ExprQt) parentExpr, concState);
         }
 
         if (parentExpr instanceof ExprVar) {
-            checkIfVarValid((ExprVar) parentExpr);
+            checkIfVarValid((ExprVar) parentExpr, concState);
         }
 
         return null;
@@ -244,41 +256,41 @@ public class DashValidation {
      * Breakdown a binary expression into its subcomponents Example of a binary
      * expression: #varible1 = #variable2
      */
-    private static String getVarFromBinary(ExprBinary binary) {
+    private static String getVarFromBinary(ExprBinary binary, DashConcState concState) {
         if (binary.left instanceof ExprUnary) {
             ExprUnary unary = (ExprUnary) binary.left;
-            getVarFromUnary(unary);
+            getVarFromUnary(unary, concState);
             //return getVarFromUnary(unary);
         }
 
         if (binary.left instanceof ExprVar) {
-            checkIfVarValid((ExprVar) binary.left);
+            checkIfVarValid((ExprVar) binary.left, concState);
         }
 
         if (binary.left instanceof ExprBinary) {
-            getVarFromBinary((ExprBinary) binary.left);
+            getVarFromBinary((ExprBinary) binary.left, concState);
         }
 
         if (binary.left instanceof ExprBadJoin) {
-            getVarFromBadJoin((ExprBadJoin) binary.left);
+            getVarFromBadJoin((ExprBadJoin) binary.left, concState);
         }
 
         if (binary.right instanceof ExprUnary) {
             ExprUnary unary = (ExprUnary) binary.right;
-            getVarFromUnary(unary);
+            getVarFromUnary(unary, concState);
             //return getVarFromUnary(unary);
         }
 
         if (binary.right instanceof ExprVar) {
-            checkIfVarValid((ExprVar) binary.right);
+            checkIfVarValid((ExprVar) binary.right, concState);
         }
 
         if (binary.right instanceof ExprBinary) {
-            getVarFromBinary((ExprBinary) binary.right);
+            getVarFromBinary((ExprBinary) binary.right, concState);
         }
 
         if (binary.right instanceof ExprBadJoin) {
-            getVarFromBadJoin((ExprBadJoin) binary.right);
+            getVarFromBadJoin((ExprBadJoin) binary.right, concState);
         }
         return null;
     }
@@ -287,40 +299,40 @@ public class DashValidation {
      * Breakdown a unary expression into its subcomponents Example of an unary
      * expression: one varible
      */
-    private static String getVarFromUnary(ExprUnary unary) {
+    private static String getVarFromUnary(ExprUnary unary, DashConcState concState) {
         if (unary.sub instanceof ExprVar) {
-            checkIfVarValid((ExprVar) unary.sub);
+            checkIfVarValid((ExprVar) unary.sub, concState);
         }
         if (unary.sub instanceof ExprUnary) {
-            getVarFromUnary((ExprUnary) unary.sub);
+            getVarFromUnary((ExprUnary) unary.sub, concState);
         }
         if (unary.sub instanceof ExprBadJoin) {
-            getVarFromBadJoin((ExprBadJoin) unary.sub);
+            getVarFromBadJoin((ExprBadJoin) unary.sub, concState);
         }
         if (unary.sub instanceof ExprBinary) {
-            getVarFromBinary((ExprBinary) unary.sub);
+            getVarFromBinary((ExprBinary) unary.sub, concState);
         }
         return null;
     }
 
-    private static String getVarFromBadJoin(ExprBadJoin joinExpr) {
+    private static String getVarFromBadJoin(ExprBadJoin joinExpr, DashConcState concState) {
         if (joinExpr.left instanceof ExprVar) {
-            checkIfVarValid((ExprVar) joinExpr.left);
+            checkIfVarValid((ExprVar) joinExpr.left, concState);
         }
         if (joinExpr.left instanceof ExprUnary) {
-            getVarFromUnary((ExprUnary) joinExpr.left);
+            getVarFromUnary((ExprUnary) joinExpr.left, concState);
         }
         if (joinExpr.left instanceof ExprBadJoin) {
-            getVarFromBadJoin((ExprBadJoin) joinExpr.left);
+            getVarFromBadJoin((ExprBadJoin) joinExpr.left, concState);
         }
         if (joinExpr.right instanceof ExprVar) {
-            checkIfVarValid((ExprVar) joinExpr.right);
+            checkIfVarValid((ExprVar) joinExpr.right, concState);
         }
         if (joinExpr.right instanceof ExprUnary) {
-            getVarFromUnary((ExprUnary) joinExpr.right);
+            getVarFromUnary((ExprUnary) joinExpr.right, concState);
         }
         if (joinExpr.right instanceof ExprBadJoin) {
-            getVarFromBadJoin((ExprBadJoin) joinExpr.right);
+            getVarFromBadJoin((ExprBadJoin) joinExpr.right, concState);
         }
         return null;
     }
@@ -328,22 +340,22 @@ public class DashValidation {
     /*
      * Breakdown a quantified expression into its subcomponents
      */
-    private static String getVarFromExprQt(ExprQt exprQt) {
-        getDeclsFromExprQT(exprQt);
+    private static String getVarFromExprQt(ExprQt exprQt, DashConcState concState) {
+        getDeclsFromExprQT(exprQt, concState);
 
         if (exprQt.sub instanceof ExprUnary) {
-            getVarFromUnary((ExprUnary) exprQt.sub);
+            getVarFromUnary((ExprUnary) exprQt.sub, concState);
         }
         if (exprQt.sub instanceof ExprBinary) {
-            getVarFromBinary((ExprBinary) exprQt.sub);
+            getVarFromBinary((ExprBinary) exprQt.sub, concState);
         }
         return null;
     }
 
-    private static void getDeclsFromExprQT(ExprQt exprQt) {
+    private static void getDeclsFromExprQT(ExprQt exprQt, DashConcState concState) {
         for (Decl decl : exprQt.decls) {
             quantifierVars.add(decl.get().toString());
-            getVarFromParentExpr(decl.expr);
+            getVarFromParentExpr(decl.expr, concState);
         }
     }
 
@@ -371,50 +383,57 @@ public class DashValidation {
      * Check if a variable found inside an Expression has been declared in the
      * current concurrent state
      */
-    private static void checkIfVarValid(ExprVar var) {
+    private static void checkIfVarValid(ExprVar var, DashConcState concState) {
         String variable = var.toString();
-        String concStateToCheck = currentConcStateValidated.modifiedName;
+        String concStateToCheck = concState.modifiedName;
         
         if (variable.contains("'"))
             variable = variable.replace("'", "");
 
         String concStateParName = "";
-        if (currentConcStateValidated.parent != null)
-            concStateParName = currentConcStateValidated.parent.modifiedName;
+        if (concState.parent != null)
+            concStateParName = concState.parent.modifiedName;
         else
-            concStateParName = currentConcStateValidated.modifiedName;
+            concStateParName = concState.modifiedName;
 
         if (variable.contains("/")) {
-        	concStateToCheck = variable.substring(0, variable.indexOf("/"));
+        	//concStateToCheck = variable.substring(0, variable.indexOf("/"));
         	variable = variable.substring(variable.indexOf("/") + 1);
         }
-        
-        if (!getAllUserVars(concStateParName, concStateToCheck).contains(variable)) {
+
+        if (!getAllUserVars(concStateParName, concStateToCheck, concState).contains(variable)) {
             throw new ErrorSyntax(var.pos, "Could not resolve reference to: " + variable);
         }
     }
     
-    private static List<String> getAllUserVars (String parent, String concState) {
+    private static List<String> getAllUserVars (String parent, String concStateName, DashConcState concState) {
     	List<String> vars = new ArrayList<String>();
-    	if (declarationNames.get(concState) != null) {
-    		vars.addAll(declarationNames.get(concState));
+    	if (declarationNames.get(concStateName) != null) {
+    		vars.addAll(declarationNames.get(concState.modifiedName));
     	}
     	if (declarationNames.get(parent) != null) {
     		vars.addAll(declarationNames.get(parent));
     	}
     	
-    	if (eventNames.get(concState) != null) {
-    		vars.addAll(eventNames.get(concState));
+    	if (eventNames.get(concState.modifiedName) != null) {
+    		vars.addAll(eventNames.get(concState.modifiedName));
     	}
     	if (eventNames.get(parent) != null) {
     		vars.addAll(eventNames.get(parent));
     	}
+    	
+    	for (DashConcState innrConcStates: concState.concStates) {
+        	if (declarationNames.get(innrConcStates.modifiedName) != null) {
+        		vars.addAll(declarationNames.get(innrConcStates.modifiedName));
+        	}
+    	}    
     	
     	vars.addAll(sigRelations);
     	vars.addAll(keywords);
     	vars.addAll(quantifierVars);
     	vars.addAll(sigNames);
     	vars.addAll(funcNames);
+    	vars.addAll(paramNames);
     	
     	return vars;
     }
@@ -528,6 +547,9 @@ public class DashValidation {
         for (DashConcState concState : dashModule.concStates.values()) {
             concStateNames.add(concState.name);
             concStateNamesModified.add(concState.modifiedName);
+            if (concState.param != null) {
+            	paramNames.add(concState.param);
+            }
         }
 
         for (String concStateName : concStateNamesModified)
@@ -690,7 +712,6 @@ public class DashValidation {
     public static void validateConcStates(DashModule dashModule) {
         for (String concStateName : concStateNamesModified) {
             DashConcState currentConcState = dashModule.concStates.get(concStateName);
-            currentConcStateValidated = currentConcState;
 
             if (!hasDefaultState(currentConcState.states))
                 throw new ErrorSyntax(dashModule.concStates.get(concStateName).pos, "A default state is required.");
@@ -708,8 +729,41 @@ public class DashValidation {
             }
             checkSendEvents(currentConcState);
 
-            validateExprVar(dashModule.concStates.get(concStateName));
+            
+            validateExprVar(currentConcState);
         }
+    }
+    
+    public void getVarsInConcState(DashConcState concState) {
+    	List<String> vars = new ArrayList<String>();
+    	if (declarationNames.get(concState.modifiedName) != null) {
+    		vars.addAll(declarationNames.get(concState.modifiedName));
+    	}
+    	if (declarationNames.get(concState.parent.modifiedName) != null) {
+    		vars.addAll(declarationNames.get(concState.parent.modifiedName));
+    	}
+    	
+    	if (eventNames.get(concState.modifiedName) != null) {
+    		vars.addAll(eventNames.get(concState.modifiedName));
+    	}
+    	if (eventNames.get(concState.parent.modifiedName) != null) {
+    		vars.addAll(eventNames.get(concState.parent.modifiedName));
+    	}
+    	
+    	for (DashConcState innrConcStates: concState.concStates) {
+        	if (declarationNames.get(innrConcStates.modifiedName) != null) {
+        		vars.addAll(declarationNames.get(concState.modifiedName));
+        	}
+    	}    
+    	
+    	vars.addAll(sigRelations);
+    	vars.addAll(keywords);
+    	vars.addAll(quantifierVars);
+    	vars.addAll(sigNames);
+    	vars.addAll(funcNames);
+    	vars.addAll(paramNames);
+    	
+    	concState2Vars.put(concState.modifiedName, vars);
     }
     
     public static void checkSendEvents(DashConcState concState) {
@@ -766,6 +820,7 @@ public class DashValidation {
     }
 
     public static void validateDashModel(DashModule dashModule) {
+    	module = dashModule;
     	getSigRelations(dashModule);
         addConcStates(dashModule);
         validateConcStates(dashModule);

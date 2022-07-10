@@ -1440,7 +1440,7 @@ public final class SimpleGUI implements ComponentListener, Listener {
             } else {
                 dash = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, text.get().getText());
             }
-            //DashValidation.validateDashModel(dash);
+            DashValidation.validateDashModel(dash);
             DashModule coreDash = DashToCoreDash.transformToCoreDash(dash);
             DashModule alloy = CoreDashToAlloy.convertToAlloyAST(coreDash);
             alloy = DashModule.resolveAll(A4Reporter.NOP, alloy);

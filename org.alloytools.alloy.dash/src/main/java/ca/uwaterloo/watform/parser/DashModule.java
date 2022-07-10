@@ -306,6 +306,9 @@ public final class DashModule extends Browsable implements Module {
      * Useful for printing a CoreDash version of a Dash model
      */
     public Map<String,DashConcState>     topLevelConcStates     = new LinkedHashMap<String,DashConcState>();
+    
+    public List<Integer>     confTuples     = new ArrayList <Integer>();
+    public List<Integer>     eventTuples     = new ArrayList <Integer>();
 
     /**
      * Stores the name for every concurrent state in the model
@@ -316,6 +319,11 @@ public final class DashModule extends Browsable implements Module {
      * Each state name is mapped to its respective State AST
      */
     public Map<String,DashState>         states                 = new LinkedHashMap<String,DashState>();
+    
+    /**
+     * A list of the default states that are active initially
+     */
+    public Map<Integer,List<DashState>>          initialDefaultStates                 = new LinkedHashMap<Integer,List<DashState>>();
 
     /**
      * A list of the default states in the Dash Model. This will be used when
@@ -1439,6 +1447,87 @@ public final class DashModule extends Browsable implements Module {
             if (item instanceof Decl)
                 readVariablesDeclared((Decl) item, topLevelConcState);
         }
+        
+        calculateConfRelations();
+        calculateEventRelations();
+        calculateDefaultStates(topLevelConcState);
+    }
+    
+    private void calculateConfRelations() {
+    	for (DashConcState concState: concStates.values()) {
+			int confCount = 0;
+			if (concState.isParameterized) {
+				concState.IEs.add(concState.param);
+				if (concState.states.size() > 0) {
+					confCount++;
+				}
+			}
+			
+			DashConcState temp = new DashConcState(concState);
+			while (temp.parent != null) {
+				if (temp.parent.isParameterized) {
+	    			concState.IEs.add(temp.parent.param);
+					if (concState.states.size() > 0) {
+						confCount++;
+					}
+				}
+				temp = temp.parent;
+			}
+			if (concState.states.size() > 0) {
+				if(!confTuples.contains(confCount)) {
+					confTuples.add(confCount);
+				}
+			}
+			Collections.reverse(concState.IEs);
+    	}
+    	Collections.sort(confTuples);
+    }
+    
+    private void calculateEventRelations() {
+    	for (DashConcState concState: concStates.values()) {
+			int eventCount = 0;
+			if (concState.isParameterized) {
+					eventCount++;
+			}
+			
+			DashConcState temp = new DashConcState(concState);
+			while (temp.parent != null) {
+				if (temp.parent.isParameterized) {
+						eventCount++;
+				}
+				temp = temp.parent;
+			}
+			
+			if (concState.events.size() > 0) {
+				if(!eventTuples.contains(eventCount)) {
+					eventTuples.add(eventCount);
+				}
+			}
+    	}
+    	Collections.sort(eventTuples);
+    }
+    
+    private void calculateDefaultStates (DashConcState concState) {
+    	for (DashConcState innerConcState: concState.concStates) {
+    		calculateDefaultStates(innerConcState);
+    	}
+    	for (DashState state: concState.states) {
+    		if (state.isDefault) {
+    			if (state.concStates.size() == 0) {
+	    			if (!initialDefaultStates.containsKey(concState.IEs.size())) {
+	    				initialDefaultStates.put(concState.IEs.size(), new ArrayList<DashState>());
+	    				initialDefaultStates.get(concState.IEs.size()).add(state);
+	    			}
+	    			else {
+	    				initialDefaultStates.get(concState.IEs.size()).add(state);
+	    			}
+    			}
+    			
+    			for (DashConcState innerConcState: state.concStates) {
+    				calculateDefaultStates(innerConcState);
+    			}
+    		}
+    	}
     }
 
     /*	
@@ -1450,7 +1539,40 @@ public final class DashModule extends Browsable implements Module {
 	 */	
 	public void addConcState(DashConcState parent, DashConcState concState) {	
 	    concState.modifiedName = parent.modifiedName + '_' + concState.name;	
+	    concState.actualParent = parent;
 	    concState.parent = parent;	
+	    concStates.put(concState.modifiedName, concState);	
+	    concStateNames.add(concState.modifiedName);
+	    
+        if (concState.isParameterized) {
+        	bufferParamToConcState.put(concState.param, concState);
+        }
+		
+	    for(DashConcState innerConcState: concState.concStates)	
+	    	addConcState(concState, innerConcState);
+	    for (DashState state : concState.states)	 
+	        addState(concState, state);	
+	    for (DashEvent event : concState.events)	
+	        addEvent(concState, event);	
+	    for (DashInit init : concState.init)	
+	        addInitCondition(init, concState);	
+	    for (DashAction action : concState.action)	
+	        addAction(action, concState);	
+	    for (DashCondition condition : concState.condition)	
+	    	conditions.put(condition.name, condition);	
+	    for (DashInvariant invariant : concState.invariant)	
+	        addInvariant(invariant, concState);	
+        for (DashBuffer buffer : concState.buffers)
+            addBuffer((DashBuffer) buffer, concState);
+	    for (Decl decl : concState.decls)	
+	        readVariablesDeclared(decl, concState);	
+	}
+	
+	public void addConcState(DashState parent, DashConcState concState) {	
+	    concState.modifiedName = parent.modifiedName + '_' + concState.name;	
+	    concState.parent = getParentConcState(parent);
+	    concState.parentState = parent;
+	    concState.actualParent = parent;
 	    concStates.put(concState.modifiedName, concState);	
 	    concStateNames.add(concState.modifiedName);
 	    
@@ -1625,6 +1747,9 @@ public final class DashModule extends Browsable implements Module {
         for (DashState innerState : state.states) {
             addState(state, innerState);
         }
+        for (DashConcState innerState : state.concStates) {
+            addConcState(state, innerState);
+        }
     }
 
     /*
@@ -1695,7 +1820,7 @@ public final class DashModule extends Browsable implements Module {
 		if(stateHierarchy)
 			addOpen(null, null, ExprVar.make(null, "util/boolean"), new ArrayList<ExprVar>(), null);
 		for (String name: bufferNameToElem.keySet()) {
-			System.out.println("Elem: " + bufferNameToElem.get(name) + " Index: " + bufferNameToIndex.get(name) + " Name: " + name);
+			//System.out.println("Elem: " + bufferNameToElem.get(name) + " Index: " + bufferNameToIndex.get(name) + " Name: " + name);
 			addOpen(null, null, ExprVar.make(null, "util/bufferNew"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, bufferNameToElem.get(name)), ExprVar.make(null, bufferNameToIndex.get(name)))), ExprVar.make(null, bufferNameToAlias.get(name)));
 		}
     }

@@ -852,7 +852,7 @@ ConcB::=  CONC:o                       		Name:n LBRACE StateItems:c RBRACE {: RE
 	 |CONC:o                       		Name:n LBRACKET Name:m RBRACKET LBRACE StateItems:c RBRACE {: RESULT=new DashConcState(o, n.label, c, m);  :};
 
 StateItems::= ConcB:x 				    {: RESULT=new ArrayList<Object>(); RESULT.add(x); :};
-StateItems::= ConcB:x StateItems:y		{: RESULT=y; RESULT.add(0, x) ;			  :}; 
+StateItems::= ConcB:x StateItems:y		    {: RESULT=y; RESULT.add(0, x) ;			  :}; 
  
 //Event Declaration     
 Event::= EVENT:o  				    Name:n LBRACE RBRACE {: RESULT=new DashEvent(o, n.label, "event");  :}
@@ -910,10 +910,10 @@ WhenA::= WHEN:o					SuperP:v {:  RESULT=new DashWhenExpr(o, v);                 
 DoA::= DO:o					    SuperP:v  {:  RESULT=new DashDoExpr(o, v);                                             :};
 
 GoTo::= GOTO:o					Names:n   {: RESULT=new DashGoto(o, n);                                                :}
-	| GOTO:o					Name:n LBRACKET Name:m RBRACKET    {: RESULT=new DashGoto(o, n.label, m.label);        :};
+	| GOTO:o					Name:n LBRACKET Expr:m RBRACKET    {: RESULT=new DashGoto(o, n.label, m);        :};
 
 Send::=SEND:o					Name:n   {: RESULT=new DashSend(o, n.label);                                           :}
-	|SEND:o					Name:n LBRACKET Name:m RBRACKET    {: RESULT=new DashSend(o, n.label, m.label);        :};
+	|SEND:o					Name:n LBRACKET Expr:m RBRACKET    {: RESULT=new DashSend(o, n.label, m);        :};
 
 
 TransItems::=From:x  				{: RESULT=new ArrayList<Object>(); RESULT.add(x); :};    

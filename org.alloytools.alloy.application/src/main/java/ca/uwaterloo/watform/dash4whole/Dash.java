@@ -25,15 +25,15 @@ public class Dash {
 
         System.out.println("Please specify the .dsh file path:");
         Scanner sc = new Scanner(System.in);
-        String actual = sc.nextLine();
+        String actual = "C:\\Users\\Tamjid Hossain\\Desktop\\Dash Processes Models\\CHORD14.dsh";
 
         if (!actual.endsWith(".dsh")) {
             System.err.println("File not supported.\nExpected a Dash file with 'dsh' extension");
             return;
         }
-        DashOptions.generateSigAxioms = true;
-        DashOptions.ctlModelChecking = true;
-        DashOptions.generateTraces = false;
+        DashOptions.generateSigAxioms = false;
+        DashOptions.ctlModelChecking = false;
+        DashOptions.generateTraces = true;
         sc.close();
 
         Path path = Paths.get(actual);
@@ -59,6 +59,7 @@ public class Dash {
             DashModule dash = DashUtil.parseEverything_fromFileDash(rep, null, actual);
             DashValidation.validateDashModel(dash);
             DashModule coreDash = DashToCoreDash.transformToCoreDash(dash);
+            //Convert to pyhton using coreDash
             DashModule alloy = CoreDashToAlloy.convertToAlloyAST(coreDash);
             alloy = DashModule.resolveAll(rep == null ? A4Reporter.NOP : rep, alloy);
             DashModuleToString.toString(alloy);
