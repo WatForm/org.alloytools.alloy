@@ -194,6 +194,14 @@ class Signature(metaclass = MetaSignature):
     def __sub__(self, other):
         return MetaSignature.Set(self.elements) - MetaSignature.Set(other)
 
+class Relation:
+    types = []
+    tuples = []
+
+    @classmethod
+    def possible_tuples(cls):
+        domain_elements = [type.sig_objects for type in cls.types]
+        return [tup for tup in itertools.product(*domain_elements)]
 
 # --- Signatures ---
 
@@ -203,6 +211,15 @@ class ${sig.Name}(Signature):
     sig_objects = {${sig.getObjectNames()}}
     sigName = "${sig.Name}"
 
+
+#end
+
+# --- Relations ---
+
+#foreach($relation in $relations)
+class ${relation.Name}(Relation):
+    types = ${relation.Types}
+    tuples = []
 
 #end
 #end
