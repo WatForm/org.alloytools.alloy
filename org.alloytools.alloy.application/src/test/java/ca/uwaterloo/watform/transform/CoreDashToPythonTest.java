@@ -105,4 +105,33 @@ public class CoreDashToPythonTest {
             assert (CoreDashToPython.convert2String(translation).contains(sigTrans));
         }
     }
+
+    @Test
+    public void testRelations() throws IOException {
+        String dashModel = "sig A1 {\n" +
+                "\tf0: one A1,\n" +
+                "    f1: lone A1\n" +
+                "}\n" +
+                "sig A2 {f2: some A1}\n" +
+                "sig A3 {f3: lone A1}\n" +
+                "sig A4 {f4: set A1}\n" +
+                "sig A5 {f5: A1 one -> lone A2}\n" +
+                "sig A6 {f6: A1 one -> lone A2 -> lone A3}";
+
+        DashModule dashModule = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
+        DashToCoreDash.transformToCoreDash(dashModule);
+        DashPythonTranslation translation = new DashPythonTranslation(dashModule);
+
+        List<String> expectedTranslation = Arrays.asList("class f0(Relation):",
+                "class f1(Relation):",
+                "class f2(Relation):",
+                "class f3(Relation):",
+                "class f4(Relation):",
+                "class f5(Relation):",
+                "class f6(Relation):");
+
+        for(String trans : expectedTranslation){
+            assert (CoreDashToPython.convert2String(translation).contains(trans));
+        }
+    }
 }
