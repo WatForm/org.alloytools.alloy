@@ -158,7 +158,7 @@ public final class DashModule extends Browsable implements Module {
     /**
      * Maps each parser-generated Sig to its original list of field declarations.
      */
-    private final LinkedHashMap<Sig,List<Decl>> old2fields;
+    public final LinkedHashMap<Sig,List<Decl>> old2fields;
 
     /**
      * Maps each parser-generated Sig to its original appended facts.

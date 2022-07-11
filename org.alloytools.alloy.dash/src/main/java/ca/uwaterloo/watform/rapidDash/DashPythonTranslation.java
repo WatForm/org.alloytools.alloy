@@ -7,13 +7,10 @@ import ca.uwaterloo.watform.ast.DashTrans;
 import ca.uwaterloo.watform.ast.DashInit;
 import ca.uwaterloo.watform.ast.DashWhenExpr;
 import ca.uwaterloo.watform.parser.DashModule;
+import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.alloy4.SafeList;
-import edu.mit.csail.sdg.ast.Decl;
-import edu.mit.csail.sdg.ast.Sig;
-import edu.mit.csail.sdg.ast.Expr;
-import edu.mit.csail.sdg.ast.ExprBinary;
-import edu.mit.csail.sdg.ast.ExprUnary;
+import edu.mit.csail.sdg.ast.*;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -22,6 +19,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static edu.mit.csail.sdg.alloy4.TableView.clean;
+import static edu.mit.csail.sdg.ast.ExprBinary.Op.*;
+
 import edu.mit.csail.sdg.alloy4.ConstList;
 
 /**
@@ -33,6 +32,7 @@ public class DashPythonTranslation {
     private DashModule dashModule;
 
     public List<Signature> signatures;
+    public List<Relation> relations;
     public List<Event> allEnvEvents = new ArrayList<Event>();
     public State rootState = null;
     private Map<String, State> concStateMap;
@@ -220,7 +220,35 @@ public class DashPythonTranslation {
         public boolean isAbstract() {return isAbstract;}
         public boolean hasChildSubsig() {return hasChildSubsig;}
     }
-    
+
+    public class Relation {
+        public String name;
+        public String types;
+
+        public Relation(String name, String types) {
+            this.name = name;
+            this.types = types;
+        }
+
+        public String getName() { return name; }
+        public String getTypes() { return types; }
+    }
+
+    private String fieldDeclExprToString(Expr expr) {
+        if (expr instanceof ExprVar) {
+            return ((ExprVar) expr).label;
+        } else if (expr instanceof ExprUnary) {
+            return ((ExprVar) ((ExprUnary) expr).sub).label;
+        } else if (expr instanceof ExprBinary) {
+            if (!((ExprBinary) expr).op.isArrow) {
+                // TODO: need to support union operator too.
+                throw new ErrorFatal("Cannot handle operators other than arrow in field declarations");
+            }
+            return fieldDeclExprToString(((ExprBinary) expr).left) + ", " + fieldDeclExprToString(((ExprBinary) expr).right);
+        }
+        return "";
+    }
+
     public class Event {
     	private String name;
     	private String modifiedName;
@@ -270,6 +298,21 @@ public class DashPythonTranslation {
             return -1;
         }));
 
+        // get relations
+        this.relations = new ArrayList<>();
+
+        Set<Sig> keys = dashModule.old2fields.keySet();
+        for (Sig key : keys) {
+            // TODO: to filter out snapshot relations for now, might need to handle utility later
+            if (dashModule.sigs.containsValue(key)){
+                for (Decl decl : dashModule.old2fields.get(key)) {
+                    String types = "[" + clean(key.label) + ", " + fieldDeclExprToString(decl.expr) + "]";
+                    for (int i = 0; i < decl.names.size(); i++) {
+                        relations.add(new Relation(((ExprVar) decl.names.get(i)).label, types));
+                    }
+                }
+            }
+        }
 
         // get state hierarchy
         this.concStateMap = new HashMap<>();
