@@ -55,6 +55,9 @@ public class CoreDashToPython {
         vc.put("signatures", dashPythonTranslation.signatures);
         vc.put("signaturesList", "[" + String.join(", ", dashPythonTranslation.signatures.stream().map(sig -> sig.getName()).collect(Collectors.toList())) + "]");
 
+        // add relations
+        vc.put("relations", dashPythonTranslation.relations);
+
         // add concurrent states
         vc.put("concStateList", dashPythonTranslation.getStates());
         

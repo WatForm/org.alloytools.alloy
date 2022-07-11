@@ -409,4 +409,45 @@ public class DashPythonTranslationTest {
         }
     }
 
+    @Test
+    public void testRelations() throws Exception {
+        class Data{
+            public String name;
+            public String types;
+            public Data(String name, String types) {
+                this.name = name;
+                this.types = types;
+            }
+        }
+
+        String dashModel =
+                        "sig A1 {\n" +
+                        "\tf0: one A1,\n" +
+                        "    f1: lone A1\n" +
+                        "}\n" +
+                        "sig A2 {f2: some A1}\n" +
+                        "sig A3 {f3: lone A1}\n" +
+                        "sig A4 {f4: set A1}\n" +
+                        "sig A5 {f5: A1 one -> lone A2}\n" +
+                        "sig A6 {f6: A1 one -> lone A2 -> lone A3}";
+
+        List<Data> expectedResults = Arrays.asList(
+                new Data("f0", "[A1, A1]"),
+                new Data("f1", "[A1, A1]"),
+                new Data("f2", "[A2, A1]"),
+                new Data("f3", "[A3, A1]"),
+                new Data("f4", "[A4, A1]"),
+                new Data("f5", "[A5, A1, A2]"),
+                new Data("f6", "[A6, A1, A2, A3]")
+        );
+
+        DashModule dashModule = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
+        DashToCoreDash.transformToCoreDash(dashModule);
+        DashPythonTranslation translation = new DashPythonTranslation(dashModule);
+
+        for (int index = 0; index < expectedResults.size(); index++) {
+            assertEquals(expectedResults.get(index).name, translation.relations.get(index).name);
+            assertEquals(expectedResults.get(index).types, translation.relations.get(index).types);
+        }
+    }
 }
