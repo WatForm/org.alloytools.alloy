@@ -113,6 +113,7 @@ public class DashHelper {
 	public static Expr quantify (DashConcState parent, Expr expr) {
         List<Decl> decls = new ArrayList<Decl>();
         List<ExprVar> a = new ArrayList<ExprVar>();
+        //expr = DashHelper.addParametersJoin(expr, parent.IEs.size());
         for (int i = 0; i < parent.IEs.size(); i++) { 
             a.add(ExprVar.make(null, "p" + i));
             decls.add(new Decl(null, null, null, null, a, ExprVar.make(null, parent.IEs.get(i))));

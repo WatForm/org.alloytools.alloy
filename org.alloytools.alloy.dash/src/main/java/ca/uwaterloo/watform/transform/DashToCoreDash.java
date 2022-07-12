@@ -103,6 +103,9 @@ public class DashToCoreDash {
         	DashState gotoState = getState(trans.gotoExpr.gotoExpr.get(0).replace("/", "_"), module);
         	DashConcState fromParent = getParentConcState(fromState);
         	DashConcState gotoParent = getParentConcState(gotoState);
+        	if (fromParent == null || gotoParent == null) {
+        		return;
+        	}
         	if (fromParent.modifiedName.equals(gotoParent.modifiedName)) {
         		return;
         	}

@@ -314,6 +314,11 @@ public final class DashModule extends Browsable implements Module {
      * Stores the name for every concurrent state in the model
      */
     public List<String>                  concStateNames         = new ArrayList<String>();
+    
+    /**
+     * Stores the name for every Identifier signature in the model
+     */
+    public List<String>                  identifiers         = new ArrayList<String>();
 
     /**
      * Each state name is mapped to its respective State AST
@@ -390,6 +395,11 @@ public final class DashModule extends Browsable implements Module {
      * Each variable name is mapped to the Concurrent State in which they are declared
      */
     public Map<String,DashConcState>     variable2ConcState     = new LinkedHashMap<String,DashConcState>();
+    
+    /**
+     * Each event name is mapped to the Concurrent State in which they are declared
+     */
+    public Map<String,DashConcState>     event2ConcState     = new LinkedHashMap<String,DashConcState>();
 
     /**
      * Each transition name is mapped to its respective Transiton AST
@@ -1417,10 +1427,9 @@ public final class DashModule extends Browsable implements Module {
         concStates.put(topLevelConcState.modifiedName, topLevelConcState);
         concStateNames.add(topLevelConcState.modifiedName);
     
-        if(topLevelConcStates.values().size() > 1)
-        	stateHierarchy = true;
         if (topLevelConcState.isParameterized) {
         	bufferParamToConcState.put(topLevelConcState.param, topLevelConcState);
+        	identifiers.add(topLevelConcState.param);
         }
 
         for (Object item : stateItems) {
@@ -1451,6 +1460,7 @@ public final class DashModule extends Browsable implements Module {
         calculateConfRelations();
         calculateEventRelations();
         calculateDefaultStates(topLevelConcState);
+        stateHierarchy = (concStates.size() > 1) ? true: false;
     }
     
     private void calculateConfRelations() {
@@ -1546,6 +1556,7 @@ public final class DashModule extends Browsable implements Module {
 	    
         if (concState.isParameterized) {
         	bufferParamToConcState.put(concState.param, concState);
+        	identifiers.add(concState.param);
         }
 		
 	    for(DashConcState innerConcState: concState.concStates)	
@@ -1578,6 +1589,7 @@ public final class DashModule extends Browsable implements Module {
 	    
         if (concState.isParameterized) {
         	bufferParamToConcState.put(concState.param, concState);
+        	identifiers.add(concState.param);
         }
 		
 	    for(DashConcState innerConcState: concState.concStates)	
@@ -1766,7 +1778,8 @@ public final class DashModule extends Browsable implements Module {
         event.modifiedName = modifiedName;
         event.parentName = parent.name;
         event.parent = parent;
-
+        event2ConcState.put(event.modifiedName, parent);
+        
         if (event.type.equals("env event") || event.type.equals("event")) {
             DashOptions.isEnvEventModel = true;
         } else if (event.type.equals("env")) {

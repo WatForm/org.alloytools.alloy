@@ -1,6 +1,6 @@
 <alloy builddate="1970-01-01T00:00:00Z">
 
-<instance bitwidth="4" maxseq="4" mintrace="-1" maxtrace="-1" command="Run path for 1 Snapshot, exactly 4 Level, exactly 10 Node, 10 StateLabel, 20 TransitionLabel, 0 EventLabel" filename="" tracelength="1" backloop="0">
+<instance bitwidth="4" maxseq="4" mintrace="-1" maxtrace="-1" command="Run path for 2 Snapshot, exactly 3 ProcessID, 5 BufIdx0, exactly 1 StateLabel, exactly 3 TransitionLabel, exactly 0 EventLabel, exactly 3 Identifiers" filename="" tracelength="1" backloop="0">
 
 <sig label="seq/Int" ID="0" parentID="1" builtin="yes">
 </sig>
@@ -11,228 +11,177 @@
 <sig label="String" ID="3" parentID="2" builtin="yes">
 </sig>
 
-<sig label="this/Level" ID="4" parentID="2">
-   <atom label="Level$0"/>
-   <atom label="Level$1"/>
-   <atom label="Level$2"/>
-   <atom label="Level$3"/>
+<sig label="this/BufIdx0" ID="4" parentID="2">
+   <atom label="BufIdx0$0"/>
+   <atom label="BufIdx0$1"/>
+   <atom label="BufIdx0$2"/>
+   <atom label="BufIdx0$3"/>
+   <atom label="BufIdx0$4"/>
 </sig>
 
-<sig label="this/Node" ID="5" parentID="2">
-   <atom label="Node$0"/>
-   <atom label="Node$1"/>
-   <atom label="Node$2"/>
-   <atom label="Node$3"/>
-   <atom label="Node$4"/>
-   <atom label="Node$5"/>
-   <atom label="Node$6"/>
-   <atom label="Node$7"/>
-   <atom label="Node$8"/>
-   <atom label="Node$9"/>
+<sig label="this/ProcessID" ID="5" parentID="6">
+   <atom label="ProcessID$0"/>
+   <atom label="ProcessID$1"/>
+   <atom label="ProcessID$2"/>
 </sig>
 
-<field label="system_NodeProc_AssignNode" ID="6" parentID="5">
-   <tuple> <atom label="Node$0"/> <atom label="System_NodeProc_AssignNode$9"/> </tuple>
-   <tuple> <atom label="Node$1"/> <atom label="System_NodeProc_AssignNode$8"/> </tuple>
-   <tuple> <atom label="Node$2"/> <atom label="System_NodeProc_AssignNode$7"/> </tuple>
-   <tuple> <atom label="Node$3"/> <atom label="System_NodeProc_AssignNode$6"/> </tuple>
-   <tuple> <atom label="Node$4"/> <atom label="System_NodeProc_AssignNode$5"/> </tuple>
-   <tuple> <atom label="Node$5"/> <atom label="System_NodeProc_AssignNode$4"/> </tuple>
-   <tuple> <atom label="Node$6"/> <atom label="System_NodeProc_AssignNode$3"/> </tuple>
-   <tuple> <atom label="Node$7"/> <atom label="System_NodeProc_AssignNode$2"/> </tuple>
-   <tuple> <atom label="Node$8"/> <atom label="System_NodeProc_AssignNode$1"/> </tuple>
-   <tuple> <atom label="Node$9"/> <atom label="System_NodeProc_AssignNode$0"/> </tuple>
-   <types> <type ID="5"/> <type ID="7"/> </types>
-</field>
+<sig label="this/Identifiers" ID="6" parentID="2">
+</sig>
 
-<field label="system_NodeProc_AssignNode_RootAssign" ID="8" parentID="5">
-   <tuple> <atom label="Node$0"/> <atom label="System_NodeProc_AssignNode_RootAssign$9"/> </tuple>
-   <tuple> <atom label="Node$1"/> <atom label="System_NodeProc_AssignNode_RootAssign$8"/> </tuple>
-   <tuple> <atom label="Node$2"/> <atom label="System_NodeProc_AssignNode_RootAssign$7"/> </tuple>
-   <tuple> <atom label="Node$3"/> <atom label="System_NodeProc_AssignNode_RootAssign$6"/> </tuple>
-   <tuple> <atom label="Node$4"/> <atom label="System_NodeProc_AssignNode_RootAssign$5"/> </tuple>
-   <tuple> <atom label="Node$5"/> <atom label="System_NodeProc_AssignNode_RootAssign$4"/> </tuple>
-   <tuple> <atom label="Node$6"/> <atom label="System_NodeProc_AssignNode_RootAssign$3"/> </tuple>
-   <tuple> <atom label="Node$7"/> <atom label="System_NodeProc_AssignNode_RootAssign$2"/> </tuple>
-   <tuple> <atom label="Node$8"/> <atom label="System_NodeProc_AssignNode_RootAssign$1"/> </tuple>
-   <tuple> <atom label="Node$9"/> <atom label="System_NodeProc_AssignNode_RootAssign$0"/> </tuple>
-   <types> <type ID="5"/> <type ID="9"/> </types>
-</field>
-
-<field label="system_NodeProc_AssignNode_SetAssignAndMessage" ID="10" parentID="5">
-   <tuple> <atom label="Node$0"/> <atom label="System_NodeProc_AssignNode_SetAssignAndMessage$9"/> </tuple>
-   <tuple> <atom label="Node$1"/> <atom label="System_NodeProc_AssignNode_SetAssignAndMessage$8"/> </tuple>
-   <tuple> <atom label="Node$2"/> <atom label="System_NodeProc_AssignNode_SetAssignAndMessage$7"/> </tuple>
-   <tuple> <atom label="Node$3"/> <atom label="System_NodeProc_AssignNode_SetAssignAndMessage$6"/> </tuple>
-   <tuple> <atom label="Node$4"/> <atom label="System_NodeProc_AssignNode_SetAssignAndMessage$5"/> </tuple>
-   <tuple> <atom label="Node$5"/> <atom label="System_NodeProc_AssignNode_SetAssignAndMessage$4"/> </tuple>
-   <tuple> <atom label="Node$6"/> <atom label="System_NodeProc_AssignNode_SetAssignAndMessage$3"/> </tuple>
-   <tuple> <atom label="Node$7"/> <atom label="System_NodeProc_AssignNode_SetAssignAndMessage$2"/> </tuple>
-   <tuple> <atom label="Node$8"/> <atom label="System_NodeProc_AssignNode_SetAssignAndMessage$1"/> </tuple>
-   <tuple> <atom label="Node$9"/> <atom label="System_NodeProc_AssignNode_SetAssignAndMessage$0"/> </tuple>
-   <types> <type ID="5"/> <type ID="11"/> </types>
-</field>
-
-<sig label="this/Snapshot" ID="12" parentID="2">
+<sig label="this/Snapshot" ID="7" parentID="2">
    <atom label="Snapshot$0"/>
+   <atom label="Snapshot$1"/>
 </sig>
 
-<field label="conf" ID="13" parentID="12">
-   <tuple> <atom label="Snapshot$0"/> <atom label="System_NodeProc_AssignNode$0"/> </tuple>
-   <tuple> <atom label="Snapshot$0"/> <atom label="System_NodeProc_AssignNode$1"/> </tuple>
-   <tuple> <atom label="Snapshot$0"/> <atom label="System_NodeProc_AssignNode$2"/> </tuple>
-   <tuple> <atom label="Snapshot$0"/> <atom label="System_NodeProc_AssignNode$3"/> </tuple>
-   <tuple> <atom label="Snapshot$0"/> <atom label="System_NodeProc_AssignNode$4"/> </tuple>
-   <tuple> <atom label="Snapshot$0"/> <atom label="System_NodeProc_AssignNode$5"/> </tuple>
-   <tuple> <atom label="Snapshot$0"/> <atom label="System_NodeProc_AssignNode$6"/> </tuple>
-   <tuple> <atom label="Snapshot$0"/> <atom label="System_NodeProc_AssignNode$7"/> </tuple>
-   <tuple> <atom label="Snapshot$0"/> <atom label="System_NodeProc_AssignNode$8"/> </tuple>
-   <tuple> <atom label="Snapshot$0"/> <atom label="System_NodeProc_AssignNode$9"/> </tuple>
-   <types> <type ID="12"/> <type ID="7"/> </types>
+<field label="conf1" ID="8" parentID="7">
+   <tuple> <atom label="Snapshot$0"/> <atom label="ProcessID$0"/> <atom label="System_Process_Electing$0"/> </tuple>
+   <tuple> <atom label="Snapshot$0"/> <atom label="ProcessID$1"/> <atom label="System_Process_Electing$0"/> </tuple>
+   <tuple> <atom label="Snapshot$0"/> <atom label="ProcessID$2"/> <atom label="System_Process_Electing$0"/> </tuple>
+   <tuple> <atom label="Snapshot$1"/> <atom label="ProcessID$0"/> <atom label="System_Process_Electing$0"/> </tuple>
+   <tuple> <atom label="Snapshot$1"/> <atom label="ProcessID$1"/> <atom label="System_Process_Electing$0"/> </tuple>
+   <tuple> <atom label="Snapshot$1"/> <atom label="ProcessID$2"/> <atom label="System_Process_Electing$0"/> </tuple>
+   <types> <type ID="7"/> <type ID="6"/> <type ID="9"/> </types>
 </field>
 
-<field label="taken" ID="14" parentID="12">
-   <types> <type ID="12"/> <type ID="15"/> </types>
+<field label="taken1" ID="10" parentID="7">
+   <tuple> <atom label="Snapshot$1"/> <atom label="ProcessID$2"/> <atom label="System_Process_Electing_ConsumeToken$0"/> </tuple>
+   <types> <type ID="7"/> <type ID="6"/> <type ID="11"/> </types>
 </field>
 
-<field label="stable" ID="16" parentID="12">
+<field label="stable" ID="12" parentID="7">
    <tuple> <atom label="Snapshot$0"/> <atom label="boolean/True$0"/> </tuple>
-   <types> <type ID="12"/> <type ID="17"/> </types>
+   <tuple> <atom label="Snapshot$1"/> <atom label="boolean/True$0"/> </tuple>
+   <types> <type ID="7"/> <type ID="13"/> </types>
 </field>
 
-<field label="System_NodeProc_root" ID="18" parentID="12">
-   <tuple> <atom label="Snapshot$0"/> <atom label="Node$0"/> <atom label="boolean/False$0"/> </tuple>
-   <tuple> <atom label="Snapshot$0"/> <atom label="Node$1"/> <atom label="boolean/False$0"/> </tuple>
-   <tuple> <atom label="Snapshot$0"/> <atom label="Node$2"/> <atom label="boolean/False$0"/> </tuple>
-   <tuple> <atom label="Snapshot$0"/> <atom label="Node$3"/> <atom label="boolean/False$0"/> </tuple>
-   <tuple> <atom label="Snapshot$0"/> <atom label="Node$4"/> <atom label="boolean/False$0"/> </tuple>
-   <tuple> <atom label="Snapshot$0"/> <atom label="Node$5"/> <atom label="boolean/False$0"/> </tuple>
-   <tuple> <atom label="Snapshot$0"/> <atom label="Node$6"/> <atom label="boolean/False$0"/> </tuple>
-   <tuple> <atom label="Snapshot$0"/> <atom label="Node$7"/> <atom label="boolean/False$0"/> </tuple>
-   <tuple> <atom label="Snapshot$0"/> <atom label="Node$8"/> <atom label="boolean/False$0"/> </tuple>
-   <tuple> <atom label="Snapshot$0"/> <atom label="Node$9"/> <atom label="boolean/True$0"/> </tuple>
-   <types> <type ID="12"/> <type ID="5"/> <type ID="17"/> </types>
+<field label="System_elected" ID="14" parentID="7">
+   <types> <type ID="7"/> <type ID="5"/> </types>
 </field>
 
-<field label="System_NodeProc_nodeMessage" ID="19" parentID="12">
-   <types> <type ID="12"/> <type ID="5"/> <type ID="5"/> </types>
+<field label="System_Process_token" ID="15" parentID="7">
+   <tuple> <atom label="Snapshot$0"/> <atom label="ProcessID$0"/> <atom label="BufIdx0$0"/> <atom label="ProcessID$1"/> </tuple>
+   <tuple> <atom label="Snapshot$0"/> <atom label="ProcessID$1"/> <atom label="BufIdx0$0"/> <atom label="ProcessID$2"/> </tuple>
+   <tuple> <atom label="Snapshot$0"/> <atom label="ProcessID$2"/> <atom label="BufIdx0$0"/> <atom label="ProcessID$0"/> </tuple>
+   <tuple> <atom label="Snapshot$1"/> <atom label="ProcessID$0"/> <atom label="BufIdx0$1"/> <atom label="ProcessID$0"/> </tuple>
+   <tuple> <atom label="Snapshot$1"/> <atom label="ProcessID$0"/> <atom label="BufIdx0$1"/> <atom label="ProcessID$1"/> </tuple>
+   <tuple> <atom label="Snapshot$1"/> <atom label="ProcessID$0"/> <atom label="BufIdx0$1"/> <atom label="ProcessID$2"/> </tuple>
+   <tuple> <atom label="Snapshot$1"/> <atom label="ProcessID$0"/> <atom label="BufIdx0$2"/> <atom label="ProcessID$0"/> </tuple>
+   <tuple> <atom label="Snapshot$1"/> <atom label="ProcessID$0"/> <atom label="BufIdx0$2"/> <atom label="ProcessID$1"/> </tuple>
+   <tuple> <atom label="Snapshot$1"/> <atom label="ProcessID$0"/> <atom label="BufIdx0$2"/> <atom label="ProcessID$2"/> </tuple>
+   <tuple> <atom label="Snapshot$1"/> <atom label="ProcessID$0"/> <atom label="BufIdx0$3"/> <atom label="ProcessID$0"/> </tuple>
+   <tuple> <atom label="Snapshot$1"/> <atom label="ProcessID$0"/> <atom label="BufIdx0$3"/> <atom label="ProcessID$1"/> </tuple>
+   <tuple> <atom label="Snapshot$1"/> <atom label="ProcessID$0"/> <atom label="BufIdx0$3"/> <atom label="ProcessID$2"/> </tuple>
+   <tuple> <atom label="Snapshot$1"/> <atom label="ProcessID$1"/> <atom label="BufIdx0$2"/> <atom label="ProcessID$0"/> </tuple>
+   <tuple> <atom label="Snapshot$1"/> <atom label="ProcessID$1"/> <atom label="BufIdx0$2"/> <atom label="ProcessID$1"/> </tuple>
+   <tuple> <atom label="Snapshot$1"/> <atom label="ProcessID$1"/> <atom label="BufIdx0$2"/> <atom label="ProcessID$2"/> </tuple>
+   <types> <type ID="7"/> <type ID="5"/> <type ID="4"/> <type ID="5"/> </types>
 </field>
 
-<field label="System_NodeProc_levelMessage" ID="20" parentID="12">
-   <types> <type ID="12"/> <type ID="5"/> <type ID="4"/> </types>
+<field label="System_Process_succ" ID="16" parentID="7">
+   <tuple> <atom label="Snapshot$0"/> <atom label="ProcessID$0"/> <atom label="ProcessID$1"/> </tuple>
+   <tuple> <atom label="Snapshot$0"/> <atom label="ProcessID$1"/> <atom label="ProcessID$2"/> </tuple>
+   <tuple> <atom label="Snapshot$0"/> <atom label="ProcessID$2"/> <atom label="ProcessID$0"/> </tuple>
+   <tuple> <atom label="Snapshot$1"/> <atom label="ProcessID$0"/> <atom label="ProcessID$1"/> </tuple>
+   <tuple> <atom label="Snapshot$1"/> <atom label="ProcessID$1"/> <atom label="ProcessID$2"/> </tuple>
+   <tuple> <atom label="Snapshot$1"/> <atom label="ProcessID$2"/> <atom label="ProcessID$0"/> </tuple>
+   <types> <type ID="7"/> <type ID="5"/> <type ID="5"/> </types>
 </field>
 
-<field label="System_NodeProc_level" ID="21" parentID="12">
-   <tuple> <atom label="Snapshot$0"/> <atom label="Node$9"/> <atom label="Level$0"/> </tuple>
-   <types> <type ID="12"/> <type ID="5"/> <type ID="4"/> </types>
+<sig label="this/System_Process_Electing" ID="17" parentID="18" one="yes">
+   <atom label="System_Process_Electing$0"/>
+</sig>
+
+<sig label="this/System_Process" ID="18" parentID="19" abstract="yes">
+</sig>
+
+<sig label="this/System" ID="19" parentID="20" abstract="yes">
+</sig>
+
+<sig label="this/SystemState" ID="20" parentID="9" abstract="yes">
+</sig>
+
+<sig label="this/StateLabel" ID="9" parentID="2" abstract="yes">
+</sig>
+
+<sig label="this/EnvironmentEvent" ID="21" parentID="22" abstract="yes">
+</sig>
+
+<sig label="this/InternalEvent" ID="23" parentID="22" abstract="yes">
+</sig>
+
+<sig label="this/EventLabel" ID="22" parentID="2" abstract="yes">
+</sig>
+
+<sig label="this/System_Process_Electing_PassToken" ID="24" parentID="11" one="yes">
+   <atom label="System_Process_Electing_PassToken$0"/>
+</sig>
+
+<sig label="this/System_Process_Electing_ConsumeToken" ID="25" parentID="11" one="yes">
+   <atom label="System_Process_Electing_ConsumeToken$0"/>
+</sig>
+
+<sig label="this/System_Process_Electing_ElectLeader" ID="26" parentID="11" one="yes">
+   <atom label="System_Process_Electing_ElectLeader$0"/>
+</sig>
+
+<sig label="this/TransitionLabel" ID="11" parentID="2" abstract="yes">
+</sig>
+
+<sig label="P0/Ord" ID="27" parentID="2" one="yes" private="yes">
+   <atom label="P0/Ord$0"/>
+</sig>
+
+<field label="First" ID="28" parentID="27" private="yes">
+   <tuple> <atom label="P0/Ord$0"/> <atom label="ProcessID$0"/> </tuple>
+   <types> <type ID="27"/> <type ID="5"/> </types>
 </field>
 
-<field label="System_NodeProc_parent" ID="22" parentID="12">
-   <tuple> <atom label="Snapshot$0"/> <atom label="Node$9"/> <atom label="Node$9"/> </tuple>
-   <types> <type ID="12"/> <type ID="5"/> <type ID="5"/> </types>
+<field label="Next" ID="29" parentID="27" private="yes">
+   <tuple> <atom label="P0/Ord$0"/> <atom label="ProcessID$0"/> <atom label="ProcessID$1"/> </tuple>
+   <tuple> <atom label="P0/Ord$0"/> <atom label="ProcessID$1"/> <atom label="ProcessID$2"/> </tuple>
+   <types> <type ID="27"/> <type ID="5"/> <type ID="5"/> </types>
 </field>
 
-<sig label="this/System_NodeProc_AssignNode" ID="23" parentID="24">
-   <atom label="System_NodeProc_AssignNode$0"/>
-   <atom label="System_NodeProc_AssignNode$1"/>
-   <atom label="System_NodeProc_AssignNode$2"/>
-   <atom label="System_NodeProc_AssignNode$3"/>
-   <atom label="System_NodeProc_AssignNode$4"/>
-   <atom label="System_NodeProc_AssignNode$5"/>
-   <atom label="System_NodeProc_AssignNode$6"/>
-   <atom label="System_NodeProc_AssignNode$7"/>
-   <atom label="System_NodeProc_AssignNode$8"/>
-   <atom label="System_NodeProc_AssignNode$9"/>
-</sig>
-
-<sig label="this/System_NodeProc" ID="24" parentID="25" abstract="yes">
-</sig>
-
-<sig label="this/System" ID="25" parentID="26" abstract="yes">
-</sig>
-
-<sig label="this/SystemState" ID="26" parentID="7" abstract="yes">
-</sig>
-
-<sig label="this/StateLabel" ID="7" parentID="2" abstract="yes">
-</sig>
-
-<sig label="this/EnvironmentEvent" ID="27" parentID="28" abstract="yes">
-</sig>
-
-<sig label="this/InternalEvent" ID="29" parentID="28" abstract="yes">
-</sig>
-
-<sig label="this/EventLabel" ID="28" parentID="2" abstract="yes">
-</sig>
-
-<sig label="this/System_NodeProc_AssignNode_RootAssign" ID="9" parentID="15">
-   <atom label="System_NodeProc_AssignNode_RootAssign$0"/>
-   <atom label="System_NodeProc_AssignNode_RootAssign$1"/>
-   <atom label="System_NodeProc_AssignNode_RootAssign$2"/>
-   <atom label="System_NodeProc_AssignNode_RootAssign$3"/>
-   <atom label="System_NodeProc_AssignNode_RootAssign$4"/>
-   <atom label="System_NodeProc_AssignNode_RootAssign$5"/>
-   <atom label="System_NodeProc_AssignNode_RootAssign$6"/>
-   <atom label="System_NodeProc_AssignNode_RootAssign$7"/>
-   <atom label="System_NodeProc_AssignNode_RootAssign$8"/>
-   <atom label="System_NodeProc_AssignNode_RootAssign$9"/>
-</sig>
-
-<sig label="this/System_NodeProc_AssignNode_SetAssignAndMessage" ID="11" parentID="15">
-   <atom label="System_NodeProc_AssignNode_SetAssignAndMessage$0"/>
-   <atom label="System_NodeProc_AssignNode_SetAssignAndMessage$1"/>
-   <atom label="System_NodeProc_AssignNode_SetAssignAndMessage$2"/>
-   <atom label="System_NodeProc_AssignNode_SetAssignAndMessage$3"/>
-   <atom label="System_NodeProc_AssignNode_SetAssignAndMessage$4"/>
-   <atom label="System_NodeProc_AssignNode_SetAssignAndMessage$5"/>
-   <atom label="System_NodeProc_AssignNode_SetAssignAndMessage$6"/>
-   <atom label="System_NodeProc_AssignNode_SetAssignAndMessage$7"/>
-   <atom label="System_NodeProc_AssignNode_SetAssignAndMessage$8"/>
-   <atom label="System_NodeProc_AssignNode_SetAssignAndMessage$9"/>
-</sig>
-
-<sig label="this/TransitionLabel" ID="15" parentID="2" abstract="yes">
-</sig>
-
-<sig label="nodeLevel/Ord" ID="30" parentID="2" one="yes" private="yes">
-   <atom label="nodeLevel/Ord$0"/>
-</sig>
-
-<field label="First" ID="31" parentID="30" private="yes">
-   <tuple> <atom label="nodeLevel/Ord$0"/> <atom label="Level$0"/> </tuple>
-   <types> <type ID="30"/> <type ID="4"/> </types>
-</field>
-
-<field label="Next" ID="32" parentID="30" private="yes">
-   <tuple> <atom label="nodeLevel/Ord$0"/> <atom label="Level$0"/> <atom label="Level$1"/> </tuple>
-   <tuple> <atom label="nodeLevel/Ord$0"/> <atom label="Level$1"/> <atom label="Level$2"/> </tuple>
-   <tuple> <atom label="nodeLevel/Ord$0"/> <atom label="Level$2"/> <atom label="Level$3"/> </tuple>
-   <types> <type ID="30"/> <type ID="4"/> <type ID="4"/> </types>
-</field>
-
-<sig label="boolean/True" ID="33" parentID="17" one="yes">
-   <atom label="boolean/True$0"/>
-</sig>
-
-<sig label="boolean/False" ID="34" parentID="17" one="yes">
-   <atom label="boolean/False$0"/>
-</sig>
-
-<sig label="boolean/Bool" ID="17" parentID="2" abstract="yes">
-</sig>
-
-<sig label="snapshot/Ord" ID="35" parentID="2" one="yes" private="yes">
+<sig label="snapshot/Ord" ID="30" parentID="2" one="yes" private="yes">
    <atom label="snapshot/Ord$0"/>
 </sig>
 
-<field label="First" ID="36" parentID="35" private="yes">
+<field label="First" ID="31" parentID="30" private="yes">
    <tuple> <atom label="snapshot/Ord$0"/> <atom label="Snapshot$0"/> </tuple>
-   <types> <type ID="35"/> <type ID="12"/> </types>
+   <types> <type ID="30"/> <type ID="7"/> </types>
+</field>
+
+<field label="Next" ID="32" parentID="30" private="yes">
+   <tuple> <atom label="snapshot/Ord$0"/> <atom label="Snapshot$0"/> <atom label="Snapshot$1"/> </tuple>
+   <types> <type ID="30"/> <type ID="7"/> <type ID="7"/> </types>
+</field>
+
+<sig label="boolean/True" ID="33" parentID="13" one="yes">
+   <atom label="boolean/True$0"/>
+</sig>
+
+<sig label="boolean/False" ID="34" parentID="13" one="yes">
+   <atom label="boolean/False$0"/>
+</sig>
+
+<sig label="boolean/Bool" ID="13" parentID="2" abstract="yes">
+</sig>
+
+<sig label="Buffer0/ord/Ord" ID="35" parentID="2" one="yes" private="yes">
+   <atom label="Buffer0/ord/Ord$0"/>
+</sig>
+
+<field label="First" ID="36" parentID="35" private="yes">
+   <tuple> <atom label="Buffer0/ord/Ord$0"/> <atom label="BufIdx0$0"/> </tuple>
+   <types> <type ID="35"/> <type ID="4"/> </types>
 </field>
 
 <field label="Next" ID="37" parentID="35" private="yes">
-   <types> <type ID="35"/> <type ID="12"/> <type ID="12"/> </types>
+   <tuple> <atom label="Buffer0/ord/Ord$0"/> <atom label="BufIdx0$0"/> <atom label="BufIdx0$1"/> </tuple>
+   <tuple> <atom label="Buffer0/ord/Ord$0"/> <atom label="BufIdx0$1"/> <atom label="BufIdx0$2"/> </tuple>
+   <tuple> <atom label="Buffer0/ord/Ord$0"/> <atom label="BufIdx0$2"/> <atom label="BufIdx0$3"/> </tuple>
+   <tuple> <atom label="Buffer0/ord/Ord$0"/> <atom label="BufIdx0$3"/> <atom label="BufIdx0$4"/> </tuple>
+   <types> <type ID="35"/> <type ID="4"/> <type ID="4"/> </types>
 </field>
 
 <sig label="univ" ID="2" builtin="yes" var="yes">

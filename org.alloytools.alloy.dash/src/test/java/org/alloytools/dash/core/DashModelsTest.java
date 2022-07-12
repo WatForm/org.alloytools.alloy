@@ -2,13 +2,19 @@ package org.alloytools.dash.core;
 
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.Test;
 
 import edu.mit.csail.sdg.alloy4.A4Reporter;
+import ca.uwaterloo.watform.ast.DashConcState;
 import ca.uwaterloo.watform.ast.DashTrans;
+import edu.mit.csail.sdg.ast.Decl;
+import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.Func;
+import edu.mit.csail.sdg.ast.Sig;
 import ca.uwaterloo.watform.transform.CoreDashToAlloy;
 import ca.uwaterloo.watform.parser.DashModule;
 import ca.uwaterloo.watform.parser.DashOptions;
@@ -124,8 +130,8 @@ public class DashModelsTest {
                 funcs1 = module.funcs.get(name);
         }
          
-        String expectedOutput1 = "one p | AND[p.s_next.Parent_Child2_var2 = none";
-        String expectedOutput2 = "one p | AND[p.s_next.Parent_Child1_var1 = none";
+        String expectedOutput1 = "(one p | p.s_next.Parent_Child2_var2 = none)";
+        String expectedOutput2 = "(one p | p.s_next.Parent_Child1_var1 = none)";
 
         if (!(funcs0.get(0).getBody().toString().contains(expectedOutput1)))
             throw new Exception("Post-Conditions Not Stored Properly (1)." + " Expected: " + funcs0.get(0).getBody().toString());
@@ -135,40 +141,6 @@ public class DashModelsTest {
         DashValidation.clearContainers();
     }
     
-    @Test
-    public void testVarRefsInSameReplicatedComponent() throws Exception {
-
-        String dashModel = "conc state Process [ProcessID] {\n"
-        		+ "	var1: ProcessID\n"
-        		+ "	default state DefaultState {\n"
-        		+ "		trans Transition {\n"
-        		+ "			do {\n"
-        		+ "				Process[var1]/var1' = this\n"
-        		+ "			}\n"
-        		+ "		}\n"
-        		+ "	}\n"
-        		
-        		+ "}";
-        DashOptions.outputDir = "test.dsh";
-        DashModule module = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
-        DashToCoreDash.transformToCoreDash(module);
-        CoreDashToAlloy.convertToAlloyAST(module);
-        
-        List<Func> funcs0 = new ArrayList<Func>();
-
-        for (String name : module.funcs.keySet()) {
-            if (name.equals("pos_Process_DefaultState_Transition"))
-                funcs0 = module.funcs.get(name);
-        }
-         
-        String expectedOutput = "(all quant | quant . s_next.Process_var1 = quant . s.Process_var1)";
-
-        if (!(funcs0.get(0).getBody().toString().contains(expectedOutput)))
-            throw new Exception("Post-Conditions Not Stored Properly. A changed replicated variable has been constrained properly!" + " Expected: " + funcs0.get(0).getBody().toString());
-
-        DashValidation.clearContainers();
-    }
-   
    
     @Test
     public void testTransitions() throws Exception {
@@ -393,8 +365,6 @@ public class DashModelsTest {
             throw new Exception("Init Predicate Not Stored Correctly.");
         if (!(module.funcs.keySet().contains("small_step")))
             throw new Exception("small_step Name Predicate Not Stored Correctly.");
-        if (!(module.funcs.keySet().contains("equals")))
-            throw new Exception("equals Predicate Not Stored Correctly.");
         if (!(module.funcs.keySet().contains("path")))
             throw new Exception("path Predicate Not Stored Correctly.");
 
@@ -446,10 +416,10 @@ public class DashModelsTest {
                 funcs = module.funcs.get(name);
         }
 
-        String expectedOutput = "AND[concState_stateA in s.conf, concState_envA in s.events & EnvironmentEvent, s.concState_var_one = none]";
+        String expectedOutput = "AND[concState_stateA in s.conf0, concState_envA in s.events0 & EnvironmentEvent, s . concState_var_one = none]";
 
         if (!expectedOutput.equals(funcs.get(0).getBody().toString()))
-            throw new Exception("Pre-Conditions Not Stored Properly.");
+            throw new Exception("Pre-Conditions Not Stored Properly." + " Actual: " + funcs.get(0).getBody().toString());
 
         DashValidation.clearContainers();
     }
@@ -471,7 +441,7 @@ public class DashModelsTest {
                 funcs = module.funcs.get(name);
         }
 
-        String expectedOutput = "AND[s_next.conf = s.conf - concState_stateA + concState_stateA, s_next.concState_var_one = s.concState_var_one, no s_next.events & InternalEvent]";
+        String expectedOutput = "AND[s_next.conf0 = s.conf0 - concState_stateA + concState_stateA, s_next.concState_var_one = s.concState_var_one, no s_next.events0 & InternalEvent]";
 
         if (!expectedOutput.equals(funcs.get(0).getBody().toString())) {
             throw new Exception("Post-Conditions Not Stored Properly. Expected: " + expectedOutput + " Actual: " + funcs.get(0).getBody().toString());
@@ -498,7 +468,7 @@ public class DashModelsTest {
                 funcs = module.funcs.get(name);
         }
 
-        String expectedOutput = "AND[s_next.conf = s.conf - concState_inner_stateA + concState_inner_stateA, s_next.concState_var_one = s.concState_var_one, (none.concState_inner_A.s_next.s.testIfNextStable => AND[s_next.stable = True, (s.stable = True => no s_next.events & InternalEvent else no s_next.events & InternalEvent - InternalEvent & s.events)] else AND[s_next.stable = False, (s.stable = True => AND[s_next.events & InternalEvent = none, s_next.events & EnvironmentEvent = s.events & EnvironmentEvent] else s_next.events = s.events + none)])]";
+        String expectedOutput = "AND[s_next.conf0 = s.conf0 - concState_inner_stateA + concState_inner_stateA, s_next.concState_var_one = s.concState_var_one, (none.concState_inner_A.s_next.s.testIfNextStable0 => AND[s_next.stable = True, (s.stable = True => s_next.events0 & InternalEvent = none else s_next.events0 & InternalEvent = s.events0 & InternalEvent)] else AND[s_next.stable = False, (s.stable = True => AND[s_next.events0 & InternalEvent = none, s_next.events0 & EnvironmentEvent = s.events0 & EnvironmentEvent] else s_next.events0 = s.events0)])]";
         
         if (!expectedOutput.equals(funcs.get(0).getBody().toString())) {
             throw new Exception("Post-Conditions Not Stored Properly. Expected: " + expectedOutput + " Actual: " + funcs.get(0).getBody().toString());
@@ -704,10 +674,10 @@ public class DashModelsTest {
                 funcs = module.funcs.get(name);
         }
 
-        String expectedOutput = "AND[concState_inner_stateA in s.conf, s.concState_var_one = none, (_s.stable = True => AND[no t & concState_inner_A + concState_inner_B, concState_envA in _s.events & EnvironmentEvent + genEvents] else AND[no _s.taken + t & concState_inner_A + concState_inner_B, concState_envA in _s.events + genEvents])]";
+        String expectedOutput = "AND[concState_inner_stateA in s.conf0, s . concState_var_one = none, (_s.stable = True => AND[no s.taken0, concState_envA in _s.events0 & EnvironmentEvent + genEvents] else AND[no s.taken0, concState_envA in _s.events0 + genEvents])]";
 
         if (!expectedOutput.equals(funcs.get(0).getBody().toString()))
-            throw new Exception("Enabled After Not Stored Properly.");
+            throw new Exception("Enabled After Not Stored Properly." + " Expected: " + funcs.get(0).getBody().toString());
 
         DashValidation.clearContainers();
     }
@@ -725,7 +695,7 @@ public class DashModelsTest {
         List<Func> funcs = new ArrayList<Func>();
 
         for (String name : module.funcs.keySet()) {
-            if (name.equals("testIfNextStable"))
+            if (name.equals("testIfNextStable0"))
                 funcs = module.funcs.get(name);
         }
 
@@ -736,32 +706,6 @@ public class DashModelsTest {
 
         DashValidation.clearContainers();
     }
-    
-    @Test
-    public void testTestIsEnabled() throws Exception {
-        String dashModel = "conc state concState { var_one: one EventLabel event envA {} conc state inner{ default state stateA{} trans A {from stateA on envA when var_one = none}  trans B {from stateA on envA do var_one' = none} } }";
-        DashOptions.outputDir = "test.dsh";
-
-        DashModule module = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
-        DashToCoreDash.transformToCoreDash(module);
-        DashValidation.validateDashModel(module);
-        CoreDashToAlloy.convertToAlloyAST(module);
-
-        List<Func> funcs = new ArrayList<Func>();
-
-        for (String name : module.funcs.keySet()) {
-            if (name.equals("isEnabled"))
-                funcs = module.funcs.get(name);
-        }
-
-        String expectedOutput = "OR[s.pre_concState_inner_A, s.pre_concState_inner_B]";
-
-        if (!expectedOutput.equals(funcs.get(0).getBody().toString()))
-            throw new Exception("TestIfNext After Not Stored Properly.");
-
-        DashValidation.clearContainers();
-    }
-
 
     @Test
     public void testSemanticsPred() throws Exception {
@@ -780,7 +724,7 @@ public class DashModelsTest {
                 funcs = module.funcs.get(name);
         }
 
-        String expectedOutput = "s_next.taken = concState_A";
+        String expectedOutput = "s_next.taken0 = concState_A";
 
         if (!expectedOutput.equals(funcs.get(0).getBody().toString()))
             throw new Exception("Semantics Not Stored Properly.");
@@ -805,35 +749,10 @@ public class DashModelsTest {
                 funcs = module.funcs.get(name);
         }
 
-        String expectedOutput = "AND[s.conf = concState_stateA, no s.taken, no s.events & InternalEvent]";
+        String expectedOutput = "AND[s.conf0 = concState_stateA, no s.taken0, no s.events0 & InternalEvent]";
 
         if (!expectedOutput.equals(funcs.get(0).getBody().toString()))
             throw new Exception("Init Not Stored Properly.");
-
-        DashValidation.clearContainers();
-    }
-
-    @Test
-    public void testEqualsPred() throws Exception {
-        String dashModel = "conc state concState { var_one: some EventLabel event envA {} trans A {from stateA on envA when var_one = none} default state stateA {}}";
-        DashOptions.outputDir = "test.dsh";
-
-        DashModule module = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
-        DashToCoreDash.transformToCoreDash(module);
-        DashValidation.validateDashModel(module);
-        CoreDashToAlloy.convertToAlloyAST(module);
-
-        List<Func> funcs = new ArrayList<Func>();
-
-        for (String name : module.funcs.keySet()) {
-            if (name.equals("equals"))
-                funcs = module.funcs.get(name);
-        }
-
-        String expectedOutput = "AND[s_next.conf = s.conf, s_next.events = s.events, s_next.taken = s.taken, s_next.concState_var_one = s.concState_var_one]";
-
-        if (!expectedOutput.equals(funcs.get(0).getBody().toString()))
-            throw new Exception("Equals Predicate Not Stored Properly.");
 
         DashValidation.clearContainers();
     }
@@ -853,7 +772,7 @@ public class DashModelsTest {
 
         String expectedOutput = "AND[snapshot/first.init, (all s | ! s in snapshot/last => s . next.s.small_step)]";
 
-        if (!expectedOutput.equals(module.facts.get(1).b.toString()))
+        if (!expectedOutput.equals(module.facts.get(0).b.toString()))
             throw new Exception("Fact Not Stored Properly." + " Actual: " + module.facts.get(1).b.toString());
 
         DashValidation.clearContainers();
@@ -874,12 +793,736 @@ public class DashModelsTest {
 
         String expectedOutput = "AND[(all s | s in ks_s0 <=> s.init), (all s,s_next | s -> s_next in ks_sigma <=> s_next.s.small_step)]";
 
-        System.out.println("Actual  : " + module.facts.get(0).b.toString());
+        System.out.println("Actual  : " + module.facts.get(1).b.toString());
         System.out.println("Expected: " + expectedOutput);
         
-        if (!expectedOutput.equals(module.facts.get(2).b.toString()))
-        	throw new Exception("Fact Not Stored Properly." + " Actual: " + module.facts.get(2).b.toString());
+        if (!expectedOutput.equals(module.facts.get(1).b.toString()))
+        	throw new Exception("Fact Not Stored Properly." + " Actual: " + module.facts.get(1).b.toString());
 
+        DashValidation.clearContainers();
+    }
+    
+    // Unit Testing For The Dynamic Approach
+    
+    @Test
+    public void testRepStateNestedInRepState() throws Exception {
+        String dashModel = "conc state R0 [IE0] {\n"
+        		+ "	conc state C {\n"
+        		+ "		default state S0 {}\n"
+        		+ "	}\n"
+        		+ "\n"
+        		+ "	conc state R1 [IE1] {\n"
+        		+ "		default state S0 {}\n"
+        		+ "		state S1 {\n"
+        		+ "			conc state R2 [IE2] {\n"
+        		+ "				default state S0 {}\n"
+        		+ "			}\n"
+        		+ "		}\n"
+        		+ "		trans T0 {\n"
+        		+ "			from S0\n"
+        		+ "			goto S1\n"
+        		+ "		}\n"
+        		+ "	}\n"
+        		+ "}";
+        DashOptions.outputDir = "test.dsh";
+
+        DashOptions.ctlModelChecking = false;
+        DashOptions.generateTraces = true;
+        
+        DashModule module = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
+        DashToCoreDash.transformToCoreDash(module);;
+        DashModule alloyModule = CoreDashToAlloy.convertToAlloyAST(module);
+
+        if (!alloyModule.concStateNames.contains("R0")) {
+        	throw new Exception("Replicated Concurrent State Not Stored Properly.");
+        }
+        if (!alloyModule.concStateNames.contains("R0_R1")) {
+        	throw new Exception("Replicated Concurrent State Not Stored Properly.");
+        }
+        if (!alloyModule.concStateNames.contains("R0_R1_S1_R2")) {
+        	throw new Exception("Replicated Concurrent State Not Stored Properly.");
+        }
+
+        DashValidation.clearContainers();
+    }
+    
+    // Check if we have the conf1, conf2 and conf3 relations
+    @Test
+    public void testNestedConfRelNames() throws Exception {
+        String dashModel = "conc state R0 [IE0] {\n"
+        		+ "	conc state C {\n"
+        		+ "		default state S0 {}\n"
+        		+ "	}\n"
+        		+ "\n"
+        		+ "	conc state R1 [IE1] {\n"
+        		+ "		default state S0 {}\n"
+        		+ "		state S1 {\n"
+        		+ "			conc state R2 [IE2] {\n"
+        		+ "				default state S0 {}\n"
+        		+ "			}\n"
+        		+ "		}\n"
+        		+ "		trans T0 {\n"
+        		+ "			from S0\n"
+        		+ "			goto S1\n"
+        		+ "		}\n"
+        		+ "	}\n"
+        		+ "}";
+        DashOptions.outputDir = "test.dsh";
+
+        DashOptions.ctlModelChecking = false;
+        DashOptions.generateTraces = true;
+        
+        DashModule module = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
+        DashToCoreDash.transformToCoreDash(module);;
+        DashModule alloyModule = CoreDashToAlloy.convertToAlloyAST(module);
+        A4Reporter rep = new A4Reporter();
+        alloyModule = DashModule.resolveAll(rep == null ? A4Reporter.NOP : rep, alloyModule);
+        
+        if (alloyModule.confTuples.size() != 3) {
+        	throw new Exception("Configurations are not stored properly.");
+        }
+        
+        Sig snapshot = null;
+        for (Sig sig : alloyModule.getAllSigs()) {
+            if (sig.label.equals("this/Snapshot")) {
+                snapshot = sig;
+            }
+        }
+
+        List<String> rels = new ArrayList<String>();
+        for (Decl f : snapshot.getFieldDecls()) {
+        	rels.add(f.get().toString());
+        }
+        
+        if (!rels.contains("field (this/Snapshot <: conf1)")) {
+        	throw new Exception("conf1 is missing from the Snapshot relation.");
+        }
+        if (!rels.contains("field (this/Snapshot <: conf2)")) {
+        	throw new Exception("conf2 is missing from the Snapshot relation.");
+        }
+        if (!rels.contains("field (this/Snapshot <: conf3)")) {
+        	throw new Exception("conf3 is missing from the Snapshot relation.");
+        }
+
+        DashValidation.clearContainers();
+    }
+    
+    // Check if conf1 maps to Identifier -> Statelabel, conf2 to Identifier -> Identifier -> StateLabel and so on.
+    @Test
+    public void testNestedConfRelExpressions() throws Exception {
+        String dashModel = "conc state R0 [IE0] {\n"
+        		+ "	conc state C {\n"
+        		+ "		default state S0 {}\n"
+        		+ "	}\n"
+        		+ "\n"
+        		+ "	conc state R1 [IE1] {\n"
+        		+ "		default state S0 {}\n"
+        		+ "		state S1 {\n"
+        		+ "			conc state R2 [IE2] {\n"
+        		+ "				default state S0 {}\n"
+        		+ "			}\n"
+        		+ "		}\n"
+        		+ "		trans T0 {\n"
+        		+ "			from S0\n"
+        		+ "			goto S1\n"
+        		+ "		}\n"
+        		+ "	}\n"
+        		+ "}";
+        DashOptions.outputDir = "test.dsh";
+
+        DashOptions.ctlModelChecking = false;
+        DashOptions.generateTraces = true;
+        
+        DashModule module = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
+        DashToCoreDash.transformToCoreDash(module);;
+        DashModule alloyModule = CoreDashToAlloy.convertToAlloyAST(module);
+        A4Reporter rep = new A4Reporter();
+        alloyModule = DashModule.resolveAll(rep == null ? A4Reporter.NOP : rep, alloyModule);
+        
+        if (alloyModule.confTuples.size() != 3) {
+        	throw new Exception("Configurations are not stored properly.");
+        }
+        
+        Sig snapshot = null;
+        for (Sig sig : alloyModule.getAllSigs()) {
+            if (sig.label.equals("this/Snapshot")) {
+                snapshot = sig;
+            }
+        }
+
+        for (Decl f : snapshot.getFieldDecls()) {
+        	if(f.get().toString().contains("field (this/Snapshot <: conf1)")) {
+        		if(!f.expr.toString().equals("this/Identifiers -> this/StateLabel")) {
+        			throw new Exception("conf1 mapping not stored properly");
+        		}
+        	}
+        	if(f.get().toString().contains("field (this/Snapshot <: conf2)")) {
+        		if(!f.expr.toString().equals("this/Identifiers -> this/Identifiers -> this/StateLabel")) {
+        			throw new Exception("conf2 mapping not stored properly");
+        		}
+        	}
+        	if(f.get().toString().contains("field (this/Snapshot <: conf3)")) {
+        		if(!f.expr.toString().equals("this/Identifiers -> this/Identifiers -> this/Identifiers -> this/StateLabel")) {
+        			throw new Exception("conf3 mapping not stored properly");
+        		}
+        	}
+        }
+        
+        DashValidation.clearContainers();
+    }
+    
+    // Check if we have the taken1, taken2 and taken3 relations
+    @Test
+    public void testNestedTakenRelNames() throws Exception {
+        String dashModel = "conc state R0 [IE0] {\n"
+        		+ "	conc state C {\n"
+        		+ "		default state S0 {}\n"
+        		+ "	}\n"
+        		+ "\n"
+        		+ "	conc state R1 [IE1] {\n"
+        		+ "		default state S0 {}\n"
+        		+ "		state S1 {\n"
+        		+ "			conc state R2 [IE2] {\n"
+        		+ "				default state S0 {}\n"
+        		+ "			}\n"
+        		+ "		}\n"
+        		+ "		trans T0 {\n"
+        		+ "			from S0\n"
+        		+ "			goto S1\n"
+        		+ "		}\n"
+        		+ "	}\n"
+        		+ "}";
+        DashOptions.outputDir = "test.dsh";
+
+        DashOptions.ctlModelChecking = false;
+        DashOptions.generateTraces = true;
+        
+        DashModule module = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
+        DashToCoreDash.transformToCoreDash(module);;
+        DashModule alloyModule = CoreDashToAlloy.convertToAlloyAST(module);
+        A4Reporter rep = new A4Reporter();
+        alloyModule = DashModule.resolveAll(rep == null ? A4Reporter.NOP : rep, alloyModule);
+        
+        Sig snapshot = null;
+        for (Sig sig : alloyModule.getAllSigs()) {
+            if (sig.label.equals("this/Snapshot")) {
+                snapshot = sig;
+            }
+        }
+
+        List<String> rels = new ArrayList<String>();
+        for (Decl f : snapshot.getFieldDecls()) {
+        	rels.add(f.get().toString());
+        }
+        
+        if (!rels.contains("field (this/Snapshot <: taken1)")) {
+        	throw new Exception("conf1 is missing from the Snapshot relation.");
+        }
+        if (!rels.contains("field (this/Snapshot <: taken2)")) {
+        	throw new Exception("conf2 is missing from the Snapshot relation.");
+        }
+        if (!rels.contains("field (this/Snapshot <: taken3)")) {
+        	throw new Exception("conf3 is missing from the Snapshot relation.");
+        }
+
+        DashValidation.clearContainers();
+    }
+    
+    // Check if conf1 maps to Identifier -> TransitionLabel, conf2 to Identifier -> Identifier -> TransitionLabel and so on.
+    @Test
+    public void testNestedTakenRelExpressions() throws Exception {
+        String dashModel = "conc state R0 [IE0] {\n"
+        		+ "	conc state C {\n"
+        		+ "		default state S0 {}\n"
+        		+ "	}\n"
+        		+ "\n"
+        		+ "	conc state R1 [IE1] {\n"
+        		+ "		default state S0 {}\n"
+        		+ "		state S1 {\n"
+        		+ "			conc state R2 [IE2] {\n"
+        		+ "				default state S0 {}\n"
+        		+ "			}\n"
+        		+ "		}\n"
+        		+ "		trans T0 {\n"
+        		+ "			from S0\n"
+        		+ "			goto S1\n"
+        		+ "		}\n"
+        		+ "	}\n"
+        		+ "}";
+        DashOptions.outputDir = "test.dsh";
+
+        DashOptions.ctlModelChecking = false;
+        DashOptions.generateTraces = true;
+        
+        DashModule module = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
+        DashToCoreDash.transformToCoreDash(module);;
+        DashModule alloyModule = CoreDashToAlloy.convertToAlloyAST(module);
+        A4Reporter rep = new A4Reporter();
+        alloyModule = DashModule.resolveAll(rep == null ? A4Reporter.NOP : rep, alloyModule);
+        
+        Sig snapshot = null;
+        for (Sig sig : alloyModule.getAllSigs()) {
+            if (sig.label.equals("this/Snapshot")) {
+                snapshot = sig;
+            }
+        }
+
+        for (Decl f : snapshot.getFieldDecls()) {
+        	if(f.get().toString().contains("field (this/Snapshot <: taken1)")) {
+        		if(!f.expr.toString().equals("this/Identifiers -> this/TransitionLabel")) {
+        			throw new Exception("taken1 mapping not stored properly");
+        		}
+        	}
+        	if(f.get().toString().contains("field (this/Snapshot <: taken2)")) {
+        		if(!f.expr.toString().equals("this/Identifiers -> this/Identifiers -> this/TransitionLabel")) {
+        			throw new Exception("taken2 mapping not stored properly");
+        		}
+        	}
+        	if(f.get().toString().contains("field (this/Snapshot <: taken3)")) {
+        		if(!f.expr.toString().equals("this/Identifiers -> this/Identifiers -> this/Identifiers -> this/TransitionLabel")) {
+        			throw new Exception("taken3 mapping not stored properly");
+        		}
+        	}
+        }
+        
+        DashValidation.clearContainers();
+    }
+    
+    @Test
+    public void testPostCondConfInNestedState () throws Exception {
+        String dashModel = "conc state R0 [IE0] {\n"
+        		+ "        conc state C {\n"
+        		+ "        	default state S0 {}\n"
+        		+ "        }\n"
+        		+ "						\n"
+        		+ "        conc state R1 [IE1] {\n"
+        		+ "        	default state S0 {}\n"
+        		+ "        	state S1 {\n"
+        		+ "        		conc state R2 [IE2] {\n"
+        		+ "        			default state S0 {}\n"
+        		+ "					state S1 {}\n"
+        		+ "					trans T1 {\n"
+        		+ "						from S0\n"
+        		+ "						goto S1\n"
+        		+ "				}\n"
+        		+ "        		}\n"
+        		+ "        	}\n"
+        		+ "        	trans T0 {\n"
+        		+ "        		from S0\n"
+        		+ "        		goto S1\n"
+        		+ "        	}\n"
+        		+ "        }\n"
+        		+ "}\n";
+        DashOptions.outputDir = "test.dsh";
+
+        DashOptions.ctlModelChecking = false;
+        DashOptions.generateTraces = true;
+        
+        DashModule module = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
+        DashToCoreDash.transformToCoreDash(module);;
+        DashModule alloyModule = CoreDashToAlloy.convertToAlloyAST(module);
+        A4Reporter rep = new A4Reporter();
+        alloyModule = DashModule.resolveAll(rep == null ? A4Reporter.NOP : rep, alloyModule);
+        
+        Expr f = alloyModule.funcs.get("pos_R0_R1_S1_R2_T1").get(0).getBody();
+        
+        String expectedConf = "s_next . (this/Snapshot <: conf1) = s . (this/Snapshot <: conf1), s_next . (this/Snapshot <: conf2) = s . (this/Snapshot <: conf2), s_next . (this/Snapshot <: conf3) = s . (this/Snapshot <: conf3) - p0 -> p1 -> p2 -> this/R0_R1_S1_R2_S0 + p0 -> p1 -> p2 -> this/R0_R1_S1_R2_S1,";
+        if (!f.toString().contains(expectedConf)) {
+        	throw new Exception("The conf relation is not updated properly in the post condition.");
+        }
+        
+        //this/R0_R1_S1_R2_S0 in p2 . p1 . p0 . s . (this/Snapshot <: conf3)
+        
+        DashValidation.clearContainers();
+    }
+    
+    @Test
+    public void testPreCondConfInNestedState () throws Exception {
+        String dashModel = "conc state R0 [IE0] {\n"
+        		+ "        conc state C {\n"
+        		+ "        	default state S0 {}\n"
+        		+ "        }\n"
+        		+ "						\n"
+        		+ "        conc state R1 [IE1] {\n"
+        		+ "        	default state S0 {}\n"
+        		+ "        	state S1 {\n"
+        		+ "        		conc state R2 [IE2] {\n"
+        		+ "        			default state S0 {}\n"
+        		+ "					state S1 {}\n"
+        		+ "					trans T1 {\n"
+        		+ "						from S0\n"
+        		+ "						goto S1\n"
+        		+ "				}\n"
+        		+ "        		}\n"
+        		+ "        	}\n"
+        		+ "        	trans T0 {\n"
+        		+ "        		from S0\n"
+        		+ "        		goto S1\n"
+        		+ "        	}\n"
+        		+ "        }\n"
+        		+ "}\n";
+        DashOptions.outputDir = "test.dsh";
+
+        DashOptions.ctlModelChecking = false;
+        DashOptions.generateTraces = true;
+        
+        DashModule module = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
+        DashToCoreDash.transformToCoreDash(module);;
+        DashModule alloyModule = CoreDashToAlloy.convertToAlloyAST(module);
+        A4Reporter rep = new A4Reporter();
+        alloyModule = DashModule.resolveAll(rep == null ? A4Reporter.NOP : rep, alloyModule);
+        
+        Expr f = alloyModule.funcs.get("pre_R0_R1_S1_R2_T1").get(0).getBody();
+        
+        String expectedConf = "this/R0_R1_S1_R2_S0 in p2 . p1 . p0 . s . (this/Snapshot <: conf3)";
+        if (!f.toString().contains(expectedConf)) {
+        	throw new Exception("The conf relation is not updated properly in the pre condition.");
+        }
+        
+        DashValidation.clearContainers();
+    }
+    
+    @Test
+    public void testSemanticsInNestedState () throws Exception {
+        String dashModel = "conc state R0 [IE0] {\n"
+        		+ "        conc state C {\n"
+        		+ "        	default state S0 {}\n"
+        		+ "        }\n"
+        		+ "						\n"
+        		+ "        conc state R1 [IE1] {\n"
+        		+ "        	default state S0 {}\n"
+        		+ "        	state S1 {\n"
+        		+ "        		conc state R2 [IE2] {\n"
+        		+ "        			default state S0 {}\n"
+        		+ "					state S1 {}\n"
+        		+ "					trans T1 {\n"
+        		+ "						from S0\n"
+        		+ "						goto S1\n"
+        		+ "				}\n"
+        		+ "        		}\n"
+        		+ "        	}\n"
+        		+ "        	trans T0 {\n"
+        		+ "        		from S0\n"
+        		+ "        		goto S1\n"
+        		+ "        	}\n"
+        		+ "        }\n"
+        		+ "}\n";
+        DashOptions.outputDir = "test.dsh";
+
+        DashOptions.ctlModelChecking = false;
+        DashOptions.generateTraces = true;
+        
+        DashModule module = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
+        DashToCoreDash.transformToCoreDash(module);;
+        DashModule alloyModule = CoreDashToAlloy.convertToAlloyAST(module);
+        A4Reporter rep = new A4Reporter();
+        alloyModule = DashModule.resolveAll(rep == null ? A4Reporter.NOP : rep, alloyModule);
+        
+        Expr f = alloyModule.funcs.get("semantics_R0_R1_S1_R2_T1").get(0).getBody();
+        
+        String expectedSemantics = "(s . (this/Snapshot <: stable) = boolean/True => s_next . (this/Snapshot <: taken3) = p0 -> p1 -> p2 -> this/R0_R1_S1_R2_T1 else "
+        		+ "AND[s_next . (this/Snapshot <: taken3) = s . (this/Snapshot <: taken3) + p0 -> p1 -> p2 -> this/R0_R1_S1_R2_T1, no p2 . p1 . p0 . s . (this/Snapshot <: taken3)]), s . (this/Snapshot <: taken1) = s_next . (this/Snapshot <: taken1), s . (this/Snapshot <: taken2) = s_next . (this/Snapshot <: taken2)";
+        if (!f.toString().contains(expectedSemantics)) {
+        	throw new Exception("The conf relation is not updated properly in the pre condition." + f);
+        }
+        
+        DashValidation.clearContainers();
+    }
+    
+    @Test
+    public void testNestedEvent () throws Exception {
+        String dashModel = "conc state R0 [IE0] {\n"
+        		+ "        		conc state C {\n"
+        		+ "        			default state S0 {}\n"
+        		+ "        		}\n"
+        		+ "\n"
+        		+ "       	 	conc state R1 [IE1] {\n"
+        		+ "		   			event E0 {}\n"
+        		+ "        			default state S0 {}\n"
+        		+ "        			state S1 {\n"
+        		+ "        				conc state R2 [IE2] {\n"
+        		+ "							event E1 {}\n"
+        		+ "        					default state S0 {}\n"
+        		+ "							state S1 {}\n"
+        		+ "							trans T1 {\n"
+        		+ "								on E1\n"
+        		+ "								from S0\n"
+        		+ "								goto S1\n"
+        		+ "								send E1\n"
+        		+ "							}\n"	
+        		+ "        				}\n"
+        		+ "        			}\n"
+        		+ "        			trans T0 {\n"
+        		+ "					on E0\n"
+        		+ "        				from S0\n"
+        		+ "        				goto S1\n"
+        		+ "						send E0\n"
+        		+ "        			}\n"
+        		+ "        		}\n"
+        		+ "			}";
+        DashOptions.outputDir = "test.dsh";
+
+        DashOptions.ctlModelChecking = false;
+        DashOptions.generateTraces = true;
+        
+        DashModule module = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
+        DashToCoreDash.transformToCoreDash(module);;
+        DashModule alloyModule = CoreDashToAlloy.convertToAlloyAST(module);
+        A4Reporter rep = new A4Reporter();
+        alloyModule = DashModule.resolveAll(rep == null ? A4Reporter.NOP : rep, alloyModule);
+        
+        if (alloyModule.events.size() != 2) {
+        	throw new Exception("Nested Events not stored properly");
+        }
+        
+        if (!alloyModule.events.keySet().contains("R0_R1_S1_R2_E1")) {
+        	throw new Exception("Nested Events not stored properly");
+        }
+        
+        if (!alloyModule.events.keySet().contains("R0_R1_E0")) {
+        	throw new Exception("Nested Events not stored properly");
+        }
+        
+        DashValidation.clearContainers();
+    }
+    
+    // Check if we have the event1, event2 and event3 relations
+    @Test
+    public void testNestedEventRelNames() throws Exception {
+        String dashModel = "conc state R0 [IE0] {\n"
+        		+ "        		conc state C {\n"
+        		+ "        			default state S0 {}\n"
+        		+ "        		}\n"
+        		+ "\n"
+        		+ "       	 	conc state R1 [IE1] {\n"
+        		+ "		   			event E0 {}\n"
+        		+ "        			default state S0 {}\n"
+        		+ "        			state S1 {\n"
+        		+ "        				conc state R2 [IE2] {\n"
+        		+ "							event E1 {}\n"
+        		+ "        					default state S0 {}\n"
+        		+ "							state S1 {}\n"
+        		+ "							trans T1 {\n"
+        		+ "								on E1\n"
+        		+ "								from S0\n"
+        		+ "								goto S1\n"
+        		+ "								send E1\n"
+        		+ "							}\n"	
+        		+ "        				}\n"
+        		+ "        			}\n"
+        		+ "        			trans T0 {\n"
+        		+ "					on E0\n"
+        		+ "        				from S0\n"
+        		+ "        				goto S1\n"
+        		+ "						send E0\n"
+        		+ "        			}\n"
+        		+ "        		}\n"
+        		+ "			}";
+        DashOptions.outputDir = "test.dsh";
+
+        DashOptions.ctlModelChecking = false;
+        DashOptions.generateTraces = true;
+        
+        DashModule module = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
+        DashToCoreDash.transformToCoreDash(module);;
+        DashModule alloyModule = CoreDashToAlloy.convertToAlloyAST(module);
+        A4Reporter rep = new A4Reporter();
+        alloyModule = DashModule.resolveAll(rep == null ? A4Reporter.NOP : rep, alloyModule);    
+
+        Sig snapshot = null;
+        for (Sig sig : alloyModule.getAllSigs()) {
+            if (sig.label.equals("this/Snapshot")) {
+                snapshot = sig;
+            }
+        }
+        
+        List<String> rels = new ArrayList<String>();
+        for (Decl f : snapshot.getFieldDecls()) {
+        	rels.add(f.get().toString());
+        }
+        
+        if (!rels.contains("field (this/Snapshot <: events2)")) {
+        	throw new Exception("event2 is missing from the Snapshot relation.");
+        }
+        if (!rels.contains("field (this/Snapshot <: events3)")) {
+        	throw new Exception("event3 is missing from the Snapshot relation.");
+        }
+
+        DashValidation.clearContainers();
+    }
+    
+    // Check if event1 maps to Identifier -> EventLabel, event2 to Identifier -> Identifier -> EventLabel and so on.
+    @Test
+    public void testNestedEventRelExpressions() throws Exception {
+        String dashModel = "conc state R0 [IE0] {\n"
+        		+ "        		conc state C {\n"
+        		+ "        			default state S0 {}\n"
+        		+ "        		}\n"
+        		+ "\n"
+        		+ "       	 	conc state R1 [IE1] {\n"
+        		+ "		   			event E0 {}\n"
+        		+ "        			default state S0 {}\n"
+        		+ "        			state S1 {\n"
+        		+ "        				conc state R2 [IE2] {\n"
+        		+ "							event E1 {}\n"
+        		+ "        					default state S0 {}\n"
+        		+ "							state S1 {}\n"
+        		+ "							trans T1 {\n"
+        		+ "								on E1\n"
+        		+ "								from S0\n"
+        		+ "								goto S1\n"
+        		+ "								send E1\n"
+        		+ "							}\n"	
+        		+ "        				}\n"
+        		+ "        			}\n"
+        		+ "        			trans T0 {\n"
+        		+ "					on E0\n"
+        		+ "        				from S0\n"
+        		+ "        				goto S1\n"
+        		+ "						send E0\n"
+        		+ "        			}\n"
+        		+ "        		}\n"
+        		+ "			}";
+        DashOptions.outputDir = "test.dsh";
+
+        DashOptions.ctlModelChecking = false;
+        DashOptions.generateTraces = true;
+        
+        DashModule module = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
+        DashToCoreDash.transformToCoreDash(module);;
+        DashModule alloyModule = CoreDashToAlloy.convertToAlloyAST(module);
+        A4Reporter rep = new A4Reporter();
+        alloyModule = DashModule.resolveAll(rep == null ? A4Reporter.NOP : rep, alloyModule);
+
+        Sig snapshot = null;
+        for (Sig sig : alloyModule.getAllSigs()) {
+            if (sig.label.equals("this/Snapshot")) {
+                snapshot = sig;
+            }
+        }
+
+        for (Decl f : snapshot.getFieldDecls()) {
+        	if(f.get().toString().contains("field (this/Snapshot <: events2)")) {
+        		if(!f.expr.toString().equals("this/Identifiers -> this/Identifiers -> this/EventLabel")) {
+        			throw new Exception("conf2 mapping not stored properly");
+        		}
+        	}
+        	if(f.get().toString().contains("field (this/Snapshot <: events3)")) {
+        		if(!f.expr.toString().equals("this/Identifiers -> this/Identifiers -> this/Identifiers -> this/EventLabel")) {
+        			throw new Exception("conf3 mapping not stored properly");
+        		}
+        	}
+        }
+        
+        DashValidation.clearContainers();
+    }
+    
+    @Test
+    public void testEventPreCondExpr () throws Exception {
+        String dashModel = "conc state R0 [IE0] {\n"
+        		+ "        		conc state C {\n"
+        		+ "        			default state S0 {}\n"
+        		+ "        		}\n"
+        		+ "\n"
+        		+ "       	 	conc state R1 [IE1] {\n"
+        		+ "		   			event E0 {}\n"
+        		+ "        			default state S0 {}\n"
+        		+ "        			state S1 {\n"
+        		+ "        				conc state R2 [IE2] {\n"
+        		+ "							event E1 {}\n"
+        		+ "        					default state S0 {}\n"
+        		+ "							state S1 {}\n"
+        		+ "							trans T1 {\n"
+        		+ "								on E1\n"
+        		+ "								from S0\n"
+        		+ "								goto S1\n"
+        		+ "								send E1\n"
+        		+ "							}\n"	
+        		+ "        				}\n"
+        		+ "        			}\n"
+        		+ "        			trans T0 {\n"
+        		+ "					on E0\n"
+        		+ "        				from S0\n"
+        		+ "        				goto S1\n"
+        		+ "						send E0\n"
+        		+ "        			}\n"
+        		+ "        		}\n"
+        		+ "			}";
+        DashOptions.outputDir = "test.dsh";
+
+        DashOptions.ctlModelChecking = false;
+        DashOptions.generateTraces = true;
+        
+        DashModule module = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
+        DashToCoreDash.transformToCoreDash(module);;
+        DashModule alloyModule = CoreDashToAlloy.convertToAlloyAST(module);
+        A4Reporter rep = new A4Reporter();
+        alloyModule = DashModule.resolveAll(rep == null ? A4Reporter.NOP : rep, alloyModule);
+        
+        Expr f = alloyModule.funcs.get("pre_R0_R1_S1_R2_T1").get(0).getBody();
+        
+        String expectedConf = "this/R0_R1_S1_R2_E1 in p2 . p1 . p0 . s . (this/Snapshot <: events3)";
+        if (!f.toString().contains(expectedConf)) {
+        	throw new Exception("The event relation is not checked properly in the pre condition." + f);
+        }
+        
+        DashValidation.clearContainers();
+    }
+    
+    @Test
+    public void testTestIfnNextStableCallPostCondExpr () throws Exception {
+        String dashModel = "conc state R0 [IE0] {\n"
+        		+ "        		conc state C {\n"
+        		+ "        			default state S0 {}\n"
+        		+ "        		}\n"
+        		+ "\n"
+        		+ "       	 	conc state R1 [IE1] {\n"
+        		+ "		   			event E0 {}\n"
+        		+ "        			default state S0 {}\n"
+        		+ "        			state S1 {\n"
+        		+ "        				conc state R2 [IE2] {\n"
+        		+ "							event E1 {}\n"
+        		+ "        					default state S0 {}\n"
+        		+ "							state S1 {}\n"
+        		+ "							trans T1 {\n"
+        		+ "								on E1\n"
+        		+ "								from S0\n"
+        		+ "								goto S1\n"
+        		+ "								send E1\n"
+        		+ "							}\n"	
+        		+ "        				}\n"
+        		+ "        			}\n"
+        		+ "        			trans T0 {\n"
+        		+ "					on E0\n"
+        		+ "        				from S0\n"
+        		+ "        				goto S1\n"
+        		+ "						send E0\n"
+        		+ "        			}\n"
+        		+ "        		}\n"
+        		+ "			}";
+        DashOptions.outputDir = "test.dsh";
+
+        DashOptions.ctlModelChecking = false;
+        DashOptions.generateTraces = true;
+        
+        DashModule module = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
+        DashToCoreDash.transformToCoreDash(module);;
+        DashModule alloyModule = CoreDashToAlloy.convertToAlloyAST(module);
+        A4Reporter rep = new A4Reporter();
+        alloyModule = DashModule.resolveAll(rep == null ? A4Reporter.NOP : rep, alloyModule);
+        
+        Expr f = alloyModule.funcs.get("pos_R0_R1_S1_R2_T1").get(0).getBody();
+        
+        String expectedCall = "(this/testIfNextStable3[s, s_next, this/R0_R1_S1_R2_T1, p0 -> p1 -> p2 -> this/R0_R1_S1_R2_E1] => "
+        		+ "AND[s_next . (this/Snapshot <: stable) = boolean/True, (s . (this/Snapshot <: stable) = boolean/True => "
+        		+ "AND[s_next . (this/Snapshot <: events2) & this/Identifiers -> this/Identifiers -> this/InternalEvent = none -> none -> none, s_next . (this/Snapshot <: events3) & this/Identifiers -> this/Identifiers -> this/Identifiers -> this/InternalEvent = p0 -> p1 -> p2 -> this/R0_R1_S1_R2_E1] else "
+        		+ "AND[s_next . (this/Snapshot <: events2) & this/Identifiers -> this/Identifiers -> this/InternalEvent = none -> none -> none + s . (this/Snapshot <: events2) & this/Identifiers -> this/Identifiers -> this/InternalEvent, s_next . (this/Snapshot <: events3) & this/Identifiers -> this/Identifiers -> this/Identifiers -> this/InternalEvent = p0 -> p1 -> p2 -> this/R0_R1_S1_R2_E1 + s . (this/Snapshot <: events3) & this/Identifiers -> this/Identifiers -> this/Identifiers -> this/InternalEvent])] else "
+        		+ "AND[s_next . (this/Snapshot <: stable) = boolean/False, (s . (this/Snapshot <: stable) = boolean/True => "
+        		+ "AND[s_next . (this/Snapshot <: events2) & this/Identifiers -> this/Identifiers -> this/InternalEvent = none -> none -> none, s_next . (this/Snapshot <: events2) & this/Identifiers -> this/Identifiers -> this/EnvironmentEvent = s . (this/Snapshot <: events2) & this/Identifiers -> this/Identifiers -> this/EnvironmentEvent, s_next . (this/Snapshot <: events3) & this/Identifiers -> this/Identifiers -> this/Identifiers -> this/InternalEvent = p0 -> p1 -> p2 -> this/R0_R1_S1_R2_E1, s_next . (this/Snapshot <: events3) & this/Identifiers -> this/Identifiers -> this/Identifiers -> this/EnvironmentEvent = s . (this/Snapshot <: events3) & this/Identifiers -> this/Identifiers -> this/Identifiers -> this/EnvironmentEvent] else AND[s_next . (this/Snapshot <: events2) = s . (this/Snapshot <: events2) + none -> none -> none, s_next . (this/Snapshot <: events3) = s . (this/Snapshot <: events3) + p0 -> p1 -> p2 -> this/R0_R1_S1_R2_E1])]), p0 -> p1 -> p2 -> this/R0_R1_S1_R2_E1 in s_next . (this/Snapshot <: events3";
+        if (!f.toString().contains(expectedCall)) {
+        	throw new Exception("The event post condition is not handled correctly." + f);
+        }
+        
         DashValidation.clearContainers();
     }
 }
