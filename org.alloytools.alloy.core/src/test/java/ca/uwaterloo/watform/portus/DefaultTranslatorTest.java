@@ -1877,7 +1877,6 @@ public class DefaultTranslatorTest {
         Var flagSub = makeFlagConstant("f");
         Var flagX = makeFlagConstant("x");
 
-        // "e" gets translated to "one e" at some point
         when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(flagX, e))), any()))
                 .thenReturn(flagInE);
 
@@ -1941,6 +1940,43 @@ public class DefaultTranslatorTest {
         // make sure the mappings were removed after translation
         assertFalse(context.hasVarMapping("x1"));
         assertFalse(context.hasVarMapping("x2"));
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_all_noMultiplicity() {
+        // test [[all x: e | f]] := forall x: univ . [[x \in e]] => [[f]], even when we don't wrap e with ONEOF
+        // (the Alloy Analyzer occasionally generates these, like in `run somePredicate` commands)
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e = makeTestVarWithType("e", Type.make(sig));
+        ExprVar xVar = makeTestVarWithType("x", e.type());
+        Decl x = new Decl(null, null, null, null, ConstList.make(Collections.singletonList(xVar)), e);
+        ExprVar f = makeTestVariable("f");
+        Var flagInE = makeFlagConstant("xInE");
+        Var flagSub = makeFlagConstant("f");
+        Var flagX = makeFlagConstant("x");
+
+        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(flagX, e))), any()))
+                .thenReturn(flagInE);
+
+        AtomicReference<Var> fortressX = new AtomicReference<>();
+        when(mockRoot.translate(eq(f), any())).then(ctx -> {
+            // make sure that x |-> fortressX appears in the context map when translating [[f]],
+            // and capture the fortressX constant to construct the expected translation later
+            TranslationContext context = ctx.getArgument(1);
+            assertTrue(context.hasVarMapping("x"));
+            fortressX.set(context.getVarMapping("x"));
+            return flagSub;
+        });
+
+        Term result = translator.translate(f.forAll(x), context);
+        assertNotNull(fortressX.get()); // make sure we captured a reference, so we translated [[f]]
+        // use the captured reference to construct the expected translation
+        Term expected = Term.mkForall(fortressX.get().of(context.univSort), Term.mkImp(flagInE, flagSub));
+        assertEquals(expected, result);
+
+        // make sure the x |-> fortressX mapping was removed after translating [[f]]
+        assertFalse(context.hasVarMapping("x"));
         assertContextEmpty();
     }
 

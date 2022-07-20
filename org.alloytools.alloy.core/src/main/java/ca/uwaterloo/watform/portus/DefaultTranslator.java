@@ -1285,16 +1285,28 @@ final class DefaultTranslator extends AbstractTranslator {
             for (ExprHasName name : decl.names) {
                 // Ensure decl.expr is ONEOF: we don't support other multiplicities in quantifiers (yet)
                 // TODO: try to skolemize it like Kodkod does?
-                if (decl.expr.mult() != ExprUnary.Op.ONEOF) {
-                    throw new ErrorFatal("Unsupported quantifier multiplicity for Fortress: "
-                            + decl.expr.mult());
+                ExprUnary.Op mult = decl.expr.mult();
+                if (mult != ExprUnary.Op.ONEOF) {
+                    // Treat "no multiplicity" as ONEOF because Alloy sometimes generates those internally.
+                    // mult() generates SETOF for no multiplicity, so check that either the expr isn't actually
+                    // an ExprUnary or it's an ExprUnary with a different op.
+                    boolean noMultiplicity = mult == ExprUnary.Op.SETOF
+                            && (!(decl.expr.deNOP() instanceof ExprUnary)
+                                || ((ExprUnary) decl.expr.deNOP()).op != ExprUnary.Op.SETOF);
+                    if (!noMultiplicity) {
+                        throw new ErrorFatal("Unsupported quantifier multiplicity for Fortress: "
+                                + decl.expr.mult());
+                    }
                 }
 
                 // Unwrap the expression from its multiplicity (and any NOOPs)
-                // We know this is an ExprUnary because decl.expr.mult() returned ONEOF,
-                // which it only does if there's an ExprUnary somewhere in the chain.
-                ExprUnary wrappedDeclExpr = (ExprUnary) decl.expr.deNOP();
-                Expr declExpr = wrappedDeclExpr.sub.deNOP();
+                Expr declExpr = decl.expr.deNOP();
+                if (declExpr instanceof ExprUnary) {
+                    ExprUnary wrappedDeclExpr = (ExprUnary) decl.expr.deNOP();
+                    if (wrappedDeclExpr.op == ExprUnary.Op.ONEOF) {
+                        declExpr = wrappedDeclExpr.sub.deNOP();
+                    }
+                }
 
                 // Create var and it to the lexical scope to translate the condition and subformula
                 Var var = Term.mkVar(nameGenerator.freshName(name.label));
