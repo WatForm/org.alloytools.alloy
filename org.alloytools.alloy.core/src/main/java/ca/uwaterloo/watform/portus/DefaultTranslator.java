@@ -1076,6 +1076,20 @@ final class DefaultTranslator extends AbstractTranslator {
         return result;
     }
 
+    /** Translate "tuple \in expr", where expr is an ExprLet. */
+    @Override
+    public Term translate(ConstList<Var> tuple, ExprLet let, TranslationContext context) {
+        // Like above: bind the variable, translate "tuple \in let.sub", and remove the variable.
+        context.addLetMapping(let.var.label, let.expr);
+        Term result;
+        try {
+            result = recursivelyTranslate(ExprElementOf.make(tuple, let.sub), context);
+        } finally { // always remove even if there's an exception
+            context.removeMapping(let.var.label);
+        }
+        return result;
+    }
+
     /** Translate "tuple \in expr", where expr is an ExprVar. */
     @Override
     public Term translate(ConstList<Var> tuple, ExprVar expr, TranslationContext context) {

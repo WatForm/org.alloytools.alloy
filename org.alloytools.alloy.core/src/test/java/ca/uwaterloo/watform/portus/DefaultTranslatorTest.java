@@ -2719,6 +2719,40 @@ public class DefaultTranslatorTest {
     }
 
     @Test
+    public void testTranslate_let_expr() {
+        // test [[x0 \in let x = e | f(x)]] := [[x0 \in f(e)]]
+        ExprVar e = makeTestVariable("e");
+        ExprVar x = makeTestVariable("x");
+        ExprVar f = makeTestVariable("f");
+        Var x0 = Term.mkVar("x0");
+
+        // make sure the argument is e and the context was saved
+        Var flag = makeFlagConstant("flag");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(x0, f))), any())).then(ctx -> {
+            TranslationContext context = ctx.getArgument(1);
+            assertTrue(context.hasLetMapping("x"));
+            TranslationContext.LetContext letContext = context.getLetMapping("x");
+            assertNotNull(letContext);
+            assertEquals(e, letContext.getExpr());
+
+            // make sure we saved the correct context (should be empty)
+            letContext.useLetMapping();
+            assertContextEmpty(context);
+            letContext.resetMapping();
+
+            return flag;
+        });
+
+        Term result = translator.translate(ExprElementOf.make(x0, ExprLet.make(null, x, e, f)), context);
+        assertEquals(flag, result);
+
+        // make sure x is flushed from the context's mapping
+        assertContextEmpty();
+        assertFalse(context.hasLetMapping("x"));
+        assertFalse(context.hasVarMapping("x"));
+    }
+
+    @Test
     public void testTranslate_variable_var() {
         // test [[x \in v]] := x = v for an Alloy variable v
         // explicitly set the variable mapping in the context
