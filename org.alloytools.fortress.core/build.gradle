@@ -21,8 +21,15 @@ task copyFortressJars(type: Copy) {
 
 compileJava.dependsOn(copyFortressJars)
 
+task cleanFortressBuild(type: Exec) {
+    workingDir = './fortress'
+    executable = 'sbt'
+    args 'clean'
+}
+
 task cleanFortressLibs(type: Delete) {
     delete file('libs')
 }
 
+clean.dependsOn(cleanFortressBuild)
 clean.dependsOn(cleanFortressLibs)

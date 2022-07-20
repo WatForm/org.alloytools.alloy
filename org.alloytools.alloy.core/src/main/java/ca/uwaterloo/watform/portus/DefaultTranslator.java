@@ -50,6 +50,14 @@ final class DefaultTranslator extends AbstractTranslator {
     // Represent relations by a Java function taking "x1,...,xn" to "f(x1,...,xn)".
     private final Map<Sig.Field, Function<List<Var>, Term>> relationPredicates = new HashMap<>();
 
+    // Names of the above relation predicates for easy access.
+    private final Map<Sig.Field, String> relationPredicateNames = new HashMap<>();
+
+    // When "^expr" or "*expr" is translated, this "maps" expr to the name of an auxiliary function
+    // f(x,y) = [[(x,y) \in expr]], used in the translation.
+    // It's not a real map because Expr doesn't support equals()/hashCode() easily, and we can tolerate O(n) lookup.
+    private final List<Pair<Expr, String>> auxClosureRelationNames = new ArrayList<>();
+
     public DefaultTranslator(Translator topLevelTranslator) {
         super(topLevelTranslator);
     }
@@ -245,6 +253,7 @@ final class DefaultTranslator extends AbstractTranslator {
             }
             return Term.mkApp(relName, vars);
         });
+        relationPredicateNames.put(field, relName);
 
         // the predicate signature is (univ)^n -> Bool, where n is the field arity
         context.addFunctionDeclaration(FuncDecl.mkFuncDecl(relName,
@@ -753,6 +762,10 @@ final class DefaultTranslator extends AbstractTranslator {
                 return translateTranspose(tuple, expr.sub, context);
             case CARDINALITY:
                 return translateInIntExpr(tuple, expr, context);
+            case CLOSURE:
+                return translateClosure(false, tuple, expr.sub, context);
+            case RCLOSURE:
+                return translateClosure(true, tuple, expr.sub, context);
             case CAST2INT:
             case CAST2SIGINT:
                 // These appear to be for internal use in the Alloy->Kodkod translation, ignore for now.
@@ -772,6 +785,77 @@ final class DefaultTranslator extends AbstractTranslator {
         // swap the variables in the tuple - see KT figure 4.11
         ConstList<Var> swapped = ConstList.make(Arrays.asList(tuple.get(1), tuple.get(0)));
         return recursivelyTranslate(ExprElementOf.make(swapped, sub), context);
+    }
+
+    /** Translate "tuple \in ^sub" (reflexive==false) or "tuple \in *sub" (reflexive==true). */
+    private Term translateClosure(boolean reflexive, ConstList<Var> tuple, Expr sub, TranslationContext context) {
+        if (tuple.size() != 2) {
+            throw new ErrorSyntax("Closure argument must have arity 2");
+        }
+
+        // Translate as "^f(x,y)" or "*f(x,y)" where f is an auxiliary relation f(x,y) = [[(x,y) \in sub]].
+        String auxRelationName = makeClosureBinaryRelation(sub, context);
+        if (reflexive) {
+            return Term.mkReflexiveClosure(auxRelationName, tuple.get(0), tuple.get(1));
+        } else {
+            return Term.mkClosure(auxRelationName, tuple.get(0), tuple.get(1));
+        }
+    }
+
+    // Fortress can only take the closure of a binary relation and not an arbitrary expression, so find a
+    // convenient relation to take the closure of for taking the closure of expr and return its name.
+    private String makeClosureBinaryRelation(Expr expr, TranslationContext context) {
+        expr = expr.deNOP(); // Eliminate any no-ops which could mess up our optimizations
+
+        // Does expr happen to already be a binary relation (field of arity 2)? If so, just use it.
+        if (expr instanceof Sig.Field) {
+            Sig.Field field = (Sig.Field) expr;
+            if (field.type().arity() == 2) {
+                return relationPredicateNames.get(field);
+            }
+        }
+
+        // Have we already translated this expr? If so, use its name.
+        // TODO: does a map even work with Exprs as keys? Is equals() overriden properly?
+        // TODO this doesn't work, fix it please
+        for (Pair<Expr, String> exprAndClosureName : auxClosureRelationNames) {
+            if (expr.isSame(exprAndClosureName.a)) {
+                return exprAndClosureName.b;
+            }
+        }
+
+        // TODO: we currently only support taking the closure of binary exprs which don't involve Int.
+        // We try to check for this but will miss "univ->univ" exprs like iden, so e.g. "(1, 1) in ^iden" will not
+        // work properly. Perhaps fix this in the future by passing down sort information in the ConstList<Var> tuples.
+        if (!expr.type().hasArity(2)) {
+            throw new ErrorSyntax("We can only take the transitive/reflexive closure of binary expressions.");
+        }
+        for (Type.ProductType productType : expr.type().pickBinary()) {
+            if (productType.get(0).isSameOrDescendentOf(Sig.SIGINT)
+                   || productType.get(1).isSameOrDescendentOf(Sig.SIGINT)) {
+                throw new ErrorFatal("Portus doesn't support closure over integer-valued expressions!");
+            }
+        }
+
+        // Introduce an auxiliary relation f(x,y) = [[(x,y) \in expr]] of type univ->univ (see above).
+        String auxRelationName = nameGenerator.freshName("closureAux");
+        auxClosureRelationNames.add(new Pair<>(expr, auxRelationName));
+        FuncDecl auxDecl = FuncDecl.mkFuncDecl(auxRelationName, context.univSort, context.univSort, Sort.Bool());
+        context.addFunctionDeclaration(auxDecl);
+
+        // Give it our desired interpretation with an axiom "forall x, y: univ . f(x,y) = [[(x, y) \in expr]]".
+        // TODO: this can be done more cheaply (avoiding the forall) with a definition instead
+        Var x = Term.mkVar(nameGenerator.freshName("x"));
+        Var y = Term.mkVar(nameGenerator.freshName("y"));
+        Term inExpr = recursivelyTranslate(
+                ExprElementOf.make(ConstList.make(Arrays.asList(x, y)), expr),
+                context);
+        context.addAxiom(Term.mkForall(Arrays.asList(x.of(context.univSort), y.of(context.univSort)),
+                Term.mkIff(
+                        Term.mkApp(auxRelationName, x, y),
+                        inExpr)));
+
+        return auxRelationName;
     }
 
     /** Translate an ExprList formula. */

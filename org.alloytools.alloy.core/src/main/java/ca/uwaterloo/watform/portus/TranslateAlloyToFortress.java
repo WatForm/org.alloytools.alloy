@@ -7,17 +7,19 @@ import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.ExprHasName;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.A4Options;
+import edu.mit.csail.sdg.translator.AlloySolution;
 import edu.mit.csail.sdg.translator.CommandRunner;
 import edu.mit.csail.sdg.translator.ScopeComputer;
-import edu.mit.csail.sdg.translator.AlloySolution;
 import fortress.interpretation.Interpretation;
-import fortress.modelfind.FortressZERO;
+import fortress.modelfind.FortressTHREE;
 import fortress.modelfind.ModelFinder;
 import fortress.modelfind.ModelFinderResult;
 import fortress.msfol.Term;
 import fortress.msfol.Theory;
 import fortress.operations.SmtlibConverter;
+import fortress.solverinterface.SolverInterface;
 import fortress.solverinterface.SolverSession;
+import fortress.solverinterface.Z3CliInterface$;
 import fortress.util.Milliseconds;
 
 import java.io.File;
@@ -83,7 +85,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
         }
 
         // TODO: choose a solver based on options
-        try (ModelFinder finder = ModelFinder.createDefault()) {
+        try (ModelFinder finder = createModelFinder(Z3CliInterface$.MODULE$)) {
             context.configureModelFinder(finder);
             finder.addLogger(logger);
             ModelFinderResult result = finder.checkSat();
@@ -92,6 +94,11 @@ public final class TranslateAlloyToFortress implements CommandRunner {
             return new FortressSolution(
                     interpretation, translator, context, sigs, options.originalFilename, command.toString());
         }
+    }
+
+    // TODO: configure the model finder based on the FortressOptions
+    private ModelFinder createModelFinder(SolverInterface solverInterface) {
+        return new FortressTHREE(solverInterface);
     }
 
     private void translateSigs(Iterable<Sig> sigs, Translator translator, TranslationContext context) {
@@ -177,8 +184,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
         try (Writer writer = new FileWriter(smtlibFile)) {
             // The trick is to replace Fortress's solver connection (SolverSession) with one that just translates
             // everything to SMT-LIB and writes to the file.
-            // TODO ensure this model finder is consistent with the one from earlier
-            ModelFinder finder = new FortressZERO(() -> new SolverSession() {
+            ModelFinder finder = createModelFinder(() -> new SolverSession() {
                 @Override
                 public void setTheory(Theory theory) {
                     SmtlibConverter converter = new SmtlibConverter(writer);

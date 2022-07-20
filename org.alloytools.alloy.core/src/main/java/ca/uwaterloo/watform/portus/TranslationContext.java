@@ -214,7 +214,7 @@ final class TranslationContext {
         // Make sure the sort is non-empty, even if there are no sigs in the model
         finder.setAnalysisScope(univSort, Math.max(totalScope, 1));
         // TODO - allow configuring modular vs unbounded ints
-        finder.setBoundedIntegers(IntegerSemantics.ModularSignedSemantics(scoper.getBitwidth()));
+        finder.setAnalysisScope(Sort.Int(), scoper.getBitwidth());
     }
 
     /**

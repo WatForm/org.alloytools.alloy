@@ -18,8 +18,11 @@ import edu.mit.csail.sdg.ast.Func;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.ast.Type;
 import edu.mit.csail.sdg.translator.ScopeComputer;
+import fortress.msfol.App;
 import fortress.msfol.DomainElement;
+import fortress.msfol.Forall;
 import fortress.msfol.FuncDecl;
+import fortress.msfol.Iff;
 import fortress.msfol.IntegerLiteral;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
@@ -1496,6 +1499,371 @@ public class DefaultTranslatorTest {
         Term result = translator.translate(
                 ExprElementOf.make(ConstList.make(Arrays.asList(x1, x2)), e.transpose()), context);
         assertEquals(flagSwapped, result);
+    }
+
+    @Test
+    public void testTranslate_transitiveClosure_relationExists() {
+        // test [[(x,y) \in ^f]] := Closure(f(x,y)) if f already exists
+        // prime the relation by translating a field f
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        Sig.Field fieldF = sig.addField("f", sig); // f is of type S->S
+        translator.translate(fieldF, context);
+
+        // figure out what its relation was
+        assertEquals(1, context.getTheory().functionDeclarations().size());
+        FuncDecl funcF = context.getTheory().functionDeclarations().head();
+
+        // test the actual translation
+        Var x = Term.mkVar("x"), y = Term.mkVar("y");
+        Term result = translator.translate(
+                ExprElementOf.make(ConstList.make(Arrays.asList(x, y)), fieldF.closure()), context);
+        assertEquals(Term.mkClosure(funcF.name(), x, y), result);
+
+        // ensure no relation was added
+        assertEquals(1, context.getTheory().functionDeclarations().size());
+    }
+
+    @Test
+    public void testTranslate_reflexiveClosure_relationExists() {
+        // test [[(x,y) \in *f]] := ReflexiveClosure(f(x,y)) if f already exists
+        // prime the relation by translating a field f
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        Sig.Field fieldF = sig.addField("f", sig); // f is of type S->S
+        translator.translate(fieldF, context);
+
+        // figure out what its relation was
+        assertEquals(1, context.getTheory().functionDeclarations().size());
+        FuncDecl funcF = context.getTheory().functionDeclarations().head();
+
+        // test the actual translation
+        Var x = Term.mkVar("x"), y = Term.mkVar("y");
+        Term result = translator.translate(
+                ExprElementOf.make(ConstList.make(Arrays.asList(x, y)), fieldF.reflexiveClosure()), context);
+        assertEquals(Term.mkReflexiveClosure(funcF.name(), x, y), result);
+
+        // ensure no relation was added
+        assertEquals(1, context.getTheory().functionDeclarations().size());
+    }
+
+    @Test
+    public void testTranslate_transitiveClosure_relationExistsWithNoop() {
+        // test [[(x,y) \in ^NOOP(f)]] := Closure(f(x,y)) if f already exists
+        // prime the relation by translating a field f
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        Sig.Field fieldF = sig.addField("f", sig); // f is of type S->S
+        translator.translate(fieldF, context);
+
+        // figure out what its relation was
+        assertEquals(1, context.getTheory().functionDeclarations().size());
+        FuncDecl funcF = context.getTheory().functionDeclarations().head();
+
+        // test the actual translation
+        Var x = Term.mkVar("x"), y = Term.mkVar("y");
+        Term result = translator.translate(
+                ExprElementOf.make(ConstList.make(Arrays.asList(x, y)),
+                        ExprUnary.Op.NOOP.make(null, fieldF).closure()), context);
+        assertEquals(Term.mkClosure(funcF.name(), x, y), result);
+
+        // ensure no relation was added
+        assertEquals(1, context.getTheory().functionDeclarations().size());
+    }
+
+    @Test
+    public void testTranslate_reflexiveClosure_relationExistsWithNoop() {
+        // test [[(x,y) \in *NOOP(f)]] := ReflexiveClosure(f(x,y)) if f already exists
+        // prime the relation by translating a field f
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        Sig.Field fieldF = sig.addField("f", sig); // f is of type S->S
+        translator.translate(fieldF, context);
+
+        // figure out what its relation was
+        assertEquals(1, context.getTheory().functionDeclarations().size());
+        FuncDecl funcF = context.getTheory().functionDeclarations().head();
+
+        // test the actual translation
+        Var x = Term.mkVar("x"), y = Term.mkVar("y");
+        Term result = translator.translate(
+                ExprElementOf.make(ConstList.make(Arrays.asList(x, y)),
+                        ExprUnary.Op.NOOP.make(null, fieldF).reflexiveClosure()), context);
+        assertEquals(Term.mkReflexiveClosure(funcF.name(), x, y), result);
+
+        // ensure no relation was added
+        assertEquals(1, context.getTheory().functionDeclarations().size());
+    }
+
+    @Test
+    public void testTranslate_transitiveClosure_createRelation() {
+        // test [[(x,y) \in ^e]] := Closure(f(x,y)) where f: (univ, univ)->Bool is a new relation, with the defining
+        // axiom "forall x,y: univ . f(x,y) <=> [[(x,y) \in e]]"
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e = makeTestVarWithType("e", Type.make(sig).product(Type.make(sig)));
+        Var x = Term.mkVar("x"), y = Term.mkVar("y");
+
+        // mock out [[(x,y) \in e]] from the axiom
+        Var flagInE = makeFlagConstant("inE");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(
+                ExprElementOf.make(ConstList.make(Arrays.asList(x, y)), e))), any()))
+                .thenReturn(flagInE);
+
+        Term result = translator.translate(
+                ExprElementOf.make(ConstList.make(Arrays.asList(x, y)), e.closure()), context);
+
+        // ensure a relation of type (univ, univ) -> Bool was added
+        assertEquals(1, context.getTheory().functionDeclarations().size());
+        FuncDecl relation = context.getTheory().functionDeclarations().head();
+        assertEquals(2, relation.arity());
+        assertEquals(context.univSort, relation.argSorts().head());
+        assertEquals(context.univSort, relation.argSorts().last());
+        assertEquals(Sort.Bool(), relation.resultSort());
+
+        // ensure the result correctly uses that relation
+        assertEquals(Term.mkClosure(relation.name(), x, y), result);
+
+        // ensure the correct axiom was added
+        assertEquals(1, context.getTheory().axioms().size());
+        Term axiom = context.getTheory().axioms().head();
+        assertThat(axiom, isAlphaEquivalentTerm(
+                Term.mkForall(Arrays.asList(x.of(context.univSort), y.of(context.univSort)),
+                        Term.mkIff(
+                                Term.mkApp(relation.name(), x, y),
+                                flagInE))));
+        // make *extra* sure that it used the correct relation name
+        Forall forall = (Forall) axiom;
+        Iff innerIff = (Iff) forall.body();
+        App relationApp = (App) innerIff.left();
+        assertEquals(relation.name(), relationApp.functionName());
+    }
+
+    @Test
+    public void testTranslate_reflexiveClosure_createRelation() {
+        // test [[(x,y) \in *e]] := ReflexiveClosure(f(x,y)) where f: (univ, univ)->Bool is a new relation, with the
+        // defining axiom "forall x,y: univ . f(x,y) <=> [[(x,y) \in e]]"
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e = makeTestVarWithType("e", Type.make(sig).product(Type.make(sig)));
+        Var x = Term.mkVar("x"), y = Term.mkVar("y");
+
+        // mock out [[(x,y) \in e]] from the axiom
+        Var flagInE = makeFlagConstant("inE");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(
+                ExprElementOf.make(ConstList.make(Arrays.asList(x, y)), e))), any()))
+                .thenReturn(flagInE);
+
+        Term result = translator.translate(
+                ExprElementOf.make(ConstList.make(Arrays.asList(x, y)), e.reflexiveClosure()), context);
+
+        // ensure a relation of type (univ, univ) -> Bool was added
+        assertEquals(1, context.getTheory().functionDeclarations().size());
+        FuncDecl relation = context.getTheory().functionDeclarations().head();
+        assertEquals(2, relation.arity());
+        assertEquals(context.univSort, relation.argSorts().head());
+        assertEquals(context.univSort, relation.argSorts().last());
+        assertEquals(Sort.Bool(), relation.resultSort());
+
+        // ensure the result correctly uses that relation
+        assertEquals(Term.mkReflexiveClosure(relation.name(), x, y), result);
+
+        // ensure the correct axiom was added
+        assertEquals(1, context.getTheory().axioms().size());
+        Term axiom = context.getTheory().axioms().head();
+        assertThat(axiom, isAlphaEquivalentTerm(
+                Term.mkForall(Arrays.asList(x.of(context.univSort), y.of(context.univSort)),
+                        Term.mkIff(
+                                Term.mkApp(relation.name(), x, y),
+                                flagInE))));
+        // make *extra* sure that it used the correct relation name
+        Forall forall = (Forall) axiom;
+        Iff innerIff = (Iff) forall.body();
+        App relationApp = (App) innerIff.left();
+        assertEquals(relation.name(), relationApp.functionName());
+    }
+
+    @Test
+    public void testTranslate_transitiveClosure_rejectsMixedUnivInt() {
+        // test that translating [[(x,y) \in ^e]] fails when e is of type univ->Int, because we don't support mixing
+        // Int and other sorts
+        ExprVar e = makeTestVarWithType("e", Type.make(Sig.UNIV).product(Type.make(Sig.SIGINT)));
+        Var x = Term.mkVar("x"), y = Term.mkVar("y");
+        assertThrows("Should fail because e: univ->Int and we don't support closure over mixing univ/Int",
+                ErrorFatal.class,
+                () -> translator.translate(
+                        ExprElementOf.make(ConstList.make(Arrays.asList(x,y)), e.closure()), context));
+    }
+
+    @Test
+    public void testTranslate_reflexiveClosure_rejectsMixedUnivInt() {
+        // test that translating [[(x,y) \in *e]] fails when e is of type univ->Int, because we don't support mixing
+        // Int and other sorts
+        ExprVar e = makeTestVarWithType("e", Type.make(Sig.UNIV).product(Type.make(Sig.SIGINT)));
+        Var x = Term.mkVar("x"), y = Term.mkVar("y");
+        assertThrows("Should fail because e: univ->Int and we don't support closure over mixing univ/Int",
+                ErrorFatal.class,
+                () -> translator.translate(
+                        ExprElementOf.make(ConstList.make(Arrays.asList(x,y)), e.reflexiveClosure()), context));
+    }
+
+    @Test
+    public void testTranslate_transitiveClosure_rejectsPureInt() {
+        // test that translating [[(x,y) \in ^e]] fails when e is of type Int->Int, because we don't support closing
+        // over Int->Int sorts yet
+        ExprVar e = makeTestVarWithType("e", Type.make(Sig.SIGINT).product(Type.make(Sig.SIGINT)));
+        Var x = Term.mkVar("x"), y = Term.mkVar("y");
+        assertThrows("Should fail because e: Int->Int and we don't support closure over Int->Int yet",
+                ErrorFatal.class,
+                () -> translator.translate(
+                        ExprElementOf.make(ConstList.make(Arrays.asList(x,y)), e.closure()), context));
+    }
+
+    @Test
+    public void testTranslate_reflexiveClosure_rejectsPureInt() {
+        // test that translating [[(x,y) \in *e]] fails when e is of type Int->Int, because we don't support closing
+        // over Int->Int sorts yet
+        ExprVar e = makeTestVarWithType("e", Type.make(Sig.SIGINT).product(Type.make(Sig.SIGINT)));
+        Var x = Term.mkVar("x"), y = Term.mkVar("y");
+        assertThrows("Should fail because e: Int->Int and we don't support closure over Int->Int yet",
+                ErrorFatal.class,
+                () -> translator.translate(
+                        ExprElementOf.make(ConstList.make(Arrays.asList(x,y)), e.reflexiveClosure()), context));
+    }
+
+    @Test
+    public void testTranslate_transitiveClosure_translateTwice_onlyOneAuxRelation() {
+        // test that when we translate [[(x,y) \in ^(e1+e2)]] twice, only one auxiliary relation is created
+        // note: we use e1+e2 as they're nontrivially equivalent (i.e. isSame but not ==)
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e1 = makeTestVarWithType("e1", Type.make(sig).product(Type.make(sig)));
+        ExprVar e2 = makeTestVarWithType("e2", Type.make(sig).product(Type.make(sig)));
+        Var x = Term.mkVar("x"), y = Term.mkVar("y");
+
+        // mock out [[(x,y) \in e1+e2]] from the axiom
+        Var flagInE = makeFlagConstant("inE");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(
+                ExprElementOf.make(ConstList.make(Arrays.asList(x, y)), e1.plus(e2)))), any()))
+                .thenReturn(flagInE);
+
+        // translate twice, using the copy the second time
+        translator.translate(
+                ExprElementOf.make(ConstList.make(Arrays.asList(x, y)), e1.plus(e2).closure()), context);
+        Term result = translator.translate(
+                ExprElementOf.make(ConstList.make(Arrays.asList(x, y)), e1.plus(e2).closure()), context);
+
+        // ensure only one relation of type (univ, univ) -> Bool was added
+        assertEquals(1, context.getTheory().functionDeclarations().size());
+        FuncDecl relation = context.getTheory().functionDeclarations().head();
+        assertEquals(2, relation.arity());
+        assertEquals(context.univSort, relation.argSorts().head());
+        assertEquals(context.univSort, relation.argSorts().last());
+        assertEquals(Sort.Bool(), relation.resultSort());
+
+        // ensure the result of the 2nd translation correctly uses that relation
+        assertEquals(Term.mkClosure(relation.name(), x, y), result);
+
+        // ensure it has the correct axiom (still)
+        assertEquals(1, context.getTheory().axioms().size());
+        Term axiom = context.getTheory().axioms().head();
+        assertThat(axiom, isAlphaEquivalentTerm(
+                Term.mkForall(Arrays.asList(x.of(context.univSort), y.of(context.univSort)),
+                        Term.mkIff(
+                                Term.mkApp(relation.name(), x, y),
+                                flagInE))));
+        // make *extra* sure that it used the correct relation name
+        Forall forall = (Forall) axiom;
+        Iff innerIff = (Iff) forall.body();
+        App relationApp = (App) innerIff.left();
+        assertEquals(relation.name(), relationApp.functionName());
+    }
+
+    @Test
+    public void testTranslate_reflexiveClosure_translateTwice_onlyOneAuxRelation() {
+        // test that when we translate [[(x,y) \in *(e1+e2)]] twice, only one auxiliary relation is created
+        // note: we use e1+e2 as they're nontrivially equivalent (i.e. isSame but not ==)
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e1 = makeTestVarWithType("e1", Type.make(sig).product(Type.make(sig)));
+        ExprVar e2 = makeTestVarWithType("e2", Type.make(sig).product(Type.make(sig)));
+        Var x = Term.mkVar("x"), y = Term.mkVar("y");
+
+        // mock out [[(x,y) \in e1+e2]] from the axiom
+        Var flagInE = makeFlagConstant("inE");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(
+                ExprElementOf.make(ConstList.make(Arrays.asList(x, y)), e1.plus(e2)))), any()))
+                .thenReturn(flagInE);
+
+        // translate twice, using the copy the second time
+        translator.translate(
+                ExprElementOf.make(ConstList.make(Arrays.asList(x, y)), e1.plus(e2).reflexiveClosure()), context);
+        Term result = translator.translate(
+                ExprElementOf.make(ConstList.make(Arrays.asList(x, y)), e1.plus(e2).reflexiveClosure()), context);
+
+        // ensure only one relation of type (univ, univ) -> Bool was added
+        assertEquals(1, context.getTheory().functionDeclarations().size());
+        FuncDecl relation = context.getTheory().functionDeclarations().head();
+        assertEquals(2, relation.arity());
+        assertEquals(context.univSort, relation.argSorts().head());
+        assertEquals(context.univSort, relation.argSorts().last());
+        assertEquals(Sort.Bool(), relation.resultSort());
+
+        // ensure the result of the 2nd translation correctly uses that relation
+        assertEquals(Term.mkReflexiveClosure(relation.name(), x, y), result);
+
+        // ensure it has the correct axiom (still)
+        assertEquals(1, context.getTheory().axioms().size());
+        Term axiom = context.getTheory().axioms().head();
+        assertThat(axiom, isAlphaEquivalentTerm(
+                Term.mkForall(Arrays.asList(x.of(context.univSort), y.of(context.univSort)),
+                        Term.mkIff(
+                                Term.mkApp(relation.name(), x, y),
+                                flagInE))));
+        // make *extra* sure that it used the correct relation name
+        Forall forall = (Forall) axiom;
+        Iff innerIff = (Iff) forall.body();
+        App relationApp = (App) innerIff.left();
+        assertEquals(relation.name(), relationApp.functionName());
+    }
+
+    @Test
+    public void testTranslate_transitiveAndReflexiveClosure_translateTwice_onlyOneAuxRelation() {
+        // test that translating [[(x,y) \in ^(e1+e2)]] then [[(x,y) \in *(e1+e2)]] only creates one aux relation
+        // note: we use e1+e2 as they're nontrivially equivalent (i.e. isSame but not ==)
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e1 = makeTestVarWithType("e1", Type.make(sig).product(Type.make(sig)));
+        ExprVar e2 = makeTestVarWithType("e2", Type.make(sig).product(Type.make(sig)));
+        Var x = Term.mkVar("x"), y = Term.mkVar("y");
+
+        // mock out [[(x,y) \in e1+e2]] from the axiom
+        Var flagInE = makeFlagConstant("inE");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(
+                ExprElementOf.make(ConstList.make(Arrays.asList(x, y)), e1.plus(e2)))), any()))
+                .thenReturn(flagInE);
+
+        // translate twice, using the copy the second time
+        translator.translate(
+                ExprElementOf.make(ConstList.make(Arrays.asList(x, y)), e1.plus(e2).closure()), context);
+        Term result = translator.translate(
+                ExprElementOf.make(ConstList.make(Arrays.asList(x, y)), e1.plus(e2).reflexiveClosure()), context);
+
+        // ensure only one relation of type (univ, univ) -> Bool was added
+        assertEquals(1, context.getTheory().functionDeclarations().size());
+        FuncDecl relation = context.getTheory().functionDeclarations().head();
+        assertEquals(2, relation.arity());
+        assertEquals(context.univSort, relation.argSorts().head());
+        assertEquals(context.univSort, relation.argSorts().last());
+        assertEquals(Sort.Bool(), relation.resultSort());
+
+        // ensure the result of the 2nd translation correctly uses that relation
+        assertEquals(Term.mkReflexiveClosure(relation.name(), x, y), result);
+
+        // ensure it has the correct axiom (still)
+        assertEquals(1, context.getTheory().axioms().size());
+        Term axiom = context.getTheory().axioms().head();
+        assertThat(axiom, isAlphaEquivalentTerm(
+                Term.mkForall(Arrays.asList(x.of(context.univSort), y.of(context.univSort)),
+                        Term.mkIff(
+                                Term.mkApp(relation.name(), x, y),
+                                flagInE))));
+        // make *extra* sure that it used the correct relation name
+        Forall forall = (Forall) axiom;
+        Iff innerIff = (Iff) forall.body();
+        App relationApp = (App) innerIff.left();
+        assertEquals(relation.name(), relationApp.functionName());
     }
 
     @Test
