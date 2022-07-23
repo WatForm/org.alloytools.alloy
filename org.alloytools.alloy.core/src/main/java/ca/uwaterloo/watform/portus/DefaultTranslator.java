@@ -715,14 +715,6 @@ final class DefaultTranslator extends AbstractTranslator {
         }
     }
 
-    /** Translate "Q e", where Q is one of {one, lone, some, no} and e is an expression. */
-    private Term translateQuantifiedExpr(ExprQt.Op quantifier, Expr expr, TranslationContext context) {
-        // "Q e" is equivalent to "Q x: e | true", so translate as such for simplicity
-        Decl x = expr.oneOf("x");
-        Expr formula = quantifier.make(null, null, Collections.singletonList(x), ExprConstant.TRUE);
-        return recursivelyTranslate(formula, context);
-    }
-
     /** Translate "#e", as an integer expression. */
     private Term translateCardinality(Expr expr, TranslationContext context) {
         // Equivalent to "sum x1,...,xn: univ | ((x1,...,xn) \in e) => 1 else 0" where n = arity(e),
@@ -879,16 +871,37 @@ final class DefaultTranslator extends AbstractTranslator {
         }
     }
 
+    /** Translate "Q e", where Q is one of {one, lone, some, no} and e is an expression. */
+    private Term translateQuantifiedExpr(ExprQt.Op quantifier, Expr expr, TranslationContext context) {
+        // "Q e" is equivalent to "Q x1,...,xn: univ | (x1,...,xn) \in e" where n = arity(e), so translate as such
+        // for simplicity. (The sort may be Int instead of univ for some variables.)
+        int arity = expr.type().arity();
+        if (arity == 0) {
+            // TODO: handle this somehow
+            throw new ErrorFatal("Portus doesn't support types with multiple arities");
+        }
+        List<AnnotatedVar> annotatedVars = new ArrayList<>(arity);
+        List<Var> vars = new ArrayList<>(arity);
+
+        for (int i = 0; i < arity; i++) {
+            Var var = Term.mkVar(nameGenerator.freshName("x" + i));
+            vars.add(var);
+
+            // What type should it have? Make sure it's not mixed, and pick between univ and Int
+            // TODO: this is also vulnerable to the problem where Int in univ for Alloy but not Fortress
+            boolean isInt = checkAllInt(i, expr.type());
+            annotatedVars.add(var.of(isInt ? Sort.Int() : context.univSort));
+        }
+
+        // technically, we actually translate as pseudo-Alloy "Q (x1,...,xn): e | true", so there's an extra true
+        Term condition = recursivelyTranslate(ExprElementOf.make(ConstList.make(vars), expr), context);
+        Term sub = Term.mkTop();
+        return translateRawQuantifier(quantifier, annotatedVars, condition, sub, context);
+    }
+
     /** Translate an ExprQt formula. */
     @Override
     public Term translate(ExprQt expr, TranslationContext context) {
-        // "no x: e | f" gets translated to "all x: e | not f"
-        if (expr.op == ExprQt.Op.NO) {
-            // unfortunately forAll()'s API doesn't support taking just a list of decls
-            Expr translation = ExprQt.Op.ALL.make(null, null, expr.decls, expr.sub.not());
-            return recursivelyTranslate(translation, context);
-        }
-
         // Deal with disjoint by desugaring
         Expr desugared = expr.desugar();
         if (desugared instanceof ExprQt) {
@@ -915,8 +928,18 @@ final class DefaultTranslator extends AbstractTranslator {
             }
         }
 
+        return translateRawQuantifier(expr.op, vars, condition, sub, context);
+    }
+
+    /** Translate "Q vars: e | f" after the vars, condition (vars \in e) and the subformula (f) have been translated. */
+    private Term translateRawQuantifier(
+            ExprQt.Op quantifier, List<AnnotatedVar> vars, Term condition, Term sub, TranslationContext context) {
         // Process the formula itself - see KT figure 4.6
-        switch (expr.op) {
+        if (quantifier == ExprQt.Op.NO) {
+            // "no x: e | f" gets translated like "all x: e | not f"
+            return translateRawQuantifier(ExprQt.Op.ALL, vars, condition, Term.mkNot(sub), context);
+        }
+        switch (quantifier) {
             case ALL:
                 // forall x1: S, ..., xn: S . [[x1 \in e1]] && ... && [[xn \in en]] => [[sub]]
                 return Term.mkForall(vars, Term.mkImp(condition, sub));
@@ -952,7 +975,7 @@ final class DefaultTranslator extends AbstractTranslator {
                 return translateSum(sub, condition, vars, context);
             default:
                 // unsupported or not formula - NO is handled above
-                throw new ErrorFatal("Unsupported ExprQt formula: " + expr.op);
+                throw new ErrorFatal("Unsupported quantifier: " + quantifier);
         }
     }
 
@@ -1250,6 +1273,20 @@ final class DefaultTranslator extends AbstractTranslator {
     /** Convenience overload to pass in exprs manually. */
     private boolean checkAllInt(Expr... exprs) {
         return checkAllInt(Arrays.asList(exprs));
+    }
+
+    /**
+     * Perform {@link #checkAllInt(Iterable)} with all sigs of a given index in a type.
+     * Ignores any product types with arity <= idx, since they don't have a sig at that index.
+     */
+    private boolean checkAllInt(int idx, Type type) {
+        List<Expr> sigs = new ArrayList<>();
+        for (Type.ProductType productType : type) {
+            if (idx < productType.arity()) {
+                sigs.add(productType.get(idx));
+            }
+        }
+        return checkAllInt(sigs);
     }
 
     /** Like checkAllIns, but throw an error if they aren't all integer expressions. */

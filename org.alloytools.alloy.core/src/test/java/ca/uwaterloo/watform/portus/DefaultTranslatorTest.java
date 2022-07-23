@@ -2018,18 +2018,36 @@ public class DefaultTranslatorTest {
 
     @Test
     public void testTranslate_no() {
-        // test [[no x: e | f]] := [[all x: e | not f]]
-        ExprVar e = makeTestVariable("e");
+        // test [[no x: e | f]] := forall x: univ | [[x \in e]] => ![[f]]
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e = makeTestVarWithType("e", Type.make(sig));
         Decl x = e.oneOf("x");
         ExprVar f = makeTestVariable("f");
-        Var expectedFlag = makeFlagConstant("expected");
+        Var flagInE = makeFlagConstant("xInE");
+        Var flagSub = makeFlagConstant("f");
+        Var flagX = makeFlagConstant("x");
 
-        // ExprQt doesn't override isSame unfortunately, so we have to use isAlphaEquivalent
-        Expr expected = f.not().forAll(x);
-        when(mockRoot.translate(argThat(isAlphaEquivalent(expected)), any()))
-                .thenReturn(expectedFlag);
+        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(flagX, e))), any()))
+                .thenReturn(flagInE);
 
-        assertEquals(expectedFlag, translator.translate(f.forNo(x), context));
+        AtomicReference<Var> fortressX = new AtomicReference<>();
+        when(mockRoot.translate(eq(f), any())).then(ctx -> {
+            // make sure that x |-> fortressX appears in the context map when translating [[f]],
+            // and capture the fortressX constant to construct the expected translation later
+            TranslationContext context = ctx.getArgument(1);
+            assertTrue(context.hasVarMapping("x"));
+            fortressX.set(context.getVarMapping("x"));
+            return flagSub;
+        });
+
+        Term result = translator.translate(f.forNo(x), context);
+        assertNotNull(fortressX.get()); // make sure we captured a reference, so we translated [[f]]
+        // use the captured reference to construct the expected translation
+        Term expected = Term.mkForall(fortressX.get().of(context.univSort), Term.mkImp(flagInE, Term.mkNot(flagSub)));
+        assertEquals(expected, result);
+
+        // make sure the x |-> fortressX mapping was removed after translating [[f]]
+        assertFalse(context.hasVarMapping("x"));
         assertContextEmpty();
     }
 
@@ -2587,97 +2605,132 @@ public class DefaultTranslatorTest {
 
     @Test
     public void testTranslate_someExpr() {
-        // test [[some e]] := [[some x: e | true]]
+        // test [[some e]] := exists x: univ | [[x \in e]] && true
         Sig.PrimSig sig = new Sig.PrimSig("S");
         ExprVar e = makeTestVarWithType("e", Type.make(sig));
+        Var x = Term.mkVar("x0_0");
 
-        // use a custom delegate translator to make sure it's correctly translated
-        Var flag = makeFlagConstant("translated");
-        delegateToTranslator((expr, context) -> {
-            // check that it's "some x: e | true" for some variable x
-            if (!(expr instanceof ExprQt)) return null;
-            ExprQt qt = (ExprQt) expr;
-            boolean correct = qt.op == ExprQt.Op.SOME
-                    && qt.decls.size() == 1
-                    && qt.decls.get(0).expr.isSame(e.oneOf())
-                    && qt.sub == ExprConstant.TRUE;
-            return correct ? flag : null;
-        });
+        // mock out [[x \in e]]
+        Var flagInE = makeFlagConstant("inE");
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(x, e))), any())).thenReturn(flagInE);
 
         Term result = translator.translate(e.some(), context);
-        assertEquals(flag, result);
+        assertEquals(Term.mkExists(x.of(context.univSort), Term.mkAnd(flagInE, Term.mkTop())), result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_someExpr_binary() {
+        // test [[some e]] := exists x0, x1: univ | [[(x0,x1) \in e]] && true, where arity(e) = 2
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e = makeTestVarWithType("e", Type.make(sig).product(Type.make(sig)));
+        Var x0 = Term.mkVar("x0_0");
+        Var x1 = Term.mkVar("x1_0");
+
+        // mock out [[x \in e]]
+        Var flagInE = makeFlagConstant("inE");
+        when(mockRoot.translate(argThat(isSameAs(
+                ExprElementOf.make(ConstList.make(Arrays.asList(x0, x1)), e))), any())).thenReturn(flagInE);
+
+        Term result = translator.translate(e.some(), context);
+        Term expected = Term.mkExists(Arrays.asList(x0.of(context.univSort), x1.of(context.univSort)),
+                Term.mkAnd(flagInE, Term.mkTop()));
+        assertEquals(expected, result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_someExpr_int() {
+        // test [[some e]] := exists x: Int | [[x \in e]] && true, where e is of type Int
+        ExprVar e = makeTestVarWithType("e", Type.make(Sig.SIGINT));
+        Var x = Term.mkVar("x0_0");
+
+        // mock out [[x \in e]]
+        Var flagInE = makeFlagConstant("inE");
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(x, e))), any())).thenReturn(flagInE);
+
+        Term result = translator.translate(e.some(), context);
+        assertEquals(Term.mkExists(x.of(Sort.Int()), Term.mkAnd(flagInE, Term.mkTop())), result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_someExpr_binaryMixedIntNonInt() {
+        // test [[some e]] := exists x0: univ, x1: Int | [[(x0,x1) \in e]] && true, where e is of type S->Int
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e = makeTestVarWithType("e", Type.make(sig).product(Type.make(Sig.SIGINT)));
+        Var x0 = Term.mkVar("x0_0");
+        Var x1 = Term.mkVar("x1_0");
+
+        // mock out [[x \in e]]
+        Var flagInE = makeFlagConstant("inE");
+        when(mockRoot.translate(argThat(isSameAs(
+                ExprElementOf.make(ConstList.make(Arrays.asList(x0, x1)), e))), any())).thenReturn(flagInE);
+
+        Term result = translator.translate(e.some(), context);
+        Term expected = Term.mkExists(Arrays.asList(x0.of(context.univSort), x1.of(context.univSort)),
+                Term.mkAnd(flagInE, Term.mkTop()));
+        assertEquals(expected, result);
         assertContextEmpty();
     }
 
     @Test
     public void testTranslate_noExpr() {
-        // test [[no e]] := [[no x: e | true]]
+        // test [[no e]] := forall x: univ | [[x \in e]] => !true
+        // (a bit convoluted, but that's okay since it makes Portus simpler)
         Sig.PrimSig sig = new Sig.PrimSig("S");
         ExprVar e = makeTestVarWithType("e", Type.make(sig));
+        Var x = Term.mkVar("x0_0");
 
-        // use a custom delegate translator to make sure it's correctly translated
-        Var flag = makeFlagConstant("translated");
-        delegateToTranslator((expr, context) -> {
-            // check that it's "no x: e | true" for some variable x
-            if (!(expr instanceof ExprQt)) return null;
-            ExprQt qt = (ExprQt) expr;
-            boolean correct = qt.op == ExprQt.Op.NO
-                    && qt.decls.size() == 1
-                    && qt.decls.get(0).expr.isSame(e.oneOf())
-                    && qt.sub == ExprConstant.TRUE;
-            return correct ? flag : null;
-        });
+        // mock out [[x \in e]]
+        Var flagInE = makeFlagConstant("inE");
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(x, e))), any())).thenReturn(flagInE);
 
         Term result = translator.translate(e.no(), context);
-        assertEquals(flag, result);
+        assertEquals(Term.mkForall(x.of(context.univSort), Term.mkImp(flagInE, Term.mkNot(Term.mkTop()))), result);
         assertContextEmpty();
     }
 
     @Test
     public void testTranslate_loneExpr() {
-        // test [[lone e]] := [[lone x: e | true]]
+        // test [[lone e]] := forall x,y: univ | [[x \in e]] && [[y \in e]] && true && true => x = y
+        // (a bit convoluted, but that's okay since it makes Portus simpler)
         Sig.PrimSig sig = new Sig.PrimSig("S");
         ExprVar e = makeTestVarWithType("e", Type.make(sig));
+        Var x = Term.mkVar("x0_0");
+        Var y = Term.mkVar("x0_0_prime_0");
 
-        // use a custom delegate translator to make sure it's correctly translated
-        Var flag = makeFlagConstant("translated");
-        delegateToTranslator((expr, context) -> {
-            // check that it's "lone x: e | true" for some variable x
-            if (!(expr instanceof ExprQt)) return null;
-            ExprQt qt = (ExprQt) expr;
-            boolean correct = qt.op == ExprQt.Op.LONE
-                    && qt.decls.size() == 1
-                    && qt.decls.get(0).expr.isSame(e.oneOf())
-                    && qt.sub == ExprConstant.TRUE;
-            return correct ? flag : null;
-        });
+        // mock out [[x \in e]]
+        Var flagInE = makeFlagConstant("inE");
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(x, e))), any())).thenReturn(flagInE);
 
         Term result = translator.translate(e.lone(), context);
-        assertEquals(flag, result);
+        Term expected = Term.mkForall(Arrays.asList(x.of(context.univSort), y.of(context.univSort)), Term.mkImp(
+                Term.mkAnd(flagInE, flagInE, Term.mkTop(), Term.mkTop()),
+                Term.mkEq(x, y)));
+        assertEquals(expected, result);
         assertContextEmpty();
     }
 
     @Test
     public void testTranslate_oneExpr() {
-        // test [[one e]] := [[one x: e | true]]
+        // test [[one e]] := exists x: univ | [[x \in e]] && true && forall y: univ . [[y \in e]] && true => x = y
+        // (a bit convoluted, but that's okay since it makes Portus simpler)
         Sig.PrimSig sig = new Sig.PrimSig("S");
         ExprVar e = makeTestVarWithType("e", Type.make(sig));
+        Var x = Term.mkVar("x0_0");
+        Var y = Term.mkVar("x0_0_prime_0");
 
-        // use a custom delegate translator to make sure it's correctly translated
-        Var flag = makeFlagConstant("translated");
-        delegateToTranslator((expr, context) -> {
-            // check that it's "one x: e | true" for some variable x
-            if (!(expr instanceof ExprQt)) return null;
-            ExprQt qt = (ExprQt) expr;
-            boolean correct = qt.op == ExprQt.Op.ONE
-                    && qt.decls.size() == 1
-                    && qt.decls.get(0).expr.isSame(e.oneOf())
-                    && qt.sub == ExprConstant.TRUE;
-            return correct ? flag : null;
-        });
+        // mock out [[x \in e]]
+        Var flagInE = makeFlagConstant("inE");
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(x, e))), any())).thenReturn(flagInE);
 
         Term result = translator.translate(e.one(), context);
-        assertEquals(flag, result);
+        Term expected = Term.mkExists(x.of(context.univSort), Term.mkAnd(flagInE, Term.mkTop(),
+                Term.mkForall(y.of(context.univSort), Term.mkImp(
+                        Term.mkAnd(flagInE, Term.mkTop()),
+                        Term.mkEq(x, y)))));
+        assertEquals(expected, result);
         assertContextEmpty();
     }
 
