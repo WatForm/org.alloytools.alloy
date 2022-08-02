@@ -3,11 +3,9 @@ package ca.uwaterloo.watform.ast;
 import edu.mit.csail.sdg.alloy4.Pos;
 import edu.mit.csail.sdg.ast.Expr;
 
-public class DashSend {
+public class DashSend extends DashSuperAST {
 
-    public Pos           		 pos;
-    public DashConcState parent;
-    public String 		 name;
+    public Pos           pos;
     public Expr 	     param;
 
     public DashSend(Pos pos, String name) {
@@ -23,7 +21,7 @@ public class DashSend {
     
     public DashSend (DashSend send) {
     	this.pos = send.pos == null ? null : send.pos;
-    	this.parent = send.parent == null ? null : send.parent;
+    	this.parentConcState = send.parentConcState == null ? null : send.parentConcState;
     	this.param = (send.param == null) ? null : send.param;
     	this.name = send.name;
     }

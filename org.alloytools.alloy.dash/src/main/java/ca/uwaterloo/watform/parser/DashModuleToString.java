@@ -97,6 +97,9 @@ public class DashModuleToString {
 							out.print(",").brk();
 						}
 						first = false;
+						if(f.decl().isVar != null) {
+							out.print("var").print(' ');
+						}
 						out.print(namesJoiner.toString());
 	                    out.print(": ");
 	                    printExpr(f.decl().expr, out);
@@ -317,8 +320,9 @@ public class DashModuleToString {
 		printExpr(expr.cond, out);
 		out.print(" => ").brk(1,0);
 		printExpr(expr.left, out);
-		out.brk(1,-indent).print(" else ").brk(1,0);
+		out.brk(1,-indent).print(" else ").print("{").brk(1,0);
 		printExpr(expr.right, out);
+		out.print(" }");
 		out.brk(1,-indent).end().print(')');
 	}
 

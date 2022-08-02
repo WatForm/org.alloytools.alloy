@@ -25,7 +25,9 @@ import static edu.mit.csail.sdg.alloy4.A4Preferences.AutoVisualize;
 import static edu.mit.csail.sdg.alloy4.A4Preferences.CTLModelChecking;
 import static edu.mit.csail.sdg.alloy4.A4Preferences.CoreGranularity;
 import static edu.mit.csail.sdg.alloy4.A4Preferences.CoreMinimization;
+import static edu.mit.csail.sdg.alloy4.A4Preferences.CreateLoop;
 import static edu.mit.csail.sdg.alloy4.A4Preferences.DecomposePref;
+import static edu.mit.csail.sdg.alloy4.A4Preferences.ELECTRUM;
 import static edu.mit.csail.sdg.alloy4.A4Preferences.FontName;
 import static edu.mit.csail.sdg.alloy4.A4Preferences.FontSize;
 import static edu.mit.csail.sdg.alloy4.A4Preferences.GenerateSigAxiom;
@@ -134,7 +136,6 @@ import ca.uwaterloo.watform.parser.DashModule;
 import ca.uwaterloo.watform.parser.DashModuleToString;
 import ca.uwaterloo.watform.parser.DashOptions;
 import ca.uwaterloo.watform.parser.DashUtil;
-import ca.uwaterloo.watform.parser.DashValidation;
 import ca.uwaterloo.watform.transform.CoreDashToAlloy;
 import ca.uwaterloo.watform.transform.DashToCoreDash;
 
@@ -1139,10 +1140,10 @@ public final class SimpleGUI implements ComponentListener, Listener {
                     DashOptions.dashModelLocation = directory.toString();
                 if (text.get().isFile()) {
                     DashModule dash = DashUtil.parseEverything_fromFileDash(A4Reporter.NOP, null, actual);
-                    DashValidation.validateDashModel(dash);
+                    //DashValidation.validateDashModel(dash);
                 } else {
                     DashModule dash = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, text.get().getText());
-                    DashValidation.validateDashModel(dash);
+                    //DashValidation.validateDashModel(dash);
                 }
             } catch (Err e) {
                 runmenu.getItem(0).setEnabled(false);
@@ -1351,7 +1352,9 @@ public final class SimpleGUI implements ComponentListener, Listener {
             DashOptions.assumeSingleInput = AssumeSingleInput.get();
             DashOptions.generateSigAxioms = GenerateSigAxiom.get();
             DashOptions.ctlModelChecking = CTLModelChecking.get();
+            DashOptions.isElectrum = ELECTRUM.get();
             DashOptions.generateTraces = GenerateTraces.get();
+            DashOptions.createLoop = CreateLoop.get();
             return doRun(0);
         }
         if (commands == null)
@@ -1434,6 +1437,8 @@ public final class SimpleGUI implements ComponentListener, Listener {
             DashOptions.assumeSingleInput = AssumeSingleInput.get();
             DashOptions.generateSigAxioms = GenerateSigAxiom.get();
             DashOptions.ctlModelChecking = CTLModelChecking.get();
+            DashOptions.isElectrum = ELECTRUM.get();
+            DashOptions.createLoop = CreateLoop.get();
             DashOptions.generateTraces = GenerateTraces.get();
             if (text.get().isFile()) {
                 dash = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, text.get().getText());
@@ -1441,8 +1446,9 @@ public final class SimpleGUI implements ComponentListener, Listener {
                 dash = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, text.get().getText());
             }
             //DashValidation.validateDashModel(dash);
-            DashModule coreDash = DashToCoreDash.transformToCoreDash(dash);
-            DashModule alloy = CoreDashToAlloy.convertToAlloyAST(coreDash);
+            System.out.println("FileName: " + fileName.toString() + " Path: " + path.toString());
+            DashModule coreDash = new DashToCoreDash().transformToCoreDash(dash, "", "");
+            DashModule alloy = new CoreDashToAlloy().convertToAlloyAST(coreDash, "", "");
             alloy = DashModule.resolveAll(A4Reporter.NOP, alloy);
             if (text.get().isFile()) {
                 DashModuleToString.toString(alloy);
@@ -1460,7 +1466,7 @@ public final class SimpleGUI implements ComponentListener, Listener {
             else
                 log.logRed(e.toString() + "\n\n");
         } catch (Throwable e) {
-            log.logRed("Cannot translate the model.\n" + e.toString() + "\n\n");
+            log.logRed("Cannot translate the model.\n" + e.getMessage() + "\n\n");
             return null;
         }
         notifyChange();
@@ -1603,6 +1609,8 @@ public final class SimpleGUI implements ComponentListener, Listener {
                 addToMenu(optmenu, AssumeSingleInput);
                 addToMenu(optmenu, GenerateSigAxiom);
                 addToMenu(optmenu, CTLModelChecking);
+                addToMenu(optmenu, ELECTRUM);
+                addToMenu(optmenu, CreateLoop);
                 addToMenu(optmenu, GenerateTraces);
             }
 
@@ -1677,6 +1685,22 @@ public final class SimpleGUI implements ComponentListener, Listener {
     private Runner doCTLModelChecking() {
         if (!wrap) {
             DashOptions.ctlModelChecking = (CTLModelChecking.get());
+        }
+        return wrapMe();
+    }
+
+    /** This method toggles the "Electrum" checkbox. */
+    private Runner doElectrum() {
+        if (!wrap) {
+            DashOptions.isElectrum = (ELECTRUM.get());
+        }
+        return wrapMe();
+    }
+
+    /** This method toggles the "Create Loop" checkbox. */
+    private Runner doCreateLoop() {
+        if (!wrap) {
+            DashOptions.createLoop = (CreateLoop.get());
         }
         return wrapMe();
     }
@@ -2481,6 +2505,8 @@ public final class SimpleGUI implements ComponentListener, Listener {
             prefDialog.addChangeListener(wrapToChangeListener(doAssumeSingleInput()), AssumeSingleInput);
             prefDialog.addChangeListener(wrapToChangeListener(doGenerateSigAxiom()), GenerateSigAxiom);
             prefDialog.addChangeListener(wrapToChangeListener(doCTLModelChecking()), CTLModelChecking);
+            prefDialog.addChangeListener(wrapToChangeListener(doElectrum()), ELECTRUM);
+            prefDialog.addChangeListener(wrapToChangeListener(doCreateLoop()), CreateLoop);
             prefDialog.addChangeListener(wrapToChangeListener(doGenerateTraces()), GenerateTraces);
             prefDialog.addChangeListener(wrapToChangeListener(doOptSyntaxHighlighting()), SyntaxDisabled);
             prefDialog.addChangeListener(wrapToChangeListener(doLookAndFeel()), LAF);

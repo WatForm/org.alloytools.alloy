@@ -17,6 +17,8 @@ package edu.mit.csail.sdg.alloy4whole;
 
 import static edu.mit.csail.sdg.alloy4.A4Preferences.AssumeSingleInput;
 import static edu.mit.csail.sdg.alloy4.A4Preferences.CTLModelChecking;
+import static edu.mit.csail.sdg.alloy4.A4Preferences.CreateLoop;
+import static edu.mit.csail.sdg.alloy4.A4Preferences.ELECTRUM;
 import static edu.mit.csail.sdg.alloy4.A4Preferences.GenerateSigAxiom;
 import static edu.mit.csail.sdg.alloy4.A4Preferences.GenerateTraces;
 import static edu.mit.csail.sdg.alloy4.A4Preferences.VariablesUnchanged;
@@ -708,6 +710,8 @@ final class SimpleReporter extends A4Reporter {
         public boolean            bundleGenerateSigAxiom;
         public boolean            bundleCTLModelChecking;
         public boolean            bundleGenerateTraces;
+        public boolean            bundleElectrum;
+        public boolean            bundleCreateLoop;
         public int                bundleIndex;
         public int                resolutionMode;
         public Map<String,String> map;
@@ -731,11 +735,13 @@ final class SimpleReporter extends A4Reporter {
                 DashOptions.assumeSingleInput = AssumeSingleInput.get();
                 DashOptions.generateSigAxioms = GenerateSigAxiom.get();
                 DashOptions.ctlModelChecking = CTLModelChecking.get();
+                DashOptions.isElectrum = ELECTRUM.get();
                 DashOptions.generateTraces = GenerateTraces.get();
+                DashOptions.createLoop = CreateLoop.get();
                 DashModule dash = DashUtil.parseEverything_fromFileDash(rep, map, options.originalFilename);
                 //DashValidation.validateDashModel(dash);
-                DashModule coreDash = DashToCoreDash.transformToCoreDash(dash);
-                DashModule alloy = CoreDashToAlloy.convertToAlloyAST(coreDash);
+                DashModule coreDash = new DashToCoreDash().transformToCoreDash(dash, "", "");
+                DashModule alloy = new CoreDashToAlloy().convertToAlloyAST(coreDash, "", "");
                 world = DashModule.resolveAll(rep == null ? A4Reporter.NOP : rep, alloy);
             } else {
                 world = CompUtil.parseEverything_fromFile(rep, map, options.originalFilename, resolutionMode);

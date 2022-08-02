@@ -5,13 +5,25 @@ import edu.mit.csail.sdg.ast.Expr;
 
 public class DashCondition {
 
-    public Pos    pos;
-    public String name;
-    public Expr   expr;
+    private Pos    pos;
+    private String name;
+    private Expr   expr;
 
     public DashCondition(Pos pos, String name, Expr expr) {
         this.pos = pos;
         this.name = name;
         this.expr = expr;
+    }
+    
+    public Pos getPos () {
+    	return pos;
+    }
+    
+    public String getRawName() {
+    	return name;
+    }
+    
+    public Expr getExpr() {
+    	return expr;
     }
 }

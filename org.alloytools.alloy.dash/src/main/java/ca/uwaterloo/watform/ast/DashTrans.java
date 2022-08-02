@@ -5,21 +5,15 @@ import java.util.List;
 import edu.mit.csail.sdg.alloy4.Pos;
 
 /* Stores information regarding a transition within a state/concState */
-public class DashTrans {
+public class DashTrans extends DashSuperAST {
 
-    public DashFrom          fromExpr      = null;
+    private DashFrom         fromExpr      = null;
     public DashOn            onExpr        = null;
     public DashWhenExpr      whenExpr      = null;
     public DashDoExpr        doExpr        = null;
     public DashGoto          gotoExpr      = null;
     public DashSend          sendExpr      = null;
     public DashTransTemplate transTemplate = null;
-
-    public String            name          = "";
-    public Object            parentState;
-    public DashConcState     parentConcState;
-    public String            modifiedName  = "";
-    public Pos               pos;
 
 
     /*
@@ -47,7 +41,6 @@ public class DashTrans {
         }
     }
 
-
     public DashTrans(DashTrans trans) {
         this.fromExpr = trans.fromExpr;
         this.onExpr = trans.onExpr;
@@ -58,8 +51,16 @@ public class DashTrans {
 
         this.name = trans.name;
         this.modifiedName = trans.modifiedName;
-        this.parentState = trans.parentState;
+        this.parent = trans.parent;
         this.parentConcState = trans.parentConcState;
         this.pos = null;
+    }
+    
+    public DashFrom getOrigin() {
+    	return fromExpr;
+    }
+    
+    public void setOrigin(DashFrom fromExpr) {
+    	this.fromExpr = fromExpr;
     }
 }

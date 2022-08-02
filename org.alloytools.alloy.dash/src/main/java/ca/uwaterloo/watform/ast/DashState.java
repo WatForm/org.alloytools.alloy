@@ -6,20 +6,12 @@ import java.util.List;
 import edu.mit.csail.sdg.alloy4.ErrorSyntax;
 import edu.mit.csail.sdg.alloy4.Pos;
 
-public class DashState {
-
-    public Pos             pos;
-    public String          name         = "";
-    public String          modifiedName = "";
-    public Object          parent       = null;
-
-    public List<DashState> 		states       	    = new ArrayList<DashState>();
-    public List<DashConcState>  concStates          = new ArrayList<DashConcState>();
-    public List<DashEnter>		enter      			= new ArrayList<DashEnter>();
-    public List<DashExit>  		exit       			= new ArrayList<DashExit>();
-    public List<DashTrans> 		transitions  		= new ArrayList<DashTrans>();
-    public List<DashTrans> 		modifiedTransitions = new ArrayList<DashTrans>(); 
-    public Boolean         		isDefault;  		//Specifies whether this state is a default state
+public class DashState extends DashSuperState {
+	
+	private List<DashEnter>		enter      			= new ArrayList<DashEnter>();
+	private List<DashExit>  	exit       			= new ArrayList<DashExit>();
+	private List<DashTrans> 	modifiedTransitions = new ArrayList<DashTrans>(); // Transitions after they have been modified during the transformation to Core Dash
+	private Boolean         	isDefault;  		//Specifies whether this state is a default state
 
 
     /*
@@ -66,6 +58,27 @@ public class DashState {
         state.transitions = this.transitions;
         state.modifiedTransitions = this.modifiedTransitions;
         state.isDefault = this.isDefault;
+    }
+
+
+    public List<DashEnter> getEnters() {
+    	return enter;
+    }
+    
+    public List<DashExit> getExits() {
+    	return exit;
+    }
+    
+    public List<DashTrans> getModifiedTransitions() {
+    	return modifiedTransitions;
+    }
+    
+    public void addModifiedTransition(DashTrans trans) {
+    	modifiedTransitions.add(trans);
+    }
+    
+    public boolean isDefault() {
+    	return isDefault;
     }
 
 }

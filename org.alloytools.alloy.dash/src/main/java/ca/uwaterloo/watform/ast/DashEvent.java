@@ -3,15 +3,12 @@ package ca.uwaterloo.watform.ast;
 import edu.mit.csail.sdg.alloy4.Pos;
 import edu.mit.csail.sdg.ast.Decl;
 
-public class DashEvent {
+public class DashEvent extends DashSuperAST {
 
     public Pos    pos;
     public String parentName = "";
-    public String name       = "";
-    public String modifiedName       = "";
     public String type       = "";
     public Decl   decl;
-    public DashConcState parent = null;
     public boolean isParameterized = false;
 
     public DashEvent(Pos pos, String name, String type) {
@@ -40,7 +37,7 @@ public class DashEvent {
         this.modifiedName = event.modifiedName;
         this.type = event.type;
         this.decl = event.decl;
-        this.parent = event.parent;
+        this.parentConcState = event.parentConcState;
         this.isParameterized = event.isParameterized;
     }
 }

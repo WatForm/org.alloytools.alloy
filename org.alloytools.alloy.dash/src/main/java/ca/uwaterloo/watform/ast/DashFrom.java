@@ -12,8 +12,9 @@ public class DashFrom {
 
     public Pos          				pos;
     public List<String> 			 	fromExpr = new ArrayList<String>();
-    public Map<String, DashConcState> 	fromExprs = new LinkedHashMap<String, DashConcState>();
+    public List<DashConcState> 	fromExprs = new ArrayList<DashConcState>();
     public Boolean      				leavingMultipleStates = false;
+    public String      				stateBeingLeft;
     public DashConcState				concStateBeingExited;
     public Boolean      				fromAll;
 

@@ -6,12 +6,14 @@ import java.util.List;
 import java.util.Map;
 
 import ca.uwaterloo.watform.ast.DashConcState;
+import ca.uwaterloo.watform.ast.DashState;
 import ca.uwaterloo.watform.ast.DashTrans;
 import edu.mit.csail.sdg.alloy4.Err;
 import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprBadJoin;
 import edu.mit.csail.sdg.ast.ExprBinary;
+import edu.mit.csail.sdg.ast.ExprITE;
 import edu.mit.csail.sdg.ast.ExprList;
 import edu.mit.csail.sdg.ast.ExprQt;
 import edu.mit.csail.sdg.ast.ExprUnary;
@@ -38,29 +40,29 @@ public class DashHelper {
 	 */
 	public static Expr createParameterizedVar(String var, Expr expr, DashModule module) {
 		DashConcState concState = module.variable2ConcState.get(var);
-		if (expr instanceof ExprUnary && concState.IEs.size() > 0) {
+		if (expr instanceof ExprUnary && concState.getIdentifiers().size() > 0) {
 			ExprUnary exprUnary = (ExprUnary) expr;	
-			int index = concState.IEs.size() - 1;
+			int index = concState.getIdentifiers().size() - 1;
 			if (exprUnary.op == ExprUnary.Op.LONEOF)
-				expr = ExprBinary.Op.ANY_ARROW_LONE.make(null, null, ExprVar.make(null, concState.IEs.get(index)), exprUnary.sub);
+				expr = ExprBinary.Op.ANY_ARROW_LONE.make(null, null, ExprVar.make(null, concState.getIdentifiers().get(index)), exprUnary.sub);
 			if (exprUnary.op == ExprUnary.Op.ONEOF)
-				expr = ExprBinary.Op.ANY_ARROW_ONE.make(null, null, ExprVar.make(null, concState.IEs.get(index)), exprUnary.sub);
+				expr = ExprBinary.Op.ANY_ARROW_ONE.make(null, null, ExprVar.make(null, concState.getIdentifiers().get(index)), exprUnary.sub);
 			if (exprUnary.op == ExprUnary.Op.SOMEOF)
-				expr = ExprBinary.Op.ANY_ARROW_SOME.make(null, null, ExprVar.make(null, concState.IEs.get(index)), exprUnary.sub);
+				expr = ExprBinary.Op.ANY_ARROW_SOME.make(null, null, ExprVar.make(null, concState.getIdentifiers().get(index)), exprUnary.sub);
 			if (exprUnary.op == ExprUnary.Op.SETOF)
-				expr = ExprBinary.Op.ARROW.make(null, null, ExprVar.make(null, concState.IEs.get(index)), exprUnary.sub);
-			for (int i = concState.IEs.size() - 2; i >= 0; i--) {
-				expr = ExprBinary.Op.ARROW.make(null, null, ExprVar.make(null, concState.IEs.get(i)), expr);
+				expr = ExprBinary.Op.ARROW.make(null, null, ExprVar.make(null, concState.getIdentifiers().get(index)), exprUnary.sub);
+			for (int i = concState.getIdentifiers().size() - 2; i >= 0; i--) {
+				expr = ExprBinary.Op.ARROW.make(null, null, ExprVar.make(null, concState.getIdentifiers().get(i)), expr);
 			}
 		} 
 		else if (expr instanceof ExprVar) {
-			for (int i = concState.IEs.size() - 1; i >= 0; i--) {
-				expr = ExprBinary.Op.ARROW.make(null, null, ExprVar.make(null, concState.IEs.get(i)), expr);
+			for (int i = concState.getIdentifiers().size() - 1; i >= 0; i--) {
+				expr = ExprBinary.Op.ARROW.make(null, null, ExprVar.make(null, concState.getIdentifiers().get(i)), expr);
 			}
 		}
 		else if (expr instanceof ExprBinary) {
-			for (int i = concState.IEs.size() - 1; i >= 0; i--) {
-				expr = ExprBinary.Op.ARROW.make(null, null, ExprVar.make(null, concState.IEs.get(i)), expr);
+			for (int i = concState.getIdentifiers().size() - 1; i >= 0; i--) {
+				expr = ExprBinary.Op.ARROW.make(null, null, ExprVar.make(null, concState.getIdentifiers().get(i)), expr);
 			}
 		}
 		return expr;
@@ -68,8 +70,8 @@ public class DashHelper {
 	
 	public static Expr createParameterizedExpr(String var, DashConcState concState) {
 		Expr returnExpr = ExprVar.make(null, var);
-		for (int i = concState.IEs.size() - 1; i >= 0; i--) {
-			returnExpr = ExprBinary.Op.ARROW.make(null, null, ExprVar.make(null, concState.IEs.get(i)), returnExpr);
+		for (int i = concState.getIdentifiers().size() - 1; i >= 0; i--) {
+			returnExpr = ExprBinary.Op.ARROW.make(null, null, ExprVar.make(null, concState.getIdentifiers().get(i)), returnExpr);
 		}
 
 		return returnExpr;
@@ -83,7 +85,7 @@ public class DashHelper {
 	}
 	
 	public static Expr addParametersArrow (Expr expr, DashConcState concState) {
-		for (int i = concState.IEs.size() - 1; i >= 0; i--) {
+		for (int i = concState.getIdentifiers().size() - 1; i >= 0; i--) {
 			expr = ExprBinary.Op.ARROW.make(null, null, ExprVar.make(null, "p" + i), expr);
 		}
 		return expr;
@@ -113,46 +115,141 @@ public class DashHelper {
 	public static Expr quantify (DashConcState parent, Expr expr) {
         List<Decl> decls = new ArrayList<Decl>();
         List<ExprVar> a = new ArrayList<ExprVar>();
-        //expr = DashHelper.addParametersJoin(expr, parent.IEs.size());
-        for (int i = 0; i < parent.IEs.size(); i++) { 
+        //expr = DashHelper.addParametersJoin(expr, parent.getIdentifiers().size());
+        for (int i = 0; i < parent.getIdentifiers().size(); i++) { 
             a.add(ExprVar.make(null, "p" + i));
-            decls.add(new Decl(null, null, null, null, a, ExprVar.make(null, parent.IEs.get(i))));
+            decls.add(new Decl(null, null, null, null, a, ExprVar.make(null, parent.getIdentifiers().get(i))));
             a.clear();
         }
         return ExprQt.Op.ALL.make(null, null, decls, expr);
 	}
 	
-	public static Expr constraintEquals(int conf, DashModule module, String type) {
+	public static Expr noTakenSemanticsConstraints(String type, int taken, DashModule module) {
 		Expr equals = null;
-		Expr s = createExprVar("s");
-		Expr sNext = createExprVar("s_next");
+		for (int key: module.confTuples) {
+			if (key == taken) {
+				continue;
+			}
+			Expr sNextTaken = DashOptions.isElectrum ? sVarPrimed(type + key) : sNextVar(type + key);
+			Expr noSNextTaken = createUnaryExpr(ExprUnary.Op.NO, sNextTaken);
+			equals = equals == null ? noSNextTaken : createBinaryExpr(equals, ExprBinary.Op.AND, noSNextTaken);
+		}
+		return equals;
+	}
+	
+	public static Expr constraintEquals(String type, int conf, DashModule module) {
+		Expr equals = null;
 		for (int key: module.confTuples) {
 			if (key == conf) {
 				continue;
 			}
-			Expr sConf = ExprBinary.Op.JOIN.make(null, null, s, createExprVar(type + key));
-			Expr sNextConf = ExprBinary.Op.JOIN.make(null, null, sNext, createExprVar(type + key));
-			Expr equal = ExprBinary.Op.EQUALS.make(null, null, sConf, sNextConf);
+			Expr sRight = createBinaryExpr(s(), ExprBinary.Op.JOIN, createExprVar(type + key)); 
+			Expr sNextLeft = DashOptions.isElectrum ? sVarPrimed(type + key) : sNextVar(type + key);
+			Expr equal = createBinaryExpr(sNextLeft, ExprBinary.Op.EQUALS, sRight);
+			equals = equals == null ? equal : createBinaryExpr(equals, ExprBinary.Op.AND, equal);
+		}
+		return equals;
+	}
+	
+	public static Expr constraintConf (int conf, DashModule module) {
+		Expr equals = null;
+		for (int key: module.confTuples) {
+			if (key == conf) {
+				continue;
+			}
+			Expr equal = ExprBinary.Op.EQUALS.make(null, null, sNextConf(key), sConf(key));
 			equals = equals == null ? equal : ExprBinary.Op.AND.make(null, null, equals, equal);
 		}
 		return equals;
 	}
 	
-	public static Expr constraintTaken (int conf, DashModule module) {
-		Expr equals = null;
-		Expr s = createExprVar("s");
-		Expr sNext = createExprVar("s_next");
-		for (int key: module.confTuples) {
-			if (key == conf) {
-				continue;
-			}
-			Expr sConf = ExprBinary.Op.JOIN.make(null, null, s, createExprVar("conf" + key));
-			Expr sNextConf = ExprBinary.Op.JOIN.make(null, null, sNext, createExprVar("conf" + key));
-			Expr equal = ExprBinary.Op.EQUALS.make(null, null, sConf, sNextConf);
-			equals = equals == null ? equal : ExprBinary.Op.AND.make(null, null, equals, equal);
-		}
-		return equals;
-	}
+    public static DashConcState getConcStateReferred (Expr ref, DashConcState parent) {
+    	String reference = ExprVar.make(null, ref.toString()).toString();
+    	List<String> refNames = new ArrayList<String>();
+    	while ((reference.indexOf("/") > -1)) {
+    		String stateRef = reference.toString().substring(0, reference.toString().indexOf("/"));
+    		refNames.add(stateRef);
+    		reference = reference.substring(reference.indexOf("/") + 1);
+    	}
+    	
+    	Object child = parent;
+    	for (String refName: refNames) {
+    		if (child instanceof DashConcState) {
+    			DashConcState concState = (DashConcState) child;
+    			for (DashConcState inner: concState.getInnerConcStates()) {
+    				if (inner.getRawName().equals(refName))
+    					child = inner;
+    			}
+    			for (DashState inner: concState.getInnerORStates()) {
+    				if (inner.getRawName().equals(refName))
+    					child = inner;
+    			}
+    		}
+    		
+    		if (child instanceof DashState) {
+    			DashState state = (DashState) child;
+    			for (DashConcState inner: state.getInnerConcStates()) {
+    				if (inner.getRawName().equals(refName))
+    					child = inner;
+    			}
+    			for (DashState inner: state.getInnerORStates()) {
+    				if (inner.getRawName().equals(refName))
+    					child = inner;
+    			}
+    		}
+    	}
+    	
+    	if (child instanceof DashConcState) {
+    		return (DashConcState) child;
+    	}
+    	else {
+    		return null;
+    	}
+    }
+    
+    public static DashConcState getConcStateReferred (String ref, DashConcState parent) {
+    	String reference = ExprVar.make(null, ref.toString()).toString();
+    	List<String> refNames = new ArrayList<String>();
+    	while ((reference.indexOf("/") > -1)) {
+    		String stateRef = reference.toString().substring(0, reference.toString().indexOf("/"));
+    		refNames.add(stateRef);
+    		reference = reference.substring(reference.indexOf("/") + 1);
+    	}
+    	
+    	Object child = parent;
+    	for (String refName: refNames) {
+    		if (child instanceof DashConcState) {
+    			DashConcState concState = (DashConcState) child;
+    			for (DashConcState inner: concState.getInnerConcStates()) {
+    				if (inner.getRawName().equals(refName))
+    					child = inner;
+    			}
+    			for (DashState inner: concState.getInnerORStates()) {
+    				if (inner.getRawName().equals(refName))
+    					child = inner;
+    			}
+    		}
+    		
+    		if (child instanceof DashState) {
+    			DashState state = (DashState) child;
+    			for (DashConcState inner: state.getInnerConcStates()) {
+    				if (inner.getRawName().equals(refName))
+    					child = inner;
+    			}
+    			for (DashState inner: state.getInnerORStates()) {
+    				if (inner.getRawName().equals(refName))
+    					child = inner;
+    			}
+    		}
+    	}
+    	
+    	if (child instanceof DashConcState) {
+    		return (DashConcState) child;
+    	}
+    	else {
+    		return null;
+    	}
+    }
 	
 	public static Map<Integer, Expr> calculateConf2GotoExpr(DashTrans transition) {
 		Map<Integer, Expr> conf2GotoExpr = new LinkedHashMap<Integer, Expr>();
@@ -163,15 +260,15 @@ public class DashHelper {
     		// Get the parent concurrent state of the Destination state
     		DashConcState destStateParent = transition.gotoExpr.gotoExprs.get(key);
     		// Get the number of identifiers that maps to the state
-    		int ieSize = destStateParent.IEs.size();
+    		int ieSize = destStateParent.getIdentifiers().size();
     		// Create the following (IE -> IE -> State)
             for (int i = ieSize - 1; i >= 0; i--) {
             	// p0 enters a state with concurrent states
-            	if (i < transition.parentConcState.IEs.size()) {
+            	if (i < transition.getParentConcState().getIdentifiers().size()) {
             		destState = ExprBinary.Op.ARROW.make(null, null, ExprVar.make(null, "p" + i), destState);
             	}
             	else {
-            		destState = ExprBinary.Op.ARROW.make(null, null, ExprVar.make(null, destStateParent.IEs.get(i)), destState);
+            		destState = ExprBinary.Op.ARROW.make(null, null, ExprVar.make(null, destStateParent.getIdentifiers().get(i)), destState);
             	}
             }
             
@@ -187,37 +284,32 @@ public class DashHelper {
 		return conf2GotoExpr;
 	}
 	
+
 	public static Map<Integer, Expr> calculateConf2FromExpr(DashTrans transition) {
 		Map<Integer, Expr> conf2FromExpr = new LinkedHashMap<Integer, Expr>();
 		// For each Source state
-    	for (String key: transition.fromExpr.fromExprs.keySet()) {
+    	for (DashConcState key: transition.getOrigin().fromExprs) {
     		// Create SourceStste expression
-    		Expr parentStateExited = ExprVar.make(null, transition.fromExpr.concStateBeingExited.modifiedName);
-    		// Get the parent concurrent state of the Source state
-    		DashConcState fromStateParent = transition.fromExpr.fromExprs.get(key);
-    		int ieSize = fromStateParent.IEs.size();
+    		Expr parentStateExited = ExprVar.make(null, transition.getOrigin().stateBeingLeft);
+    		int ieSize = key.getIdentifiers().size();
     		// Create the following (IE -> IE -> State)
-            for (int i = fromStateParent.IEs.size() - 1; i >= 0; i--) {
-            	System.out.println("i: " + i + "IE: " +  fromStateParent.IEs.get(i) + "Size: " + fromStateParent.IEs.size() + " Trans Size: " + transition.parentConcState.IEs.size());
-            	if (i < transition.parentConcState.IEs.size()) {
+            for (int i = key.getIdentifiers().size() - 1; i >= 0; i--) {
+            	if (i < transition.getParentConcState().getIdentifiers().size()) {
             		parentStateExited = ExprBinary.Op.ARROW.make(null, null, ExprVar.make(null, "p" + i), parentStateExited);
             	}
             	else {
-            		parentStateExited = ExprBinary.Op.ARROW.make(null, null, ExprVar.make(null, fromStateParent.IEs.get(i)), parentStateExited);
+            		parentStateExited = ExprBinary.Op.ARROW.make(null, null, ExprVar.make(null, key.getIdentifiers().get(i)), parentStateExited);
             	}
             }
-            
-            if (!conf2FromExpr.containsKey(ieSize)) {
-            	conf2FromExpr.put(ieSize, parentStateExited);
-            } else {
-            	// Create: (IE -> State) - (IE -> State)
-            	Expr expr = ExprBinary.Op.MINUS.make(null, null, conf2FromExpr.get(ieSize), parentStateExited);
-            	conf2FromExpr.put(ieSize, expr);
-            }
+            conf2FromExpr.put(ieSize, parentStateExited);
     	}
 		
 		return conf2FromExpr;
 	}
+	
+    public static DashState getState(String stateName, DashModule module) {
+    	return module.states.get(stateName);
+   }
 	
     /*************************** CREATING EXPRESSIONS ******************************/
 	
@@ -225,19 +317,19 @@ public class DashHelper {
 		return ExprVar.make(null, expr);
 	}
 	
-	public static Expr createExpBadJoin(String left, String right) {
+	public static Expr createExprBadJoin(String left, String right) {
 		return ExprBadJoin.make(null, null, createExprVar(left), createExprVar(right)); 
 	}
 	
-	public static Expr createExpBadJoin(String left, Expr right) {
+	public static Expr createExprBadJoin(String left, Expr right) {
 		return ExprBadJoin.make(null, null, createExprVar(left), right); 
 	}
 	
-	public static Expr createExpBadJoin(Expr left, String right) {
+	public static Expr createExprBadJoin(Expr left, String right) {
 		return ExprBadJoin.make(null, null, left, createExprVar(right)); 
 	}
 	
-	public static Expr createExpBadJoin(Expr left, Expr right) {
+	public static Expr createExprBadJoin(Expr left, Expr right) {
 		return ExprBadJoin.make(null, null, left, right); 
 	}
 	
@@ -301,7 +393,7 @@ public class DashHelper {
         if(op == Op.AND)
         	return ExprBinary.Op.AND.make(null, null, left, right);
         if(op == Op.OR)
-        	return (ExprBinary) ExprBinary.Op.OR.make(null, null, left, right);
+        	return ExprBinary.Op.OR.make(null, null, left, right);
         if(op == Op.IFF)
         	return (ExprBinary) ExprBinary.Op.IFF.make(null, null, left, right);
         if(op == Op.UNTIL)
@@ -353,6 +445,10 @@ public class DashHelper {
         	return (ExprUnary) ExprUnary.Op.CAST2SIGINT.make(null, sub);
         if(op == ExprUnary.Op.NOOP)
         	return (ExprUnary) ExprUnary.Op.NOOP.make(null, sub);
+        if(op == ExprUnary.Op.ALWAYS)
+        	return (ExprUnary) ExprUnary.Op.ALWAYS.make(null, sub);
+        if(op == ExprUnary.Op.EVENTUALLY)
+        	return (ExprUnary) ExprUnary.Op.EVENTUALLY.make(null, sub);
             
         return null;
     }
@@ -389,6 +485,10 @@ public class DashHelper {
         return null;
     }
     
+    public static ExprITE createImplesElseExpr(Expr cond, Expr impliesExpr, Expr elseExpr) {
+    	return (ExprITE) ExprITE.make(null, cond, impliesExpr, elseExpr);
+    }
+    
     /************************************ PRE-DEFINED EXPRESSIONS *****************************************/
     
     public static Expr s() {
@@ -403,8 +503,16 @@ public class DashHelper {
     	return ExprVar.make(null, "s_next");
     }
     
+    public static Expr sPrimed() {
+    	return createUnaryExpr(ExprUnary.Op.PRIME, s());
+    }
+    
     public static Expr conf(int i) {
     	return ExprVar.make(null, "conf" + i);
+    }
+    
+    public static Expr conf() {
+    	return ExprVar.make(null, "conf");
     }
     
     public static Expr events(int i) {
@@ -428,45 +536,65 @@ public class DashHelper {
     }
     
     public static Expr sConf(int i) {
-    	return createExpBadJoin(s(), conf(i));
+    	return createExprBadJoin(s(), conf(i));
+    }
+    
+    public static Expr sConf () {
+    	return createExprBadJoin(s(), conf());
     }
     
     public static Expr sNextConf(int i) {
-    	return createExpBadJoin(sNext(), conf(i));
+    	return createExprBadJoin(sNext(), conf(i));
     }
     
     public static Expr sStable() {
-    	return createExpBadJoin(s(), stable());
+    	return createExprBadJoin(s(), stable());
     }
     
     public static Expr _sStable() {
-    	return createExpBadJoin(_s(), stable());
+    	return createExprBadJoin(_s(), stable());
     }
     
     public static Expr sNextStable() {
-    	return createExpBadJoin(sNext(), stable());
+    	return createExprBadJoin(sNext(), stable());
     }
     
     public static Expr sTaken(int i) {
-    	return createExpBadJoin(s(), taken(i));
+    	return createExprBadJoin(s(), taken(i));
+    }
+    
+    public static Expr _sTaken(int i) {
+    	return createExprBadJoin(_s(), taken(i));
     }
     
     public static Expr sNextTaken(int i) {
-    	return createExpBadJoin(sNext(), taken(i));
+    	return createExprBadJoin(sNext(), taken(i));
     }
     
     public static Expr sEvents(int i) {
-    	return createExpBadJoin(s(), events(i));
+    	return createExprBadJoin(s(), events(i));
     }
     
     public static Expr _sEvents(int i) {
-    	return createExpBadJoin(_s(), events(i));
+    	return createExprBadJoin(_s(), events(i));
     }
     
     public static Expr sNextEvents(int i) {
-    	return createExpBadJoin(sNext(), events(i));
+    	return createExprBadJoin(sNext(), events(i));
     }
     
+    public static Expr sVar (Expr var) {
+    	return createExprBadJoin(s(), var);
+    }
+    
+    public static Expr sNextVar (Expr var) {
+    	return createExprBadJoin(sNext(), var);
+    }
+    
+    public static Expr sNextVar (String var) {
+    	return createExprBadJoin(sNext(), createExprVar(var));
+    }
+
     public static Expr identifiers() {
     	return ExprVar.make(null, "Identifiers");
     }
@@ -478,7 +606,41 @@ public class DashHelper {
     public static Expr falseExpr() {
     	return ExprVar.make(null, "False");
     }
+    
+    /* ELECTRUM HELPER FUNCTIONS */
+	public static Expr createPrimedConf(int i) {
+		return ExprUnary.Op.PRIME.make(null, conf(i));
+	}
 	
+	public static Expr sConfPrimed(int i) {
+		Expr confPrimed = ExprUnary.Op.PRIME.make(null, conf(i));
+		return createExprBadJoin("s", confPrimed);
+	}
+	
+	public static Expr sEventsPrimed(int i) {
+		Expr eventsPrimed = ExprUnary.Op.PRIME.make(null, events(i));
+		return createExprBadJoin("s", eventsPrimed);
+	}
+	
+	public static Expr sTakenPrimed(int i) {
+		Expr takenPrimed = ExprUnary.Op.PRIME.make(null, taken(i));
+		return createExprBadJoin("s", takenPrimed);
+	}
+	
+	public static Expr sStablePrimed() {
+		Expr stablePrimed = ExprUnary.Op.PRIME.make(null, stable());
+		return createExprBadJoin("s", stablePrimed);
+	}
+	
+	public static Expr sVarPrimed(Expr var) {
+		Expr varPrimed = ExprUnary.Op.PRIME.make(null, var);
+		return createExprBadJoin("s", varPrimed);
+	}
+	
+	public static Expr sVarPrimed(String var) {
+		Expr varPrimed = ExprUnary.Op.PRIME.make(null, createExprVar(var));
+		return createExprBadJoin("s", varPrimed);
+	}	
     /*
      * Taken from the Dash.cup file. It is used for handling difficult parsing
      * ambiguities with Alloy expressions

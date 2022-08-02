@@ -561,14 +561,24 @@ public class A4Preferences {
     public static final BooleanPref           GenerateSigAxiom       = new BooleanPref("GenerateSigAxiom", "Generate Significance Axioms", true);
 
     /**
-     * True if a Dash model will contain the Significance Axiom variable
+     * True if a CTL Model Checking is being used
      */
     public static final BooleanPref           CTLModelChecking       = new BooleanPref("CTLModelChecking", "CTL TCMC", true);
+
+    /**
+     * True if the user has to convert to eletrum
+     */
+    public static final BooleanPref           ELECTRUM               = new BooleanPref("ElectrumModelChecking", "Electrum", true);
 
     /**
      * True if a Dash model will contain the Reachability Checks for Basic States
      */
     public static final BooleanPref           GenerateTraces         = new BooleanPref("GenerateTraces", "Traces Fact", true);
+
+    /**
+     * True if a Dash model needs to have a loop
+     */
+    public static final BooleanPref           CreateLoop             = new BooleanPref("CreateLoop", "Create Loop", true);
 
 
     /**

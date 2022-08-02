@@ -9,30 +9,19 @@ import edu.mit.csail.sdg.ast.ExprVar;
 
 /* This class is responsible for holding information regarding each concurrent state
  * declared within a DASH model */
-public class DashConcState {
-
-    public Pos                     pos;
-    public String                  name         = "";
-    public String                  modifiedName = "";
-    public DashConcState           parent;
-    public DashState			   parentState;
-    public Object				   actualParent;
-    public Boolean				   isParameterized = false;
-
-    public List<DashConcState>     concStates   = new ArrayList<DashConcState>();
-    public List<DashState>         states       = new ArrayList<DashState>();
-    public String                  param        = new String();
-    public List<String>     	   IEs   		= new ArrayList<String>();
-    public List<DashBuffer>        buffers      = new ArrayList<DashBuffer>();
-    public List<DashTrans>         transitions  = new ArrayList<DashTrans>();
-    public List<DashTemplateCall>  templateCall = new ArrayList<DashTemplateCall>();
-    public List<DashTransTemplate> templateDecl = new ArrayList<DashTransTemplate>();
-    public List<DashEvent>         events       = new ArrayList<DashEvent>();
-    public List<Decl>              decls        = new ArrayList<Decl>();
-    public List<DashInit>          init         = new ArrayList<DashInit>();
-    public List<DashInvariant>     invariant    = new ArrayList<DashInvariant>();
-    public List<DashAction>        action       = new ArrayList<DashAction>();
-    public List<DashCondition>     condition    = new ArrayList<DashCondition>();
+public class DashConcState extends DashSuperState {
+    private DashState			    parentState;
+    private String                  param        = new String();
+    private List<String>     	    IEs   		 = new ArrayList<String>();
+    private List<DashBuffer>        buffers      = new ArrayList<DashBuffer>();
+    private List<DashTemplateCall>  templateCall = new ArrayList<DashTemplateCall>();
+    private List<DashTransTemplate> templateDecl = new ArrayList<DashTransTemplate>();
+    private List<DashEvent>         events       = new ArrayList<DashEvent>();
+    private List<Decl>              decls        = new ArrayList<Decl>();
+    private List<DashInit>          init         = new ArrayList<DashInit>();
+    private List<DashInvariant>     invariant    = new ArrayList<DashInvariant>();
+    private List<DashAction>        action       = new ArrayList<DashAction>();
+    private List<DashCondition>     condition    = new ArrayList<DashCondition>();
 
     /*
      * This constructor is called by DashParser.java when it completes parsing a
@@ -68,14 +57,13 @@ public class DashConcState {
                 templateCall.add((DashTemplateCall) item);
             if (item instanceof DashTransTemplate)
                 templateDecl.add((DashTransTemplate) item);
-            if (item instanceof DashBuffer)
+            if (item instanceof DashBuffer) 
                 buffers.add((DashBuffer) item);
         }
         
         if (param != null)
         {
         	this.param = param.toString();
-        	this.isParameterized = true;
         }
         
         this.IEs = new ArrayList<String>();
@@ -84,7 +72,7 @@ public class DashConcState {
 	public DashConcState(DashConcState concState) {
 		this.name = concState.name;
 		this.modifiedName = concState.modifiedName;
-		this.parent = concState.parent;	
+		this.parentConcState = concState.parentConcState;	
 		this.concStates = concState.concStates;		
 		this.states = concState.states;
 		this.param = concState.param;
@@ -99,6 +87,60 @@ public class DashConcState {
 		this.condition = concState.condition;
 		this.buffers = concState.buffers;
 		this.IEs = concState.IEs;
-		this.isParameterized = concState.isParameterized;
+	}
+	
+	public DashState getParentORState() {
+		return parentState;
+	}
+	
+	public void setParentORState(DashState parentState) {
+		this.parentState = parentState;
+	}
+	
+	public boolean isParameterized () {
+		return !param.isEmpty();
+	}
+	
+	public String getReplicatedIdentifier() {
+		return param;
+	}
+	
+	public List<String> getIdentifiers() {
+		return IEs;
+	}
+	
+	public List<DashTemplateCall> getTemplateCalls(){
+		return templateCall;
+	}
+	
+	public List<DashTransTemplate> getTemplateDeclarations(){
+		return templateDecl;
+	}
+	
+	public List<DashBuffer> getBuffers(){
+		return buffers;
+	}
+	
+	public List<DashEvent> getEvents(){
+		return events;
+	}
+	
+	public List<Decl> getVariables(){
+		return decls;
+	}
+	
+	public List<DashInit> getInitialConds(){
+		return init;
+	}
+	
+	public List<DashInvariant> getInvariants () {
+		return invariant;
+	}
+	public List<DashAction> getActions() {
+		return action;
+	}
+	
+	public List<DashCondition> getConditions() {
+		return condition;
 	}
 }

@@ -165,16 +165,16 @@ public class DashValidation {
     public static void hasLegalTransCommand(String concStateName) {
         for (DashTrans transition : transitions.get(concStateName)) {
             if (transition.onExpr != null) {
-                validateTransRef(transition.onExpr.name, transition.onExpr.pos, eventNames.get(concStateName));
+                validateTransRef(transition.onExpr.getRawName(), transition.onExpr.getPos(), eventNames.get(concStateName));
             }
             if (transition.gotoExpr != null) {
                 for (String gotoName : transition.gotoExpr.gotoExpr) {
                     validateTransRef(gotoName, transition.gotoExpr.pos, stateNames.get(concStateName));
                 }
             }
-            if (transition.fromExpr != null) {
-                for (String fromName : transition.fromExpr.fromExpr) {
-                    validateTransRef(fromName, transition.fromExpr.pos, stateNames.get(concStateName));
+            if (transition.getOrigin() != null) {
+                for (String fromName : transition.getOrigin().fromExpr) {
+                    validateTransRef(fromName, transition.getOrigin().pos, stateNames.get(concStateName));
                 }
             }
             /*
@@ -207,7 +207,7 @@ public class DashValidation {
     }
 
     static void validateExprVar(DashConcState concState) {
-        for (Expr expr : expressions.get(concState.modifiedName)) {
+        for (Expr expr : expressions.get(concState.getFullyQualName())) {
 
             ExprUnary parentExprUnary = null;
 
@@ -385,16 +385,16 @@ public class DashValidation {
      */
     private static void checkIfVarValid(ExprVar var, DashConcState concState) {
         String variable = var.toString();
-        String concStateToCheck = concState.modifiedName;
+        String concStateToCheck = concState.getFullyQualName();
         
         if (variable.contains("'"))
             variable = variable.replace("'", "");
 
         String concStateParName = "";
-        if (concState.parent != null)
-            concStateParName = concState.parent.modifiedName;
+        if (concState.getParentConcState() != null)
+            concStateParName = concState.getParentConcState().getFullyQualName();
         else
-            concStateParName = concState.modifiedName;
+            concStateParName = concState.getFullyQualName();
 
         if (variable.contains("/")) {
         	//concStateToCheck = variable.substring(0, variable.indexOf("/"));
@@ -409,22 +409,22 @@ public class DashValidation {
     private static List<String> getAllUserVars (String parent, String concStateName, DashConcState concState) {
     	List<String> vars = new ArrayList<String>();
     	if (declarationNames.get(concStateName) != null) {
-    		vars.addAll(declarationNames.get(concState.modifiedName));
+    		vars.addAll(declarationNames.get(concState.getFullyQualName()));
     	}
     	if (declarationNames.get(parent) != null) {
     		vars.addAll(declarationNames.get(parent));
     	}
     	
-    	if (eventNames.get(concState.modifiedName) != null) {
-    		vars.addAll(eventNames.get(concState.modifiedName));
+    	if (eventNames.get(concState.getFullyQualName()) != null) {
+    		vars.addAll(eventNames.get(concState.getFullyQualName()));
     	}
     	if (eventNames.get(parent) != null) {
     		vars.addAll(eventNames.get(parent));
     	}
     	
-    	for (DashConcState innrConcStates: concState.concStates) {
-        	if (declarationNames.get(innrConcStates.modifiedName) != null) {
-        		vars.addAll(declarationNames.get(innrConcStates.modifiedName));
+    	for (DashConcState innrConcStates: concState.getInnerConcStates()) {
+        	if (declarationNames.get(innrConcStates.getFullyQualName()) != null) {
+        		vars.addAll(declarationNames.get(innrConcStates.getFullyQualName()));
         	}
     	}    
     	
@@ -450,7 +450,7 @@ public class DashValidation {
             return true;
 
         for (DashState item : states) {
-            if (item.isDefault)
+            if (item.isDefault())
                 return true;
         }
         return false;
@@ -463,11 +463,11 @@ public class DashValidation {
         Boolean sameStateFound = false;
 
         for (DashState stateA : states) {
-            stateName = stateA.name;
+            stateName = stateA.getRawName();
             for (DashState stateB : states) {
-                if (stateName.equals(stateB.name) && sameStateFound)
-                    throw new ErrorSyntax(stateB.pos, "This state has already been declared.");
-                if (stateName.equals(stateB.name) && !sameStateFound)
+                if (stateName.equals(stateB.getRawName()) && sameStateFound)
+                    throw new ErrorSyntax(stateB.getPos(), "This state has already been declared.");
+                if (stateName.equals(stateB.getRawName()) && !sameStateFound)
                     sameStateFound = true;
             }
             sameStateFound = false;
@@ -482,12 +482,12 @@ public class DashValidation {
         Boolean sameTransFound = false;
 
         for (DashTrans transA : transitions) {
-            transName = transA.name;
+            transName = transA.getRawName();
             for (DashTrans transB : transitions) {
-                if (transName != null && transB.name != null) {
-                    if (transName.equals(transB.name) && sameTransFound)
-                        throw new ErrorSyntax(transB.pos, "This transition has already been declared.");
-                    if (transName.equals(transB.name) && !sameTransFound)
+                if (transName != null && transB.getRawName() != null) {
+                    if (transName.equals(transB.getRawName()) && sameTransFound)
+                        throw new ErrorSyntax(transB.getPos(), "This transition has already been declared.");
+                    if (transName.equals(transB.getRawName()) && !sameTransFound)
                         sameTransFound = true;
                 }
             }
@@ -504,12 +504,12 @@ public class DashValidation {
         List<DashEvent> concStateEvent = getEvents(concState);
 
         for (DashEvent eventA : concStateEvent) {
-            eventName = eventA.name;
+            eventName = eventA.getRawName();
             for (DashEvent eventB : concStateEvent) {
-                if (eventName != null && eventB.name != null) {
-                    if (eventName.equals(eventB.name) && sameEventFound)
-                        throw new ErrorSyntax(eventB.pos, "This event has already been declared.");
-                    if (eventName.equals(eventB.name) && !sameEventFound)
+                if (eventName != null && eventB.getRawName() != null) {
+                    if (eventName.equals(eventB.getRawName()) && sameEventFound)
+                        throw new ErrorSyntax(eventB.getPos(), "This event has already been declared.");
+                    if (eventName.equals(eventB.getRawName()) && !sameEventFound)
                         sameEventFound = true;
                 }
             }
@@ -545,10 +545,10 @@ public class DashValidation {
     public static void addConcStates(DashModule dashModule) {
         /* Get all the concurrent states */
         for (DashConcState concState : dashModule.concStates.values()) {
-            concStateNames.add(concState.name);
-            concStateNamesModified.add(concState.modifiedName);
-            if (concState.param != null) {
-            	paramNames.add(concState.param);
+            concStateNames.add(concState.getRawName());
+            concStateNamesModified.add(concState.getFullyQualName());
+            if (concState.getReplicatedIdentifier() != null) {
+            	paramNames.add(concState.getReplicatedIdentifier());
             }
         }
 
@@ -566,18 +566,18 @@ public class DashValidation {
     public static List<DashEvent> getEvents(DashConcState parent) {
         List<DashEvent> events = new ArrayList<DashEvent>();
 
-        for (DashEvent event : parent.events) {
+        for (DashEvent event : parent.getEvents()) {
             if (event.type.equals("env")) {
                 //If we have an event such as env in_m1, in_m2: lone Patient, we
                 //need to store in_m1 as an event and in_m2 as an Event
                 for (Object name : event.decl.names) {
-                    events.add(new DashEvent(event.pos, name.toString(), "env"));
+                    events.add(new DashEvent(event.getPos(), name.toString(), "env"));
                 }
             } else if (event.type.equals("event")){
-                events.add(new DashEvent(event.pos, event.name, "event"));
+                events.add(new DashEvent(event.getPos(), event.getRawName(), "event"));
             }
             else {
-            	events.add(new DashEvent(event.pos, event.name, "env event"));
+            	events.add(new DashEvent(event.getPos(), event.getRawName(), "env event"));
             }
             	
         }
@@ -594,12 +594,12 @@ public class DashValidation {
     	while (concState != null)
     	{
             /* Store the names of each variable inside decls in ConcState */
-            for (Decl decl : concState.decls) {
+            for (Decl decl : concState.getVariables()) {
                 for (Object name : decl.names) 
                     names.add(name.toString());
             }
             
-            concState = concState.parent;
+            concState = concState.getParentConcState();
     	}
 
         declarationNames.put(concStateName, new ArrayList<String>(names));
@@ -613,7 +613,7 @@ public class DashValidation {
     	while (concState != null)
     	{
             /* Stores the names for each event in the current conc state */
-            for (DashEvent event : concState.events) {
+            for (DashEvent event : concState.getEvents()) {
                 if (event.type.equals("env")) {
                     //If we have an event such as env in_m1, in_m2: lone Patient, we
                     //need to store in_m1, in_m2 as event names
@@ -621,11 +621,11 @@ public class DashValidation {
                         names.add(name.toString());
                     }
                 } else {
-                    names.add(event.name);
+                    names.add(event.getRawName());
                 }
             }
             
-            concState = concState.parent;
+            concState = concState.getParentConcState();
     	}  
     	
     	eventNames.put(concStateName, new ArrayList<String>(names));
@@ -640,21 +640,21 @@ public class DashValidation {
 
 
         /* Stores the names for each state in the current conc state */
-        for (DashState state : dashModule.concStates.get(concStateName).states) {
-            getExprFromStateTrans(concStateName, state.modifiedName, dashModule);
-            names.add(state.name);
+        for (DashState state : dashModule.concStates.get(concStateName).getInnerORStates()) {
+            getExprFromStateTrans(concStateName, state.getFullyQualName(), dashModule);
+            names.add(state.getRawName());
         }
 
         stateNames.put(concStateName, new ArrayList<String>(names));
         names.clear();
 
         /* Stores the names for each action template in the current conc state */
-        for (DashAction action : dashModule.concStates.get(concStateName).action)
+        for (DashAction action : dashModule.concStates.get(concStateName).getActions())
             funcNames.add(action.name);
         
         /* Stores the names for each condition template in the current conc state */
-        for (DashCondition condition : dashModule.concStates.get(concStateName).condition)
-            funcNames.add(condition.name);
+        for (DashCondition condition : dashModule.concStates.get(concStateName).getConditions())
+            funcNames.add(condition.getRawName());
         
         /* Stores the names for each event in the current conc state */
         getEventNames(concStateName, dashModule);
@@ -663,14 +663,14 @@ public class DashValidation {
         readVariablesDeclared(concStateName, dashModule);
 
         expressionList = new ArrayList<Expr>(expressions.get(concStateName));
-        for (DashTrans trans : dashModule.concStates.get(concStateName).transitions) {
-            names.add(trans.name);
+        for (DashTrans trans : dashModule.concStates.get(concStateName).getTransitions()) {
+            names.add(trans.getRawName());
             transitionList.add(trans);
 
             //The only kind of transition that will have declarations (decl) is a
             //transition template. Therefore, we will need to valdiate the arguments (decls)
             if (trans.transTemplate != null)
-                validateTransTemplateDecl(trans.pos, concStateName, trans.transTemplate.decls);
+                validateTransTemplateDecl(trans.getPos(), concStateName, trans.transTemplate.decls);
             if (trans.doExpr != null) {
                 expressionList.add(trans.doExpr.expr);
             }
@@ -690,15 +690,15 @@ public class DashValidation {
         List<Expr> expressionList = new ArrayList<Expr>(expressions.get(concStateName));
 
         /* Stores the names for each state in the current state */
-        for (DashState state : dashModule.states.get(stateName).states) {
-            getExprFromStateTrans(concStateName, state.modifiedName, dashModule);
+        for (DashState state : dashModule.states.get(stateName).getInnerORStates()) {
+            getExprFromStateTrans(concStateName, state.getFullyQualName(), dashModule);
         }
 
-        for (DashTrans trans : dashModule.states.get(stateName).transitions) {
+        for (DashTrans trans : dashModule.states.get(stateName).getTransitions()) {
             //The only kind of transition that will have declarations (decl) is a
             //transition template. Therefore, we will need to valdiate the arguments (decls)
             if (trans.transTemplate != null)
-                validateTransTemplateDecl(trans.pos, concStateName, trans.transTemplate.decls);
+                validateTransTemplateDecl(trans.getPos(), concStateName, trans.transTemplate.decls);
             if (trans.doExpr != null) {
                 expressionList.add(trans.doExpr.expr);
             }
@@ -713,19 +713,19 @@ public class DashValidation {
         for (String concStateName : concStateNamesModified) {
             DashConcState currentConcState = dashModule.concStates.get(concStateName);
 
-            if (!hasDefaultState(currentConcState.states))
-                throw new ErrorSyntax(dashModule.concStates.get(concStateName).pos, "A default state is required.");
+            if (!hasDefaultState(currentConcState.getInnerORStates()))
+                throw new ErrorSyntax(dashModule.concStates.get(concStateName).getPos(), "A default state is required.");
 
-            hasSameStateName(concStateName, currentConcState.states);
-            hasSameTransName(concStateName, currentConcState.transitions);
+            hasSameStateName(concStateName, currentConcState.getInnerORStates());
+            hasSameTransName(concStateName, currentConcState.getTransitions());
             hasSameEventName(currentConcState);
 
-            for (DashState state : currentConcState.states) {
-                if (!hasDefaultState(state.states))
-                    throw new ErrorSyntax(state.pos, "A default state is required.");
+            for (DashState state : currentConcState.getInnerORStates()) {
+                if (!hasDefaultState(state.getInnerORStates()))
+                    throw new ErrorSyntax(state.getPos(), "A default state is required.");
 
-                hasSameStateName(concStateName, state.states);
-                hasSameTransName(concStateName, state.transitions);
+                hasSameStateName(concStateName, state.getInnerORStates());
+                hasSameTransName(concStateName, state.getTransitions());
             }
             checkSendEvents(currentConcState);
 
@@ -736,23 +736,23 @@ public class DashValidation {
     
     public void getVarsInConcState(DashConcState concState) {
     	List<String> vars = new ArrayList<String>();
-    	if (declarationNames.get(concState.modifiedName) != null) {
-    		vars.addAll(declarationNames.get(concState.modifiedName));
+    	if (declarationNames.get(concState.getFullyQualName()) != null) {
+    		vars.addAll(declarationNames.get(concState.getFullyQualName()));
     	}
-    	if (declarationNames.get(concState.parent.modifiedName) != null) {
-    		vars.addAll(declarationNames.get(concState.parent.modifiedName));
-    	}
-    	
-    	if (eventNames.get(concState.modifiedName) != null) {
-    		vars.addAll(eventNames.get(concState.modifiedName));
-    	}
-    	if (eventNames.get(concState.parent.modifiedName) != null) {
-    		vars.addAll(eventNames.get(concState.parent.modifiedName));
+    	if (declarationNames.get(concState.getParentConcState().getFullyQualName()) != null) {
+    		vars.addAll(declarationNames.get(concState.getParentConcState().getFullyQualName()));
     	}
     	
-    	for (DashConcState innrConcStates: concState.concStates) {
-        	if (declarationNames.get(innrConcStates.modifiedName) != null) {
-        		vars.addAll(declarationNames.get(concState.modifiedName));
+    	if (eventNames.get(concState.getFullyQualName()) != null) {
+    		vars.addAll(eventNames.get(concState.getFullyQualName()));
+    	}
+    	if (eventNames.get(concState.getParentConcState().getFullyQualName()) != null) {
+    		vars.addAll(eventNames.get(concState.getParentConcState().getFullyQualName()));
+    	}
+    	
+    	for (DashConcState innrConcStates: concState.getInnerConcStates()) {
+        	if (declarationNames.get(innrConcStates.getFullyQualName()) != null) {
+        		vars.addAll(declarationNames.get(concState.getFullyQualName()));
         	}
     	}    
     	
@@ -763,7 +763,7 @@ public class DashValidation {
     	vars.addAll(funcNames);
     	vars.addAll(paramNames);
     	
-    	concState2Vars.put(concState.modifiedName, vars);
+    	concState2Vars.put(concState.getFullyQualName(), vars);
     }
     
     public static void checkSendEvents(DashConcState concState) {
@@ -772,51 +772,51 @@ public class DashValidation {
     	List<String> eventNames = new ArrayList<String>();
     	
     	DashConcState currentConcState = new DashConcState(concState);
-    	while (currentConcState.parent instanceof DashConcState) {
-    		currentConcState = (DashConcState) currentConcState.parent;
+    	while (currentConcState.getParent() instanceof DashConcState) {
+    		currentConcState = (DashConcState) currentConcState.getParentConcState();
     		events.addAll(getEvents(currentConcState));
     	}
     	
     	for(DashEvent evn: events) {
-    		eventNamesType.put(evn.name, evn.type);
+    		eventNamesType.put(evn.getRawName(), evn.type);
     	}
     	for(DashEvent evn: events) {
-    		eventNames.add(evn.name);
+    		eventNames.add(evn.getRawName());
     	}
     	
-    	for (DashTrans trans: concState.transitions) {
-    		if (trans.sendExpr != null && eventNames.contains(trans.sendExpr.name) && eventNamesType.get(trans.sendExpr.name).equals("env event"))
-    			throw new ErrorSyntax(trans.sendExpr.pos, "An environmental event cannot be generated by the user.");
+    	for (DashTrans trans: concState.getTransitions()) {
+    		if (trans.sendExpr != null && eventNames.contains(trans.sendExpr.getRawName()) && eventNamesType.get(trans.sendExpr.getRawName()).equals("env event"))
+    			throw new ErrorSyntax(trans.sendExpr.getPos(), "An environmental event cannot be generated by the user.");
     	}
-    	for (DashState state: concState.states) {
-    		for(DashTrans trans: state.transitions) {
-    			if (trans.sendExpr != null && eventNames.contains(trans.sendExpr.name) && eventNamesType.get(trans.sendExpr.name).equals("env event"))
-    				throw new ErrorSyntax(trans.sendExpr.pos, "An environmental event cannot be generated by the user.");
+    	for (DashState state: concState.getInnerORStates()) {
+    		for(DashTrans trans: state.getTransitions()) {
+    			if (trans.sendExpr != null && eventNames.contains(trans.sendExpr.getRawName()) && eventNamesType.get(trans.sendExpr.getRawName()).equals("env event"))
+    				throw new ErrorSyntax(trans.sendExpr.getPos(), "An environmental event cannot be generated by the user.");
     		}
     	}
     }
 
     public static void addExprFromConcState(DashConcState currentConcState) {
 
-        List<Expr> localExpressions = new ArrayList<Expr>(expressions.get(currentConcState.modifiedName));
+        List<Expr> localExpressions = new ArrayList<Expr>(expressions.get(currentConcState.getFullyQualName()));
 
-        if (currentConcState.init.size() > 0) {
-            for (DashInit init : currentConcState.init)
+        if (currentConcState.getInitialConds().size() > 0) {
+            for (DashInit init : currentConcState.getInitialConds())
                 localExpressions.add(init.expr);
         }
         //if (currentConcState.invariant.size() > 0) {
         //    for (DashInvariant invariant : currentConcState.invariant)
                 //localExpressions.add(invariant.expr);
         //}
-        if (currentConcState.action.size() > 0) {
-            for (DashAction action : currentConcState.action)
+        if (currentConcState.getActions().size() > 0) {
+            for (DashAction action : currentConcState.getActions())
                 localExpressions.add(action.expr);
         }
-        if (currentConcState.condition.size() > 0) {
-            for (DashCondition condition : currentConcState.condition)
-                localExpressions.add(condition.expr);
+        if (currentConcState.getConditions().size() > 0) {
+            for (DashCondition condition : currentConcState.getConditions())
+                localExpressions.add(condition.getExpr());
         }
-        expressions.put(currentConcState.modifiedName, new ArrayList<Expr>(localExpressions));
+        expressions.put(currentConcState.getFullyQualName(), new ArrayList<Expr>(localExpressions));
     }
 
     public static void validateDashModel(DashModule dashModule) {
