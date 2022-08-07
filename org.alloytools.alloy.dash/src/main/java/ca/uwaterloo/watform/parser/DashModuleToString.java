@@ -109,12 +109,9 @@ public class DashModuleToString {
 	    		out.print("}").brk();
 			} else {
 				out.print(" in ");
-	    		if(sig.getFields().size() > 0) { 
-	                for(Field f: sig.getFields()) {
-	                    printExpr(f.decl().expr, out);
-	                }
-	                out.brk();
-	            }
+				out.print(sig.isVariable.filename);
+				out.print(" {}");
+				out.brk();
 			}
     	}
 		out.brk();
@@ -141,7 +138,9 @@ public class DashModuleToString {
 				}
 				
 				out.print("{").beginCInd().brk();
-				printExpr(func.getBody(), out);
+				if (!func.getBody().toString().equals("true")) {
+					printExpr(func.getBody(), out);
+				}
 				out.brk(1,-indent).end().print("}").brk().brk();
 			}
 		}

@@ -963,7 +963,7 @@ Sig ::= SigQuals:a Names:b SigIn:c LBRACE Decls:d RBRACE:o SuperOpt:e
    if (e==null) e = ExprConstant.Op.TRUE.make(o, 0);
    ExprVar cc = (c!=null && c.size()>0) ? c.remove(c.size()-1) : null;
    for(ExprVar bb:b) {
-      DashValidation.sigNames.add(bb.label);
+    DashValidation.sigNames.add(bb.label);
 	DashValidation.sigDecls.addAll(d);
       parser.dashmodule.addSig(bb.label, cc, c, d, e,
          AttrType.WHERE   .makenull(bb.pos.merge(e==null ? o : e.span())),

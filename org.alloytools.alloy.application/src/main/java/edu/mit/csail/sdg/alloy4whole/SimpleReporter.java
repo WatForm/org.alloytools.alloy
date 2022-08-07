@@ -46,6 +46,7 @@ import ca.uwaterloo.watform.parser.DashModule;
 import ca.uwaterloo.watform.parser.DashOptions;
 import ca.uwaterloo.watform.parser.DashUtil;
 import ca.uwaterloo.watform.transform.CoreDashToAlloy;
+import ca.uwaterloo.watform.transform.CoreDashToElectrum;
 import ca.uwaterloo.watform.transform.DashToCoreDash;
 import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.alloy4.ConstList;
@@ -741,7 +742,7 @@ final class SimpleReporter extends A4Reporter {
                 DashModule dash = DashUtil.parseEverything_fromFileDash(rep, map, options.originalFilename);
                 //DashValidation.validateDashModel(dash);
                 DashModule coreDash = new DashToCoreDash().transformToCoreDash(dash, "", "");
-                DashModule alloy = new CoreDashToAlloy().convertToAlloyAST(coreDash, "", "");
+                DashModule alloy = DashOptions.isElectrum ? new CoreDashToElectrum().convertToElectrumAST(coreDash, "", "") : new CoreDashToAlloy().convertToAlloyAST(coreDash, "", "");
                 world = DashModule.resolveAll(rep == null ? A4Reporter.NOP : rep, alloy);
             } else {
                 world = CompUtil.parseEverything_fromFile(rep, map, options.originalFilename, resolutionMode);

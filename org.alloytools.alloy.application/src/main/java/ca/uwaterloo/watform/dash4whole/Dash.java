@@ -7,7 +7,7 @@ import java.util.Scanner;
 import ca.uwaterloo.watform.parser.DashModule;
 import ca.uwaterloo.watform.parser.DashOptions;
 import ca.uwaterloo.watform.parser.DashUtil;
-import ca.uwaterloo.watform.transform.CoreDashToAlloy;
+import ca.uwaterloo.watform.transform.CoreDashToElectrum;
 import ca.uwaterloo.watform.transform.DashToCoreDash;
 import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.alloy4viz.VizGUI;
@@ -20,12 +20,13 @@ public class Dash {
 
         System.out.println("Please specify the .dsh file path:");
         Scanner sc = new Scanner(System.in);
-        String actual = "C:\\Users\\Tamjid Hossain\\Desktop\\Dash Processes Models\\LeaderElection.dsh";
+        String actual = "C:\\Users\\Tamjid Hossain\\Desktop\\Dash Processes Models\\LeaderElectionElec1.dsh";
 
         if (!actual.endsWith(".dsh")) {
             System.err.println("File not supported.\nExpected a Dash file with 'dsh' extension");
             return;
         }
+
         DashOptions.generateSigAxioms = false;
         DashOptions.ctlModelChecking = false;
         DashOptions.generateTraces = true;
@@ -51,10 +52,17 @@ public class Dash {
 
             //Parse+typecheck the model
             System.out.println("=========== Parsing+Typechecking " + fileName + " =============");
-
+            DashOptions.variablesUnchanged = true;
+            DashOptions.assumeSingleInput = false;
+            DashOptions.generateSigAxioms = false;
+            DashOptions.ctlModelChecking = false;
+            DashOptions.isElectrum = true;
+            DashOptions.createLoop = true;
+            DashOptions.generateTraces = false;
             DashModule dash = DashUtil.parseEverything_fromFileDash(rep, null, actual);
             DashModule coreDash = new DashToCoreDash().transformToCoreDash(dash, fileName.toString(), "");
-            DashModule alloy = new CoreDashToAlloy().convertToAlloyAST(coreDash, fileName.toString(), "");
+            DashModule alloy = new CoreDashToElectrum().convertToElectrumAST(coreDash, "", "");
+            //System.out.println(DashModuleToString.getString(alloy));
             alloy = DashModule.resolveAll(rep == null ? A4Reporter.NOP : rep, alloy);
             //System.out.println(DashModuleToString.getString(alloy));
 

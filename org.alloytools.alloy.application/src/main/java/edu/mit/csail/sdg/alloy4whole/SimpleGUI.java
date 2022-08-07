@@ -137,6 +137,7 @@ import ca.uwaterloo.watform.parser.DashModuleToString;
 import ca.uwaterloo.watform.parser.DashOptions;
 import ca.uwaterloo.watform.parser.DashUtil;
 import ca.uwaterloo.watform.transform.CoreDashToAlloy;
+import ca.uwaterloo.watform.transform.CoreDashToElectrum;
 import ca.uwaterloo.watform.transform.DashToCoreDash;
 
 //import com.apple.eawt.Application;
@@ -1448,7 +1449,7 @@ public final class SimpleGUI implements ComponentListener, Listener {
             //DashValidation.validateDashModel(dash);
             System.out.println("FileName: " + fileName.toString() + " Path: " + path.toString());
             DashModule coreDash = new DashToCoreDash().transformToCoreDash(dash, "", "");
-            DashModule alloy = new CoreDashToAlloy().convertToAlloyAST(coreDash, "", "");
+            DashModule alloy = DashOptions.isElectrum ? new CoreDashToElectrum().convertToElectrumAST(coreDash, "", "") : new CoreDashToAlloy().convertToAlloyAST(coreDash, "", "");
             alloy = DashModule.resolveAll(A4Reporter.NOP, alloy);
             if (text.get().isFile()) {
                 DashModuleToString.toString(alloy);

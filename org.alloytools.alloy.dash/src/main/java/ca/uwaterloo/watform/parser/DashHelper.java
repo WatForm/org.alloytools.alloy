@@ -31,7 +31,7 @@ public class DashHelper {
 	}
 	
 	public static Expr parameterize(String string) {
-		return ExprBinary.Op.JOIN.make(null, null, ExprVar.make(null, "p"), ExprVar.make(null, DashHelper.toLowerCase(string)));
+		return createBinaryExpr(createExprVar("p"), ExprBinary.Op.JOIN ,createExprVar(DashHelper.toLowerCase(string)));
 	}
 	
 	/*
@@ -62,6 +62,37 @@ public class DashHelper {
 		}
 		else if (expr instanceof ExprBinary) {
 			for (int i = concState.getIdentifiers().size() - 1; i >= 0; i--) {
+				expr = ExprBinary.Op.ARROW.make(null, null, ExprVar.make(null, concState.getIdentifiers().get(i)), expr);
+			}
+		}
+		return expr;
+	}
+	
+	public static Expr createParameterizedElectrumVar(String var, Expr expr, DashModule module) {
+		DashConcState concState = module.variable2ConcState.get(var);
+		System.out.println("Looking at: " + var + " IDs Size: " + concState.getIdentifiers().size());
+		if (expr instanceof ExprUnary && concState.getIdentifiers().size() > 1) {
+			ExprUnary exprUnary = (ExprUnary) expr;	
+			int index = concState.getIdentifiers().size() - 1;
+			if (exprUnary.op == ExprUnary.Op.LONEOF)
+				expr = ExprBinary.Op.ANY_ARROW_LONE.make(null, null, ExprVar.make(null, concState.getIdentifiers().get(index)), exprUnary.sub);
+			if (exprUnary.op == ExprUnary.Op.ONEOF)
+				expr = ExprBinary.Op.ANY_ARROW_ONE.make(null, null, ExprVar.make(null, concState.getIdentifiers().get(index)), exprUnary.sub);
+			if (exprUnary.op == ExprUnary.Op.SOMEOF)
+				expr = ExprBinary.Op.ANY_ARROW_SOME.make(null, null, ExprVar.make(null, concState.getIdentifiers().get(index)), exprUnary.sub);
+			if (exprUnary.op == ExprUnary.Op.SETOF)
+				expr = ExprBinary.Op.ARROW.make(null, null, ExprVar.make(null, concState.getIdentifiers().get(index)), exprUnary.sub);
+			for (int i = concState.getIdentifiers().size() - 3; i >= 0; i--) {
+				expr = ExprBinary.Op.ARROW.make(null, null, ExprVar.make(null, concState.getIdentifiers().get(i)), expr);
+			}
+		} 
+		else if (expr instanceof ExprVar) {
+			for (int i = concState.getIdentifiers().size() - 2; i >= 0; i--) {
+				expr = ExprBinary.Op.ARROW.make(null, null, ExprVar.make(null, concState.getIdentifiers().get(i)), expr);
+			}
+		}
+		else if (expr instanceof ExprBinary) {
+			for (int i = concState.getIdentifiers().size() - 2; i >= 0; i--) {
 				expr = ExprBinary.Op.ARROW.make(null, null, ExprVar.make(null, concState.getIdentifiers().get(i)), expr);
 			}
 		}
@@ -599,6 +630,10 @@ public class DashHelper {
     	return ExprVar.make(null, "Identifiers");
     }
     
+    public static Expr variables() {
+    	return ExprVar.make(null, "Variables");
+    }
+    
     public static Expr trueExpr() {
     	return ExprVar.make(null, "True");
     }
@@ -608,9 +643,29 @@ public class DashHelper {
     }
     
     /* ELECTRUM HELPER FUNCTIONS */
-	public static Expr createPrimedConf(int i) {
+	public static Expr confPrimed(int i) {
 		return ExprUnary.Op.PRIME.make(null, conf(i));
 	}
+	
+	public static Expr eventsPrimed(int i) {
+		return ExprUnary.Op.PRIME.make(null, events(i));
+	}
+	
+	public static Expr takenPrimed(int i) {
+		return ExprUnary.Op.PRIME.make(null, taken(i));
+	}
+	
+	public static Expr stablePrimed() {
+		return ExprUnary.Op.PRIME.make(null, stable());
+	}
+	
+	public static Expr varPrimed(Expr var) {
+		return ExprUnary.Op.PRIME.make(null, var);
+	}
+	
+	public static Expr varPrimed(String var) {
+		return ExprUnary.Op.PRIME.make(null, createExprVar(var));
+	}	
 	
 	public static Expr sConfPrimed(int i) {
 		Expr confPrimed = ExprUnary.Op.PRIME.make(null, conf(i));

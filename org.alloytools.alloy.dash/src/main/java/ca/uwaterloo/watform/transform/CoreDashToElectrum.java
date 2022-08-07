@@ -2,18 +2,17 @@ package ca.uwaterloo.watform.transform;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-//Dash Imports
+// Dash Imports
 import ca.uwaterloo.watform.ast.*;
 import ca.uwaterloo.watform.parser.DashHelper;
 import ca.uwaterloo.watform.parser.DashModule;
 import ca.uwaterloo.watform.parser.DashOptions;
 
-//Alloy Imports
+// Alloy Imports
 import edu.mit.csail.sdg.alloy4.Err;
 import edu.mit.csail.sdg.alloy4.ErrorSyntax;
 import edu.mit.csail.sdg.alloy4.Pos;
@@ -22,39 +21,30 @@ import edu.mit.csail.sdg.ast.*;
 import edu.mit.csail.sdg.ast.Attr.*;
 import edu.mit.csail.sdg.ast.Sig.*;
 
-public class CoreDashToAlloy {
-	boolean isCreatingEnabledAfterPred;
-	boolean isCreatingPreCond;
-	boolean isCreatingInit;
-	boolean isCreatingInvariant;
-	boolean isCreatingExprQt;
+public class CoreDashToElectrum {
+	private boolean isCreatingEnabledAfterPred;
+	private boolean isCreatingInit;
+	private boolean isCreatingExprQt;
 	
-	Map <Integer, List<DashTrans>> eventSize2Trans;
-	Map<String, DashConcState> changedLocalVars; // Variables changed only locally
-	List<String> changedRefVars; // Variables changed by reference in the transitions being checked
-	Map<String, DashConcState> changedVars; // Keep a track of when a variable has been changed during a transition
-	boolean changingVar;
-	boolean refParamChanged;
+	private Map <Integer, List<DashTrans>> eventSize2Trans;
+	private Map<String, DashConcState> changedLocalVars; // Variables changed only locally
+	private List<String> changedRefVars; // Variables changed by reference in the transitions being checked
+	private Map<String, DashConcState> changedVars; // Keep a track of when a variable has been changed during a transition
+	private boolean refParamChanged;
 
-	Map<String, Expr> paramBuffer;
-	Map<String, Expr> paramBufferChanged ;
-	Map<String, Expr> localBufferChanged ;
+	private Map<String, Expr> paramBuffer;
+	private Map<String, Expr> paramBufferChanged ;
+	private Map<String, Expr> localBufferChanged ;
 	// Buffer Helpers
-	List<String> bufferCommands;
-	List<String> bufferFuncCommands;
+	private List<String> bufferCommands;
+	private List<String> bufferFuncCommands;
 	// Changed parameterized buffers that are universally quantified (No need to keep this unchanged for other replicated processes since it is universally quantified for all elements in a set of Processes
-	Map<String, Expr> universalQuantBuffers;
-	boolean foundBuffer = false;
-	boolean legalConstraint ;
+	private boolean foundBuffer = false;
 	
-	public CoreDashToAlloy () {
+	public CoreDashToElectrum () {
 		isCreatingEnabledAfterPred = false;
-		isCreatingPreCond = false;
 		isCreatingInit = false;
-		isCreatingInvariant = false;
 		isCreatingExprQt = false;
-		legalConstraint = false;
-		changingVar = false;
 		refParamChanged = false;
 		
 		eventSize2Trans = new LinkedHashMap<Integer, List<DashTrans>>();
@@ -66,28 +56,20 @@ public class CoreDashToAlloy {
 		localBufferChanged = new LinkedHashMap<String, Expr>();
 		bufferCommands = Arrays.asList(new String[]{"addFirst", "add", "remove", "removeFirst"});
 		bufferFuncCommands = Arrays.asList(new String[]{"firstElem"});
-		universalQuantBuffers = new LinkedHashMap<String, Expr>();
 		foundBuffer = false;
 	}
 
-    public DashModule convertToAlloyAST(DashModule module, String fileName, String path) {	
+    public DashModule convertToElectrumAST(DashModule module, String fileName, String path) {	
     	DashModule alloyModule = new DashModule(module, fileName, path, true);
     	
     	convertCommand(alloyModule);
-    	//createElectrumVars(module);
     	createrBufIdxSig(alloyModule);
     	createParamSigAST(alloyModule);
-        createSnapshotSigAST(alloyModule);
-
-        if (DashOptions.ctlModelChecking) {
-        	createReachabilityFact(alloyModule);
-        }
+    	addStableSig(alloyModule);
 
         createStateSpaceAST(alloyModule);
         createEventSpaceAST(alloyModule);
         createTransitionSpaceAST(alloyModule);
-        
-        createStableAST(alloyModule);
         
         createTransitionsAST(alloyModule);
         
@@ -96,35 +78,11 @@ public class CoreDashToAlloy {
         createSmallStepAST(alloyModule);
         
         createEqualsAST(alloyModule);
-        //createDifferentAtomsFact(module);
-        //createParamConstFactAST(module);
-        if(DashOptions.generateTraces && !DashOptions.isElectrum) {
-        	createTracesFact(alloyModule);
-        }
-        else if (!DashOptions.generateTraces && alloyModule.stateHierarchy && !DashOptions.isElectrum) {
-        	createBigStepFact(alloyModule);
-        }
-        if (DashOptions.isElectrum) {
-        	createElectrumTracesFact(alloyModule);
-        }
+        createElectrumTracesFact(alloyModule);
 
         createIsEnabledAST(alloyModule);
-        if (!DashOptions.isElectrum) {
-        	createPathAST(alloyModule);
-        }
-        if (DashOptions.generateSigAxioms && !DashOptions.isElectrum) {
-        	//createSignificanceAxiomAST(module);
-        	//createOperationsAxiomAST(module);
-        }
-        if (DashOptions.ctlModelChecking && !DashOptions.isElectrum) {
-        	createCTLFact(alloyModule);
-        }
-        createInvariantFact(alloyModule);
+        //createInvariantFact(alloyModule);
         
-        if (DashOptions.hasEvents && DashOptions.assumeSingleInput) {
-        	createSingleStepFact(alloyModule);
-        }
-
         return alloyModule;
     }
 
@@ -137,37 +95,6 @@ public class CoreDashToAlloy {
     }
 
     private void createParamSigAST(DashModule module) {
-        addSigAST(module, "Identifiers", null, null, null, null, null, null, null, null);
-        for (DashConcState concState: module.concStates.values()) {
-        	if (concState.isParameterized()) {
-                addSigAST(module, concState.getReplicatedIdentifier(), ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "Identifiers"))), null, null, null, null, null, null);
-        	}
-        }
-    }
-
-    /* Used by other functions to help create signature ASTs */
-    private void addSigAST(DashModule module, String sigName, ExprVar isExtends, List<ExprVar> sigParent, List<Decl> decls, Pos isAbstract, Pos isLone, Pos isOne, Pos isSome, Pos isPrivate) {
-        module.addSig(sigName, isExtends, sigParent, decls, null, null, AttrType.ABSTRACT.makenull(isAbstract), AttrType.LONE.makenull(isLone), AttrType.ONE.makenull(isOne), AttrType.SOME.makenull(isSome), AttrType.PRIVATE.makenull(isPrivate));
-    }
-    
-    /****************************************** CREATE TRANSITIONS (PRE, POST, SEMANTICS, ENABLEDAFTERSTEP) ***************************************/
-    
-    private void createTransitionsAST(DashModule module) {
-        for (DashTrans transition : module.transitions.values()) {
-            createPreConditionAST(transition, module);
-            createPostConditionAST(transition, module);
-            createTransCallAST(transition, module);
-            createEnabledNextStepAST(transition, module);
-            createSemanticsAST(transition, module);
-        }
-    }
-    
-    /****************************************** SNAPSHOT SIGNATURE ***************************************/
-
-    /*
-     * This function creates the AST for the Snapshot signature in the Alloy model
-     */
-    private void createSnapshotSigAST(DashModule module) {
         List<Decl> decls = new ArrayList<Decl>();
         List<ExprVar> a = new ArrayList<ExprVar>();
         Expr b = null;
@@ -175,116 +102,96 @@ public class CoreDashToAlloy {
         // conf0: StateLabel
         // conf1: Identifier -> StateLabel
         for (int tupleSize: module.confTuples) {
-        	b = (tupleSize == 0) ? DashHelper.createUnaryExpr(ExprUnary.Op.SETOF, ExprVar.make(null, "StateLabel")) : ExprVar.make(null, "StateLabel");
-        	for (int i = 0; i < tupleSize; i++) {
+        	if (tupleSize == 0) {
+        		addVarSigAST(module, "conf0", ExprVar.make(null, "StateLabel"));
+        		continue;
+        	}
+        	b = (tupleSize == 1) ? DashHelper.createUnaryExpr(ExprUnary.Op.SETOF, ExprVar.make(null, "StateLabel")) : ExprVar.make(null, "StateLabel");
+        	for (int i = 0; i < tupleSize - 1; i++) {
         		b = DashHelper.createBinaryExpr(ExprVar.make(null, "Identifiers"), ExprBinary.Op.ARROW, b);
         	}
         	a.add(ExprVar.make(null, "conf" + tupleSize));
-        	if (DashOptions.isElectrum) {
-        		decls.add(new Decl(null, null, null, new Pos("var", 0, 0), a, b));
-        	}
-        	else {
-        		decls.add(new Decl(null, null, null, null, a, b));
-        	}
+        	decls.add(new Decl(null, null, null, new Pos("var", 0, 0), a, b));
             a.clear();
         }
         
         // taken0: TransitionLabel
         // taken1: Identifier -> TransitionLabel
         for (int tupleSize: module.confTuples) {
-        	b = (tupleSize == 0) ? DashHelper.createUnaryExpr(ExprUnary.Op.SETOF, ExprVar.make(null, "TransitionLabel")) : ExprVar.make(null, "TransitionLabel");
-        	for (int i = 0; i < tupleSize; i++) {
+        	if (tupleSize == 0) {
+        		addVarSigAST(module, "taken0", ExprVar.make(null, "TransitionLabel"));
+        		continue;
+        	}
+        	b = (tupleSize == 1) ? DashHelper.createUnaryExpr(ExprUnary.Op.SETOF, ExprVar.make(null, "TransitionLabel")) : ExprVar.make(null, "TransitionLabel");
+        	for (int i = 0; i < tupleSize - 1; i++) {
         		b = ExprBinary.Op.ARROW.make(null, null, ExprVar.make(null, "Identifiers"), b);
         	}
         	a.add(ExprVar.make(null, "taken" + tupleSize));
-        	if (DashOptions.isElectrum) {
-        		decls.add(new Decl(null, null, null, new Pos("var", 0, 0), a, b));
-        	}
-        	else {
-        		decls.add(new Decl(null, null, null, null, a, b));
-        	}
-            //decls.add(new Decl(null, null, null, null, a, b));
+        	decls.add(new Decl(null, null, null, new Pos("var", 0, 0), a, b));
             a.clear();
         }
 
         // events0: EventLabel
         // events1: Identifier -> EventLabel
         for (int tupleSize: module.eventTuples) {
-        	b = (tupleSize == 0) ? DashHelper.createUnaryExpr(ExprUnary.Op.SETOF, ExprVar.make(null, "EventLabel")) : ExprVar.make(null, "EventLabel");
-        	for (int i = 0; i < tupleSize; i++) {
+        	if (tupleSize == 0) {
+        		addVarSigAST(module, "events0", ExprVar.make(null, "EventLabel"));
+        		continue;
+        	}
+        	b = (tupleSize == 1) ? DashHelper.createUnaryExpr(ExprUnary.Op.SETOF, ExprVar.make(null, "EventLabel")) : ExprVar.make(null, "EventLabel");
+        	for (int i = 0; i < tupleSize - 1; i++) {
         		b = ExprBinary.Op.ARROW.make(null, null, ExprVar.make(null, "Identifiers"), b);
         	}
         	a.add(ExprVar.make(null, "events" + tupleSize));
-        	if (DashOptions.isElectrum) {
-        		decls.add(new Decl(null, null, null, new Pos("var", 0, 0), a, b));
-        	}
-        	else {
-        		decls.add(new Decl(null, null, null, null, a, b));
-        	}
-            //decls.add(new Decl(null, null, null, null, a, b));
+        	decls.add(new Decl(null, null, null, new Pos("var", 0, 0), a, b));
             a.clear();
         }
         
-        //Create AST for variable declaration:
-        //stable: one Bool
-        if (module.stateHierarchy) {
-            b = ExprUnary.Op.ONE.make(null, ExprVar.make(null, "Bool"));
-            a.add(ExprVar.make(null, "stable"));
-        	if (DashOptions.isElectrum) {
-        		decls.add(new Decl(null, null, null, new Pos("var", 0, 0), a, mult(b)));
+        addSigAST(module, "Identifiers", null, null, new ArrayList<Decl>(decls), null, null, null, null, null);
+        decls.clear();
+        
+        for (DashConcState concState: module.concStates.values()) {
+        	if (concState.getIdentifiers().size() > 0) {
+        		System.out.println("Looking at: " + concState.getFullyQualName());
+                /* Creating the following expression: variable: mappings (variable: param -> mapping if parameterized)*/
+                for (String variableName : module.variable2Expression.keySet()) {
+                	if (!module.variable2ConcState.get(variableName).getFullyQualName().equals(concState.getFullyQualName())) continue;       		
+                    b = module.variable2Expression.get(variableName);
+                    b = DashHelper.createParameterizedElectrumVar(variableName, b, module);
+                    a.add(ExprVar.make(null, variableName));
+                	decls.add(new Decl(null, null, null, new Pos("var", 0, 0), a, convertToExprUnary(b))); 
+                    a.clear();
+                }
+                addSigAST(module, concState.getReplicatedIdentifier(), ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "Identifiers"))), new ArrayList<Decl>(decls), null, null, null, null, null);
         	}
-        	else {
-        		decls.add(new Decl(null, null, null, null, a, mult(b)));
-        	}
-            //decls.add(new Decl(null, null, null, null, a, mult(b)));
-            a.clear();
         }
         
-        if ((!DashOptions.ctlModelChecking && !DashOptions.generateTraces) && DashOptions.generateSigAxioms) {
-            b = ExprBinary.Op.ARROW.make(null, null, ExprVar.make(null, "Snapshot"), ExprVar.make(null, "Snapshot"));
-            a.add(ExprVar.make(null, "next_step"));
-        	if (DashOptions.isElectrum) {
-        		decls.add(new Decl(null, null, null, new Pos("var", 0, 0), a, mult(b)));
-        	}
-        	else {
-        		decls.add(new Decl(null, null, null, null, a, mult(b)));
-        	}
-            //decls.add(new Decl(null, null, null, null, a, mult(b))); //next_step: Snapshot -> Snapshot
-            a.clear();
-        }
-
-        /* Creating the following expression: evnVar: mappings */
-        for (String variableName : module.envVariable2Expression.keySet()) {
-            b = module.envVariable2Expression.get(variableName);
-            a.add(ExprVar.make(null, variableName));
-        	if (DashOptions.isElectrum) {
-        		decls.add(new Decl(null, null, null, new Pos("var", 0, 0), a, b));
-        	}
-        	else {
-        		decls.add(new Decl(null, null, null, null, a, b));
-        	}
-            //decls.add(new Decl(null, null, null, null, a, b));
-            a.clear();
-        }
- 
-        /* Creating the following expression: variable: mappings (variable: param -> mapping if parameterized)*/
+        // Creating the Variable signature and its relations
+        decls.clear();
         for (String variableName : module.variable2Expression.keySet()) {
+        	if (module.variable2ConcState.get(variableName).getIdentifiers().size() > 0) continue;       		
             b = module.variable2Expression.get(variableName);
             b = DashHelper.createParameterizedVar(variableName, b, module);
             a.add(ExprVar.make(null, variableName));
-        	if (DashOptions.isElectrum) {
-        		decls.add(new Decl(null, null, null, new Pos("var", 0, 0), a, convertToExprUnary(b)));
-        	}
-        	else {
-        		decls.add(new Decl(null, null, null, null, a, convertToExprUnary(b)));
-        	}
-            //decls.add(new Decl(null, null, null, null, a, convertToExprUnary(b)));      
+        	decls.add(new Decl(null, null, null, new Pos("var", 0, 0), a, convertToExprUnary(b))); 
             a.clear();
         }
-        
-        addSigAST(module, "Snapshot", null, null, decls, null, null, null, null, null);
+        addSigAST(module, "Variables", null, null, new ArrayList<Decl>(decls), null, null, new Pos("one", 0, 0), null, null);
+    }
+
+    /* Used by other functions to help create signature ASTs */
+    private void addSigAST(DashModule module, String sigName, ExprVar isExtends, List<ExprVar> sigParent, List<Decl> decls, Pos isAbstract, Pos isLone, Pos isOne, Pos isSome, Pos isPrivate) {
+        module.addSig(sigName, isExtends, sigParent, decls, null, null, AttrType.ABSTRACT.makenull(isAbstract), AttrType.LONE.makenull(isLone), AttrType.ONE.makenull(isOne), AttrType.SOME.makenull(isSome), AttrType.PRIVATE.makenull(isPrivate));
     }
     
+    private void addVarSigAST(DashModule module, String sigName, ExprVar sigParent) {
+        module.addSig(sigName, ExprVar.make(null, "in"), new ArrayList<ExprVar>(Arrays.asList(sigParent)), null, null, null, AttrType.ABSTRACT.makenull(null), AttrType.LONE.makenull(null), AttrType.ONE.makenull(null), AttrType.SOME.makenull(null), AttrType.PRIVATE.makenull(null), AttrType.VARIABLE.makenull(new Pos(sigParent.toString(), 0, 0)));
+    }
+    
+    private void addStableSig(DashModule module) {
+        module.addSig("stable", ExprVar.make(null, "in"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "Bool"))), null, null, null, AttrType.ABSTRACT.makenull(null), AttrType.LONE.makenull(null), AttrType.ONE.makenull(null), AttrType.SOME.makenull(null), AttrType.PRIVATE.makenull(null), AttrType.VARIABLE.makenull(new Pos("Bool", 0, 0)));    
+    }
+
     /****************************************** STATE SPACE ***************************************/
     
     /* Create the following expression: 
@@ -374,8 +281,19 @@ public class CoreDashToAlloy {
         }
     }
     
+    /****************************************** CREATE TRANSITIONS (PRE, POST, SEMANTICS, ENABLEDAFTERSTEP) ***************************************/
+    
+    private void createTransitionsAST(DashModule module) {
+        for (DashTrans transition : module.transitions.values()) {
+            createPreConditionAST(transition, module);
+            createPostConditionAST(transition, module);
+            createTransCallAST(transition, module);
+            createEnabledNextStepAST(transition, module);
+            createSemanticsAST(transition, module);
+        }
+    }
+    
     /****************************************** PRE CONIDTION PREDICATE ***************************************/
-
     
     /*
      * This function creates the AST for the precondition predicate in the Alloy
@@ -384,7 +302,7 @@ public class CoreDashToAlloy {
     private void createPreConditionAST(DashTrans transition, DashModule module) {
         Expr expression = null;
         expression = ExprUnary.Op.NOOP.make(null, getPreCondAST(transition, module));
-        addParameterizedPredicateAST(module, "pre_" + transition.getFullyQualName(), "s", null, null, null, transition.getParentConcState().getIdentifiers(), 0, expression);
+        addTransitioPredicate(module, "pre_" + transition.getFullyQualName(), transition.getParentConcState().getIdentifiers(), expression);
     }
 
     /*
@@ -394,7 +312,6 @@ public class CoreDashToAlloy {
      */
     private Expr getPreCondAST(DashTrans transition, DashModule module) {
         Expr expression = null; //This is the final expression that will be stored in the predicate AST
-        isCreatingPreCond = true;
         Expr binaryFrom = null;
 		int totalIEsInTree = transition.getParentConcState().getIdentifiers().size();
         /* Creating the following expression: sourceState in s.conf */
@@ -404,7 +321,7 @@ public class CoreDashToAlloy {
     			String fromState = transition.getOrigin().fromExpr.get(0).replace('/', '_');
         		if(state.getInnerORStates().size() > 0 && state.getFullyQualName().equals(transition.getOrigin().fromExpr.get(0).replace('/', '_'))) {
         			left =  DashHelper.createExprVar(fromState); 
-        			Expr right = DashHelper.sConf();
+        			Expr right = DashHelper.conf(totalIEsInTree);
         			right = DashHelper.addParametersJoin(right, totalIEsInTree);
         			binaryFrom = DashHelper.createBinaryExpr(left, ExprBinary.Op.INTERSECT, mult(right));
         			binaryFrom = DashHelper.createUnaryExpr(ExprUnary.Op.SOME, binaryFrom);     				
@@ -412,14 +329,14 @@ public class CoreDashToAlloy {
         		}
         		else if(state.getInnerORStates().size() == 0 && state.getFullyQualName().equals(transition.getOrigin().fromExpr.get(0).replace('/', '_'))){
         			left =  DashHelper.createExprVar(fromState); 
-        			Expr right = DashHelper.sConf(totalIEsInTree);
+        			Expr right = DashHelper.conf(totalIEsInTree);
         			right = DashHelper.addParametersJoin(right, totalIEsInTree);
                     binaryFrom = DashHelper.createBinaryExpr(left, ExprBinary.Op.IN, mult(right));
         			break;
         		}     			
         	}
         	if(binaryFrom == null) {
-        		Expr right = DashHelper.sConf();
+        		Expr right = DashHelper.conf(totalIEsInTree);
         		Expr source = DashHelper.createExprVar(transition.getOrigin().fromExpr.get(0).replace('/', '_')); 
         		binaryFrom = DashHelper.createBinaryExpr(source, ExprBinary.Op.IN,  mult(right));
         	}
@@ -435,25 +352,25 @@ public class CoreDashToAlloy {
         int iesInEvent = (transition.onExpr != null) ? transition.onExpr.getParentConcState().getIdentifiers().size() : 0;
         if (transition.onExpr != null && transition.onExpr.getRawName() != null && module.isEnvEventModel && !module.stateHierarchy) {
         	Expr left = ExprVar.make(null, onCommand);
-            Expr sEvents = DashHelper.sEvents(iesInEvent); // s.events
+            Expr sEvents = DashHelper.events(iesInEvent); // s.events
             sEvents = DashHelper.addParametersJoin(sEvents, iesInEvent); // p0.(s.events)
-            Expr rightBinary = DashHelper.createBinaryExpr(sEvents, ExprBinary.Op.INTERSECT, DashHelper.envEvent()); // s.events & EnvironmentEvent
-            binaryOn = DashHelper.createBinaryExpr(left, ExprBinary.Op.IN, mult(rightBinary)); //ExprBinary.Op.IN.make(null, null, left, mult(rightBinary)); //onExprName in (s.events & EnvironmentEvent)         
+            Expr rightBinary = DashHelper.createBinaryExpr(sEvents, ExprBinary.Op.INTERSECT, DashHelper.envEvent()); // events & EnvironmentEvent
+            binaryOn = DashHelper.createBinaryExpr(left, ExprBinary.Op.IN, mult(rightBinary)); //ExprBinary.Op.IN.make(null, null, left, mult(rightBinary)); //onExprName in (events & EnvironmentEvent)         
         }
         
         if (transition.onExpr != null && transition.onExpr.getRawName() != null && transition.onExpr.isInternal && module.isEnvEventModel && module.stateHierarchy) {
-        	Expr sStableTrue = DashHelper.createBinaryExpr(DashHelper.sStable(), ExprBinary.Op.EQUALS, DashHelper.trueExpr()); //s.stable = True
+        	Expr sStableTrue = DashHelper.createBinaryExpr(DashHelper.stable(), ExprBinary.Op.EQUALS, DashHelper.trueExpr()); // stable = True
         	Expr notSStableTrue = DashHelper.createUnaryExpr(ExprUnary.Op.NOT, sStableTrue); // !(s.stable = True)
             Expr left = ExprVar.make(null, onCommand);
-            Expr sEvents = DashHelper.sEvents(iesInEvent); // s.events
+            Expr sEvents = DashHelper.events(iesInEvent); // s.events
             sEvents = DashHelper.addParametersJoin(sEvents, iesInEvent);
             Expr eventInSEvents = DashHelper.createBinaryExpr(left, ExprBinary.Op.IN, mult(sEvents));  //onExprName in (s.events)  
             binaryOn = ExprBinary.Op.OR.make(null, null, notSStableTrue, eventInSEvents); // !(s.stable = True) or onExprName in (s.events)          
         }
         else if (transition.onExpr != null && transition.onExpr.getRawName() != null && module.isEnvEventModel && module.stateHierarchy) {
-        	Expr sStableTrue = ExprBinary.Op.EQUALS.make(null, null, ExprBadJoin.make(null, null, ExprVar.make(null, "s"), ExprVar.make(null, "stable")), ExprVar.make(null, "True"));
+        	Expr sStableTrue = ExprBinary.Op.EQUALS.make(null, null, DashHelper.stable(), ExprVar.make(null, "True"));
             Expr left = ExprVar.make(null, onCommand);
-            Expr sEvents = DashHelper.sEvents(iesInEvent); // s.events
+            Expr sEvents = DashHelper.events(iesInEvent); // s.events
             sEvents = DashHelper.addParametersJoin(sEvents, iesInEvent);
             Expr rightBinary = DashHelper.createBinaryExpr(sEvents, ExprBinary.Op.INTERSECT, DashHelper.envEvent()); // s.events & EnvironmentEvent
             Expr ifExpr = DashHelper.createBinaryExpr(left, ExprBinary.Op.IN, mult(rightBinary)); //onExprName in (s.events & EnvironmentEvent)
@@ -469,7 +386,6 @@ public class CoreDashToAlloy {
             expression = (expression == null) ? ExprBinary.Op.AND.make(null, null, binaryFrom, modifiedExpr) : ExprBinary.Op.AND.make(null, null, expression, modifiedExpr); 
         }
 
-        isCreatingPreCond = false;
         return expression;
     }
     
@@ -487,20 +403,20 @@ public class CoreDashToAlloy {
         	
         	if(sourceState != null && sourceState.getInnerORStates().size() > 0) {
         		left = ExprVar.make(null, fromExprStr);
-        		Expr right = DashOptions.isElectrum ? DashHelper.sConfPrimed(totalIEsInTree) : DashHelper.sConf(totalIEsInTree);
+        		Expr right = DashHelper.confPrimed(totalIEsInTree);
     			right = DashHelper.addParametersJoin(right, totalIEsInTree);
     			binaryFrom = DashHelper.createBinaryExpr(left, ExprBinary.Op.INTERSECT, mult(right));
     			binaryFrom = DashHelper.createUnaryExpr(ExprUnary.Op.SOME, binaryFrom); 
         	}
         	else if(sourceState != null && sourceState.getInnerORStates().size() == 0){
                 left = ExprVar.make(null, fromExprStr);
-                Expr right = DashOptions.isElectrum ? DashHelper.sConfPrimed(totalIEsInTree) : DashHelper.sConf(totalIEsInTree);
+                Expr right = DashHelper.confPrimed(totalIEsInTree);
     			right = DashHelper.addParametersJoin(right, totalIEsInTree);
                 binaryFrom = DashHelper.createBinaryExpr(left, ExprBinary.Op.IN, mult(right));
         	}     			
         	
         	if(binaryFrom == null) {
-        		Expr right = DashOptions.isElectrum ? DashHelper.sConfPrimed(totalIEsInTree) : DashHelper.sConf(totalIEsInTree);
+        		Expr right = DashHelper.confPrimed(totalIEsInTree);
         		right = DashHelper.addParametersJoin(right, totalIEsInTree);
         		Expr source = ExprVar.make(null, fromExprStr);
         		binaryFrom = ExprBinary.Op.IN.make(null, null, source, mult(right));
@@ -542,8 +458,8 @@ public class CoreDashToAlloy {
         if (transition.gotoExpr.gotoExpr.size() > 0) {
         	String gotoExprStr = transition.gotoExpr.getAlloyName();         
         	
-            String fromExprStr = "";
-            fromExprStr = (DashHelper.getState(transition.getOrigin().getAlloyName(), module) != null) ? DashHelper.getState(transition.getOrigin().getAlloyName(), module).getFullyQualName() : transition.getOrigin().getAlloyName();
+            String fromExprStr = (DashHelper.getState(transition.getOrigin().getAlloyName(), module) != null) ? DashHelper.getState(transition.getOrigin().getAlloyName(), module).getFullyQualName() : transition.getOrigin().getAlloyName();;
+            //fromExprStr = (DashHelper.getState(transition.getOrigin().getAlloyName(), module) != null) ? DashHelper.getState(transition.getOrigin().getAlloyName(), module).getFullyQualName() : transition.getOrigin().getAlloyName();
            
             Expr fromExpr = ExprVar.make(null, fromExprStr);
             Expr gotoExpr = ExprVar.make(null, gotoExprStr);
@@ -562,10 +478,12 @@ public class CoreDashToAlloy {
             	conf2FromExpr = new LinkedHashMap<Integer, Expr>(DashHelper.calculateConf2FromExpr(transition));
             }
             
+            /* s_next.conf0 = (s.conf0 + .... ) and
+             * s_next.conf1 = (s.conf1 + .... ) and
+             * ... */
             for (int i: module.confTuples) {
-                Expr sConf = DashHelper.createExprBadJoin("s", "conf" + i);//s.conf
-                //Expr sConfPrime = DashHelper.createExprBadJoin("s_next", "conf" + i);//s_next.conf     
-                Expr sConfPrime = (DashOptions.isElectrum) ? DashHelper.createExprBadJoin("s", DashHelper.confPrimed(i)): DashHelper.createExprBadJoin("s_next", "conf" + i);//s_next.conf
+                Expr sConf = DashHelper.conf(i);//conf
+                Expr sConfPrime = DashHelper.confPrimed(i);//conf'
                 
                 // s.conf - (p0 -> State)
                 sConf = !(transition.getOrigin().leavingMultipleStates) && (totalIEsInTree == i) ? DashHelper.createBinaryExpr(sConf, ExprBinary.Op.MINUS, fromExpr) : sConf;
@@ -583,7 +501,7 @@ public class CoreDashToAlloy {
             }
         }
 
-        /* Creating the following expression: AND[doexpr, doexpr, ..] */
+        /* Creating the following expression: AND[doexpr, doexpr, ..] i.e Printing out the actions */
         if (transition.doExpr != null && transition.doExpr.exprList != null) {                    
             Expr modifiedExpr = getVarFromParentExpr(transition.doExpr.expr, getParentConcState(transition.getParent()), module);                 
             expression =  DashHelper.createBinaryExpr(expression, ExprBinary.Op.AND, modifiedExpr); // ExprBinary.Op.AND.make(null, null, expression, modifiedExpr);
@@ -599,7 +517,8 @@ public class CoreDashToAlloy {
             clearVarChangeContainers();
         }
         
-        /* Creating the following expression(s): s_next.variable = s.variable */
+        /* Creating the following expression(s): s_next.variable = s.variable 
+         * Keeping variables unchanged */
         if (transition.doExpr == null) {
             //These are the variables that have not been changed in the post-cond and they need to retain their values in the next snapshot
             Map<String, DashConcState> unchangedVars = new LinkedHashMap<String, DashConcState>(getUnchangedVars(null, module));
@@ -615,29 +534,26 @@ public class CoreDashToAlloy {
          * Mutex_Process1_wait] => { s_next.stable = True } else { s_next.stable = False }
          */
         if (module.stateHierarchy && !module.isEnvEventModel) {
-            //Expr ifExpr = DashHelper.createBinaryExpr(DashHelper.createExprBadJoin("s_next", "stable"), ExprBinary.Op.EQUALS, DashHelper.createExprVar("True"));
-        	Expr sNextStable = (DashOptions.isElectrum) ? DashHelper.sStablePrimed() : DashHelper.sNextStable();
+        	Expr sNextStable =  DashHelper.stablePrimed();
         	Expr ifExpr = DashHelper.createBinaryExpr(sNextStable, ExprBinary.Op.EQUALS, DashHelper.trueExpr());
             Expr ElseExpr = DashHelper.createBinaryExpr(sNextStable, ExprBinary.Op.EQUALS, DashHelper.falseExpr());
-            Expr ifCond = DashHelper.createExprBadJoin("s", "testIfNextStable"); 
-            ifCond = (DashOptions.isElectrum) ? ifCond : DashHelper.createExprBadJoin("s_next", ifCond);
+            Expr ifCond = DashHelper.createExprVar("testIfNextStable"); 
             ifCond = DashHelper.createExprBadJoin(transition.getFullyQualName(), ifCond);
             ifCond =DashHelper.createExprBadJoin("none", ifCond);
             
             /* Conjunction of any env variables in the model */
             for(String concStateName: module.envVariableNames.keySet()) {
             	for(String envVar: module.envVariableNames.get(concStateName)) {
-            		//Expr leftJoin =  ExprBadJoin.make(null, null, ExprVar.make(null, "s_next"), ExprVar.make(null, concStateName + "_" + envVar));
-            		Expr primedVar = DashHelper.sVarPrimed(concStateName + "_" + envVar);
-            		Expr leftJoin = (DashOptions.isElectrum) ? primedVar : DashHelper.createExprBadJoin(DashHelper.sNext(), concStateName + "_" + envVar) ;
-            		Expr rightJoin = ExprBadJoin.make(null, null, ExprVar.make(null, "s"), ExprVar.make(null, concStateName + "_" + envVar));
+            		Expr primedVar = DashHelper.varPrimed(concStateName + "_" + envVar);
+            		Expr leftJoin = primedVar;
+            		Expr rightJoin = DashHelper.createExprVar(concStateName + "_" + envVar);
             		Expr equals = DashHelper.createBinaryExpr(leftJoin, ExprBinary.Op.EQUALS, rightJoin);
-            		ElseExpr = ExprBinary.Op.AND.make(null, null, ElseExpr, equals);
+            		ElseExpr = DashHelper.createBinaryExpr(ElseExpr, ExprBinary.Op.AND, equals); //ExprBinary.Op.AND.make(null, null, ElseExpr, equals);
             	}
             }
             
-            Expr ifElseExpr = ExprITE.make(null, ifCond, ifExpr, ElseExpr);
-            expression = ExprBinary.Op.AND.make(null, null, expression, ifElseExpr);
+            Expr ifElseExpr = DashHelper.createImplesElseExpr(ifCond, ifExpr, ElseExpr); //ExprITE.make(null, ifCond, ifExpr, ElseExpr);
+            expression = DashHelper.createBinaryExpr(expression, ExprBinary.Op.AND, ifElseExpr); //ExprBinary.Op.AND.make(null, null, expression, ifElseExpr);
         }
         
         /*
@@ -651,11 +567,11 @@ public class CoreDashToAlloy {
         if (module.stateHierarchy && module.isEnvEventModel) {
         	String sendCommand = transition.sendExpr == null ? "" : transition.sendExpr.getRawName().replace('/', '_');
         	int iesInEvent = transition.sendExpr != null ? transition.sendExpr.getParentConcState().getIdentifiers().size() : 0;
-        	Expr sNextStable = DashOptions.isElectrum ? DashHelper.sStablePrimed() : DashHelper.sNextStable();
+        	Expr sNextStable = DashHelper.stablePrimed();
         	Expr sPrimeStableTrue = DashHelper.createBinaryExpr(sNextStable, ExprBinary.Op.EQUALS, DashHelper.trueExpr()); //s_next.stable = True
         	Expr sPrimeStableFalse = DashHelper.createBinaryExpr(sNextStable, ExprBinary.Op.EQUALS, DashHelper.falseExpr()); //s_next.stable = False
            
-            Expr sStableTrue = DashHelper.createBinaryExpr(DashHelper.sStable(), ExprBinary.Op.EQUALS,  DashHelper.trueExpr()); //s.stable = False
+            Expr sStableTrue = DashHelper.createBinaryExpr(DashHelper.stable(), ExprBinary.Op.EQUALS,  DashHelper.trueExpr()); //s.stable = False
             
             if(transition.sendExpr != null && transition.sendExpr.getRawName() != null) {
             	if(transition.sendExpr.param != null) {
@@ -681,9 +597,9 @@ public class CoreDashToAlloy {
             	sendExprCom = (sendExprCom == null) ? noneToNone : sendExprCom;
             	Expr intEvent = DashHelper.intEvent();
             	intEvent = DashHelper.addIdentifiersArrow(intEvent, key);
-                Expr sEvents = DashHelper.sEvents(key); // s_next.events
+                Expr sEvents = DashHelper.events(key); // s_next.events
                 //Expr sNextEvents = DashHelper.sNextEvents(key); // s_next.events
-                Expr sNextEvents = DashOptions.isElectrum ? DashHelper.sEventsPrimed(key) : DashHelper.sNextEvents(key);
+                Expr sNextEvents = DashHelper.eventsPrimed(key);
                 Expr sEnvAndIntEvn = DashHelper.createBinaryExpr(sEvents, ExprBinary.Op.INTERSECT, intEvent); //s.events & InternalEvent
                 Expr sNextEnvAndIntEvn = DashHelper.createBinaryExpr(sNextEvents, ExprBinary.Op.INTERSECT, intEvent); //s_next.events & InternalEvent
                 //s_nextevents & InternalEvent = sendEvent
@@ -697,10 +613,10 @@ public class CoreDashToAlloy {
                 sPrimeEvnIntEvnEqualsSend = (sPrimeEvnIntEvnEqualsSend == null) ? sNextIntEqualSendAndInt : DashHelper.createBinaryExpr(sPrimeEvnIntEvnEqualsSend, ExprBinary.Op.AND ,sNextIntEqualSendAndInt);;           
 
                 //s_next.events & InternalEvent = {sendEvent}  
-                Expr elseLowerExprIf =  ExprBinary.Op.EQUALS.make(null, null, sNextEnvAndIntEvn, sendExprCom);
+                Expr elseLowerExprIf = DashHelper.createBinaryExpr(sNextEnvAndIntEvn, ExprBinary.Op.EQUALS, sendExprCom); //ExprBinary.Op.EQUALS.make(null, null, sNextEnvAndIntEvn, sendExprCom);
                 Expr envEvent = DashHelper.envEvent();
-                envEvent = DashHelper.addIdentifiersArrow(envEvent, key);
-                Expr sPrimeEvtAndEnv = ExprBinary.Op.INTERSECT.make(null, null, sNextEvents, envEvent); //s_next.events & EnvironmentEvent
+                envEvent = DashHelper.addIdentifiersArrow(envEvent, key); // Identifier -> Environment Event
+                Expr sPrimeEvtAndEnv = DashHelper.createBinaryExpr(sNextEvents, ExprBinary.Op.INTERSECT, envEvent); //s_next.events & EnvironmentEvent
                 Expr sEventAndEnv = ExprBinary.Op.INTERSECT.make(null, null, sEvents, envEvent); //s.events & EnvironmentEvent
                 elseLowerExprIf = ExprBinary.Op.AND.make(null, null, elseLowerExprIf, ExprBinary.Op.EQUALS.make(null, null, sPrimeEvtAndEnv, sEventAndEnv));
                 sNextEvnEqlSEnv = (sNextEvnEqlSEnv == null) ? elseLowerExprIf : DashHelper.createBinaryExpr(sNextEvnEqlSEnv, ExprBinary.Op.AND, elseLowerExprIf);
@@ -721,8 +637,8 @@ public class CoreDashToAlloy {
              */
             for(String concStateName: module.envVariableNames.keySet()) {
             	for(String envVar: module.envVariableNames.get(concStateName)) {
-            		Expr leftJoin = ExprBadJoin.make(null, null, ExprVar.make(null, "s_next"), ExprVar.make(null, concStateName + "_" + envVar));
-            		Expr rightJoin = ExprBadJoin.make(null, null, ExprVar.make(null, "s"), ExprVar.make(null, concStateName + "_" + envVar));
+            		Expr leftJoin = DashHelper.varPrimed(concStateName + "_" + envVar);
+            		Expr rightJoin = DashHelper.createExprVar(concStateName + "_" + envVar);
             		Expr equals = ExprBinary.Op.EQUALS.make(null, null, leftJoin, rightJoin);
             		elseLowerExpr = ExprBinary.Op.AND.make(null, null, elseLowerExpr, equals);
             	}
@@ -736,11 +652,10 @@ public class CoreDashToAlloy {
             	iesInSendEvent = transition.sendExpr.getParentConcState().getIdentifiers().size();
             }
             
-            Expr tFuncCall = ExprBadJoin.make(null, null, ExprVar.make(null, "s"), ExprVar.make(null, "testIfNextStable" + iesInSendEvent)); //s.testIfNextStable
-            Expr genEventT = (DashOptions.isElectrum) ? tFuncCall : ExprBadJoin.make(null, null, ExprVar.make(null, "s_next"), tFuncCall); //s_next.s.enabledAfterStep_transName
-            Expr sPrimeGenEventT = ExprBadJoin.make(null, null, ExprVar.make(null, transition.getFullyQualName()), genEventT); //tranName.s_next.s.enabledAfterStep_transName
+            Expr tFuncCall = ExprVar.make(null, "testIfNextStable" + iesInSendEvent); //s.testIfNextStable
+            Expr sPrimeGenEventT = ExprBadJoin.make(null, null, ExprVar.make(null, transition.getFullyQualName()), tFuncCall); //tranName.enabledAfterStep_transName
             sendExprCom = (sendExpr == null) ? DashHelper.createExprVar("none") : sendExpr;
-            Expr ssPrimeGenEventT = ExprBadJoin.make(null, null, sendExprCom, sPrimeGenEventT); // sendEventName.tranName.s_next.s.enabledAfterStep_transName
+            Expr ssPrimeGenEventT = ExprBadJoin.make(null, null, sendExprCom, sPrimeGenEventT); // sendEventName.tranName.enabledAfterStep_transName
             expression = ExprBinary.Op.AND.make(null, null, expression, ExprITE.make(null, ssPrimeGenEventT, ifLowerExpr, elseLowerExpr));
             
             if (!eventSize2Trans.containsKey(iesInOnEvent)) {
@@ -756,8 +671,7 @@ public class CoreDashToAlloy {
         Expr sendCommandExpr = null;
         if (transition.sendExpr == null && module.isEnvEventModel && !module.stateHierarchy) {
             for (int key: module.eventTuples) { 
-            	Expr sNextEvents = DashOptions.isElectrum ? DashHelper.sEventsPrimed(key) : DashHelper.sNextEvents(key);
-	        	//Expr sNextEnvAndIntEvn = DashHelper.createBinaryExpr(DashHelper.sNextEvents(key), ExprBinary.Op.INTERSECT, DashHelper.intEvent()); //s_next.events & InternalEvent
+            	Expr sNextEvents =  DashHelper.eventsPrimed(key);
             	Expr sNextEnvAndIntEvn = DashHelper.createBinaryExpr(sNextEvents, ExprBinary.Op.INTERSECT, DashHelper.intEvent()); //s_next.events & InternalEvent
 	        	Expr noEvents = DashHelper.createUnaryExpr(ExprUnary.Op.NO, sNextEnvAndIntEvn);
 	            sendCommandExpr = (sendCommandExpr == null) ? noEvents : DashHelper.createExprBadJoin(sendCommandExpr, noEvents); // no (s_next.events & InternalEvent)
@@ -766,9 +680,8 @@ public class CoreDashToAlloy {
         /* Creating the following expression: sentEvent in s_next.events */
         if (transition.sendExpr != null && transition.sendExpr.getRawName() != null) {
         	int i = transition.sendExpr.getParentConcState().getIdentifiers().size();
-        	Expr sNextEvents = DashOptions.isElectrum ? DashHelper.sEventsPrimed(i) : DashHelper.sNextEvents(i);
+        	Expr sNextEvents = DashHelper.eventsPrimed(i);
         	sendCommandExpr = ExprBinary.Op.IN.make(null, null, sendExpr, sNextEvents); // sentEvent in s_next.events
-        	//sendCommandExpr = ExprBinary.Op.IN.make(null, null, sendExpr, DashHelper.sNextEvents(transition.sendExpr.getParentConcState().getIdentifiers().size())); // sentEvent in s_next.events
         }
 
         if (sendCommandExpr != null)
@@ -778,7 +691,7 @@ public class CoreDashToAlloy {
         DashState destinationState = getState(transition.gotoExpr.gotoExpr.get(0).replace('/', '_'), module);
         if(transition.gotoExpr.gotoExpr.size() > 0 && destinationState != null) {        	
         	Expr gotoExpr = ExprVar.make(null, transition.gotoExpr.gotoExpr.get(0).replace('/', '_'));
-        	Expr enterCall = ExprBadJoin.make(null, null, ExprVar.make(null, "s_next"), ExprVar.make(null, "enter_" + gotoExpr.toString()));
+        	Expr enterCall = ExprVar.make(null, "enter_" + gotoExpr.toString());
         	
         	if(destinationState.getEnters().size() > 0) {
         		expression = ExprBinary.Op.AND.make(null, null, expression, enterCall);
@@ -789,7 +702,7 @@ public class CoreDashToAlloy {
         expression = createExitAST(expression, sourceState, transition);        
         expression = ExprUnary.Op.NOOP.make(null, expression);
        
-        addParameterizedPredicateAST(module, "pos_" + transition.getFullyQualName(), "s", "s_next", null, null, transition.getParentConcState().getIdentifiers(), 0, expression);
+        addTransitioPredicate(module, "pos_" + transition.getFullyQualName(), transition.getParentConcState().getIdentifiers(), expression);
     }
     
     private void clearVarChangeContainers() {
@@ -811,8 +724,8 @@ public class CoreDashToAlloy {
 
         /* Creating the following expression: s_next.taken = currentTrans */
         Expr semanticsExpr = null;
-        Expr sNextTaken = DashOptions.isElectrum ? DashHelper.sTakenPrimed(totalIEsSize) : DashHelper.sNextTaken(totalIEsSize); //s_next.taken
-        Expr sTaken = DashHelper.sTaken(totalIEsSize); //s.taken
+        Expr sNextTaken = DashHelper.takenPrimed(totalIEsSize); //taken'
+        Expr sTaken = DashHelper.taken(totalIEsSize); //taken
         if (!module.stateHierarchy) {
             semanticsExpr = ExprBinary.Op.EQUALS.make(null, null, sNextTaken, ExprVar.make(null, transition.getFullyQualName())); //s_next.taken = currentTrans
             expression = semanticsExpr;
@@ -826,26 +739,26 @@ public class CoreDashToAlloy {
         	}
         	
         	for(DashTrans trans: innerTransitions) 
-        		expression = ExprBinary.Op.AND.make(null, null, expression, ExprUnary.Op.NOT.make(null, ExprBadJoin.make(null, null, ExprVar.make(null, "s"), ExprVar.make(null, "pre_" + trans.getFullyQualName()))));	
+        		expression = ExprBinary.Op.AND.make(null, null, expression, ExprUnary.Op.NOT.make(null, ExprVar.make(null, "pre_" + trans.getFullyQualName())));	
         }
         
         /*
          * Creating the following expression: s.stable = True => (s_next.taken + transName)
-         * else { )
+         * else {...} )
          */
         Expr ifElseExpr = null;
         if (module.stateHierarchy) {
-            Expr ifCond = ExprBinary.Op.EQUALS.make(null, null, ExprBadJoin.make(null, null, ExprVar.make(null, "s"), ExprVar.make(null, "stable")), ExprVar.make(null, "True")); //s.stable = True
+            Expr ifCond = ExprBinary.Op.EQUALS.make(null, null, DashHelper.stable(), ExprVar.make(null, "True")); //s.stable = True
             Expr ifRight = transNameExpr; // transName
             for (int i = totalIEsSize - 1; i >= 0; i--) {
             	ifRight = ExprBinary.Op.ARROW.make(null, null, ExprVar.make(null, "p" + i), ifRight);
             }
             Expr ifExpr = ExprBinary.Op.EQUALS.make(null, null, sNextTaken, ifRight); //s_next.taken = currentTrans
-            Expr noTaken = DashHelper.noTakenSemanticsConstraints("taken", totalIEsSize, module);
+            Expr noTaken = noTakenSemanticsConstraints("taken", totalIEsSize, module);
             ifExpr = (noTaken == null) ? ifExpr : DashHelper.createBinaryExpr(ifExpr, ExprBinary.Op.AND, noTaken); //no s_next.taken1 and no s_next.taken2
             
             Expr ElseExprLeft = ExprBinary.Op.EQUALS.make(null, null, sNextTaken, ExprBinary.Op.PLUS.make(null, null, sTaken, ifRight)); // s_next.taken0 = s.taken0 + transName or s_next.taken = s.taken + (p0 -> p1 -> currentTrans)
-            Expr takenEquals = DashHelper.constraintEquals("taken", totalIEsSize, module);
+            Expr takenEquals = constraintEquals("taken", totalIEsSize, module);
             ElseExprLeft = (takenEquals == null) ? ElseExprLeft : DashHelper.createBinaryExpr(ElseExprLeft, ExprBinary.Op.AND, takenEquals); //s_next.taken1 = s.taken1
             
             Expr elseExprRight = null;
@@ -866,7 +779,7 @@ public class CoreDashToAlloy {
             }  
             
             if (elseRightBinPlus != null) {
-            	Expr sTaken0 = DashHelper.sTaken(0);
+            	Expr sTaken0 = DashHelper.taken(0);
 	            elseExprRight = ExprBinary.Op.INTERSECT.make(null, null, sTaken0, elseRightBinPlus); //no (s.taken & transNames)
 	            elseExprRight = ExprUnary.Op.NO.make(null, elseExprRight);
 	            ElseExprLeft = DashHelper.createBinaryExpr(ElseExprLeft, ExprBinary.Op.AND, elseExprRight);
@@ -882,13 +795,13 @@ public class CoreDashToAlloy {
         	}
         	
         	for(DashTrans trans: innerTransitions) {
-        		expression = ExprBinary.Op.AND.make(null, null, expression, ExprUnary.Op.NOT.make(null, ExprBadJoin.make(null, null, ExprVar.make(null, "s"), ExprVar.make(null, "pre_" + trans.getFullyQualName()))));
+        		expression = ExprBinary.Op.AND.make(null, null, expression, ExprUnary.Op.NOT.make(null, ExprVar.make(null, "pre_" + trans.getFullyQualName())));
         	}
         }
         
         expression = ExprUnary.Op.NOOP.make(null, expression);
         
-        addParameterizedPredicateAST(module, "semantics_" + transition.getFullyQualName(), "s", "s_next", null, null, transition.getParentConcState().getIdentifiers(), 0, expression);
+        addTransitioPredicate(module, "semantics_" + transition.getFullyQualName(), transition.getParentConcState().getIdentifiers(), expression);
     }
     
     /****************************************** TRANSITION CALL PREDICATE ***************************************/
@@ -898,8 +811,6 @@ public class CoreDashToAlloy {
      * the pre,post,semantics) predicate in the Alloy Model
      */
     private void createTransCallAST(DashTrans transition, DashModule module) {
-        ExprVar s = ExprVar.make(null, "s");
-        ExprVar sPrime = ExprVar.make(null, "s_next");
         int totalIEsSize = transition.getParentConcState().getIdentifiers().size();
         Expr expression = null;
 
@@ -907,22 +818,21 @@ public class CoreDashToAlloy {
          * Creating the following expressions: post_transName[s, s_next],
          * semantics_transName[s, s_next], pre_transName[s]
          */
-        Expr preTransCall = ExprBadJoin.make(null, null, s, DashHelper.createExprVar("pre_" + transition.getFullyQualName())); //s.pre_transName
+        Expr preTransCall = DashHelper.createExprVar("pre_" + transition.getFullyQualName()); //s.pre_transName
         preTransCall = DashHelper.addParametersJoin(preTransCall, totalIEsSize);
     
-        Expr postTransCall = ExprBadJoin.make(null, null, s, DashHelper.createExprVar("pos_" + transition.getFullyQualName())); //s.post_transName
-        postTransCall = DashOptions.isElectrum ? postTransCall : DashHelper.createExprBadJoin(sPrime, postTransCall); //s_next.s.post_transName
+        Expr postTransCall = DashHelper.createExprVar("pos_" + transition.getFullyQualName()); //s.post_transName
     	postTransCall = DashHelper.addParametersJoin(postTransCall, totalIEsSize); //p.s.pre_transName (For Parameterized Concurrent States)
     	
         expression = DashHelper.createBinaryExpr(preTransCall, ExprBinary.Op.AND, postTransCall); //AND[postTransCall, semanticsCall]
 
-        Expr sematicsCall = ExprBadJoin.make(null, null, s, DashHelper.createExprVar("semantics_" + transition.getFullyQualName())); //s.sematics_transName
-        sematicsCall = DashOptions.isElectrum ? sematicsCall : DashHelper.createExprBadJoin(sPrime, sematicsCall); //s_next.s.sematics_transName
+        Expr sematicsCall =  DashHelper.createExprVar("semantics_" + transition.getFullyQualName()); //s.sematics_transName
     	sematicsCall = DashHelper.addParametersJoin(sematicsCall, totalIEsSize); //p.s.pre_transName (For Parameterized Concurrent States)
     	
         expression = DashHelper.createBinaryExpr(expression, ExprBinary.Op.AND, sematicsCall); //AND[postTransCall, semanticsCall, preTransCall]
         
-        addParameterizedPredicateAST(module, transition.getFullyQualName(), "s", "s_next", null, null, transition.getParentConcState().getIdentifiers(), 0, expression); // (For Parameterized Concurrent States)
+        // (For Parameterized Concurrent States)
+        addTransitioPredicate(module, transition.getFullyQualName(), transition.getParentConcState().getIdentifiers(), expression);
     }
     
     /****************************************** ENABLED AFTER STEP PREDICATE ***************************************/
@@ -937,7 +847,7 @@ public class CoreDashToAlloy {
             expr = getPreCondForEnabled(transition, module); //Store all the pre-conditions
             int totalIEsSize = transition.getParentConcState().getIdentifiers().size();
             DashConcState transitionParent = getParentConcState(transition.getParent());
-            Expr _sStable = (DashOptions.isElectrum) ? DashHelper.sStable() : DashHelper._sStable();
+            Expr _sStable = DashHelper.stable();
             Expr ifCond = DashHelper.createBinaryExpr(_sStable, ExprBinary.Op.EQUALS, DashHelper.trueExpr()); //_s.stable = True; 
 
             Expr ifExprLeft = ExprVar.make(null, "t");
@@ -956,7 +866,7 @@ public class CoreDashToAlloy {
             	ifExpr = ExprUnary.Op.NO.make(null, ifExpr);
             }
             
-            Expr _sTaken = (DashOptions.isElectrum) ? DashHelper.sTaken(0) : DashHelper._sTaken(0);
+            Expr _sTaken = DashHelper.taken(0);
             Expr elseExprLeft = ExprBinary.Op.PLUS.make(null, null, _sTaken, ExprVar.make(null, "t")); //_s.taken + t
             Expr elseExprRight = null;
             for (DashTrans trans : module.transitions.values()) {
@@ -974,7 +884,7 @@ public class CoreDashToAlloy {
             }
 
             
-            Expr noPTaken = DashOptions.isElectrum ? DashHelper.sTakenPrimed(totalIEsSize) : DashHelper.sTaken(totalIEsSize);
+            Expr noPTaken = DashHelper.takenPrimed(totalIEsSize);
             noPTaken = DashHelper.addParametersJoin(noPTaken, totalIEsSize);
             noPTaken = ExprUnary.Op.NO.make(null, noPTaken);
             if (ifExpr != null && elseExpr != null) {
@@ -989,7 +899,7 @@ public class CoreDashToAlloy {
             String onCommand = transition.onExpr == null ? "" : transition.onExpr.getRawName().replace('/', '_');
             int totalIEsSizeSend = (transition.onExpr == null) ? 0 : transition.onExpr.getParentConcState().getIdentifiers().size();
             if (module.isEnvEventModel && transition.onExpr != null && transition.onExpr.getRawName() != null) {
-                Expr _sEvent = DashOptions.isElectrum ? DashHelper.sEvents(totalIEsSizeSend) : DashHelper._sEvents(totalIEsSizeSend);
+                Expr _sEvent = DashHelper.events(totalIEsSizeSend);
                 Expr envEvent = DashHelper.envEvent();
                 envEvent = DashHelper.addParametersArrow(envEvent, totalIEsSizeSend);
                 Expr binaryIntersect = DashHelper.createBinaryExpr(_sEvent, ExprBinary.Op.INTERSECT, envEvent);
@@ -1005,21 +915,7 @@ public class CoreDashToAlloy {
             Expr _sStableImpElse = ExprITE.make(null, ifCond, ifExpr, elseExpr);
             expr = ExprBinary.Op.AND.make(null, null, expr, _sStableImpElse);
             
-            addParameterizedPredicateAST(module, "enabledAfterStep_" + transition.getFullyQualName(), "_s", "s", "t", "genEvents", transition.getParentConcState().getIdentifiers(), totalIEsSizeSend, expr);
-        }
-    }
-    
-    /****************************************** STABLE PREDICATE ***************************************/
-    
-    /*
-     * This function creates an AST for the following predicate: pred stable[s] {
-     * s.stable }
-     */
-    private void createStableAST(DashModule module) {
-        Expr sStable = ExprBadJoin.make(null, null, ExprVar.make(null, "s"), ExprVar.make(null, "stable"));
-        Expr sStableEqualsTrue = ExprBinary.Op.EQUALS.make(null, null, sStable, ExprVar.make(null, "True"));
-        if (module.stateHierarchy) {
-        	addPredicateAST(module, "stable", "s", null, null, null, sStableEqualsTrue);
+            addEnabledAfterStepPredicate(module, transition, totalIEsSizeSend, expr); 
         }
     }
     
@@ -1041,8 +937,7 @@ public class CoreDashToAlloy {
 	            a.clear();
             }
             
-            Expr expr = ExprBadJoin.make(null, null, ExprVar.make(null, "s"), ExprVar.make(null, trans.getFullyQualName()));
-            expr = (DashOptions.isElectrum) ? expr :  ExprBadJoin.make(null, null, ExprVar.make(null, "s_next"), expr);
+            Expr expr = ExprVar.make(null, trans.getFullyQualName());
             for (int i = 0; i < trans.getParentConcState().getIdentifiers().size(); i++) {
             	expr = ExprBadJoin.make(null, null, ExprVar.make(null, "p" + i), expr);
             }
@@ -1051,45 +946,12 @@ public class CoreDashToAlloy {
         }
         
         Expr isEnabled = DashHelper.createExprVar("isEnabled");
-        isEnabled = DashHelper.createExprBadJoin(DashHelper.s(), isEnabled);
         
         Expr equalsCall = DashHelper.createExprVar("equals");
-        equalsCall = DashHelper.createExprBadJoin(DashHelper.s(), equalsCall);
-        equalsCall = (DashOptions.isElectrum) ? equalsCall : DashHelper.createExprBadJoin(DashHelper.sNext(), equalsCall);
         
         expression = (DashOptions.createLoop) ? DashHelper.createImplesElseExpr(isEnabled, expression, equalsCall) : expression;
        
-        addSmallStepPredicateAST(module, "small_step", "s", "s_next", expression);
-    }
-    
-    /****************************************** PATH PREDICATE ***************************************/
-    
-    private void createPathAST(DashModule module) {
-        List<Decl> decls = new ArrayList<Decl>();
-        ExprVar s = ExprVar.make(null, "s");
-        ExprVar sPrime = ExprVar.make(null, "s_next");
-        List<ExprVar> a = new ArrayList<ExprVar>(Arrays.asList(s)); //[s]
-        Expr snapshot = ExprUnary.Op.ONE.make(null, ExprVar.make(null, "Snapshot"));
-        Expr sNext = DashOptions.ctlModelChecking ? ExprBadJoin.make(null, null, s, ExprVar.make(null, "ks_sigma")) : ExprBadJoin.make(null, null, s, ExprVar.make(null, "next")); //s.next
-
-        Expr expression = null;
-
-        decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s: Snapshot
-        a = new ArrayList<ExprVar>(Arrays.asList(sPrime));
-        decls.add(new Decl(null, null, null, null, a, mult(sNext))); //s_next: s.next
-
-        Expr operationCall = ExprBadJoin.make(null, null, s, ExprVar.make(null, "small_step"));
-        operationCall = ExprBadJoin.make(null, null, sPrime, operationCall); //s_next.s.operation
-
-        expression = ExprQt.Op.ALL.make(null, null, decls, operationCall);
-
-        decls.clear();
-        a = new ArrayList<ExprVar>(Arrays.asList(s)); //[s]
-        decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s: Snapshot
-        Expr ctlInitCall = createInitCall(module, false);
-        ctlInitCall = ExprQt.Op.SOME.make(null, null, decls, ctlInitCall);
-        expression = DashOptions.ctlModelChecking ? ExprBinary.Op.AND.make(null, null, expression, ctlInitCall) : ExprBinary.Op.AND.make(null, null, expression, createInitCall(module, true));
-        addPredicateAST(module, "path", null, null, null, null, expression);
+        module.addFunc(null, null, "small_step", null, null, null, expression);
     }
     
     /****************************************** TEST IF STABLE PREDICATE ***************************************/
@@ -1111,9 +973,8 @@ public class CoreDashToAlloy {
 	                a.clear();
 	            }
 	            
-	           	Expr tFuncCall = ExprBadJoin.make(null, null, ExprVar.make(null, "s"), ExprVar.make(null, "enabledAfterStep_" + trans.getFullyQualName())); //t.enabledAfterStep_transName
-	            Expr genEventT = (DashOptions.isElectrum) ? tFuncCall : ExprBadJoin.make(null, null, ExprVar.make(null, "s_next"), tFuncCall); //genEvents.t.enabledAfterStep_transName
-	            Expr sPrimeGenEventT = ExprBadJoin.make(null, null, ExprVar.make(null, "t"), genEventT);
+	           	Expr tFuncCall = DashHelper.createExprVar("enabledAfterStep_" + trans.getFullyQualName()); //t.enabledAfterStep_transName
+	            Expr sPrimeGenEventT = ExprBadJoin.make(null, null, ExprVar.make(null, "t"), tFuncCall);
 	            Expr ssPrimeGenEventT = ExprBadJoin.make(null, null, ExprVar.make(null, "genEvents"), sPrimeGenEventT);
 	            for (int i = 0; i < trans.getParentConcState().getIdentifiers().size(); i++) {
 	            	ssPrimeGenEventT = ExprBadJoin.make(null, null, ExprVar.make(null, "p" + i), ssPrimeGenEventT);
@@ -1124,7 +985,7 @@ public class CoreDashToAlloy {
         	}
         	expr = addOtherTestIfState(key, expr);
             expr = ExprUnary.Op.NOOP.make(null, expr); 
-            addPredicateAST(module, "testIfNextStable" + key, "s", "s_next", "t", "genEvents", key, expr);
+            addTestIfStablePredicate(module, "testIfNextStable" + key, key, expr);
     	}
         
         /* For models without any events */
@@ -1139,9 +1000,8 @@ public class CoreDashToAlloy {
 	                a.clear();
 	            }
 	            
-	           	Expr tFuncCall = ExprBadJoin.make(null, null, ExprVar.make(null, "s"), ExprVar.make(null, "enabledAfterStep_" + trans.getFullyQualName())); //t.enabledAfterStep_transName
-	            Expr genEventT = (DashOptions.isElectrum) ? tFuncCall : ExprBadJoin.make(null, null, ExprVar.make(null, "s_next"), tFuncCall); //genEvents.t.enabledAfterStep_transName
-	            Expr sPrimeGenEventT = ExprBadJoin.make(null, null, ExprVar.make(null, "t"), genEventT);
+	           	Expr tFuncCall = DashHelper.createExprVar("enabledAfterStep_" + trans.getFullyQualName()); //t.enabledAfterStep_transName
+	            Expr sPrimeGenEventT = ExprBadJoin.make(null, null, ExprVar.make(null, "t"), tFuncCall);
 	            Expr ssPrimeGenEventT = ExprBadJoin.make(null, null, ExprVar.make(null, "genEvents"), sPrimeGenEventT);
 	            for (int i = 0; i < trans.getParentConcState().getIdentifiers().size(); i++) {
 	            	ssPrimeGenEventT = ExprBadJoin.make(null, null, ExprVar.make(null, "p" + i), ssPrimeGenEventT);
@@ -1151,7 +1011,7 @@ public class CoreDashToAlloy {
 	            expr = (expr == null) ? quant : DashHelper.createBinaryExpr(expr, ExprBinary.Op.AND, quant) ; // no p: param | enabledAfterStep_transName[s, s_next, t, genEvents, p]\n
         	}
             expr = ExprUnary.Op.NOOP.make(null, expr); 
-            addPredicateAST(module, "testIfNextStable", "s", "s_next", "t", "genEvents", expr);
+            addTestIfStablePredicate(module, "testIfNextStable", 0, expr);
         }
         eventSize2Trans.clear();
     }
@@ -1169,9 +1029,8 @@ public class CoreDashToAlloy {
 	                a.clear();
 	            }
 	            
-	           	Expr tFuncCall = ExprBadJoin.make(null, null, ExprVar.make(null, "s"), ExprVar.make(null, "enabledAfterStep_" + trans.getFullyQualName())); //t.enabledAfterStep_transName
-	            Expr genEventT = (DashOptions.isElectrum) ? tFuncCall : ExprBadJoin.make(null, null, ExprVar.make(null, "s_next"), tFuncCall); //genEvents.t.enabledAfterStep_transName
-	            Expr sPrimeGenEventT = ExprBadJoin.make(null, null, ExprVar.make(null, "t"), genEventT);
+	           	Expr tFuncCall = DashHelper.createExprVar("enabledAfterStep_" + trans.getFullyQualName()); //t.enabledAfterStep_transName
+	            Expr sPrimeGenEventT = ExprBadJoin.make(null, null, ExprVar.make(null, "t"), tFuncCall);
 	            Expr none2None = DashHelper.addIdentifiersNone(DashHelper.createExprVar("none"), otherKey);
 	            Expr ssPrimeGenEventT = ExprBadJoin.make(null, null, none2None, sPrimeGenEventT);
 	            for (int i = 0; i < trans.getParentConcState().getIdentifiers().size(); i++) {
@@ -1202,7 +1061,7 @@ public class CoreDashToAlloy {
 	            decls.add(new Decl(null, null, null, null, a, mult(ExprVar.make(null, trans.getParentConcState().getIdentifiers().get(i))))); //p: param
 	            a.clear();
             }
-            Expr preTransCall = DashHelper.createExprBadJoin(DashHelper.s(), DashHelper.createExprVar("pre_" + trans.getFullyQualName())); //s.pre_transName
+            Expr preTransCall = DashHelper.createExprVar("pre_" + trans.getFullyQualName()); //s.pre_transName
             preTransCall = DashHelper.addParametersJoin(preTransCall, totalIEsSize);
             preTransCall = (totalIEsSize == 0) ? preTransCall : ExprQt.Op.SOME.make(null, null, decls, preTransCall); // some p: param | transName[s, s_next, p]
             expr = (expr == null) ? preTransCall : DashHelper.createBinaryExpr(expr, ExprBinary.Op.OR, preTransCall);
@@ -1210,10 +1069,9 @@ public class CoreDashToAlloy {
 
         //No need to add this predicate if there are no transitions in the model
         if (module.transitions.keySet().size() > 0 && module.stateHierarchy) {
-            addPredicateAST(module, "isEnabled", "s", null, null, null, expr);
+            module.addFunc(null, null, "isEnabled", null, null, null, expr);
         }
     }
-
     /****************************************** EQUALS PREDICATE ***************************************/
     
     /*
@@ -1224,33 +1082,33 @@ public class CoreDashToAlloy {
         Expr expr = null;
         
         for (int i: module.confTuples) {
-        	Expr sNextConf = DashOptions.isElectrum ? DashHelper.sConfPrimed(i) : DashHelper.sNextConf(i);
-        	Expr equals = DashHelper.createBinaryExpr(sNextConf, ExprBinary.Op.EQUALS, DashHelper.sConf(i));
+        	Expr sNextConf = DashHelper.confPrimed(i);
+        	Expr equals = DashHelper.createBinaryExpr(sNextConf, ExprBinary.Op.EQUALS, DashHelper.conf(i));
         	expr = (expr == null) ? equals : DashHelper.createBinaryExpr(expr, ExprBinary.Op.AND, equals);
         }
         
         for (int i: module.confTuples) {
-        	Expr sNextTaken = DashOptions.isElectrum ? DashHelper.sTakenPrimed(i) : DashHelper.sNextTaken(i);
-        	Expr equals = DashHelper.createBinaryExpr(sNextTaken, ExprBinary.Op.EQUALS, DashHelper.sTaken(i));
+        	Expr sNextTaken = DashHelper.takenPrimed(i);
+        	Expr equals = DashHelper.createBinaryExpr(sNextTaken, ExprBinary.Op.EQUALS, DashHelper.taken(i));
         	expr = (expr == null) ? equals : DashHelper.createBinaryExpr(expr, ExprBinary.Op.AND, equals);
         }
         
         for (int i: module.eventTuples) {
-        	Expr sNextEvents = DashOptions.isElectrum ? DashHelper.sEventsPrimed(i) : DashHelper.sNextEvents(i);
-        	Expr equals = DashHelper.createBinaryExpr(sNextEvents, ExprBinary.Op.EQUALS, DashHelper.sEvents(i));
+        	Expr sNextEvents = DashHelper.eventsPrimed(i);
+        	Expr equals = DashHelper.createBinaryExpr(sNextEvents, ExprBinary.Op.EQUALS, DashHelper.events(i));
         	expr = (expr == null) ? equals : DashHelper.createBinaryExpr(expr, ExprBinary.Op.AND, equals);
         }
         
-        Expr sNextStable = DashOptions.isElectrum ? DashHelper.sStablePrimed() : DashHelper.sNextStable();
-        Expr stableEquals = DashHelper.createBinaryExpr(sNextStable, ExprBinary.Op.EQUALS, DashHelper.sStable());
+        Expr sNextStable =  DashHelper.stablePrimed();
+        Expr stableEquals = DashHelper.createBinaryExpr(sNextStable, ExprBinary.Op.EQUALS, DashHelper.stable());
         expr = DashHelper.createBinaryExpr(expr, ExprBinary.Op.AND, stableEquals);
         
         /* Conjunction of any env variables in the model */
         for(String concStateName: module.envVariableNames.keySet()) {
         	for(String envVar: module.envVariableNames.get(concStateName)) {
         		Expr fullyQualName = DashHelper.createExprVar(concStateName + "_" + envVar);
-        		Expr sNextVar = DashOptions.isElectrum ? DashHelper.sVarPrimed(fullyQualName) : DashHelper.sNextVar(fullyQualName);
-        		Expr equals = ExprBinary.Op.EQUALS.make(null, null, sNextVar, DashHelper.sVar(fullyQualName));
+        		Expr sNextVar = DashHelper.varPrimed(fullyQualName);
+        		Expr equals = ExprBinary.Op.EQUALS.make(null, null, sNextVar, fullyQualName);
         		expr = ExprBinary.Op.AND.make(null, null, expr, equals);
         	}
         }
@@ -1258,14 +1116,14 @@ public class CoreDashToAlloy {
         for (String key : module.variableNames.keySet()) {
             for (String var : module.variableNames.get(key)) {
             	Expr fullyQualVarName = DashHelper.createExprVar(key + "_" + var);
-            	Expr sNextVar = DashOptions.isElectrum ? DashHelper.sVarPrimed(fullyQualVarName) : DashHelper.sNextVar(fullyQualVarName);
-            	Expr equals = DashHelper.createBinaryExpr(sNextVar, ExprBinary.Op.EQUALS, DashHelper.sVar(fullyQualVarName));
+            	Expr sNextVar = DashHelper.varPrimed(fullyQualVarName);
+            	Expr equals = DashHelper.createBinaryExpr(sNextVar, ExprBinary.Op.EQUALS, (fullyQualVarName));
             	expr = DashHelper.createBinaryExpr(expr, ExprBinary.Op.AND, equals);
             }
         }       
 
         expr = ExprUnary.Op.NOOP.make(null, expr);
-        addPredicateAST(module, "equals", "s", "s_next", null, null, expr);
+        module.addFunc(null, null, "equals", null, null, null, expr);
     }
 
     /****************************************** INIT PREDICATE ***************************************/
@@ -1275,13 +1133,9 @@ public class CoreDashToAlloy {
         List<Decl> decls = new ArrayList<Decl>();
         List<ExprVar> a = new ArrayList<ExprVar>();
         Map <Integer, ArrayList<Expr>> confToStates = new LinkedHashMap<Integer, ArrayList<Expr>>();
-       
-        ExprVar snapshot = ExprVar.make(null, "Snapshot");
         ExprVar p = ExprVar.make(null, "p");
         a.add(p);
 
-        ExprVar s = ExprVar.make(null, "s");
-        ExprVar stable = ExprVar.make(null, "stable");
         Expr expression = null;
         isCreatingInit = true;
 
@@ -1300,7 +1154,7 @@ public class CoreDashToAlloy {
         }
 
         for (int key: confToStates.keySet()) {
-        	Expr sConf = ExprBadJoin.make(null, null, s, ExprVar.make(null, "conf" + key));
+        	Expr sConf = DashHelper.conf(key);
         	Expr right = null;
         	for (Expr expr: confToStates.get(key)) {
         		right = (right == null) ? expr : DashHelper.createBinaryExpr(right, ExprBinary.Op.PLUS, expr);
@@ -1310,20 +1164,20 @@ public class CoreDashToAlloy {
         }
         
         for (int key: confToStates.keySet()) {
-        	Expr noSTaken = DashHelper.createUnaryExpr(ExprUnary.Op.NO, DashHelper.createExprBadJoin("s", "taken" + key));
+        	Expr noSTaken = DashHelper.createUnaryExpr(ExprUnary.Op.NO, DashHelper.taken(key));
     		expression = DashHelper.createBinaryExpr(expression, ExprBinary.Op.AND, noSTaken);
         }
         
         if (module.isEnvEventModel) {
             for (int key: module.eventTuples) {
-                Expr binary = DashHelper.createBinaryExpr(DashHelper.sEvents(key), ExprBinary.Op.INTERSECT, DashHelper.addIdentifiersArrow(DashHelper.intEvent(), key)); // s.events & InternalEvents
+                Expr binary = DashHelper.createBinaryExpr(DashHelper.events(key), ExprBinary.Op.INTERSECT, DashHelper.addIdentifiersArrow(DashHelper.intEvent(), key)); // s.events & InternalEvents
                 Expr unary = ExprUnary.Op.NO.make(null, binary); //no s.events & InternalEvent
                 expression = ExprBinary.Op.AND.make(null, null, expression, unary);
             }
         }
         
         if(module.stateHierarchy) {
-        	Expr sStableTrue = ExprBinary.Op.EQUALS.make(null, null, ExprBadJoin.make(null, null, s, stable), ExprVar.make(null, "True")); //s.stable = True
+        	Expr sStableTrue = ExprBinary.Op.EQUALS.make(null, null, DashHelper.stable(), ExprVar.make(null, "True")); //s.stable = True
         	expression = ExprBinary.Op.AND.make(null, null, expression, sStableTrue);
         }
  
@@ -1336,9 +1190,6 @@ public class CoreDashToAlloy {
         
         a.clear();
         decls.clear();
-        a.add(s);
-        decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //[s: Snapshot]
-        a.clear();
         for (int i = 0; i < module.identifiers.size(); i++) {
         	a.add((ExprVar) DashHelper.createExprVar("p" + i));
             decls.add(new Decl(null, null, null, null, a, DashHelper.createExprVar(module.identifiers.get(i)))); //[p0: IE0]
@@ -1351,6 +1202,40 @@ public class CoreDashToAlloy {
 
     /************************************ HELPER FUNCTION FOR CREATING PREDICATES *****************************************/
     
+    /* Add a new Transition predicate to the Dash Module */
+    private void addTransitioPredicate(DashModule module, String predName, List<String> ies, Expr expression) {
+        List<Decl> decls = new ArrayList<Decl>();
+        
+        for (int i = 0; i < ies.size(); i++) {
+        	decls.add(new Decl(null, null, null, null, new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "p" + i))), ExprVar.make(null, ies.get(i)))); 
+        }
+        
+        module.addFunc(null, null, predName, null, decls, null, expression);
+    }
+    
+    /* Add a new IsEnabledAfterStep predicate to the Dash Module */
+    private void addEnabledAfterStepPredicate(DashModule module, DashTrans transition, int eventIes, Expr expression) {
+        List<Decl> decls = new ArrayList<Decl>();
+        
+        decls.add(new Decl(null, null, null, null, new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "t"))), ExprVar.make(null, "TransitionLabel")));
+        decls.add(new Decl(null, null, null, null, new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "genEvents"))), DashHelper.addIdentifiersArrow(DashHelper.intEvent(), eventIes)));
+        
+        for (int i = 0; i < transition.getParentConcState().getIdentifiers().size(); i++) {
+        	decls.add(new Decl(null, null, null, null, new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "p" + i))), ExprVar.make(null, transition.getParentConcState().getIdentifiers().get(i)))); 
+        }
+        
+        module.addFunc(null, null, "enabledAfterStep_" + transition.getFullyQualName(), null, decls, null, expression);
+    }
+    
+    private void addTestIfStablePredicate(DashModule module, String name, int eventIes, Expr expression) {
+        List<Decl> decls = new ArrayList<Decl>();
+        
+        decls.add(new Decl(null, null, null, null, new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "t"))), ExprVar.make(null, "TransitionLabel")));
+        decls.add(new Decl(null, null, null, null, new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "genEvents"))), DashHelper.addIdentifiersArrow(DashHelper.intEvent(), eventIes)));
+              
+        module.addFunc(null, null, name, null, decls, null, expression);
+    }
+    
     void addSmallStepPredicateAST(DashModule module, String predName, String arg1, String arg2, Expr expression) {
         List<Decl> decls = new ArrayList<Decl>();
         List<ExprVar> a = new ArrayList<ExprVar>();
@@ -1362,145 +1247,6 @@ public class CoreDashToAlloy {
         
         decls.add(new Decl(null, null, null, null, a, mult(snapshot)));
         module.addFunc(null, null, predName, null, decls, null, expression);
-    }
-    
-    /* Add a new predicate to the Dash Module */
-    void addPredicateAST(DashModule module, String predName, String arg1, String arg2, String arg3, String arg4, Expr expression) {
-        List<Decl> decls = new ArrayList<Decl>();
-        List<ExprVar> a = new ArrayList<ExprVar>();
-        Expr snapshot =  ExprVar.make(null, "Snapshot");
-        if (arg1 != null)
-            a.add(ExprVar.make(null, arg1));
-        if (arg2 != null && !DashOptions.isElectrum)
-            a.add(ExprVar.make(null, arg2));
-        if (arg3 != null)
-            a.add(ExprVar.make(null, arg3));
-        if (arg4 != null)
-            a.add(ExprVar.make(null, arg4));
-        
-        if (a.size() > 0 && a.size() <= 2) { //Cannot add declarations if the predicate for no arguments
-            decls.add(new Decl(null, null, null, null, a, mult(snapshot)));
-        }
-        else if (a.size() == 3) { //Only for EnabledAfterNextStep/testIfNextStable Predicate AST creation without EventLabel in the model
-        	if (DashOptions.isElectrum) {
-        		decls.add(new Decl(null, null, null, null, new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, arg1))), mult(snapshot)));
-        	}
-        	else {
-        		decls.add(new Decl(null, null, null, null, new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, arg1), ExprVar.make(null, arg2))), mult(snapshot)));
-        	}
-            decls.add(new Decl(null, null, null, null, new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, arg3))), ExprVar.make(null, "TransitionLabel")));
-            decls.add(new Decl(null, null, null, null, new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, arg4))), mult(ExprUnary.Op.SETOF.make(null, ExprVar.make(null, "InternalEvent")))));
-        }
-        else if (a.size() == 4) { //Only for EnabledAfterNextStep Predicate AST creation
-        	if (DashOptions.isElectrum) {
-        		decls.add(new Decl(null, null, null, null, new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, arg1))), mult(snapshot)));
-        	}
-        	else {
-        		decls.add(new Decl(null, null, null, null, new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, arg1), ExprVar.make(null, arg2))), mult(snapshot)));
-        	}
-            decls.add(new Decl(null, null, null, null, new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, arg3))), ExprVar.make(null, "TransitionLabel")));
-            decls.add(new Decl(null, null, null, null, new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, arg4))), mult(ExprUnary.Op.SETOF.make(null, ExprVar.make(null, "InternalEvent")))));
-        }
-        
-        module.addFunc(null, null, predName, null, decls, null, expression);
-    }
-    
-    void addPredicateAST(DashModule module, String predName, String arg1, String arg2, String arg3, String arg4, int eventIes, Expr expression) {
-        List<Decl> decls = new ArrayList<Decl>();
-        List<ExprVar> a = new ArrayList<ExprVar>();
-        Expr snapshot =  ExprVar.make(null, "Snapshot");
-        if (arg1 != null)
-            a.add(ExprVar.make(null, arg1));
-        if (arg2 != null & !DashOptions.isElectrum) 
-            a.add(ExprVar.make(null, arg2));
-        if (arg3 != null)
-            a.add(ExprVar.make(null, arg3));
-        if (arg4 != null)
-            a.add(ExprVar.make(null, arg4));
-        
-        System.out.println("Creating1: " + predName);
-
-        if (a.size() > 0 && a.size() <= 2) { //Cannot add declarations if the predicate for no arguments
-            decls.add(new Decl(null, null, null, null, a, mult(snapshot)));
-        }
-        else if (a.size() == 3) { //Only for EnabledAfterNextStep/testIfNextStable Predicate AST creation without EventLabel in the model
-        	if (DashOptions.isElectrum) {
-        		decls.add(new Decl(null, null, null, null, new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, arg1))), mult(snapshot)));
-        	}
-        	else {
-        		decls.add(new Decl(null, null, null, null, new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, arg1), ExprVar.make(null, arg2))), mult(snapshot)));
-        	}
-            decls.add(new Decl(null, null, null, null, new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, arg3))), ExprVar.make(null, "TransitionLabel")));
-            decls.add(new Decl(null, null, null, null, new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, arg4))), DashHelper.addIdentifiersArrow(DashHelper.intEvent(), eventIes)));
-        }
-        else if (a.size() == 4) { //Only for EnabledAfterNextStep Predicate AST creation
-        	if (DashOptions.isElectrum) {
-        		decls.add(new Decl(null, null, null, null, new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, arg1))), mult(snapshot)));
-        	}
-        	else {
-        		decls.add(new Decl(null, null, null, null, new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, arg1), ExprVar.make(null, arg2))), mult(snapshot)));
-        	}
-            decls.add(new Decl(null, null, null, null, new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, arg3))), ExprVar.make(null, "TransitionLabel")));
-            decls.add(new Decl(null, null, null, null, new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, arg4))), DashHelper.addIdentifiersArrow(DashHelper.intEvent(), eventIes)));
-        }
-        
-        module.addFunc(null, null, predName, null, decls, null, expression);
-    }
-    
-    /* Add a new Parameterized predicate to the Dash Module */
-    private void addParameterizedPredicateAST(DashModule module, String predName, String arg1, String arg2, String arg3, String arg4, List<String> ies, int eventIes, Expr expression) {
-        List<Decl> decls = new ArrayList<Decl>();
-        List<ExprVar> a = new ArrayList<ExprVar>();
-        Expr snapshot =  ExprVar.make(null, "Snapshot");
-        if (arg1 != null)
-            a.add(ExprVar.make(null, arg1));
-        if (arg2 != null && !DashOptions.isElectrum)
-            a.add(ExprVar.make(null, arg2));
-        if (arg3 != null)
-            a.add(ExprVar.make(null, arg3));
-        if (arg4 != null)
-            a.add(ExprVar.make(null, arg4));
-        //System.out.println("Creating PARAM: " + predName + " arg2: " + arg2 + " IsElec? " + DashOptions.isElectrum);
-        
-        
-        if (a.size() > 0 && a.size() <= 2) //Cannot add declarations if the predicate for no arguments
-            decls.add(new Decl(null, null, null, null, a, mult(snapshot)));
-        if (a.size() == 3 && DashOptions.isElectrum) { //Only for EnabledAfterNextStep Predicate AST creation
-        	decls.add(new Decl(null, null, null, null, new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "s"))), mult(snapshot)));
-            decls.add(new Decl(null, null, null, null, new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, arg3))), ExprVar.make(null, "TransitionLabel")));
-            decls.add(new Decl(null, null, null, null, new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, arg4))), DashHelper.addIdentifiersArrow(DashHelper.intEvent(), eventIes)));
-        }
-        if (a.size() == 4) { //Only for EnabledAfterNextStep Predicate AST creation
-        	decls.add(new Decl(null, null, null, null, new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, arg1), ExprVar.make(null, arg2))), mult(snapshot)));
-            decls.add(new Decl(null, null, null, null, new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, arg3))), ExprVar.make(null, "TransitionLabel")));
-            decls.add(new Decl(null, null, null, null, new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, arg4))), DashHelper.addIdentifiersArrow(DashHelper.intEvent(), eventIes)));
-        }
-        
-        for (int i = 0; i < ies.size(); i++) {
-        	decls.add(new Decl(null, null, null, null, new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "p" + i))), ExprVar.make(null, ies.get(i)))); 
-        }
-        
-        module.addFunc(null, null, predName, null, decls, null, expression);
-    }
-    
-    /****************************************** DIFFERENT ATOMS FACT ***************************************/
-    
-    void createDifferentAtomsFact(DashModule module) {
-        List<Decl> decls = new ArrayList<Decl>();
-        List<ExprVar> a = new ArrayList<ExprVar>();
-        Expr snapshot = ExprUnary.Op.ONE.make(null, ExprVar.make(null, "Snapshot"));
-        Expr s = ExprVar.make(null, "s");
-        Expr sPrime = ExprVar.make(null, "s_next");
-        a.add((ExprVar) s);
-        a.add((ExprVar) sPrime);
-        decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s: Snapshot
-        
-        Expr equalsCall = ExprBadJoin.make(null, null, s, ExprVar.make(null, "equals"));//s.small_step
-        equalsCall = ExprBadJoin.make(null, null, sPrime, equalsCall); //s_next.s.small_step
-        Expr rightQT = ExprBinary.Op.IMPLIES.make(null, null, equalsCall, ExprBinary.Op.EQUALS.make(null, null, s, sPrime));
-        Expr expr = ExprQt.Op.ALL.make(null, null, new ArrayList<Decl>(decls), rightQT); //all s, s_next: Snapshot | equals[s, s_next] => s = s_next
-    	
-        module.addFact(null, "different_atoms", expr);
     }
     
     /****************************************** BIG STEP FACT ***************************************/
@@ -1533,108 +1279,13 @@ public class CoreDashToAlloy {
         module.addFact(null, "completeBigStep", expression);
     }
     
-    /****************************************** REACHABILITY FACT ***************************************/
-    
-    void createReachabilityFact(DashModule module) {
-        List<Decl> decls = new ArrayList<Decl>();
-        List<ExprVar> a = new ArrayList<ExprVar>();
-        
-        Expr snapshot = ExprVar.make(null, "Snapshot");
-        Expr s = ExprVar.make(null, "s");
-        Expr reachabilityAxiomExpr = null; //This is the Reachability Axiom, all s : Snapshot | s in S .((Step.initial) <: * (Step.next_step) )
-        
-        Expr next = null;
-        Expr initFirst = null;
-        if (DashOptions.generateTraces) {
-        	next = ExprVar.make(null, "snapshot/next"); //next
-        	initFirst = ExprVar.make(null, "snapshot/first"); // ordering/first
-        }
-        else if(DashOptions.ctlModelChecking) {
-        	next = ExprVar.make(null, "ctl/ks_sigma"); //next
-        	initFirst = ExprVar.make(null, "ctl/ks_s0"); // ordering/first
-        }
-        else {
-        	ExprVar sInit = ExprVar.make(null, "s_init");
-        	Expr initSInit = ExprBadJoin.make(null, null, sInit, ExprVar.make(null, "init")); //s_init.init or init[s_init]
-        	next = ExprBinary.Op.JOIN.make(null, null, snapshot, ExprVar.make(null, "next")); //Snapshot.next
-        	Expr reflexiveClosure = ExprUnary.Op.RCLOSURE.make(null, next); // * (Snapshot.next)
-        	Expr domain = ExprBinary.Op.DOMAIN.make(null, null, sInit, reflexiveClosure); // (s_init <: * (next))
-        	Expr joinDomain = ExprBadJoin.make(null, null, snapshot, domain); // Snapshot.(s_init <: * (next))
-        	Expr sInDomain = ExprBinary.Op.IN.make(null, null, s, joinDomain); // s in Snapshot.(s_init <: * (next))
-        	Expr sInitAndSInDomain = ExprBinary.Op.AND.make(null, null, initSInit, sInDomain); // init[s_init] and s in (s_init <: * (next))
-        	a.add(sInit);
-        	decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s_init: Snapshot
-        	Expr someQt = ExprQt.Op.SOME.make(null, null, new ArrayList<Decl>(decls), sInitAndSInDomain); // some s: Snapshot | init[s_init] and s in (s_init <: * (next))
-        	a.clear();
-        	decls.clear();
-        	a.add((ExprVar) s);
-        	decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s: Snapshot
-        	Expr reachabilityAxiom = ExprQt.Op.ALL.make(null, null, new ArrayList<Decl>(decls), someQt); // all s: Snapshot | some s_init: Snapshot | init[s_init] and s in (s_init <: * (next))
-        	addPredicateAST(module, "reachabilityAxiom", null, null, null, null, reachabilityAxiom);
-        	return;
-        }
-     
-        Expr reflexiveClosure = ExprUnary.Op.RCLOSURE.make(null, next); // * (next)
-        Expr domain = ExprBinary.Op.DOMAIN.make(null, null, initFirst, reflexiveClosure); // (ordering/first <: * (next))
-        
-        Expr SJoinDomain = ExprBadJoin.make(null, null, snapshot, domain); // Snapshot. (ordering/first <: * (next))
-        Expr sInSJoinDomain = ExprBinary.Op.IN.make(null, null, s, SJoinDomain); // s in Snapshot. (ordering/first <: * (next))
-        
-        a.add((ExprVar) s);
-        decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s: Snapshot
-        reachabilityAxiomExpr = ExprQt.Op.ALL.make(null, null, new ArrayList<Decl>(decls), sInSJoinDomain); // all s: Snapshot | s in Snapshot. ((Step.initial) <: * (Step.next_step) )
-        module.addFact(null, "reachabilityFact", reachabilityAxiomExpr);
-    }
-    
     /****************************************** TRACES FACT ***************************************/
     
-    void createTracesFact(DashModule module) {
-        List<Decl> decls = new ArrayList<Decl>();
-        List<ExprVar> a = new ArrayList<ExprVar>();
-        Expr snapshot = ExprUnary.Op.ONE.make(null, ExprVar.make(null, "Snapshot"));
-        Expr s = ExprVar.make(null, "s");
-        a.add((ExprVar) s);
-        
-    	Expr expression = createInitCall(module, true); // init[first]
-    	
-    	Expr smallStep = DashHelper.createExprBadJoin(DashHelper.s(), "small_step");  //ExprBadJoin.make(null, null, s, ExprVar.make(null, "small_step")); //small_step[s]
-    	Expr sNext = DashHelper.createBinaryExpr(DashHelper.s(), ExprBinary.Op.JOIN, DashHelper.createExprVar("next")); //s.next
-    	smallStep = ExprBadJoin.make(null, null, sNext, smallStep); // small_step[s, s.next]
-    	Expr notSinLast = ExprUnary.Op.NOT.make(null, ExprBinary.Op.IN.make(null, null, s, ExprVar.make(null, "snapshot/last"))); // !(s in last)
-    	Expr implies = ExprBinary.Op.IMPLIES.make(null, null, notSinLast, smallStep); // !(s in last) => small_step[s, s.next]
-    	decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s: Snapshot
-    	Expr smallStepQuant = ExprQt.Op.ALL.make(null, null, decls, implies); // all s: Snapshot | !(s in last) => small_step[s, s.next]
-    	expression = ExprBinary.Op.AND.make(null, null, expression, smallStepQuant);
-    	decls.clear();
-    	
-        Expr iffLeft = ExprUnary.Op.NOT.make(null, ExprBadJoin.make(null, null, s, ExprVar.make(null, "stable"))); // ! stable[s] or s.stable = False
-        Expr iffRight = ExprUnary.Op.SOME.make(null, ExprBadJoin.make(null, null, s, ExprVar.make(null, "snapshot/next")));
-        Expr iffExpr = ExprBinary.Op.IMPLIES.make(null, null, iffLeft, iffRight);
-    	decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s: Snapshot
-        Expr quant = ExprQt.Op.ALL.make(null, null, decls, iffExpr); // all s: Snapshot | !stable[s] => some s.nextStep
-        a.clear();
-        decls.clear();
-        
-        if (module.stateHierarchy)
-        	expression = ExprBinary.Op.AND.make(null, null, expression, quant);
-        	
-        module.addFact(null, "traces", expression);
-    }
-    
     void createElectrumTracesFact(DashModule module) {
-        List<Decl> decls = new ArrayList<Decl>();
-        List<ExprVar> a = new ArrayList<ExprVar>();
-        Expr snapshot = ExprVar.make(null, "Snapshot");
-        ExprVar s = ExprVar.make(null, "s");
-        a.add(s);
-        decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s: Snapshot 
-        
     	Expr expression = createInitCall(module, true); // init[first]
-    	expression = ExprQt.Op.ONE.make(null, null, decls, expression);
 
-    	Expr smallStep = DashHelper.createExprBadJoin(s, "small_step"); //small_step[s]
-    	Expr alwaysSmallStep = ExprQt.Op.ALL.make(null, null, decls, smallStep);
-    	alwaysSmallStep = DashHelper.createUnaryExpr(ExprUnary.Op.ALWAYS, alwaysSmallStep);
+    	Expr smallStep = DashHelper.createExprVar("small_step"); //small_step[s]
+    	Expr alwaysSmallStep = DashHelper.createUnaryExpr(ExprUnary.Op.ALWAYS, smallStep);
     	
     	expression = DashHelper.createBinaryExpr(expression, ExprBinary.Op.AND, alwaysSmallStep);
   
@@ -1650,54 +1301,13 @@ public class CoreDashToAlloy {
         	a.clear();
         }
         
-        Expr initCall = isTraces ? DashHelper.createExprBadJoin(DashHelper.createExprVar("snapshot/first"), DashHelper.createExprVar("init")) : DashHelper.createExprBadJoin(DashHelper.createExprVar("s"), DashHelper.createExprVar("init"));
-        initCall = DashOptions.isElectrum ? DashHelper.createExprBadJoin(DashHelper.createExprVar("s"), DashHelper.createExprVar("init")) : initCall;
+        Expr initCall =  DashHelper.createExprVar("init");
         initCall = DashHelper.addParametersJoin(initCall, module.identifiers.size());
-        Expr quant = (module.identifiers.size() == 0) ? initCall : ExprQt.Op.ALL.make(null, null, decls, initCall);
+        initCall = ExprQt.Op.ALL.make(null, null, decls, initCall);
         
-    	return quant;
+    	return initCall;
     }
     
-    
-    /*************************** CTL MODULE FACT FUNCION ******************************/
-    
-    void createCTLFact(DashModule module) {
-    	// Creating the following expression:     
-        //	all s, s_next | small_step[s, s_next] => s->s_next = ks_sigma
-        //	Step.initial = ks_s0
-    	
-        List<Decl> decls = new ArrayList<Decl>();
-        List<ExprVar> a = new ArrayList<ExprVar>();
-        ExprVar s = ExprVar.make(null, "s");
-        ExprVar sNext = ExprVar.make(null, "s_next");
-        Expr snapshot = ExprVar.make(null, "Snapshot");
-        Expr expression = null; //This is the final expression to be stored in the Fact AST
-        a.add(s);
-        a.add(sNext);
-        decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s, s_next: Snapshot 
-        
-        Expr smallStepCall = ExprBadJoin.make(null, null, s, ExprVar.make(null, "small_step"));//s_next.small_step
-        smallStepCall = ExprBadJoin.make(null, null, sNext, smallStepCall); //s.s_next.small_step
-        Expr arrow = ExprBinary.Op.ARROW.make(null, null, s, sNext); // s->s_next
-        Expr sSNextInSigma = ExprBinary.Op.IN.make(null, null, arrow, ExprVar.make(null, "ks_sigma")); // s->s_next = ks_sigma
-        Expr implesEqualsSigma = ExprBinary.Op.IFF.make(null, null, sSNextInSigma, smallStepCall); // ->s_next = ks_sigma iff small_step[s, s_next]
-        expression = ExprQt.Op.ALL.make(null, null, decls, implesEqualsSigma);
-        a.clear();
-        decls.clear();
-        
-        /*
-         * Creating the following expression: all s: Snapshot | s in ks_s0 iff init[s]
-         */
-        a.add((ExprVar) s);
-        decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s: Snapshot
-        Expr initCall = createInitCall(module, false);
-        Expr rightQT = ExprBinary.Op.IFF.make(null, null, ExprBinary.Op.IN.make(null, null, s, ExprVar.make(null, "ks_s0")), initCall);
-        expression = ExprBinary.Op.AND.make(null, null, ExprQt.Op.ALL.make(null, null, new ArrayList<Decl>(decls), rightQT), expression); //all s: Snapshot | s in ks_s0 iff init[s]
-        a.clear();
-        decls.clear();
-        
-        module.addFact(null, "tcmc", expression);
-    }
     
     /*************************************** KEEPING VARIABLES UNCHANGED ***************************************/
   
@@ -1729,11 +1339,11 @@ public class CoreDashToAlloy {
         }    
         
         //Expr binaryLeft = ExprBadJoin.make(null, null, ExprVar.make(null, "s_next"), ExprVar.make(null, var)); 
-        Expr binaryLeft = DashOptions.isElectrum ? DashHelper.sVarPrimed(var) : DashHelper.createExprBadJoin(DashHelper.sNext(), DashHelper.createExprVar(var));
+        Expr binaryLeft = DashHelper.varPrimed(var);
         for (int i = 0; i < varParent.getIdentifiers().size(); i++) {
         	binaryLeft = ExprBadJoin.make(null, null, ExprVar.make(null, "ie" + i), binaryLeft); 
         }
-        Expr binaryRight = ExprBadJoin.make(null, null, ExprVar.make(null, "s"), ExprVar.make(null, var)); //quant.(s_next).var
+        Expr binaryRight = DashHelper.createExprVar(var); //quant.(s_next).var
         for (int i = 0; i < varParent.getIdentifiers().size(); i++) {
         	binaryRight = ExprBadJoin.make(null, null, ExprVar.make(null, "ie" + i), binaryRight); 
         }
@@ -1751,9 +1361,9 @@ public class CoreDashToAlloy {
      */
     private Expr createUnchangedVariableAST(String var, DashConcState varConcState, DashConcState transConcState) {
         //Expr binaryLeft = ExprBadJoin.make(null, null, ExprVar.make(null, "s_next"), ExprVar.make(null, var)); //s_next.variableParent_varName
-    	Expr binaryLeft = DashOptions.isElectrum ? DashHelper.sVarPrimed(var) : DashHelper.createExprBadJoin(DashHelper.sNext(), DashHelper.createExprVar(var));
-        Expr binaryRight = ExprBadJoin.make(null, null, ExprVar.make(null, "s"), ExprVar.make(null, var)); //s_next.variableParent_varName
-        Expr binaryEquals = ExprBinary.Op.EQUALS.make(null, null, binaryLeft, binaryRight);
+    	Expr binaryLeft = DashHelper.varPrimed(var);
+        Expr binaryRight = DashHelper.createExprVar(var); //s_next.variableParent_varName
+        Expr binaryEquals = DashHelper.createBinaryExpr(binaryLeft, ExprBinary.Op.EQUALS, binaryRight);
 
     	return binaryEquals;
     }
@@ -2016,7 +1626,7 @@ public class CoreDashToAlloy {
         if (paramBuffer.size() > 0) {
         	right = ExprBadJoin.make(null, null, left, right); //(pid.s.bufferName).add
         	Expr bufferName = DashHelper.createExprVar(paramBuffer.keySet().stream().findFirst().get());
-        	Expr sNextJoinBuffer = DashOptions.isElectrum ? DashHelper.sVarPrimed(bufferName) : DashHelper.sNextVar(bufferName); //s_next.bufferName
+        	Expr sNextJoinBuffer = DashHelper.varPrimed(bufferName); //s_next.bufferName
         	left = ExprBadJoin.make(null, null, paramBuffer.get(paramBuffer.keySet().stream().findFirst().get()), sNextJoinBuffer); //(pid.s_next.bufferName)
             paramBuffer.clear();
         }  
@@ -2172,42 +1782,40 @@ public class CoreDashToAlloy {
             	if (!isRef) {
             		changedLocalVars.put(qualifiedVarName, parent);
             		Expr variable = DashHelper.createExprVar(qualifiedVarName);
-            		Expr sNextVar = DashOptions.isElectrum ? DashHelper.sVarPrimed(variable) : DashHelper.createBinaryExpr(DashHelper.sNext(), ExprBinary.Op.JOIN, variable);
-            		sNextVar= DashHelper.addParametersJoin(sNextVar, parent.getIdentifiers().size());
+            		Expr sNextVar = parent.getIdentifiers().size() == 0 ? DashHelper.createExprBadJoin("Variables", DashHelper.varPrimed(variable)) : DashHelper.varPrimed(variable);
+            		sNextVar = DashHelper.addParametersJoin(sNextVar, parent.getIdentifiers().size());
             		return sNextVar;
             	}
             	else {
             		changedRefVars.add(qualifiedVarName);
             		Expr variable = DashHelper.createExprVar(qualifiedVarName);
-            		Expr sNextVar = DashOptions.isElectrum ? DashHelper.sVarPrimed(variable) : DashHelper.createBinaryExpr(DashHelper.sNext(), ExprBinary.Op.JOIN, variable);
+            		Expr sNextVar = parent.getIdentifiers().size() == 0 ? DashHelper.createExprBadJoin("Variables", DashHelper.varPrimed(variable)) : DashHelper.varPrimed(variable);
             		return sNextVar;
             	}
             }
             else if (expr.toString().equals(var)) {
             	if (isCreatingEnabledAfterPred && isEnvVar) {
-            		return DashHelper.createExprBadJoin(DashHelper._s(), qualifiedVarName);
+            		return parent.getIdentifiers().size() == 0 ? DashHelper.createExprBadJoin("Variables", DashHelper.createExprVar(qualifiedVarName)) : DashHelper.createExprVar(qualifiedVarName);
             	}
-            	else if (isCreatingEnabledAfterPred && DashOptions.isElectrum && !isRef) {
+            	else if (isCreatingEnabledAfterPred && !isRef) {
         			Expr variable = DashHelper.createExprVar(qualifiedVarName);
-        			Expr sVarPrimed = DashHelper.sVarPrimed(variable);
+        			Expr sVarPrimed = parent.getIdentifiers().size() == 0 ? DashHelper.createExprBadJoin("Variables", DashHelper.varPrimed(variable)) : DashHelper.varPrimed(variable);
         			sVarPrimed = DashHelper.addParametersJoin(sVarPrimed, parent.getIdentifiers().size());
         			return sVarPrimed;
             	}
              	else {
             		if (!isRef && (isCreatingInit) && (!isCreatingExprQt) && parent.getIdentifiers().size() > 0) {
-            			Expr variable = DashHelper.createExprVar(qualifiedVarName);
-	                	Expr sVar =  DashHelper.createBinaryExpr(DashHelper.s(), ExprBinary.Op.JOIN, variable);
-	                	Expr idSVar = DashHelper.addParametersJoin(sVar, parent.getIdentifiers().size());;
-	                	return idSVar;
+            			Expr variable = parent.getIdentifiers().size() == 0 ? DashHelper.createExprBadJoin("Variables", DashHelper.createExprVar(qualifiedVarName)) : DashHelper.createExprVar(qualifiedVarName);
+            			variable = DashHelper.addParametersJoin(variable, parent.getIdentifiers().size());
+	                	return variable;
             		}
             		else if (!isRef && !(isCreatingInit && isCreatingExprQt)) { // No need to DotJoin the "p0" expr if it is a reference to another parameterized concurrent state
-            			Expr variable = DashHelper.createExprVar(qualifiedVarName);
-	                	Expr sVar =  DashHelper.createBinaryExpr(DashHelper.s(), ExprBinary.Op.JOIN, variable);
-	                	sVar= DashHelper.addParametersJoin(sVar, parent.getIdentifiers().size());
-	                	return sVar;
+            			Expr variable = parent.getIdentifiers().size() == 0 ? DashHelper.createExprBadJoin("Variables", DashHelper.createExprVar(qualifiedVarName)) : DashHelper.createExprVar(qualifiedVarName);
+            			variable = DashHelper.addParametersJoin(variable, parent.getIdentifiers().size());
+	                	return variable;
                 	}
                 	else {
-                		return ExprBadJoin.make(null, null, ExprVar.make(null, "s"), ExprVar.make(null, parent.getFullyQualName() + '_' + var));
+                		return parent.getIdentifiers().size() == 0 ? DashHelper.createExprBadJoin("Variables", DashHelper.createExprVar(qualifiedVarName)) : DashHelper.createExprVar(qualifiedVarName);
                 	}
             	}
             }
@@ -2221,8 +1829,8 @@ public class CoreDashToAlloy {
     //(s_next.buffer_name).(s.buffer_name).add or (id.s_next.buffer_name).(id.s.buffer_name).add.since the call to add is: add[buffer, buffer', p]
     // This gets confusing!
     private void manageBufferCall(Expr left, Expr right, DashModule module, DashConcState parent) {
-    	//System.out.println("\nLeft: " + left + " Right: " + right);
     	ExprBadJoin joinLeft = null;
+    	//System.out.println("\nLeft: " + left + " Right: " + right);
         if (left instanceof ExprBadJoin) {
         	 joinLeft = (ExprBadJoin) left;
         	 joinLeft = (ExprBadJoin) breakdownBufferCall(joinLeft, parent);
@@ -2247,27 +1855,29 @@ public class CoreDashToAlloy {
         		 }
         	 }
         	 // Handles cases in which a parametererized conc state makes the following call: (p.bufferName).remove [a buffer call with no parameters such as remove]
-        	 if (bufferCommands.contains(right.toString()) && (joinLeft.right instanceof ExprBinary && joinLeft.left instanceof ExprVar)) {
-        		 ExprBinary joinLeftRight = (ExprBinary) joinLeft.right;
-        		 if (module.buffers.containsKey(joinLeftRight.right.toString()) && bufferCommands.contains(right.toString())) {
-        			 System.out.println("ChangingBuffer2: " + joinLeftRight.right.toString() + " Left: " + joinLeft + " Command: " + right.toString());
-        			 paramBuffer.put(joinLeftRight.right.toString(), joinLeft.left);
-        			 changedVars.put(joinLeftRight.right.toString(), module.buffers.get(joinLeftRight.right.toString()));
-        			 changedLocalVars.put(joinLeftRight.right.toString(), module.buffers.get(joinLeftRight.right.toString()));
-        			 if (module.buffers.get(joinLeftRight.right.toString()).isParameterized()) {
-        				 localBufferChanged.put(joinLeftRight.right.toString(), joinLeft.left);
+        	 if (bufferCommands.contains(right.toString()) && (joinLeft.right instanceof ExprVar && joinLeft.left instanceof ExprVar)) {
+        		 ExprVar joinLeftRight = (ExprVar) joinLeft.right;
+        		 if (module.buffers.containsKey(joinLeftRight.toString()) && bufferCommands.contains(right.toString())) {
+        			 System.out.println("ChangingBuffer2: " + joinLeftRight.toString() + " Left: " + joinLeft + " Command: " + right.toString());
+        			 paramBuffer.put(joinLeftRight.toString(), joinLeft.left);
+        			 changedVars.put(joinLeftRight.toString(), module.buffers.get(joinLeftRight.toString()));
+        			 changedLocalVars.put(joinLeftRight.toString(), module.buffers.get(joinLeftRight.toString()));
+        			 if (module.buffers.get(joinLeftRight.toString()).isParameterized()) {
+        				 localBufferChanged.put(joinLeftRight.toString(), joinLeft.left);
         			 }
         		 }
         	 }
         	 // Handles cases in which a parametererized conc state makes the following call: ConcState[buffer1.first]/buffer0.add[pid]
-        	 if (bufferCommands.contains(right.toString()) && (joinLeft.right instanceof ExprBadJoin && joinLeft.left instanceof ExprBadJoin)) {
-        		 ExprBadJoin joinLeftRight = (ExprBadJoin) joinLeft.right;
-        		 if (module.buffers.containsKey(joinLeftRight.right.toString()) && bufferCommands.contains(right.toString())) {
-        			 System.out.println("Changing3: " + joinLeftRight.right.toString() + " Left: " + joinLeft.left + " Command: " + right.toString());
-        			 paramBuffer.put(joinLeftRight.right.toString(), joinLeft.left);
-        			 changedVars.put(joinLeftRight.right.toString(), module.buffers.get(joinLeftRight.right.toString()));
-        			 if (module.buffers.get(joinLeftRight.right.toString()).isParameterized()) {
-        				 localBufferChanged.put(joinLeftRight.right.toString(), joinLeft.left);
+        	 //System.out.println("JoinLeft Right Type: " + joinLeft.right.getClass().getCanonicalName() + " JoineLeft Left Type: " + joinLeft.left.getClass().getCanonicalName());
+        	 if (bufferCommands.contains(right.toString()) && (joinLeft.right instanceof ExprVar && joinLeft.left instanceof ExprBadJoin)) {
+        		 ExprVar joinLeftRight = (ExprVar) joinLeft.right;
+        		 //System.out.println("joinLeftRight: " + joinLeftRight + " Right: " + right.toString());
+        		 if (module.buffers.containsKey(joinLeftRight.toString()) && bufferCommands.contains(right.toString())) {
+        			 System.out.println("Changing3: " + joinLeftRight.toString() + " Left: " + joinLeft.left + " Command: " + right.toString());
+        			 paramBuffer.put(joinLeftRight.toString(), joinLeft.left);
+        			 changedVars.put(joinLeftRight.toString(), module.buffers.get(joinLeftRight.toString()));
+        			 if (module.buffers.get(joinLeftRight.toString()).isParameterized()) {
+        				 localBufferChanged.put(joinLeftRight.toString(), joinLeft.left);
         			 }
         		 }
         	 }
@@ -2287,88 +1897,7 @@ public class CoreDashToAlloy {
     	return joinLeft;
     }
 
-    
-    /*************************** SINGLE STEP FACT FUNCTION ******************************/
-    
-    /* Create the single input assumption */
-    void createSingleStepFact(DashModule module)
-    {
-        // Creating the following expression: all s: Snapshot | lone (s.events & EnvironmentEvent)
-    	
-        List<Decl> decls = new ArrayList<Decl>();
-        List<ExprVar> a = new ArrayList<ExprVar>();
-        
-        Expr snapshot = ExprUnary.Op.ONE.make(null, ExprVar.make(null, "Snapshot"));
-        Expr s = ExprVar.make(null, "s");
-        Expr expression = null; //This is the final expression to be stored in the Fact AST
-        
-        /* Creating the following expression: lone (s.events & EnvironmentEvent) */
-        Expr rightQT = null;
-        Expr join = ExprBadJoin.make(null, null, s, ExprVar.make(null, "events")); // s.events
-        Expr rightBinary = ExprBinary.Op.INTERSECT.make(null, null, join, ExprVar.make(null, "EnvironmentEvent")); // s_next.events & InternalEvent
-        rightQT = ExprUnary.Op.LONE.make(null, rightBinary); // no (s_next.events & InternalEvent)
-        
-        /* Creating the following expression: all s: Snapshot | lone (s.events & EnvironmentEvent) */
-        a.add((ExprVar) s);
-        decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s: Snapshot
-        expression = ExprQt.Op.ALL.make(null, null, new ArrayList<Decl>(decls), rightQT); //all s: Snapshot | lone (s.events & EnvironmentEvent)
-        
-        module.addFact(null, "", expression);
-    }
-    
-    /*************************** SIGNIFICANCE AXIOM FUNCIONS ******************************/
-    
-    void createSignificanceAxiomAST(DashModule module)
-    {
-        List<Decl> decls = new ArrayList<Decl>();
-        List<ExprVar> a = new ArrayList<ExprVar>();
-        
-        Expr snapshot = ExprVar.make(null, "Snapshot");
-        Expr s = ExprVar.make(null, "s");
-        Expr reachabilityAxiomExpr = null; //This is the Reachability Axiom, all s : Snapshot | s in S .((Step.initial) <: * (Step.next_step) )
-        
-        Expr next = null;
-        Expr initFirst = null;
-        if (DashOptions.generateTraces) {
-        	next = ExprVar.make(null, "snapshot/next"); //next
-        	initFirst = ExprVar.make(null, "snapshot/first"); // ordering/first
-        }
-        else if(DashOptions.ctlModelChecking) {
-        	next = ExprVar.make(null, "ctl/ks_sigma"); //next
-        	initFirst = ExprVar.make(null, "ctl/ks_s0"); // ordering/first
-        }
-        else {
-        	ExprVar sInit = ExprVar.make(null, "s_init");
-        	Expr initSInit = ExprBadJoin.make(null, null, sInit, ExprVar.make(null, "init")); //s_init.init or init[s_init]
-        	next = ExprBinary.Op.JOIN.make(null, null, snapshot, ExprVar.make(null, "next")); //Snapshot.next
-        	Expr reflexiveClosure = ExprUnary.Op.RCLOSURE.make(null, next); // * (Snapshot.next)
-        	Expr domain = ExprBinary.Op.DOMAIN.make(null, null, sInit, reflexiveClosure); // (s_init <: * (next))
-        	Expr joinDomain = ExprBadJoin.make(null, null, snapshot, domain); // Snapshot.(s_init <: * (next))
-        	Expr sInDomain = ExprBinary.Op.IN.make(null, null, s, joinDomain); // s in Snapshot.(s_init <: * (next))
-        	Expr sInitAndSInDomain = ExprBinary.Op.AND.make(null, null, initSInit, sInDomain); // init[s_init] and s in (s_init <: * (next))
-        	a.add(sInit);
-        	decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s_init: Snapshot
-        	Expr someQt = ExprQt.Op.SOME.make(null, null, new ArrayList<Decl>(decls), sInitAndSInDomain); // some s: Snapshot | init[s_init] and s in (s_init <: * (next))
-        	a.clear();
-        	decls.clear();
-        	a.add((ExprVar) s);
-        	decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s: Snapshot
-        	Expr reachabilityAxiom = ExprQt.Op.ALL.make(null, null, new ArrayList<Decl>(decls), someQt); // all s: Snapshot | some s_init: Snapshot | init[s_init] and s in (s_init <: * (next))
-        	addPredicateAST(module, "reachabilityAxiom", null, null, null, null, reachabilityAxiom);
-        	return;
-        }
-     
-        Expr reflexiveClosure = ExprUnary.Op.RCLOSURE.make(null, next); // * (next)
-        Expr domain = ExprBinary.Op.DOMAIN.make(null, null, initFirst, reflexiveClosure); // (ordering/first <: * (next))
-        
-        Expr SJoinDomain = ExprBadJoin.make(null, null, snapshot, domain); // Snapshot. (ordering/first <: * (next))
-        Expr sInSJoinDomain = ExprBinary.Op.IN.make(null, null, s, SJoinDomain); // s in Snapshot. (ordering/first <: * (next))
-        
-        a.add((ExprVar) s);
-        decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s: Snapshot
-        reachabilityAxiomExpr = ExprQt.Op.ALL.make(null, null, new ArrayList<Decl>(decls), sInSJoinDomain); // all s: Snapshot | s in Snapshot. ((Step.initial) <: * (Step.next_step) )
-        addPredicateAST(module, "reachabilityAxiom", null, null, null, null, reachabilityAxiomExpr);
-    }
+    /*************************** OPEATIONS AXIOM ******************************/  
     
     void createOperationsAxiomAST(DashModule module)
     {
@@ -2396,7 +1925,7 @@ public class CoreDashToAlloy {
         		expression = ExprBinary.Op.AND.make(null, null, expression, quantified);
         }
         
-        addPredicateAST(module, "operationsAxiom", null, null, null, null, expression);
+        //addPredicateAST(module, "operationsAxiom", null, null, null, null, expression);
     }
     
     /*************************** HELPER FUNCTIONS ******************************/
@@ -2488,17 +2017,7 @@ public class CoreDashToAlloy {
     		}
     	}
     	return i;
-    }
-    
-    /* Get all the events declared within a concurrent state */
-    private List<String> getEvents(DashConcState concState)
-    {
-    	List<String> events = new ArrayList<String>();
-    	for (DashEvent event: concState.getEvents()) {
-    		events.add(event.getRawName());
-    	}
-    	return events;
-    }
+    } 
     
     private List<DashState> getInnerStates (DashState state)
     {
@@ -2533,7 +2052,7 @@ public class CoreDashToAlloy {
     	for(DashState state: module.states.values()) {
     		for(DashEnter enter: state.getEnters()) {
     			expr = getVarFromParentExpr(enter.expr, getParentConcState(state.getParent()), module);
-    			addPredicateAST(module, "enter_" + state.getFullyQualName(), "s", null, null, null, expr);
+    			//addPredicateAST(module, "enter_" + state.getFullyQualName(), "s", null, null, null, expr);
     		}
     	}
     }
@@ -2543,7 +2062,7 @@ public class CoreDashToAlloy {
     	for(DashState state: module.states.values()) {
     		for(DashExit exit: state.getExits()) {
     			expr = getVarFromParentExpr(exit.expr, getParentConcState(state.getParent()), module);
-    			addPredicateAST(module, "exit_" + state.getFullyQualName(), "s", null, null, null, expr);
+    			//addPredicateAST(module, "exit_" + state.getFullyQualName(), "s", null, null, null, expr);
     		}
     	}
     }
@@ -2598,11 +2117,9 @@ public class CoreDashToAlloy {
     /***************************** CREATING INVARIANT FACT *******************************/
     
     private void createInvariantFact(DashModule module) {
-    	isCreatingInvariant = true;
     	for(DashInvariant invar: module.invariants.values()) {
     		addInvariantFact(invar, module);
     	}
-    	isCreatingInvariant = false;
     }
 
     private void addInvariantFact(DashInvariant invar, DashModule module) {
@@ -2737,4 +2254,31 @@ public class CoreDashToAlloy {
         Command newcommand = new Command(pos, name, labelName, check, overall, bitwidth, seq, tmn, tmx, exp, scopes, null, name, parent);
         return newcommand;
     }
+    
+	public Expr constraintEquals(String type, int conf, DashModule module) {
+		Expr equals = null;
+		for (int key: module.confTuples) {
+			if (key == conf) {
+				continue;
+			}
+			Expr sRight = DashHelper.createExprVar(type + key); 
+			Expr sNextLeft = DashHelper.varPrimed(type + key);
+			Expr equal = DashHelper.createBinaryExpr(sNextLeft, ExprBinary.Op.EQUALS, sRight);
+			equals = equals == null ? equal : DashHelper.createBinaryExpr(equals, ExprBinary.Op.AND, equal);
+		}
+		return equals;
+	}
+	
+	public Expr noTakenSemanticsConstraints(String type, int taken, DashModule module) {
+		Expr equals = null;
+		for (int key: module.confTuples) {
+			if (key == taken) {
+				continue;
+			}
+			Expr sNextTaken =  DashHelper.varPrimed(type + key);
+			Expr noSNextTaken = DashHelper.createUnaryExpr(ExprUnary.Op.NO, sNextTaken);
+			equals = equals == null ? noSNextTaken : DashHelper.createBinaryExpr(equals, ExprBinary.Op.AND, noSNextTaken);
+		}
+		return equals;
+	}
 }
