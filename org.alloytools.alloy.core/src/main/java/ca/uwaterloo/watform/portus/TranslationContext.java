@@ -3,15 +3,14 @@ package ca.uwaterloo.watform.portus;
 import edu.mit.csail.sdg.alloy4.Env;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.ast.Expr;
+import edu.mit.csail.sdg.ast.ExprCall;
+import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.translator.ScopeComputer;
-import fortress.modelfind.IntegerSemantics;
 import fortress.modelfind.ModelFinder;
 import fortress.msfol.AnnotatedVar;
 import fortress.msfol.FuncDecl;
-import fortress.msfol.Sort;
 import fortress.msfol.Term;
 import fortress.msfol.Theory;
-import fortress.msfol.Var;
 
 /**
  * Represents the translation environment for a certain expression, including the
@@ -28,12 +27,12 @@ final class TranslationContext {
         private final Expr expr;
 
         /** The mapping of Alloy variable names to Fortress vars/lets at the place this "let" appears. */
-        private final Env<String, Either<Var, LetContext>> savedVarMapping;
+        private final Env<String, Either<AnnotatedVar, LetContext>> savedVarMapping;
 
         /** The old Alloy variable name to Fortress var/let mapping when using useLetMapping(). */
-        private Env<String, Either<Var, LetContext>> oldMapping = null;
+        private Env<String, Either<AnnotatedVar, LetContext>> oldMapping = null;
 
-        private LetContext(Expr expr, Env<String, Either<Var, LetContext>> alloyVarMapping) {
+        private LetContext(Expr expr, Env<String, Either<AnnotatedVar, LetContext>> alloyVarMapping) {
             this.expr = expr;
             this.savedVarMapping = alloyVarMapping;
         }
@@ -75,11 +74,11 @@ final class TranslationContext {
     // Calculates the scopes for each signature.
     public final ScopeComputer scoper;
 
-    // The single universal sort.
-    public final Sort univSort = Sort.mkSortConst("univ");
+    // The policy for how we should assign Alloy sigs to Fortress sorts.
+    public final SortPolicy sortPolicy;
 
     // The current theory. Mutable.
-    private Theory theory = Theory.empty().withSort(univSort);
+    private Theory theory;
 
     // The scope needed for the universal sort.
     // This should be the sum of the scopes of all top-level sorts.
@@ -88,12 +87,14 @@ final class TranslationContext {
     // The current lexical scope's mapping from Alloy variable labels to either
     // Fortress Vars or Alloy expressions as used in the "let x = e | ..." construct.
     // We use a single Env so these types of mappings can shadow each other.
-    private Env<String, Either<Var, LetContext>> alloyVarMapping;
+    private Env<String, Either<AnnotatedVar, LetContext>> alloyVarMapping;
 
-    public TranslationContext(FortressOptions options, ScopeComputer scoper) {
+    public TranslationContext(FortressOptions options, ScopeComputer scoper, SortPolicy sortPolicy) {
         this.options = options;
         this.scoper = scoper;
+        this.sortPolicy = sortPolicy;
         this.alloyVarMapping = new Env<>();
+        this.theory = sortPolicy.addSortsToTheory(Theory.empty());
     }
 
     // Copy constructor: copy the context so changes to the new context don't affect the original.
@@ -102,20 +103,8 @@ final class TranslationContext {
         this.scoper = context.scoper;
         this.theory = context.theory; // theory is immutable
         this.totalScope = context.totalScope;
+        this.sortPolicy = context.sortPolicy;
         this.alloyVarMapping = context.alloyVarMapping.dup();
-    }
-
-    // Add to the total scope needed for the universal sort.
-    // This should be called for each top-level sig.
-    public void addToUnivScope(int scope) {
-        totalScope += scope;
-    }
-
-    /**
-     * Get the total scope needed for the universal sort.
-     */
-    public int getUnivScope() {
-        return totalScope;
     }
 
     /**
@@ -149,7 +138,7 @@ final class TranslationContext {
      * The mapping should be valid for the current lexical scope and be removed at the end
      * of the scope with {@link #removeMapping(String)}.
      */
-    public void addVarMapping(String alloyVarName, Var fortressVar) {
+    public void addVarMapping(String alloyVarName, AnnotatedVar fortressVar) {
         alloyVarMapping.put(alloyVarName, Either.asFirst(fortressVar));
     }
 
@@ -165,7 +154,7 @@ final class TranslationContext {
      * Get the Fortress variable associated with an Alloy variable name in the
      * current lexical scope. Return null if there's no such associated variable.
      */
-    public Var getVarMapping(String alloyVarName) {
+    public AnnotatedVar getVarMapping(String alloyVarName) {
         if (hasVarMapping(alloyVarName)) {
             return alloyVarMapping.get(alloyVarName).getFirst();
         }
@@ -208,13 +197,32 @@ final class TranslationContext {
         alloyVarMapping.remove(alloyVarName);
     }
 
+    /**
+     * A helper to add let mappings for all the variables in an ExprCall.
+     */
+    public void addLetMappingsFromCall(ExprCall call) {
+        for (int i = 0; i < call.fun.count(); i++) {
+            Expr arg = call.args.get(i);
+            ExprVar param = call.fun.get(i);
+            addLetMapping(param.label, arg);
+        }
+    }
+
+    /**
+     * A helper to remove the let mappings for all the variables in an ExprCall,
+     * as previously added by {@link #addLetMappingsFromCall(ExprCall)}.
+     */
+    public void removeLetMappingsFromCall(ExprCall call) {
+        for (int i = 0; i < call.fun.count(); i++) {
+            ExprVar param = call.fun.get(i);
+            removeMapping(param.label);
+        }
+    }
+
     /** Configure a model finder's theory and scopes to check this translation. */
     public void configureModelFinder(ModelFinder finder) {
         finder.setTheory(theory);
-        // Make sure the sort is non-empty, even if there are no sigs in the model
-        finder.setAnalysisScope(univSort, Math.max(totalScope, 1));
-        // TODO - allow configuring modular vs unbounded ints
-        finder.setAnalysisScope(Sort.Int(), scoper.getBitwidth());
+        sortPolicy.configureModelFinderScopes(finder);
     }
 
     /**

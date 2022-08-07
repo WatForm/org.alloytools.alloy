@@ -1,7 +1,6 @@
 package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.A4Reporter;
-import edu.mit.csail.sdg.alloy4.ConstList;
 import edu.mit.csail.sdg.alloy4.Err;
 import edu.mit.csail.sdg.alloy4.ErrorAPI;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
@@ -18,11 +17,11 @@ import edu.mit.csail.sdg.translator.A4SolutionWriter;
 import edu.mit.csail.sdg.translator.A4TupleSet;
 import edu.mit.csail.sdg.translator.AlloySolution;
 import fortress.interpretation.Interpretation;
+import fortress.msfol.AnnotatedVar;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
 import fortress.msfol.Theory;
 import fortress.msfol.Value;
-import fortress.msfol.Var;
 import fortress.operations.InterpretationVerifier;
 import kodkod.instance.Tuple;
 import kodkod.instance.TupleFactory;
@@ -76,11 +75,19 @@ public final class FortressSolution implements AlloySolution {
 
         if (interpretation != null) {
             // Generate Alloy atoms (ExprVars) for each Fortress atom
-            // TODO - handle integers
-            List<Value> fortressAtoms = interpretation.sortInterpretationsJava().get(context.univSort);
-            for (Value atom : fortressAtoms) {
-                ExprVar alloyAtom = ExprVar.make(null, atom.toString());
-                fortressToAlloyAtoms.put(atom, alloyAtom);
+            Map<Sort, List<Value>> sortInterpretations = interpretation.sortInterpretationsJava();
+            List<Value> fortressAtoms = new ArrayList<>();
+            for (Sort sort : sortInterpretations.keySet()) {
+                if (sort == Sort.Int()) {
+                    // ignore integers, they're generated automatically
+                    continue;
+                }
+                List<Value> sortAtoms = sortInterpretations.get(sort);
+                fortressAtoms.addAll(sortAtoms);
+                for (Value atom : sortAtoms) {
+                    ExprVar alloyAtom = ExprVar.make(null, atom.toString());
+                    fortressToAlloyAtoms.put(atom, alloyAtom);
+                }
             }
             this.universe = new Universe(fortressAtoms);
         } else {
@@ -211,7 +218,7 @@ public final class FortressSolution implements AlloySolution {
         Expr intExpr = expr.typecheck_as_int();
         if (intExpr.errors.isEmpty()) {
             // Integer - TODO integers
-            throw new ErrorAPI("Portus doesn't support integers yet, can't eval() int expression!");
+            throw new ErrorAPI("Can't eval() int expression!");
         }
 
         // It's a tuple set - manually evaluate {(x1,...,xn) : univ^n | [[(x1,...,xn) \in expr]]}
@@ -223,29 +230,28 @@ public final class FortressSolution implements AlloySolution {
             // (x1,...,xn) \in expr --> forall y1: X1. ... forall yn: Xn. (y1,...,yn) \in expr
             // where X1 = {x1}, ..., Xn = {xn}
             // TODO - make ExprElementOf take Values
-            List<Var> vars = tuple.stream()
-                    .map(value -> Term.mkVar("var_" + value))
+            List<AnnotatedVar> vars = tuple.stream()
+                    .map(value -> Term.mkVar("var_" + value).of(Sort.mkSortConst("Sort_" + value)))
                     .collect(Collectors.toList());
 
             // Translate [[(y1,...,yn) \in expr]] - copy the context to avoid any modifications
             TranslationContext contextCopy = new TranslationContext(context);
-            Expr inExpr = ExprElementOf.make(ConstList.make(vars), expr);
+            Expr inExpr = ExprElementOf.make(new VarTuple(vars), expr);
             Term formula = translator.translate(inExpr, contextCopy);
 
             // Add on the fake sorts (going backwards for elegance)
             Interpretation fakeSortInterp = interpretation;
             for (int i = 0; i < tuple.size(); i++) {
                 Value value = tuple.get(i);
-                Var var = vars.get(i);
+                AnnotatedVar var = vars.get(i);
 
-                // Make and add the fake sort
-                Sort fakeSort = Sort.mkSortConst("Sort_" + value);
+                // Add the fake sort
                 Seq<Value> fakeSortValue = CollectionConverters.asScala(
                         Collections.singletonList(value)).toList();
-                fakeSortInterp = fakeSortInterp.updateSortInterpretations(fakeSort, fakeSortValue);
+                fakeSortInterp = fakeSortInterp.updateSortInterpretations(var.sort(), fakeSortValue);
 
                 // Add the forall onto the formula
-                formula = Term.mkForall(var.of(fakeSort), formula);
+                formula = Term.mkForall(var, formula);
             }
 
             boolean inSet = evaluateFormula(formula, fakeSortInterp);

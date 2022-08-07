@@ -17,7 +17,7 @@ import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Func;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.parser.Macro;
-import fortress.msfol.Var;
+import fortress.msfol.AnnotatedVar;
 import org.hamcrest.Description;
 import org.hamcrest.TypeSafeMatcher;
 
@@ -213,11 +213,12 @@ public class AlloyASTMatcher extends TypeSafeMatcher<Expr> {
             ExprElementOf y = (ExprElementOf) testing;
             if (x.tuple.size() != y.tuple.size()) return false;
 
-            // check that each Fortress variable is alpha-equivalent
+            // check that each Fortress variable (and its sort) is alpha-equivalent
             for (int i = 0; i < x.tuple.size(); i++) {
-                Var xVar = x.tuple.get(i);
-                Var yVar = y.tuple.get(i);
-                if (!checkMapping(xVar.name(), yVar.name(), fortressVarMap)) {
+                AnnotatedVar xVar = x.tuple.getAnnotatedVar(i);
+                AnnotatedVar yVar = y.tuple.getAnnotatedVar(i);
+                if (!checkMapping(xVar.name(), yVar.name(), fortressVarMap)
+                    || !checkMapping(xVar.sort().name(), yVar.sort().name(), fortressVarMap)) {
                     return false;
                 }
             }

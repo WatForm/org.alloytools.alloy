@@ -19,7 +19,8 @@ public class TranslationContextTest {
     @Before
     public void setUp() {
         ScopeComputer scoper = mock(ScopeComputer.class);
-        context = new TranslationContext(new FortressOptions(), scoper);
+        SortPolicy sortPolicy = mock(SortPolicy.class);
+        context = new TranslationContext(new FortressOptions(), scoper, sortPolicy);
     }
 
     @Test

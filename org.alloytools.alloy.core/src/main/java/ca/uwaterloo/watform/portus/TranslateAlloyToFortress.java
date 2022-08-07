@@ -63,8 +63,11 @@ public final class TranslateAlloyToFortress implements CommandRunner {
     private AlloySolution executeCommand(
             PortusLogger logger, Iterable<Sig> sigs, Command command,
             ScopeComputer scoper, A4Options options) throws IOException {
+        // For now, always use the univ sort policy (in the future decide via sort options).
+        SortPolicy sortPolicy = new UnivSortPolicy(sigs, scoper);
+
         Translator translator = new TranslatorManager(options.fortressOptions);
-        TranslationContext context = new TranslationContext(options.fortressOptions, scoper);
+        TranslationContext context = new TranslationContext(options.fortressOptions, scoper, sortPolicy);
 
         // Do sigs first, then fields, then the formula.
         // We have to do fields after sigs because a field can refer to sigs that come after it.
@@ -171,7 +174,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
                 Paths.get(fortressFile.getAbsolutePath()),
                 Arrays.asList(
                         context.getTheory().toString(),
-                        "Scope of univ: " + context.getUnivScope(),
+                        // TODO: print out other scopes?
                         "Bitwidth: " + context.getBitwidth()),
                 Charset.defaultCharset());
         logger.outputFilename(fortressFile.getAbsolutePath());

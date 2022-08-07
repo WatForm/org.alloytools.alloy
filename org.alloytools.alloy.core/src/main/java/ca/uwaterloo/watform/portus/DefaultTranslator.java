@@ -1,6 +1,5 @@
 package ca.uwaterloo.watform.portus;
 
-import edu.mit.csail.sdg.alloy4.ConstList;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.alloy4.ErrorSyntax;
 import edu.mit.csail.sdg.alloy4.Pair;
@@ -17,7 +16,6 @@ import edu.mit.csail.sdg.ast.ExprQt;
 import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Sig;
-import edu.mit.csail.sdg.ast.Type;
 import fortress.msfol.AnnotatedVar;
 import fortress.msfol.DomainElement;
 import fortress.msfol.FuncDecl;
@@ -28,10 +26,10 @@ import fortress.msfol.Var;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -43,20 +41,22 @@ final class DefaultTranslator extends AbstractTranslator {
 
     // Membership predicates for each signature (see KT 4.2).
     // Represent it by a Java function taking "x" to "inA(x)".
-    private final Map<Sig, Function<Var, Term>> sigMemberPredicates = new HashMap<>();
+    // (For some arguments the function might not just return inA(x) - it could return Top or Bottom as opts.)
+    private final Map<Sig, Function<AnnotatedVar, Term>> sigMemberPredicates = new HashMap<>();
 
     // Relation predicates for each field (see KT 4.2).
     // Note: no function optimization yet/in this class.
     // Represent relations by a Java function taking "x1,...,xn" to "f(x1,...,xn)".
-    private final Map<Sig.Field, Function<List<Var>, Term>> relationPredicates = new HashMap<>();
+    // (Similarly, for some arguments the function might not return a call - it could return Top or Bottom as opts.)
+    private final Map<Sig.Field, Function<VarTuple, Term>> relationPredicates = new HashMap<>();
 
     // Names of the above relation predicates for easy access.
     private final Map<Sig.Field, String> relationPredicateNames = new HashMap<>();
 
-    // When "^expr" or "*expr" is translated, this "maps" expr to the name of an auxiliary function
-    // f(x,y) = [[(x,y) \in expr]], used in the translation.
+    // When "^expr" or "*expr" is translated, this "maps" expr and its sort to the name of an auxiliary function
+    // f_sort(x,y) = [[(x,y) \in expr]], used in the translation.
     // It's not a real map because Expr doesn't support equals()/hashCode() easily, and we can tolerate O(n) lookup.
-    private final List<Pair<Expr, String>> auxClosureRelationNames = new ArrayList<>();
+    private final List<Pair<Pair<Expr, Sort>, String>> auxClosureRelationNames = new ArrayList<>();
 
     public DefaultTranslator(Translator topLevelTranslator) {
         super(topLevelTranslator);
@@ -69,15 +69,18 @@ final class DefaultTranslator extends AbstractTranslator {
             throw new ErrorFatal("Internal error: seen sig " + sig.label + " before");
         }
 
-        // Make a new predicate for membership
+        // Make a new predicate for membership, inSig: S -> Bool where S is sig's corresponding sort
+        Sort sigSort = context.sortPolicy.getSort(sig);
         String memPredName = nameGenerator.freshName("in" + sig.label);
-        sigMemberPredicates.put(sig, var -> Term.mkApp(memPredName, var));
-        context.addFunctionDeclaration(FuncDecl.mkFuncDecl(memPredName, context.univSort, Sort.Bool()));
-
-        // For top-level sigs, allocate enough elements for it in the univ sort
-        if (sig.isTopLevel()) {
-            context.addToUnivScope(context.scoper.sig2scope(sig));
-        }
+        sigMemberPredicates.put(sig, var -> {
+            // TODO: if sig is the entire sort, don't bother with the predicate and just return Top
+            if (!var.sort().equals(sigSort)) {
+                // Any other sort is not in the signature!
+                return Term.mkBottom();
+            }
+            return Term.mkApp(memPredName, var.variable());
+        });
+        context.addFunctionDeclaration(FuncDecl.mkFuncDecl(memPredName, sigSort, Sort.Bool()));
 
         // Translate all its children so we can translate membership in them
         for (Sig.PrimSig child : sig.children()) {
@@ -151,26 +154,27 @@ final class DefaultTranslator extends AbstractTranslator {
 
     /** Create an axiom that the sig has an exact scope of `scope`. */
     private Term makeExactScopeAxiom(Sig sig, int scope, TranslationContext context) {
-        // Fortress: "exists x1, ..., xn: univ . forall x: univ . !(x1 = x2) && ...
+        // Fortress: "exists x1, ..., xn: sort . forall x: sort . !(x1 = x2) && ...
         // && !(x1 = xn) && !(x2 = x3) && ... && !(x{n-1} = xn) && ([[x \in sig]] <=> x = x1
         // || ... || x = xn)" (KT 4.3)
-        Var[] vars = new Var[scope];
-        for (int i = 0; i < vars.length; i++) {
-            vars[i] = Term.mkVar("x" + i);
+        List<AnnotatedVar> vars = new ArrayList<>(scope);
+        Sort sigSort = context.sortPolicy.getSort(sig);
+        for (int i = 0; i < scope; i++) {
+            vars.add(AnnotatedVar.apply(Term.mkVar("x" + i), sigSort));
         }
-        Var x = Term.mkVar("x");
+        AnnotatedVar x = AnnotatedVar.apply(Term.mkVar("x"), sigSort);
 
         // construct the !(xi = xj) conjuncts
         List<Term> conjuncts = new ArrayList<>();
-        for (int i = 0; i < vars.length; i++) {
-            for (int j = i+1; j < vars.length; j++) {
-                conjuncts.add(Term.mkNot(Term.mkEq(vars[i], vars[j])));
+        for (int i = 0; i < scope; i++) {
+            for (int j = i+1; j < scope; j++) {
+                conjuncts.add(Term.mkNot(Term.mkEq(vars.get(i).variable(), vars.get(j).variable())));
             }
         }
 
         // construct the x = xi disjuncts
-        List<Term> eqDisjuncts = Arrays.stream(vars)
-                .map(var -> Term.mkEq(x, var))
+        List<Term> eqDisjuncts = vars.stream()
+                .map(var -> Term.mkEq(x.variable(), var.variable()))
                 .collect(Collectors.toList());
 
         // construct the last conjunct
@@ -178,54 +182,51 @@ final class DefaultTranslator extends AbstractTranslator {
         Term implication = Term.mkIff(xInChild, Term.mkOr(eqDisjuncts));
         conjuncts.add(implication);
 
-        // construct the decls
-        List<AnnotatedVar> varDecls = Arrays.stream(vars)
-                .map(var -> var.of(context.univSort))
-                .collect(Collectors.toList());
-
         // construct the final axiom
-        return Term.mkExists(varDecls, Term.mkForall(x.of(context.univSort), Term.mkAnd(conjuncts)));
+        return Term.mkExists(vars, Term.mkForall(x, Term.mkAnd(conjuncts)));
     }
 
     /** Create an axiom that the sig has a non-exact scope of `scope`. */
     private Term makeNonExactScopeAxiom(Sig sig, int scope, TranslationContext context) {
-        // Fortress: "forall x1, ..., x{n+1}: univ . [[x1 \in child]] && ... && [[x{n+1} \in child]] =>
+        // Fortress: "forall x1, ..., x{n+1}: sort . [[x1 \in child]] && ... && [[x{n+1} \in child]] =>
         // x1 = x2 || .. || x1 = x{n+1} || x2 = x3 || ... || xn = x{n+1}" (KT 4.3)
-        Var[] vars = new Var[scope + 1];
-        for (int i = 0; i < vars.length; i++) {
-            vars[i] = Term.mkVar("x" + i);
+        int numVars = scope + 1;
+        List<AnnotatedVar> vars = new ArrayList<>(numVars);
+        Sort sigSort = context.sortPolicy.getSort(sig);
+        for (int i = 0; i < numVars; i++) {
+            vars.add(AnnotatedVar.apply(Term.mkVar("x" + i), sigSort));
         }
 
         // construct the conjuncts
-        List<Term> conjuncts = Arrays.stream(vars)
+        List<Term> conjuncts = vars.stream()
                 .map(var -> recursivelyTranslate(ExprElementOf.make(var, sig), context))
                 .collect(Collectors.toList());
         Term conjunction = Term.mkAnd(conjuncts);
 
         // construct the O(scope^2) disjuncts
         List<Term> disjuncts = new ArrayList<>();
-        for (int i = 0; i < vars.length; i++) {
-            for (int j = i+1; j < vars.length; j++) {
-                disjuncts.add(Term.mkEq(vars[i], vars[j]));
+        for (int i = 0; i < numVars; i++) {
+            for (int j = i+1; j < numVars; j++) {
+                disjuncts.add(Term.mkEq(vars.get(i).variable(), vars.get(j).variable()));
             }
         }
         Term disjunction = Term.mkOr(disjuncts);
 
         // construct the forall and the final axiom
-        List<AnnotatedVar> decls = Arrays.stream(vars)
-                .map(var -> var.of(context.univSort))
-                .collect(Collectors.toList());
-        return Term.mkForall(decls, Term.mkImp(conjunction, disjunction));
+        return Term.mkForall(vars, Term.mkImp(conjunction, disjunction));
     }
 
     /** Translate "var \in sig". */
     @Override
-    public Term translate(Var var, Sig sig, TranslationContext context) {
+    public Term translate(AnnotatedVar var, Sig sig, TranslationContext context) {
         // Special cases: builtin sigs
         if (sig.builtin) {
             if (sig.equals(Sig.UNIV)) {
                 // "var \in univ" is always true
                 return Term.mkTop();
+            } else if (sig.equals(Sig.SIGINT)) {
+                // it's an int iff its sort is int - evaluate at compile time using var's type
+                return var.sort().equals(Sort.Int()) ? Term.mkTop() : Term.mkBottom();
             } else if (sig.equals(Sig.STRING)) {
                 // TODO - implement strings for real
                 return Term.mkBottom();
@@ -234,7 +235,7 @@ final class DefaultTranslator extends AbstractTranslator {
             }
         }
 
-        // if we recognize the sig, use its membership predicate
+        // If we recognize the sig, use its membership predicate
         if (!sigMemberPredicates.containsKey(sig)) {
             throw new ErrorFatal("Unknown sig " + sig);
         }
@@ -244,6 +245,10 @@ final class DefaultTranslator extends AbstractTranslator {
     /** Translate a field declaration inside a sig. */
     @Override
     public Term translate(Sig.Field field, TranslationContext context) {
+        // Find the Fortress sorts corresponding to the arguments of this field's predicate.
+        List<Sort> argSorts = context.sortPolicy.getMinimalExprSorts(field,
+                "A field declaration must have definite Portus sorts!", context);
+
         // Make a new predicate for the field relation (no function optimization yet).
         String relName = nameGenerator.freshName(field.label);
         relationPredicates.put(field, vars -> {
@@ -251,13 +256,16 @@ final class DefaultTranslator extends AbstractTranslator {
                 throw new ErrorFatal("Field predicate arity mismatch: expected arity " + field.type().arity()
                         + " but got " + vars.size() + ".");
             }
-            return Term.mkApp(relName, vars);
+            if (!vars.getSorts().equals(argSorts)) {
+                // Sorts don't match, so it's definitely not in the field!
+                return Term.mkBottom();
+            }
+            return Term.mkApp(relName, vars.getVars());
         });
         relationPredicateNames.put(field, relName);
 
-        // the predicate signature is (univ)^n -> Bool, where n is the field arity
-        context.addFunctionDeclaration(FuncDecl.mkFuncDecl(relName,
-                Collections.nCopies(field.type().arity(), context.univSort), Sort.Bool()));
+        // the predicate signature is S1->S2->...->Sn->Bool, where Si is the ith product type's sort
+        context.addFunctionDeclaration(FuncDecl.mkFuncDecl(relName, argSorts, Sort.Bool()));
 
         // constrain the domain of the field: see KT 4.2 (page 29)
         context.addAxiom(makeFieldDomainConstraint(field, context));
@@ -298,7 +306,7 @@ final class DefaultTranslator extends AbstractTranslator {
     }
 
     @Override
-    public Term translate(ConstList<Var> tuple, Sig.Field field, TranslationContext context) {
+    public Term translate(VarTuple tuple, Sig.Field field, TranslationContext context) {
         // if we recognize the field, use its relation
         if (!relationPredicates.containsKey(field)) {
             throw new ErrorFatal("Unknown field: " + field);
@@ -308,10 +316,7 @@ final class DefaultTranslator extends AbstractTranslator {
 
     /** Translate "tuple \in expr", where expr is an ExprBinary term. */
     @Override
-    public Term translate(ConstList<Var> tuple, ExprBinary expr, TranslationContext context) {
-        // Both sides or neither side should be integers, we don't support mixing
-        checkAllInt(expr.left, expr.right);
-
+    public Term translate(VarTuple tuple, ExprBinary expr, TranslationContext context) {
         switch (expr.op) {
             case PLUS:
                 return translateUnion(tuple, expr.left, expr.right, context);
@@ -337,7 +342,11 @@ final class DefaultTranslator extends AbstractTranslator {
                 if (tuple.size() != 1) {
                     throw new ErrorFatal("The arity of an arithmetic operation must be 1.");
                 }
-                return Term.mkEq(tuple.get(0), translateArithmeticOperation(
+                if (!tuple.getSort(0).equals(Sort.Int())) {
+                    // Fortress will reject = with mismatched sorts, but we know they aren't equal if it's not an int
+                    return Term.mkBottom();
+                }
+                return Term.mkEq(tuple.getVar(0), translateArithmeticOperation(
                         expr.op, expr.left, expr.right, context));
             default:
                 // others are either not supported or not terms
@@ -346,7 +355,7 @@ final class DefaultTranslator extends AbstractTranslator {
     }
 
     /** Translate "tuple \in left + right". */
-    private Term translateUnion(ConstList<Var> tuple, Expr left, Expr right, TranslationContext context) {
+    private Term translateUnion(VarTuple tuple, Expr left, Expr right, TranslationContext context) {
         // see KT figure 4.10
         return Term.mkOr(
                 recursivelyTranslate(ExprElementOf.make(tuple, left), context),
@@ -354,16 +363,14 @@ final class DefaultTranslator extends AbstractTranslator {
     }
 
     /** Translate "tuple \in left & right". */
-    private Term translateIntersection(
-            ConstList<Var> tuple, Expr left, Expr right, TranslationContext context) {
+    private Term translateIntersection(VarTuple tuple, Expr left, Expr right, TranslationContext context) {
         // see KT figure 4.10
         return Term.mkAnd(
                 recursivelyTranslate(ExprElementOf.make(tuple, left), context),
                 recursivelyTranslate(ExprElementOf.make(tuple, right), context));
     }
 
-    private Term translateSetDifference(
-            ConstList<Var> tuple, Expr left, Expr right, TranslationContext context) {
+    private Term translateSetDifference(VarTuple tuple, Expr left, Expr right, TranslationContext context) {
         // see KT figure 4.10
         return Term.mkAnd(
                 recursivelyTranslate(ExprElementOf.make(tuple, left), context),
@@ -371,78 +378,75 @@ final class DefaultTranslator extends AbstractTranslator {
     }
 
     /** Translate "tuple \in left . right". */
-    private Term translateJoin(ConstList<Var> tuple, Expr left, Expr right, TranslationContext context) {
+    private Term translateJoin(VarTuple tuple, Expr left, Expr right, TranslationContext context) {
         // Naive join implementation without optimizations (see KT figure 4.11).
-        // [[(x1,...,xn) \in e1 . e2]] := exists y: univ . [[(x1,...,xm,y) \in e1]] &&
+        // [[(x1,...,xn) \in e1 . e2]] := exists y: sort . [[(x1,...,xm,y) \in e1]] &&
         //   [[(y,x{m+1},...,xn) \in e2]] where arity(e1) = m+1 and arity(e2) = n-m+1 and m<n
-        Var y = Term.mkVar(nameGenerator.freshName("y"));
+        Var yVar = Term.mkVar(nameGenerator.freshName("y"));
+
+        // make sure that the sort is compatible between left and right
+        int partitionIdx = left.type().arity() - 1; // so that adding y gives the arity
+        Sort ySort = context.sortPolicy.getIndexSort(partitionIdx, left);
+        if (!Objects.equals(ySort, context.sortPolicy.getIndexSort(0, right))) {
+            throw new ErrorFatal("Joined column does not have consistent Fortress sort!");
+        }
+        AnnotatedVar y = yVar.of(ySort);
 
         // build up the tuples we'll recurse on
-        int partitionIdx = left.type().arity() - 1; // so that adding y gives the arity
-        List<Var> leftSubTuple = new ArrayList<>(tuple.subList(0, partitionIdx));
-        leftSubTuple.add(y); // append y to make (x1, ..., xm, y)
-        List<Var> rightSubTuple = new ArrayList<>(tuple.subList(partitionIdx, tuple.size()));
-        rightSubTuple.add(0, y); // prepend y to make (y, x{m+1}, ..., xn)
+        // append y to make (x1, ..., xm, y)
+        VarTuple leftSubTuple = tuple.slice(0, partitionIdx).concat(new VarTuple(y));
+        // prepend y to make (y, x{m+1}, ..., xn)
+        VarTuple rightSubTuple = new VarTuple(y).concat(tuple.slice(partitionIdx, tuple.size()));
 
-        return Term.mkExists(y.of(context.univSort), Term.mkAnd(
-                recursivelyTranslate(ExprElementOf.make(ConstList.make(leftSubTuple), left), context),
-                recursivelyTranslate(ExprElementOf.make(ConstList.make(rightSubTuple), right), context)));
+        //noinspection SuspiciousNameCombination - IntelliJ is overzealous
+        return Term.mkExists(y, Term.mkAnd(
+                recursivelyTranslate(ExprElementOf.make(leftSubTuple, left), context),
+                recursivelyTranslate(ExprElementOf.make(rightSubTuple, right), context)));
     }
 
     /** Translate "tuple \in left->right". */
-    private Term translateCrossProduct(
-            ConstList<Var> tuple, Expr left, Expr right, TranslationContext context) {
+    private Term translateCrossProduct(VarTuple tuple, Expr left, Expr right, TranslationContext context) {
         // [[(x1,...,xn \in e1->e2]] := [[(x1,...,xm) \in e1]] && [[(x{m+1},...,xn) \in e2]]
         // where arity(e1) = m and arity(e2) = n-m
         if (left.type().arity() + right.type().arity() != tuple.size()) {
             throw new ErrorFatal("Cross product arities do not match!");
         }
 
-        List<Var> leftSubTuple = new ArrayList<>(tuple.subList(0, left.type().arity()));
-        List<Var> rightSubTuple = new ArrayList<>(tuple.subList(left.type().arity(), tuple.size()));
-
+        VarTuple leftSubTuple = tuple.slice(0, left.type().arity());
+        VarTuple rightSubTuple = tuple.slice(left.type().arity(), tuple.size());
         return Term.mkAnd(
-                recursivelyTranslate(ExprElementOf.make(ConstList.make(leftSubTuple), left), context),
-                recursivelyTranslate(ExprElementOf.make(ConstList.make(rightSubTuple), right), context));
+                recursivelyTranslate(ExprElementOf.make(leftSubTuple, left), context),
+                recursivelyTranslate(ExprElementOf.make(rightSubTuple, right), context));
     }
 
     /** Translate the formula "tuple \in domain <: expr". */
-    private Term translateDomainRestriction(
-            ConstList<Var> tuple, Expr domain, Expr expr, TranslationContext context) {
+    private Term translateDomainRestriction(VarTuple tuple, Expr domain, Expr expr, TranslationContext context) {
         // KT figure 4.11: [[(x1,...,xn) \in domain <: expr]] := [[x1 \in domain]] && [[(x1,...,xn) \in expr]]
         // where arity(domain) = 1 and arity(expr) = n
         if (domain.type().arity() != 1) {
             throw new ErrorFatal("The left-hand side of a domain restriction must have arity 1.");
         }
-
-        ConstList<Var> firstVar = ConstList.make(Collections.singletonList(tuple.get(0)));
-
         return Term.mkAnd(
-                recursivelyTranslate(ExprElementOf.make(firstVar, domain), context),
+                recursivelyTranslate(ExprElementOf.make(tuple.pick(0), domain), context),
                 recursivelyTranslate(ExprElementOf.make(tuple, expr), context));
     }
 
     /** Translate the formula "tuple \in expr :> range". */
-    private Term translateRangeRestriction(
-            ConstList<Var> tuple, Expr expr, Expr range, TranslationContext context) {
+    private Term translateRangeRestriction(VarTuple tuple, Expr expr, Expr range, TranslationContext context) {
         // KT figure 4.11: [[(x1,...,xn) \in expr :> range]] := [[(x1,...,xn) \in expr]] && [[xn \in range]]
         // where arity(expr) = n and arity(range) = 1
         if (range.type().arity() != 1) {
             throw new ErrorFatal("The right-hand side of a range restriction must have arity 1.");
         }
-
-        ConstList<Var> lastVar = ConstList.make(Collections.singletonList(tuple.get(tuple.size() - 1)));
-
         return Term.mkAnd(
                 recursivelyTranslate(ExprElementOf.make(tuple, expr), context),
-                recursivelyTranslate(ExprElementOf.make(lastVar, range), context));
+                recursivelyTranslate(ExprElementOf.make(tuple.pick(tuple.size() - 1), range), context));
     }
 
     /** Translate the formula "tuple \in base ++ override". */
-    private Term translateOverride(
-            ConstList<Var> tuple, Expr base, Expr override, TranslationContext context) {
+    private Term translateOverride(VarTuple tuple, Expr base, Expr override, TranslationContext context) {
         // KT figure 4.11: [[(x1,...,xn) \in base ++ override]] := [[(x1,...,xn) \in override]]
-        // || ([[(x1,...,xn \in base]] && !(exists y2,...,yn . [[(x1,y2,...,yn) \in override]]))
+        // || ([[(x1,...,xn \in base]] && !(exists y2:S2,...,yn:Sn . [[(x1,y2,...,yn) \in override]]))
         // where arity(base) = arity(override) = n
         int arity = base.type().arity();
         if (override.type().arity() != arity) {
@@ -460,22 +464,28 @@ final class DefaultTranslator extends AbstractTranslator {
         Term inBase = recursivelyTranslate(ExprElementOf.make(tuple, base), context);
         Term inOverride = recursivelyTranslate(ExprElementOf.make(tuple, override), context);
 
+        // TODO: the *first* argument doens't actually need a definite sort, can we not require it?
+        List<Sort> overrideSorts = context.sortPolicy.getMinimalExprSorts(override,
+                "The second argument to ++ must have definite Portus sorts!", context);
+
         // build up the vars x1,y2,...,yn and the annotated vars y2,...,yn
-        List<AnnotatedVar> annotatedVars = new ArrayList<>(arity - 1);
-        List<Var> overrideVars = new ArrayList<>(arity);
-        overrideVars.add(tuple.get(0));
-        for (int i = 0; i < arity - 1; i++) {
-            Var y = Term.mkVar(nameGenerator.freshName("y" + i));
-            overrideVars.add(y);
-            annotatedVars.add(y.of(context.univSort));
+        List<AnnotatedVar> quantifiedVars = new ArrayList<>();
+        List<AnnotatedVar> allVars = new ArrayList<>();
+        allVars.add(tuple.getAnnotatedVar(0));
+        for (int i = 1; i < arity; i++) {
+            Var yVar = Term.mkVar(nameGenerator.freshName("y" + i));
+            // TODO: how much short circuiting can we do here?
+            AnnotatedVar y = yVar.of(overrideSorts.get(i));
+            quantifiedVars.add(y);
+            allVars.add(y);
         }
 
         // translate [[(x1,y2,...,yn) \in override]]
         Term firstInOverride = recursivelyTranslate(
-                ExprElementOf.make(ConstList.make(overrideVars), override), context);
+                ExprElementOf.make(new VarTuple(allVars), override), context);
 
         return Term.mkOr(inOverride, Term.mkAnd(
-                inBase, Term.mkNot(Term.mkExists(annotatedVars, firstInOverride))));
+                inBase, Term.mkNot(Term.mkExists(quantifiedVars, firstInOverride))));
     }
 
     /** Translate an ExprBinary formula or integer-valued expression. */
@@ -485,16 +495,15 @@ final class DefaultTranslator extends AbstractTranslator {
             return translateDeclarationFormula(expr.left, (ExprBinary) expr.right, context);
         }
 
-        // Both sides or neither side should be integers, we don't support mixing
-        checkAllInt(expr.left, expr.right);
-
         switch (expr.op) {
             // see KT figure 4.6
             case IMPLIES:
+                context.sortPolicy.checkIsFormula("'=>' requires formulas on both sides", expr.left, expr.right);
                 return Term.mkImp(
                         recursivelyTranslate(expr.left, context),
                         recursivelyTranslate(expr.right, context));
             case IFF:
+                context.sortPolicy.checkIsFormula("'<=>' requires formulas on both sides", expr.left, expr.right);
                 return Term.mkIff(
                         recursivelyTranslate(expr.left, context),
                         recursivelyTranslate(expr.right, context));
@@ -595,19 +604,21 @@ final class DefaultTranslator extends AbstractTranslator {
         //   [[(x1, ..., xn) \in e1]] <=> [[(x1, ..., xn) \in e2]]
         // typechecker ensured arities are the same, make sure sort are the same
         assert e1.type().arity() == e2.type().arity();
+        String sortErrMsg = "Both sides in an 'in' or '=' formula must have the same definite Portus sorts!";
+        List<Sort> e1Sorts = context.sortPolicy.getMinimalExprSorts(e1, sortErrMsg, context);
+        List<Sort> e2Sorts = context.sortPolicy.getMinimalExprSorts(e2, sortErrMsg, context);
+        if (!e1Sorts.equals(e2Sorts)) {
+            throw new ErrorFatal("The Portus sorts of both sides of an 'in' or '=' formula must be the same!");
+        }
 
         // create the variables
-        boolean isInt = checkAllInt(e1, e2);
-        List<AnnotatedVar> varDecls = IntStream.range(0, e1.type().arity())
-                .mapToObj(idx ->Term.mkVar(nameGenerator.freshName("x" + idx))
-                        .of(isInt ? Sort.Int() : context.univSort))
+        // TODO: also think about how much short circuiting we can do here
+        List<AnnotatedVar> vars = IntStream.range(0, e1.type().arity())
+                .mapToObj(idx -> Term.mkVar(nameGenerator.freshName("x" + idx)).of(e1Sorts.get(idx)))
                 .collect(Collectors.toList());
-        ConstList<Var> vars = ConstList.make(varDecls.stream()
-                .map(AnnotatedVar::variable)
-                .collect(Collectors.toList()));
 
-        Term inE1 = recursivelyTranslate(ExprElementOf.make(vars, e1), context);
-        Term inE2 = recursivelyTranslate(ExprElementOf.make(vars, e2), context);
+        Term inE1 = recursivelyTranslate(ExprElementOf.make(new VarTuple(vars), e1), context);
+        Term inE2 = recursivelyTranslate(ExprElementOf.make(new VarTuple(vars), e2), context);
         Term condition;
         if (op == ExprBinary.Op.IN) {
             condition = Term.mkImp(inE1, inE2);
@@ -615,12 +626,12 @@ final class DefaultTranslator extends AbstractTranslator {
             condition = Term.mkIff(inE1, inE2);
         }
 
-        return Term.mkForall(varDecls, condition);
+        return Term.mkForall(vars, condition);
     }
 
     /** Translate "lhs op rhs", where op is an arithmetic comparison like <, >, =<, >=.  */
     private Term translateArithmeticComparison(ExprBinary.Op op, Expr lhs, Expr rhs, TranslationContext context) {
-        ensureAllInt(op + " requires both sides to be integers!", lhs, rhs);
+        context.sortPolicy.checkIsInt(op + " requires both sides to be integers!", lhs, rhs);
 
         Term left = recursivelyTranslate(lhs, context);
         Term right = recursivelyTranslate(rhs, context);
@@ -644,7 +655,7 @@ final class DefaultTranslator extends AbstractTranslator {
 
     /** Translate "lhs op rhs", where op is an arithmetic operation. */
     private Term translateArithmeticOperation(ExprBinary.Op op, Expr lhs, Expr rhs, TranslationContext context) {
-        ensureAllInt(op + " requires both sides to be integer expressions!", lhs, rhs);
+        context.sortPolicy.checkIsInt(op + " requires both sides to be integer expressions!", lhs, rhs);
 
         Term left = recursivelyTranslate(lhs, context);
         Term right = recursivelyTranslate(rhs, context);
@@ -664,10 +675,11 @@ final class DefaultTranslator extends AbstractTranslator {
         }
     }
 
-    /** Translate the formula "f1 => f2 else f3". */
+    /** Translate the formula (or int expression) "f1 => f2 else f3". */
     @Override
     public Term translate(ExprITE expr, TranslationContext context) {
         // use Fortress's built-in if-then-else
+        context.sortPolicy.checkIsFormula("The condition of if-then-else must be a formula!", expr.cond);
         Term cond = recursivelyTranslate(expr.cond, context);
         Term left = recursivelyTranslate(expr.left, context);
         Term right = recursivelyTranslate(expr.right, context);
@@ -676,8 +688,9 @@ final class DefaultTranslator extends AbstractTranslator {
 
     /** Translate the formula "tuple \in (f => e1 else e2)". */
     @Override
-    public Term translate(ConstList<Var> tuple, ExprITE expr, TranslationContext context) {
+    public Term translate(VarTuple tuple, ExprITE expr, TranslationContext context) {
         // Similar to the above: "IfThenElse([[f]], [[tuple \in e1]], [[tuple \in e2]])"
+        context.sortPolicy.checkIsFormula("The condition of if-then-else must be a formula!", expr.cond);
         Term cond = recursivelyTranslate(expr.cond, context);
         Term left = recursivelyTranslate(ExprElementOf.make(tuple, expr.left), context);
         Term right = recursivelyTranslate(ExprElementOf.make(tuple, expr.right), context);
@@ -690,6 +703,7 @@ final class DefaultTranslator extends AbstractTranslator {
         switch (expr.op) {
             case NOT:
                 // see KT figure 4.6
+                context.sortPolicy.checkIsFormula("The argument of '!' must be a formula!", expr.sub);
                 return Term.mkNot(
                         recursivelyTranslate(expr.sub, context));
             case NOOP:
@@ -717,35 +731,24 @@ final class DefaultTranslator extends AbstractTranslator {
 
     /** Translate "#e", as an integer expression. */
     private Term translateCardinality(Expr expr, TranslationContext context) {
-        // Equivalent to "sum x1,...,xn: univ | ((x1,...,xn) \in e) => 1 else 0" where n = arity(e),
+        // Equivalent to "sum x1:S1,...,xn:Sn | ((x1,...,xn) \in e) => 1 else 0" where n = arity(e),
         // so translate as such for simplicity. Use translateSum() directly instead of recursively translating because
         // to translate the Alloy above directly, we'd need to augment ExprElementOf to allow taking ExprVars and
         // delaying their evaluation into Fortress Vars until we're within the sum's scope and x1,...,xn are bound.
-        List<Type.ProductType> productTypes = new ArrayList<>();
-        expr.type().forEach(productTypes::add);
-
-        List<Var> vars = new ArrayList<>();
-        List<AnnotatedVar> annotatedVars = new ArrayList<>();
+        List<AnnotatedVar> vars = new ArrayList<>();
+        List<Sort> sorts = context.sortPolicy.getMinimalExprSorts(expr, "", context);
         for (int i = 0; i < expr.type().arity(); i++) {
             Var var = Term.mkVar("x" + i);
-            vars.add(var);
-
-            // Ensure that all variations are either int or non-int, we don't support mixing
-            final int finalI = i; // work around Java requirement that lambda-captured locals must be final
-            boolean isInt = checkAllInt(productTypes.stream()
-                    .map(type -> type.get(finalI))
-                    .collect(Collectors.toList()));
-            Sort sort = (isInt) ? Sort.Int() : context.univSort;
-            annotatedVars.add(var.of(sort));
+            vars.add(var.of(sorts.get(i)));
         }
 
-        Term condition = recursivelyTranslate(ExprElementOf.make(ConstList.make(vars), expr), context);
-        return translateSum(IntegerLiteral.apply(1), condition, annotatedVars, context);
+        Term condition = recursivelyTranslate(ExprElementOf.make(new VarTuple(vars), expr), context);
+        return translateSum(IntegerLiteral.apply(1), condition, vars, context);
     }
 
     /** Translate "tuple \in expr", where expr is an ExprUnary formula. */
     @Override
-    public Term translate(ConstList<Var> tuple, ExprUnary expr, TranslationContext context) {
+    public Term translate(VarTuple tuple, ExprUnary expr, TranslationContext context) {
         switch (expr.op) {
             case NOOP:
                 // no-op: ignore it
@@ -769,34 +772,43 @@ final class DefaultTranslator extends AbstractTranslator {
     }
 
     /** Translate "tuple \in ~sub". */
-    private Term translateTranspose(ConstList<Var> tuple, Expr sub, TranslationContext context) {
+    private Term translateTranspose(VarTuple tuple, Expr sub, TranslationContext context) {
         if (tuple.size() != 2) {
             throw new ErrorSyntax("Transpose argument must have arity 2");
         }
 
         // swap the variables in the tuple - see KT figure 4.11
-        ConstList<Var> swapped = ConstList.make(Arrays.asList(tuple.get(1), tuple.get(0)));
+        VarTuple swapped = tuple.pick(1).concat(tuple.pick(0));
         return recursivelyTranslate(ExprElementOf.make(swapped, sub), context);
     }
 
     /** Translate "tuple \in ^sub" (reflexive==false) or "tuple \in *sub" (reflexive==true). */
-    private Term translateClosure(boolean reflexive, ConstList<Var> tuple, Expr sub, TranslationContext context) {
+    private Term translateClosure(boolean reflexive, VarTuple tuple, Expr sub, TranslationContext context) {
         if (tuple.size() != 2) {
             throw new ErrorSyntax("Closure argument must have arity 2");
         }
 
+        // If the sorts aren't the same, we can't translate.
+        // (We can't short-circuit: consider (a,b) \in ^iden vs (a,b) \in ^(univ->univ) where a,b have different sorts)
+        if (!tuple.getSort(0).equals(tuple.getSort(1))) {
+            throw new ErrorFatal("Portus doesn't support transitive closure with distinct Fortress sorts!");
+        }
+        Sort commonSort = tuple.getSort(0);
+
         // Translate as "^f(x,y)" or "*f(x,y)" where f is an auxiliary relation f(x,y) = [[(x,y) \in sub]].
-        String auxRelationName = makeClosureBinaryRelation(sub, context);
+        String auxRelationName = makeClosureBinaryRelation(commonSort, sub, context);
         if (reflexive) {
-            return Term.mkReflexiveClosure(auxRelationName, tuple.get(0), tuple.get(1));
+            return Term.mkReflexiveClosure(auxRelationName, tuple.getVar(0), tuple.getVar(1));
         } else {
-            return Term.mkClosure(auxRelationName, tuple.get(0), tuple.get(1));
+            return Term.mkClosure(auxRelationName, tuple.getVar(0), tuple.getVar(1));
         }
     }
 
     // Fortress can only take the closure of a binary relation and not an arbitrary expression, so find a
     // convenient relation to take the closure of for taking the closure of expr and return its name.
-    private String makeClosureBinaryRelation(Expr expr, TranslationContext context) {
+    // `sort` is the sort of the arguments, expr must have a compatible type with `sort->sort`.
+    // We use a new auxiliary function for each sort so things like "^iden" work correctly.
+    private String makeClosureBinaryRelation(Sort sort, Expr expr, TranslationContext context) {
         expr = expr.deNOP(); // Eliminate any no-ops which could mess up our optimizations
 
         // Does expr happen to already be a binary relation (field of arity 2)? If so, just use it.
@@ -807,42 +819,33 @@ final class DefaultTranslator extends AbstractTranslator {
             }
         }
 
-        // Have we already translated this expr? If so, use its name.
-        // TODO: does a map even work with Exprs as keys? Is equals() overriden properly?
-        // TODO this doesn't work, fix it please
-        for (Pair<Expr, String> exprAndClosureName : auxClosureRelationNames) {
-            if (expr.isSame(exprAndClosureName.a)) {
+        // Have we already translated this expr/sort combo? If so, use its name.
+        for (Pair<Pair<Expr, Sort>, String> exprAndClosureName : auxClosureRelationNames) {
+            Expr prevExpr = exprAndClosureName.a.a;
+            Sort prevSort = exprAndClosureName.a.b;
+            if (sort.equals(prevSort) && expr.isSame(prevExpr)) {
                 return exprAndClosureName.b;
             }
         }
 
-        // TODO: we currently only support taking the closure of binary exprs which don't involve Int.
-        // We try to check for this but will miss "univ->univ" exprs like iden, so e.g. "(1, 1) in ^iden" will not
-        // work properly. Perhaps fix this in the future by passing down sort information in the ConstList<Var> tuples.
         if (!expr.type().hasArity(2)) {
             throw new ErrorSyntax("We can only take the transitive/reflexive closure of binary expressions.");
         }
-        for (Type.ProductType productType : expr.type().pickBinary()) {
-            if (productType.get(0).isSameOrDescendentOf(Sig.SIGINT)
-                   || productType.get(1).isSameOrDescendentOf(Sig.SIGINT)) {
-                throw new ErrorFatal("Portus doesn't support closure over integer-valued expressions!");
-            }
-        }
 
-        // Introduce an auxiliary relation f(x,y) = [[(x,y) \in expr]] of type univ->univ (see above).
-        String auxRelationName = nameGenerator.freshName("closureAux");
-        auxClosureRelationNames.add(new Pair<>(expr, auxRelationName));
-        FuncDecl auxDecl = FuncDecl.mkFuncDecl(auxRelationName, context.univSort, context.univSort, Sort.Bool());
+        // Introduce an auxiliary relation f(x,y) = [[(x,y) \in expr]] of type sort->sort
+        String auxRelationName = nameGenerator.freshName("closureAux_" + sort.name());
+        auxClosureRelationNames.add(new Pair<>(new Pair<>(expr, sort), auxRelationName));
+        FuncDecl auxDecl = FuncDecl.mkFuncDecl(auxRelationName, sort, sort, Sort.Bool());
         context.addFunctionDeclaration(auxDecl);
 
-        // Give it our desired interpretation with an axiom "forall x, y: univ . f(x,y) = [[(x, y) \in expr]]".
+        // Give it our desired interpretation with an axiom "forall x, y: sort . f(x,y) = [[(x, y) \in expr]]".
         // TODO: this can be done more cheaply (avoiding the forall) with a definition instead
+        // TODO: handle "contextual" variables
         Var x = Term.mkVar(nameGenerator.freshName("x"));
         Var y = Term.mkVar(nameGenerator.freshName("y"));
-        Term inExpr = recursivelyTranslate(
-                ExprElementOf.make(ConstList.make(Arrays.asList(x, y)), expr),
-                context);
-        context.addAxiom(Term.mkForall(Arrays.asList(x.of(context.univSort), y.of(context.univSort)),
+        Term inExpr = recursivelyTranslate(ExprElementOf.make(
+                new VarTuple(x.of(sort), y.of(sort)), expr), context);
+        context.addAxiom(Term.mkForall(Arrays.asList(x.of(sort), y.of(sort)),
                 Term.mkIff(
                         Term.mkApp(auxRelationName, x, y),
                         inExpr)));
@@ -853,7 +856,8 @@ final class DefaultTranslator extends AbstractTranslator {
     /** Translate an ExprList formula. */
     @Override
     public Term translate(ExprList expr, TranslationContext context) {
-        // first, just translate all the args
+        // first, just translate all the args (they all must be formulas)
+        context.sortPolicy.checkIsFormula("AND or OR arguments must all be formulas", expr.args);
         List<Term> translatedArgs = expr.args.stream()
                 .map(arg -> recursivelyTranslate(arg, context))
                 .collect(Collectors.toList());
@@ -873,30 +877,25 @@ final class DefaultTranslator extends AbstractTranslator {
 
     /** Translate "Q e", where Q is one of {one, lone, some, no} and e is an expression. */
     private Term translateQuantifiedExpr(ExprQt.Op quantifier, Expr expr, TranslationContext context) {
-        // "Q e" is equivalent to "Q x1,...,xn: univ | (x1,...,xn) \in e" where n = arity(e), so translate as such
-        // for simplicity. (The sort may be Int instead of univ for some variables.)
+        // "Q e" is equivalent to "Q x1:S1,...,xn:Sn | (x1,...,xn) \in e" where n = arity(e), so translate as such
+        // for simplicity.
         int arity = expr.type().arity();
-        if (arity == 0) {
-            // TODO: handle this somehow
+        if (arity <= 0) {
             throw new ErrorFatal("Portus doesn't support types with multiple arities");
         }
-        List<AnnotatedVar> annotatedVars = new ArrayList<>(arity);
-        List<Var> vars = new ArrayList<>(arity);
+        List<AnnotatedVar> vars = new ArrayList<>(arity);
 
+        List<Sort> exprSorts = context.sortPolicy.getMinimalExprSorts(expr,
+                "Translating a quantified expression requires the inner expression to have definite sorts!", context);
         for (int i = 0; i < arity; i++) {
             Var var = Term.mkVar(nameGenerator.freshName("x" + i));
-            vars.add(var);
-
-            // What type should it have? Make sure it's not mixed, and pick between univ and Int
-            // TODO: this is also vulnerable to the problem where Int in univ for Alloy but not Fortress
-            boolean isInt = checkAllInt(i, expr.type());
-            annotatedVars.add(var.of(isInt ? Sort.Int() : context.univSort));
+            vars.add(var.of(exprSorts.get(i)));
         }
 
         // technically, we actually translate as pseudo-Alloy "Q (x1,...,xn): e | true", so there's an extra true
-        Term condition = recursivelyTranslate(ExprElementOf.make(ConstList.make(vars), expr), context);
+        Term condition = recursivelyTranslate(ExprElementOf.make(new VarTuple(vars), expr), context);
         Term sub = Term.mkTop();
-        return translateRawQuantifier(quantifier, annotatedVars, condition, sub, context);
+        return translateRawQuantifier(quantifier, vars, condition, sub, context);
     }
 
     /** Translate an ExprQt formula. */
@@ -931,7 +930,7 @@ final class DefaultTranslator extends AbstractTranslator {
         return translateRawQuantifier(expr.op, vars, condition, sub, context);
     }
 
-    /** Translate "Q vars: e | f" after the vars, condition (vars \in e) and the subformula (f) have been translated. */
+    /** Translate "Q vars: e | f" after the vars, condition (vars \in e) and the subformula have been translated. */
     private Term translateRawQuantifier(
             ExprQt.Op quantifier, List<AnnotatedVar> vars, Term condition, Term sub, TranslationContext context) {
         // Process the formula itself - see KT figure 4.6
@@ -987,8 +986,10 @@ final class DefaultTranslator extends AbstractTranslator {
         List<Integer> sortScopes = new ArrayList<>();
         List<Integer> currentIdxs = new ArrayList<>(); // indexes of the current domain elements
         for (AnnotatedVar var : vars) {
-            sorts.add(var.sort());
-            sortScopes.add(var.sort() == context.univSort ? context.getUnivScope() : context.getIntScope());
+            Sort sort = var.sort();
+            sorts.add(sort);
+            // Special case: Int's scope is the bitwidth and not 2^bitwidth, so use context.getIntScope() instead
+            sortScopes.add(sort == Sort.Int() ? context.getIntScope() : context.sortPolicy.getSortScope(sort));
             currentIdxs.add(1);
         }
 
@@ -1014,7 +1015,7 @@ final class DefaultTranslator extends AbstractTranslator {
 
     /** Translate "tuple \in expr", where expr is an ExprQt. */
     @Override
-    public Term translate(ConstList<Var> tuple, ExprQt expr, TranslationContext context) {
+    public Term translate(VarTuple tuple, ExprQt expr, TranslationContext context) {
         switch (expr.op) {
             case COMPREHENSION:
                 return translateComprehension(tuple, expr, context);
@@ -1027,7 +1028,7 @@ final class DefaultTranslator extends AbstractTranslator {
     }
 
     /** Translate "tuple \in expr", where expr is a comprehension ExprQt. */
-    private Term translateComprehension(ConstList<Var> tuple, ExprQt expr, TranslationContext context) {
+    private Term translateComprehension(VarTuple tuple, ExprQt expr, TranslationContext context) {
         // [[(x1,...,xn) \in {y1: e1, ..., yn: en | f(y1,...,yn)}]] :=
         // [[x1 \in e1]] && ... && [[xn \in en]] && [[f(y1,...,yn)]] where yi is mapped to xi
         // First, check the arity is correct
@@ -1036,11 +1037,11 @@ final class DefaultTranslator extends AbstractTranslator {
         }
 
         // Pair the vars and decls/names
-        List<Pair<Var, Pair<Decl, ExprHasName>>> varsAndDecls = new ArrayList<>();
+        List<Pair<AnnotatedVar, Pair<Decl, ExprHasName>>> varsAndDecls = new ArrayList<>();
         int tupleIdx = 0;
         for (Decl decl : expr.decls) {
             for (ExprHasName name : decl.names) {
-                Var var = tuple.get(tupleIdx);
+                AnnotatedVar var = tuple.getAnnotatedVar(tupleIdx);
                 varsAndDecls.add(new Pair<>(var, new Pair<>(decl, name)));
                 tupleIdx++;
             }
@@ -1049,8 +1050,8 @@ final class DefaultTranslator extends AbstractTranslator {
         List<Term> conjuncts = new ArrayList<>();
 
         // Generate each [[xi \in ei]] conjunct
-        for (Pair<Var, Pair<Decl, ExprHasName>> varAndDecl : varsAndDecls) {
-            Var var = varAndDecl.a;
+        for (Pair<AnnotatedVar, Pair<Decl, ExprHasName>> varAndDecl : varsAndDecls) {
+            AnnotatedVar var = varAndDecl.a;
             Decl decl = varAndDecl.b.a;
             // Unwrap the expression from its multiplicity (and any NOOPs)
             Expr declExpr = decl.expr.deNOP();
@@ -1060,13 +1061,13 @@ final class DefaultTranslator extends AbstractTranslator {
                 ExprUnary wrappedDeclExpr = (ExprUnary) declExpr;
                 declExpr = wrappedDeclExpr.sub;
             }
-            Expr conjunct = ExprElementOf.make(ConstList.make(1, var), declExpr);
+            Expr conjunct = ExprElementOf.make(new VarTuple(var), declExpr);
             conjuncts.add(recursivelyTranslate(conjunct, context));
         }
 
         // Map each yi to xi - do this after generating conjuncts to avoid any interference
-        for (Pair<Var, Pair<Decl, ExprHasName>> varAndDecl : varsAndDecls) {
-            Var var = varAndDecl.a;
+        for (Pair<AnnotatedVar, Pair<Decl, ExprHasName>> varAndDecl : varsAndDecls) {
+            AnnotatedVar var = varAndDecl.a;
             ExprHasName name = varAndDecl.b.b;
             context.addVarMapping(name.label, var);
         }
@@ -1076,7 +1077,7 @@ final class DefaultTranslator extends AbstractTranslator {
             conjuncts.add(recursivelyTranslate(expr.sub, context));
         } finally {
             // Unmap all the yi's (and do it even if there's an exception)
-            for (Pair<Var, Pair<Decl, ExprHasName>> varAndDecl : varsAndDecls) {
+            for (Pair<AnnotatedVar, Pair<Decl, ExprHasName>> varAndDecl : varsAndDecls) {
                 ExprHasName name = varAndDecl.b.b;
                 context.removeMapping(name.label);
             }
@@ -1101,7 +1102,7 @@ final class DefaultTranslator extends AbstractTranslator {
 
     /** Translate "tuple \in expr", where expr is an ExprLet. */
     @Override
-    public Term translate(ConstList<Var> tuple, ExprLet let, TranslationContext context) {
+    public Term translate(VarTuple tuple, ExprLet let, TranslationContext context) {
         // Like above: bind the variable, translate "tuple \in let.sub", and remove the variable.
         context.addLetMapping(let.var.label, let.expr);
         Term result;
@@ -1115,7 +1116,7 @@ final class DefaultTranslator extends AbstractTranslator {
 
     /** Translate "tuple \in expr", where expr is an ExprVar. */
     @Override
-    public Term translate(ConstList<Var> tuple, ExprVar expr, TranslationContext context) {
+    public Term translate(VarTuple tuple, ExprVar expr, TranslationContext context) {
         // Check if it's mapped to a let-expression - if so, use that instead
         if (context.hasLetMapping(expr.label)) {
             TranslationContext.LetContext letContext = context.getLetMapping(expr.label);
@@ -1136,7 +1137,12 @@ final class DefaultTranslator extends AbstractTranslator {
         if (tuple.size() != 1) {
             throw new ErrorFatal("Wrong arity for ExprVar!");
         }
-        return Term.mkEq(tuple.get(0), checkAndMapVarName(expr.label, context));
+        AnnotatedVar mapped = checkAndMapVarName(expr.label, context);
+        // If the sorts are mismatched, short-circuit (the tuple can't be in the expr)
+        if (!tuple.getSort(0).equals(mapped.sort())) {
+            return Term.mkBottom();
+        }
+        return Term.mkEq(tuple.getVar(0), mapped.variable());
     }
 
     /** Translate an ExprVar integer expression. */
@@ -1153,7 +1159,7 @@ final class DefaultTranslator extends AbstractTranslator {
                 letContext.resetMapping();
             }
         }
-        return checkAndMapVarName(expr.label, context);
+        return checkAndMapVarName(expr.label, context).variable();
     }
 
     /** Translate an ExprConstant formula/integer expression. */
@@ -1175,7 +1181,7 @@ final class DefaultTranslator extends AbstractTranslator {
 
     /** Translate "tuple \in expr", where expr is an ExprConstant. */
     @Override
-    public Term translate(ConstList<Var> tuple, ExprConstant expr, TranslationContext context) {
+    public Term translate(VarTuple tuple, ExprConstant expr, TranslationContext context) {
         switch (expr.op) {
             case IDEN:
                 return translateIden(tuple);
@@ -1190,13 +1196,17 @@ final class DefaultTranslator extends AbstractTranslator {
     }
 
     /** Translate "tuple \in iden". */
-    private Term translateIden(ConstList<Var> tuple) {
+    private Term translateIden(VarTuple tuple) {
         // KT figure 4.12: [[(x1, x2) \in iden]] := x1 = x2
         // note that this works even for incompatible top-level sigs since we use a universal sort
         if (tuple.size() != 2) {
             throw new ErrorFatal("iden expects arity 2, but got " + tuple.size());
         }
-        return Term.mkEq(tuple.get(0), tuple.get(1));
+        // if the sorts are different, then they can't be equal: short-circuit
+        if (!tuple.getSort(0).equals(tuple.getSort(1))) {
+            return Term.mkBottom();
+        }
+        return Term.mkEq(tuple.getVar(0), tuple.getVar(1));
     }
 
     /** Translate a predicate or integer-valued function call. */
@@ -1207,7 +1217,7 @@ final class DefaultTranslator extends AbstractTranslator {
 
     /** Translate "tuple \in call", where call is a function call. */
     @Override
-    public Term translate(ConstList<Var> tuple, ExprCall call, TranslationContext context) {
+    public Term translate(VarTuple tuple, ExprCall call, TranslationContext context) {
         return translateCall(ExprElementOf.make(tuple, call.fun.getBody()), call, context);
     }
 
@@ -1219,86 +1229,32 @@ final class DefaultTranslator extends AbstractTranslator {
             throw new ErrorFatal("Wrong number of arguments to predicate or function!");
         }
 
-        // Add the parameter mappings to the context.
-        for (int i = 0; i < call.fun.count(); i++) {
-            Expr arg = call.args.get(i);
-            ExprVar param = call.fun.get(i);
-            context.addLetMapping(param.label, arg);
-        }
+        context.addLetMappingsFromCall(call);
 
         Term result;
         try {
             result = recursivelyTranslate(body, context);
         } finally {
-            // Remove all the parameters from the context (and do it even if there's an exception).
-            for (int i = 0; i < call.fun.count(); i++) {
-                ExprVar param = call.fun.get(i);
-                context.removeMapping(param.label);
-            }
+            // Remove the let mappings even if there's an exception
+            context.removeLetMappingsFromCall(call);
         }
 
         return result;
     }
 
-    private Term translateInIntExpr(ConstList<Var> tuple, Expr intExpr, TranslationContext context) {
+    private Term translateInIntExpr(VarTuple tuple, Expr intExpr, TranslationContext context) {
         if (tuple.size() != 1) {
             throw new ErrorSyntax("Int expression '" + intExpr + "' requires arity 1");
         }
-        return Term.mkEq(tuple.get(0), recursivelyTranslate(intExpr, context));
-    }
-
-    /**
-     * Verify that either all of `exprs` are Int exprs or none are, and return whether they all are
-     * (and there's at least one expr specified - on empty input return false).
-     */
-    private boolean checkAllInt(Iterable<? extends Expr> exprs) {
-        boolean allInt = false;
-        boolean decided = false;
-        for (Expr expr : exprs) {
-            boolean isInt = expr.type().is_int() // Int is the first sig in one of the product types
-                    && expr.type().size() == 1   // and there's only one product type
-                    && expr.type().arity() == 1; // and it only has one sig
-            if (decided) {
-                if (isInt != allInt) {
-                    throw new ErrorFatal("Portus does not support sets with integers and other atoms mixed!");
-                }
-            } else {
-                decided = true;
-                allInt = isInt;
-            }
+        // assume intExpr is really an integer expression, and short-circuit if tuple isn't of type Int
+        if (!tuple.getSort(0).equals(Sort.Int())) {
+            return Term.mkBottom();
         }
-        return allInt;
-    }
-
-    /** Convenience overload to pass in exprs manually. */
-    private boolean checkAllInt(Expr... exprs) {
-        return checkAllInt(Arrays.asList(exprs));
-    }
-
-    /**
-     * Perform {@link #checkAllInt(Iterable)} with all sigs of a given index in a type.
-     * Ignores any product types with arity <= idx, since they don't have a sig at that index.
-     */
-    private boolean checkAllInt(int idx, Type type) {
-        List<Expr> sigs = new ArrayList<>();
-        for (Type.ProductType productType : type) {
-            if (idx < productType.arity()) {
-                sigs.add(productType.get(idx));
-            }
-        }
-        return checkAllInt(sigs);
-    }
-
-    /** Like checkAllIns, but throw an error if they aren't all integer expressions. */
-    private void ensureAllInt(String message, Expr... exprs) {
-        boolean allInts = checkAllInt(exprs);
-        if (!allInts) {
-            throw new ErrorFatal(message);
-        }
+        return Term.mkEq(tuple.getVar(0), recursivelyTranslate(intExpr, context));
     }
 
     /** Map an Alloy variable name to a Fortress term, or throw an error. */
-    private Term checkAndMapVarName(String label, TranslationContext context) {
+    private AnnotatedVar checkAndMapVarName(String label, TranslationContext context) {
         // the Alloy variable must be mapped to a Fortress var in the current lexical scope
         if (!context.hasVarMapping(label)) {
             throw new ErrorSyntax("Unknown variable name " + label);
@@ -1345,22 +1301,20 @@ final class DefaultTranslator extends AbstractTranslator {
                     }
                 }
 
-                // Create var and it to the lexical scope to translate the condition and subformula
                 Var var = Term.mkVar(nameGenerator.freshName(name.label));
-                context.addVarMapping(name.label, var);
+                // Note that the decl expr has to be unary because we don't support anything else
+                Sort varSort = context.sortPolicy.getMinimalExprSorts(declExpr,
+                        "Translating a quantification requires the variable declarations to have "
+                        + "definite Portus sorts!", context).get(0);
+                AnnotatedVar annotatedVar = var.of(varSort);
+                namesToVars.put(name.label, annotatedVar);
 
-                // Use Int if it's an integer expression, otherwise univ
-                Sort varSort = checkAllInt(declExpr) ? Sort.Int() : context.univSort;
-                namesToVars.put(name.label, var.of(varSort));
-
-                if (declExpr == Sig.SIGINT) {
-                    // Special case for the Int sig: don't bother translating the "var \in Int" condition
-                    continue;
-                }
+                // Add it to the lexical scope to translate the condition and subformula
+                context.addVarMapping(name.label, annotatedVar);
 
                 // Add the condition "var \in declExpr" to restrict the domain of var
                 conditions.add(recursivelyTranslate(
-                        ExprElementOf.make(var, declExpr), context));
+                        ExprElementOf.make(new VarTuple(annotatedVar), declExpr), context));
             }
         }
 

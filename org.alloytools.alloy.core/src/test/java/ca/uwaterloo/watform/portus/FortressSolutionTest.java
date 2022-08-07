@@ -1,5 +1,6 @@
 package ca.uwaterloo.watform.portus;
 
+import edu.mit.csail.sdg.ast.ExprConstant;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.A4TupleSet;
 import edu.mit.csail.sdg.translator.ScopeComputer;
@@ -8,6 +9,7 @@ import fortress.interpretation.Interpretation;
 import fortress.msfol.AnnotatedVar;
 import fortress.msfol.DomainElement;
 import fortress.msfol.FuncDecl;
+import fortress.msfol.IntegerLiteral;
 import fortress.msfol.Sort;
 import fortress.msfol.Value;
 import org.junit.Before;
@@ -41,15 +43,22 @@ public class FortressSolutionTest {
 
     @Before
     public void setUp() {
+        Sort univ = Sort.mkSortConst("testUniv");
         ScopeComputer mockScoper = mock(ScopeComputer.class);
-        TranslationContext context = new TranslationContext(new FortressOptions(), mockScoper);
+        SortPolicy sortPolicy = new UnivSortPolicy(univ, new ArrayList<>(), mockScoper);
+        TranslationContext context = new TranslationContext(new FortressOptions(), mockScoper, sortPolicy);
 
         Map<Sort, Seq<Value>> sorts = new HashMap<>();
         List<Value> elems = new ArrayList<>();
         for (int i = 1; i <= NUM_ELEMS; i++) {
-            elems.add(DomainElement.apply(i, context.univSort));
+            elems.add(DomainElement.apply(i, univ));
         }
-        sorts.put(context.univSort, CollectionConverters.asScala(elems).toSeq());
+        sorts.put(univ, CollectionConverters.asScala(elems).toSeq());
+        List<Value> intElems = new ArrayList<>();
+        for (int i = -8; i <= 7; i++) {
+            intElems.add(IntegerLiteral.apply(i));
+        }
+        sorts.put(Sort.Int(), CollectionConverters.asScala(intElems).toSeq());
         Map<AnnotatedVar, Value> constants = new HashMap<>();
         Map<FuncDecl, scala.collection.immutable.Map<Seq<Value>, Value>> functions = new HashMap<>();
         Interpretation interpretation = new BasicInterpretation(
@@ -81,14 +90,14 @@ public class FortressSolutionTest {
 
     @Test
     public void testEval_trueFormula() {
-        Object result = solution.eval(Sig.UNIV.in(Sig.UNIV));
+        Object result = solution.eval(ExprConstant.makeNUMBER(1).equal(ExprConstant.makeNUMBER(1)));
         assertThat(result, instanceOf(Boolean.class));
         assertTrue((boolean) result);
     }
 
     @Test
     public void testEval_falseFormula() {
-        Object result = solution.eval(Sig.UNIV.no());
+        Object result = solution.eval(ExprConstant.makeNUMBER(1).equal(ExprConstant.makeNUMBER(2)));
         assertThat(result, instanceOf(Boolean.class));
         assertFalse((boolean) result);
     }
