@@ -21,7 +21,7 @@ logging.addLevelName(SVLOG, "SIG")
 
 # ===== Base Classes =====
 
-#if($concState)
+#if($rootState)
 class State(ABC):
 
     def __init__(self, *args) -> None:
@@ -70,7 +70,14 @@ class State(ABC):
         elif(self._conc_states):
             for s in self._conc_states:
                 s.handleEvent()
-
+     
+    def printStates(self):
+        if(self._active_state):
+            print(type(self._active_state).__name__ + "\n")
+        elif(self._conc_states):
+            for s in self._conc_states:
+                print(type(s).__name__ + ": ")
+                s.printStates()
 
 #end
 #if($signatures)
@@ -230,7 +237,7 @@ class ${relation.Name}(Relation):
 activeEvents = set()
 #end
 
-#if($concState)
+#if($rootState)
 # --- Conc States ---
 #macro(generateState $concState $padding)
 ${padding}class ${concState.getName()}_State(State):
@@ -320,7 +327,7 @@ $padding        #if(${trans.getTriggerEvent()})activeEvents.add("${trans.getTrig
 #foreach($concState in $concStateList)
 	#generateState($concState "")
 #end
-#if($concState)
+#if($rootState)
 # --- Central Controller ---
 
 class CentralController:
@@ -337,10 +344,17 @@ class CentralController:
         while(eventName != "QUIT"):
             eventName = input("Please enter an event to be processed by the model. Type \"help\" for a list of possible events\n")
 
-            while(eventName == "help"):
-                for x in self.possibleEvents:
-                    print(x)
-                print("QUIT")
+            while(eventName == "help" or eventName == "states"):
+                if(eventName == "help"):
+                    print("\nEnv Events:")
+                    for x in self.possibleEvents:
+                        print(x)
+                    print("\nOther Commands:")
+                    print("states: print the model's current states")
+                    print("QUIT: terminate the model\n")
+                elif(eventName == "states"):
+                    print("\n" + type(self.concState).__name__ + " Current States:\n")
+                    self.concState.printStates()
 
                 eventName = input("Please enter an event to be processed by the model. Type \"help\" for a list of possible events\n")
 
