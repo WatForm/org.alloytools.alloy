@@ -2180,7 +2180,6 @@ public class CoreDashToElectrum {
     	}
     	
 		for (DashConcState concState: module.concStates.values()) {
-			
 			stateLabelScope += getBasicStateCount(getStates(concState));
 			transitionLabelScope += getTransitions(module, concState).size();
 		}

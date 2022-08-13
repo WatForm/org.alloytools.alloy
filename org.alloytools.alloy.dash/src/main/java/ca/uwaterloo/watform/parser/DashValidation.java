@@ -13,6 +13,7 @@ import edu.mit.csail.sdg.alloy4.ErrorSyntax;
 import edu.mit.csail.sdg.alloy4.ErrorWarning;
 import edu.mit.csail.sdg.alloy4.Pos;
 import ca.uwaterloo.watform.ast.DashAction;
+import ca.uwaterloo.watform.ast.DashBuffer;
 import ca.uwaterloo.watform.ast.DashConcState;
 import ca.uwaterloo.watform.ast.DashCondition;
 import ca.uwaterloo.watform.ast.DashEvent;
@@ -354,7 +355,8 @@ public class DashValidation {
 
     private static void getDeclsFromExprQT(ExprQt exprQt, DashConcState concState) {
         for (Decl decl : exprQt.decls) {
-            quantifierVars.add(decl.get().toString());
+        	for (ExprHasName name: decl.names)
+        		quantifierVars.add(name.toString());
             getVarFromParentExpr(decl.expr, concState);
         }
     }
@@ -385,23 +387,20 @@ public class DashValidation {
      */
     private static void checkIfVarValid(ExprVar var, DashConcState concState) {
         String variable = var.toString();
-        String concStateToCheck = concState.getFullyQualName();
         
-        if (variable.contains("'"))
-            variable = variable.replace("'", "");
-
-        String concStateParName = "";
-        if (concState.getParentConcState() != null)
-            concStateParName = concState.getParentConcState().getFullyQualName();
-        else
-            concStateParName = concState.getFullyQualName();
-
+        DashConcState parentConcState = (concState.getParentConcState() == null) ? concState : concState.getParentConcState();
+    	if(variable.contains("/")) {
+    		concState = DashHelper.getConcStateReferred(variable, parentConcState);
+    	} 
         if (variable.contains("/")) {
-        	//concStateToCheck = variable.substring(0, variable.indexOf("/"));
-        	variable = variable.substring(variable.indexOf("/") + 1);
+        	variable = variable.substring(variable.lastIndexOf("/") + 1);
+        }
+        
+        if (variable.contains("'")) {
+            variable = variable.replace("'", "");
         }
 
-        if (!getAllUserVars(concStateParName, concStateToCheck, concState).contains(variable)) {
+        if (!getAllUserVars(parentConcState.getFullyQualName(), concState.getFullyQualName(), concState).contains(variable)) {
             throw new ErrorSyntax(var.pos, "Could not resolve reference to: " + variable);
         }
     }
@@ -599,6 +598,10 @@ public class DashValidation {
                     names.add(name.toString());
             }
             
+            for (DashBuffer buffer : concState.getBuffers()) {
+                    names.add(buffer.getRawName());
+            }
+            
             concState = concState.getParentConcState();
     	}
 
@@ -712,6 +715,10 @@ public class DashValidation {
     public static void validateConcStates(DashModule dashModule) {
         for (String concStateName : concStateNamesModified) {
             DashConcState currentConcState = dashModule.concStates.get(concStateName);
+            
+            if (currentConcState.getInnerConcStates().size() > 0 && currentConcState.getInnerORStates().size() > 0) {
+            	 throw new ErrorSyntax(dashModule.concStates.get(concStateName).getPos(), "Every children state must be concurrent or none at all.");
+            }
 
             if (!hasDefaultState(currentConcState.getInnerORStates()))
                 throw new ErrorSyntax(dashModule.concStates.get(concStateName).getPos(), "A default state is required.");
@@ -719,17 +726,18 @@ public class DashValidation {
             hasSameStateName(concStateName, currentConcState.getInnerORStates());
             hasSameTransName(concStateName, currentConcState.getTransitions());
             hasSameEventName(currentConcState);
+            checkSendEvents(currentConcState);
 
             for (DashState state : currentConcState.getInnerORStates()) {
-                if (!hasDefaultState(state.getInnerORStates()))
-                    throw new ErrorSyntax(state.getPos(), "A default state is required.");
+            	if (state.getInnerORStates().size() > 0) {
+	                if (!hasDefaultState(state.getInnerORStates()))
+	                    throw new ErrorSyntax(state.getPos(), "A default state is required.");
+            	}
 
                 hasSameStateName(concStateName, state.getInnerORStates());
                 hasSameTransName(concStateName, state.getTransitions());
             }
-            checkSendEvents(currentConcState);
-
-            
+           
             validateExprVar(currentConcState);
         }
     }

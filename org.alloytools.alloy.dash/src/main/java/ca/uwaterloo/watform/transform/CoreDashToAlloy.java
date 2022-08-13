@@ -1100,31 +1100,35 @@ public class CoreDashToAlloy {
      * t:TransitionLabel] {}
      */
     private void createTestIfStableAST(DashModule module) {
-        for (int key : eventSize2Trans.keySet()) {
-        	Expr expr = null;
-        	for (DashTrans trans: eventSize2Trans.get(key)) {
-	            List<Decl> decls = new ArrayList<Decl>();
-	            List<ExprVar> a = new ArrayList<ExprVar>();
-	            for (int i = 0; i < trans.getParentConcState().getIdentifiers().size(); i++) {
-	                a.add(ExprVar.make(null, "p" + i));
-	                decls.add(new Decl(null, null, null, null, a, mult(ExprVar.make(null, trans.getParentConcState().getIdentifiers().get(i))))); //p: param
-	                a.clear();
-	            }
-	            
-	           	Expr tFuncCall = ExprBadJoin.make(null, null, ExprVar.make(null, "s"), ExprVar.make(null, "enabledAfterStep_" + trans.getFullyQualName())); //t.enabledAfterStep_transName
-	            Expr genEventT = (DashOptions.isElectrum) ? tFuncCall : ExprBadJoin.make(null, null, ExprVar.make(null, "s_next"), tFuncCall); //genEvents.t.enabledAfterStep_transName
-	            Expr sPrimeGenEventT = ExprBadJoin.make(null, null, ExprVar.make(null, "t"), genEventT);
-	            Expr ssPrimeGenEventT = ExprBadJoin.make(null, null, ExprVar.make(null, "genEvents"), sPrimeGenEventT);
-	            for (int i = 0; i < trans.getParentConcState().getIdentifiers().size(); i++) {
-	            	ssPrimeGenEventT = ExprBadJoin.make(null, null, ExprVar.make(null, "p" + i), ssPrimeGenEventT);
-	            }
-	            
-	            Expr quant = (trans.getParentConcState().getIdentifiers().size() == 0) ? DashHelper.createUnaryExpr(ExprUnary.Op.NOT, ssPrimeGenEventT) : ExprQt.Op.NO.make(null, null, decls, ssPrimeGenEventT);
-	            expr = (expr == null) ? quant : DashHelper.createBinaryExpr(expr, ExprBinary.Op.AND, quant) ; // no p: param | enabledAfterStep_transName[s, s_next, t, genEvents, p]\n
-        	}
-        	expr = addOtherTestIfState(key, expr);
-            expr = ExprUnary.Op.NOOP.make(null, expr); 
-            addPredicateAST(module, "testIfNextStable" + key, "s", "s_next", "t", "genEvents", key, expr);
+    	if (eventSize2Trans.size() != 0) {
+	        for (int key : module.eventTuples) {
+	        	Expr expr = null;
+	        	if (eventSize2Trans.containsKey(key)) {
+		        	for (DashTrans trans: eventSize2Trans.get(key)) {
+			            List<Decl> decls = new ArrayList<Decl>();
+			            List<ExprVar> a = new ArrayList<ExprVar>();
+			            for (int i = 0; i < trans.getParentConcState().getIdentifiers().size(); i++) {
+			                a.add(ExprVar.make(null, "p" + i));
+			                decls.add(new Decl(null, null, null, null, a, mult(ExprVar.make(null, trans.getParentConcState().getIdentifiers().get(i))))); //p: param
+			                a.clear();
+			            }
+			            
+			           	Expr tFuncCall = ExprBadJoin.make(null, null, ExprVar.make(null, "s"), ExprVar.make(null, "enabledAfterStep_" + trans.getFullyQualName())); //t.enabledAfterStep_transName
+			            Expr genEventT = (DashOptions.isElectrum) ? tFuncCall : ExprBadJoin.make(null, null, ExprVar.make(null, "s_next"), tFuncCall); //genEvents.t.enabledAfterStep_transName
+			            Expr sPrimeGenEventT = ExprBadJoin.make(null, null, ExprVar.make(null, "t"), genEventT);
+			            Expr ssPrimeGenEventT = ExprBadJoin.make(null, null, ExprVar.make(null, "genEvents"), sPrimeGenEventT);
+			            for (int i = 0; i < trans.getParentConcState().getIdentifiers().size(); i++) {
+			            	ssPrimeGenEventT = ExprBadJoin.make(null, null, ExprVar.make(null, "p" + i), ssPrimeGenEventT);
+			            }
+			            
+			            Expr quant = (trans.getParentConcState().getIdentifiers().size() == 0) ? DashHelper.createUnaryExpr(ExprUnary.Op.NOT, ssPrimeGenEventT) : ExprQt.Op.NO.make(null, null, decls, ssPrimeGenEventT);
+			            expr = (expr == null) ? quant : DashHelper.createBinaryExpr(expr, ExprBinary.Op.AND, quant) ; // no p: param | enabledAfterStep_transName[s, s_next, t, genEvents, p]\n
+		        	}
+	        	}
+	        	expr = addOtherTestIfState(module, key, expr);
+	            expr = ExprUnary.Op.NOOP.make(null, expr); 
+	            addPredicateAST(module, "testIfNextStable" + key, "s", "s_next", "t", "genEvents", key, expr);
+	    	}
     	}
         
         /* For models without any events */
@@ -1156,10 +1160,10 @@ public class CoreDashToAlloy {
         eventSize2Trans.clear();
     }
     
-    private Expr addOtherTestIfState(int key, Expr expr) {
+    private Expr addOtherTestIfState(DashModule module, int key, Expr expr) {
     	Expr expression = expr;
-        for (int otherKey : eventSize2Trans.keySet()) { 
-        	if (otherKey == key) continue;
+        for (int otherKey : module.eventTuples) { 
+        	if ((otherKey == key) || !eventSize2Trans.containsKey(otherKey)) continue;
         	for (DashTrans trans: eventSize2Trans.get(otherKey)) {
 	            List<Decl> decls = new ArrayList<Decl>();
 	            List<ExprVar> a = new ArrayList<ExprVar>();
@@ -2119,7 +2123,7 @@ public class CoreDashToAlloy {
         
         /* If the var refers to a parameterizerd concurrent process, return 'p' as this refers to the current process */
         if(expression.toString().equals("this")) {
-        	return isCreatingInit && parent.isParameterized()? ExprVar.make(null, "p" + module.identifiers.indexOf(parent.getReplicatedIdentifier())) : ExprVar.make(null, "p0");
+        	return isCreatingInit && parent.isParameterized() ? ExprVar.make(null, "p" + module.identifiers.indexOf(parent.getReplicatedIdentifier())) : ExprVar.make(null, "p0");
         }
     	
         //If we make a reference to a conc state outside of the current conc state, find it and 
