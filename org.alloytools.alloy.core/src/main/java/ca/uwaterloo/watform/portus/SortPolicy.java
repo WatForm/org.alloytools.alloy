@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.StreamSupport;
@@ -71,18 +72,26 @@ abstract class SortPolicy {
             this.context = new TranslationContext(context);
         }
 
-        private List<Sort> merge(List<Sort> a, List<Sort> b) {
+        private List<Sort> merge(List<Sort> a, List<Sort> b, BiFunction<Sort, Sort, Sort> merger) {
             if (a.size() != b.size()) {
                 throw new ErrorFatal(errorMessage);
             }
             List<Sort> merged = new ArrayList<>();
             for (int i = 0; i < a.size(); i++) {
-                merged.add(merge(a.get(i), b.get(i)));
+                merged.add(merger.apply(a.get(i), b.get(i)));
             }
             return merged;
         }
 
-        private Sort merge(Sort a, Sort b) {
+        private List<Sort> intersect(List<Sort> a, List<Sort> b) {
+            return merge(a, b, this::intersect);
+        }
+
+        private List<Sort> union(List<Sort> a, List<Sort> b) {
+            return merge(a, b, this::union);
+        }
+
+        private Sort intersect(Sort a, Sort b) {
             // If one is null, take the most restrictive option
             if (a == null) {
                 return b;
@@ -93,6 +102,18 @@ abstract class SortPolicy {
                 throw new ErrorFatal(errorMessage);
             } else {
                 // They're the same, pick one
+                return a;
+            }
+        }
+
+        private Sort union(Sort a, Sort b) {
+            if (a == null || b == null) {
+                return null;
+            } else if (!a.equals(b)) {
+                // Incompatible sorts!
+                throw new ErrorFatal(errorMessage);
+            } else {
+                // They're the same
                 return a;
             }
         }
@@ -141,14 +162,14 @@ abstract class SortPolicy {
             switch (x.op) {
                 case JOIN:
                     result.addAll(left.subList(0, left.size() - 1));
-                    result.add(merge(left.get(left.size() - 1), right.get(0)));
+                    result.add(intersect(left.get(left.size() - 1), right.get(0)));
                     result.addAll(right.subList(1, right.size()));
                     return result;
                 case DOMAIN:
                     if (left.size() != 1) {
                         throw new ErrorFatal("Domain restriction left argument must have arity 1");
                     }
-                    result.add(merge(left.get(0), right.get(0)));
+                    result.add(intersect(left.get(0), right.get(0)));
                     result.addAll(right.subList(1, right.size()));
                     return result;
                 case RANGE:
@@ -156,13 +177,16 @@ abstract class SortPolicy {
                         throw new ErrorFatal("Domain restriction left argument must have arity 1");
                     }
                     result.addAll(left.subList(0, left.size() - 1));
-                    result.add(merge(left.get(left.size() - 1), right.get(0)));
+                    result.add(intersect(left.get(left.size() - 1), right.get(0)));
                     return result;
                 case PLUS:
-                case MINUS:
+                case PLUSPLUS: // override
+                    return union(left, right);
                 case INTERSECT:
-                case PLUSPLUS:
-                    return merge(left, right);
+                    return intersect(left, right);
+                case MINUS:
+                    // e1 - e2 has sorts of e1, even if e2's are incompatible, due to short-circuiting
+                    return left;
                 default:
                     throw new ErrorFatal("Unsupported ExprBinary node: " + x.op);
             }
@@ -206,7 +230,7 @@ abstract class SortPolicy {
 
         @Override
         public List<Sort> visit(ExprITE x) throws Err {
-            return merge(visitThis(x.left), visitThis(x.right));
+            return union(visitThis(x.left), visitThis(x.right));
         }
 
         @Override
