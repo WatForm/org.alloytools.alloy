@@ -32,6 +32,7 @@ final class TranslatorManager implements Translator {
     public TranslatorManager(FortressOptions options) {
         // TODO: use options to come up with a list of translators
         // but for now:
+        translators.add(new FunctionOptTranslator(this, false));
         translators.add(new DefaultTranslator(this));
     }
 

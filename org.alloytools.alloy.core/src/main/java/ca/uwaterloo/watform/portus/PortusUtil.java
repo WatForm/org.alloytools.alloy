@@ -12,6 +12,7 @@ import fortress.operations.Substituter;
 import scala.collection.immutable.HashSet;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -140,6 +141,13 @@ final class PortusUtil {
             term = Substituter.apply(from, to, term, nameGen);
         }
         return term;
+    }
+
+    /**
+     * A convenience overload of the above for only one var/term pair.
+     */
+    public static Term substitute(AnnotatedVar a, Term b, Term term) {
+        return substitute(Collections.singletonList(a), Collections.singletonList(b), term);
     }
 
     /**

@@ -162,7 +162,6 @@ abstract class SortPolicy {
             switch (x.op) {
                 case JOIN:
                     result.addAll(left.subList(0, left.size() - 1));
-                    result.add(intersect(left.get(left.size() - 1), right.get(0)));
                     result.addAll(right.subList(1, right.size()));
                     return result;
                 case DOMAIN:

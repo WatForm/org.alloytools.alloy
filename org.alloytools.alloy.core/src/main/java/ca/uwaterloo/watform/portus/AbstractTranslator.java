@@ -1,6 +1,5 @@
 package ca.uwaterloo.watform.portus;
 
-import edu.mit.csail.sdg.alloy4.ConstList;
 import edu.mit.csail.sdg.alloy4.Err;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.ast.Assert;
@@ -17,13 +16,8 @@ import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Func;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.parser.Macro;
-import fortress.data.IntSuffixNameGenerator;
-import fortress.data.NameGenerator;
 import fortress.msfol.AnnotatedVar;
 import fortress.msfol.Term;
-import fortress.msfol.Var;
-import scala.collection.Set$;
-import scala.collection.immutable.Set;
 
 /**
  * A convenience base implementation of Translator. Immutable.
@@ -37,9 +31,6 @@ abstract class AbstractTranslator implements Translator {
     // We can't just call translate() because that wouldn't give other translators
     // the chance to translate.
     private final Translator topLevelTranslator;
-
-    // Convenience object to make unique names.
-    protected final NameGenerator nameGenerator = new IntSuffixNameGenerator((Set<String>) Set$.MODULE$.empty(), 0);
 
     private final Visitor visitor = new Visitor();
 
