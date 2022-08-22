@@ -56,6 +56,11 @@ abstract class SortPolicy {
     /** Add all the scopes of the sorts to the model finder. */
     public abstract void configureModelFinderScopes(ModelFinder modelFinder);
 
+    /**
+     * For each position i in the arity of `expr` (i.e. 1<=i<=arity), find the single sig Si such that
+     * (x1,...,xn) \in expr implies xi \in Si, or null if no such sig exists.
+     * Null corresponds to INDEFINITE in the paper.
+     */
     public final List<Sort> getMinimalExprSorts(Expr expr, String errorMessage, TranslationContext context) {
         return expr.accept(new SortVisitor(errorMessage, context));
     }
