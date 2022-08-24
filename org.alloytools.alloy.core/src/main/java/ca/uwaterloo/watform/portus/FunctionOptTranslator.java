@@ -41,11 +41,16 @@ final class FunctionOptTranslator extends AbstractTranslator {
         public final Sort resultSort;
         public final List<Expr> boundExprs;
 
-        public FieldFuncInfo(String funcName, List<Sort> argSorts, Sort resultSort, List<Expr> boundExprs) {
+        // May be null if there's no domain predicate.
+        public final String domainPredName;
+
+        public FieldFuncInfo(String funcName, List<Sort> argSorts, Sort resultSort, List<Expr> boundExprs,
+                String domainPredName) {
             this.funcName = funcName;
             this.argSorts = argSorts;
             this.resultSort = resultSort;
             this.boundExprs = boundExprs;
+            this.domainPredName = domainPredName;
 
             // enforce the invariant
             int totalArity = boundExprs.stream().mapToInt(expr -> expr.type().arity()).sum();
@@ -63,8 +68,6 @@ final class FunctionOptTranslator extends AbstractTranslator {
     public FunctionOptTranslator(Translator topLevel, boolean optimizeLone) {
         super(topLevel);
         this.optimizeLone = optimizeLone;
-        // TODO: support A->lone B
-        if (optimizeLone) throw new ErrorFatal("Optimizing A->lone B isn't yet supported!");
     }
 
     /** Translate declarations of fields declared as partial functions. */
@@ -82,35 +85,41 @@ final class FunctionOptTranslator extends AbstractTranslator {
         String funcName = context.nameGenerator.freshName(field.label);
         // The optimized type is S1 x ... x S{n-1} -> Sn, where n is the field arity
         context.addFunctionDeclaration(FuncDecl.mkFuncDecl(funcName, argSorts, resultSort));
-        context.addAxiom(makeOptimizedFunctionAxiom(funcTypeExprs, funcName, argSorts, resultSort, context));
 
-        optimizedFieldsInfo.put(field, new FieldFuncInfo(funcName, argSorts, resultSort, funcTypeExprs));
+        String domainPredName = null;
+        if (optimizeLone) {
+            // Generate the inDomain predicate
+            domainPredName = context.nameGenerator.freshName("inDomain");
+            context.addFunctionDeclaration(FuncDecl.mkFuncDecl(domainPredName, argSorts, Sort.Bool()));
+        }
+
+        FieldFuncInfo info = new FieldFuncInfo(funcName, argSorts, resultSort, funcTypeExprs, domainPredName);
+        context.addAxiom(makeOptimizedFunctionAxiom(info, context));
+        optimizedFieldsInfo.put(field, info);
 
         // The return value doesn't matter for field declarations, it just can't be null
         return Term.mkTop();
     }
 
-    private Term makeOptimizedFunctionAxiom(
-            List<Expr> funcTypeExprs, String funcName, List<Sort> argSorts, Sort resultSort,
-            TranslationContext context) {
+    private Term makeOptimizedFunctionAxiom(FieldFuncInfo info, TranslationContext context) {
         // forall x1: sort(e1), ..., x{n-1}: sort(e{n-1}) . [[x1 \in e1]] && ... && [[x{n-1} \in e{n-1}]] =>
         //   [[y \in en]][f(x1,...,x{n-1})/y]
         List<Var> vars = new ArrayList<>();
         List<AnnotatedVar> decls = new ArrayList<>();
-        for (int i = 0; i < argSorts.size(); i++) {
+        for (int i = 0; i < info.argSorts.size(); i++) {
             Var var = Term.mkVar(context.nameGenerator.freshName("x" + i));
-            AnnotatedVar decl = var.of(argSorts.get(i));
+            AnnotatedVar decl = var.of(info.argSorts.get(i));
             vars.add(var);
             decls.add(decl);
         }
 
-        Term domainFormula = makeDomainFormula(new VarTuple(decls), funcTypeExprs, context);
+        Term domainFormula = makeDomainFormula(new VarTuple(decls), info, context);
 
         // do this substitution because ExprElementOf/VarTuple only supports AnnotatedVars
-        AnnotatedVar y = Term.mkVar(context.nameGenerator.freshName("y")).of(resultSort);
-        Term funcApp = Term.mkApp(funcName, vars);
+        AnnotatedVar y = Term.mkVar(context.nameGenerator.freshName("y")).of(info.resultSort);
+        Term funcApp = Term.mkApp(info.funcName, vars);
         Term consequent = recursivelyTranslate(
-                ExprElementOf.make(y, funcTypeExprs.get(funcTypeExprs.size() - 1)), context);
+                ExprElementOf.make(y, info.boundExprs.get(info.boundExprs.size() - 1)), context);
         consequent = PortusUtil.substitute(y, funcApp, consequent);
 
         return Term.mkForall(decls, Term.mkImp(domainFormula, consequent));
@@ -175,7 +184,7 @@ final class FunctionOptTranslator extends AbstractTranslator {
 
         // [[(x1,..,xn) \in f]] := ((x1,...,x{n-1}) in f's domain) && f(x1,...,x{n-1}) = xn
         FieldFuncInfo info = optimizedFieldsInfo.get(field);
-        Term domainFormula = makeDomainFormula(tuple.slice(0, tuple.size() - 1), info.boundExprs, context);
+        Term domainFormula = makeDomainFormula(tuple.slice(0, tuple.size() - 1), info, context);
         Term funcFormula = Term.mkEq(
                 Term.mkApp(info.funcName, tuple.slice(0, tuple.size() - 1).getVars()),
                 tuple.getVar(tuple.size() - 1));
@@ -212,7 +221,7 @@ final class FunctionOptTranslator extends AbstractTranslator {
         FieldFuncInfo leftInfo = optimizedFieldsInfo.get(left);
 
         VarTuple vars = makeArgVars(leftInfo, context);
-        Term domainFormula = makeDomainFormula(vars, leftInfo.boundExprs, context);
+        Term domainFormula = makeDomainFormula(vars, leftInfo, context);
 
         // do this substitution because VarTuple only supports vars
         AnnotatedVar y = Term.mkVar(context.nameGenerator.freshName("y")).of(leftInfo.resultSort);
@@ -241,8 +250,8 @@ final class FunctionOptTranslator extends AbstractTranslator {
         VarTuple vars = makeArgVars(leftInfo, context);
 
         // TODO: if rightDomainFormula is cheaper than leftDomainFormula, swap them for a slight optimization
-        Term leftDomainFormula = makeDomainFormula(vars, leftInfo.boundExprs, context);
-        Term rightDomainFormula = makeDomainFormula(vars, rightInfo.boundExprs, context);
+        Term leftDomainFormula = makeDomainFormula(vars, leftInfo, context);
+        Term rightDomainFormula = makeDomainFormula(vars, rightInfo, context);
         Term funcsEqual = Term.mkEq(
                 Term.mkApp(leftInfo.funcName, vars.getVars()),
                 Term.mkApp(rightInfo.funcName, vars.getVars()));
@@ -264,12 +273,17 @@ final class FunctionOptTranslator extends AbstractTranslator {
      * (i.e. for sig S { f: e1->e2->one e3 }, the bound expressions are S,e1,e2,e3),
      * return a term expressing "(x1,...,x{n-1}) is in the domain of the function representing the field".
      */
-    private Term makeDomainFormula(VarTuple vars, List<Expr> boundExprs, TranslationContext context) {
+    private Term makeDomainFormula(VarTuple vars, FieldFuncInfo info, TranslationContext context) {
+        if (info.domainPredName != null) {
+            // use the domain predicate instead (supports lone)
+            return Term.mkApp(info.domainPredName, vars.getVars());
+        }
+
         List<Term> conjuncts = new ArrayList<>();
         int varIdx = 0;
 
         // Ignore the last bound expr, it's for the result
-        for (Expr expr : boundExprs.subList(0, boundExprs.size() - 1)) {
+        for (Expr expr : info.boundExprs.subList(0, info.boundExprs.size() - 1)) {
             int arity = expr.type().arity();
             if (varIdx + arity > vars.size()) {
                 // out of variables - arities are mismatched
