@@ -33,6 +33,7 @@ final class TranslatorManager implements Translator {
         // TODO: use options to come up with a list of translators
         // but for now:
         translators.add(new FunctionOptTranslator(this, true));
+        translators.add(new JoinOptTranslator(this));
         translators.add(new DefaultTranslator(this));
     }
 
