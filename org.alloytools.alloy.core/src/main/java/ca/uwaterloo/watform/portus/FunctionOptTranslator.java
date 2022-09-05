@@ -22,8 +22,6 @@ import java.util.Map;
  * A translator for the function optimization, based on KT 5.5.
  * For now, we optimize only S1->S2->...->one Sn (and they're partial functions).
  */
-// TODO: handle A->lone B, and also more exotic function variants
-// the only change for A->lone B should be in the domain expr, and generate a new predicate
 final class FunctionOptTranslator extends AbstractTranslator {
 
     // The list of arrow operators which define (partial) functions using "one".
