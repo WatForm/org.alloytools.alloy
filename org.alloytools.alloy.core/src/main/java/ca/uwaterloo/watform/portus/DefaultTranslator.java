@@ -798,11 +798,15 @@ final class DefaultTranslator extends AbstractTranslator {
         Sort commonSort = tuple.getSort(0);
 
         // Translate as "^f(x,y)" or "*f(x,y)" where f is an auxiliary relation f(x,y) = [[(x,y) \in sub]].
+        // Also include all the free variables as secondary arguments.
         String auxRelationName = makeClosureBinaryRelation(commonSort, sub, context);
+        List<Term> freeVars = PortusUtil.computeFreeVariables(sub, context).stream()
+                .map(AnnotatedVar::variable)
+                .collect(Collectors.toList());
         if (reflexive) {
-            return Term.mkReflexiveClosure(auxRelationName, tuple.getVar(0), tuple.getVar(1));
+            return Term.mkReflexiveClosure(auxRelationName, tuple.getVar(0), tuple.getVar(1), freeVars);
         } else {
-            return Term.mkClosure(auxRelationName, tuple.getVar(0), tuple.getVar(1));
+            return Term.mkClosure(auxRelationName, tuple.getVar(0), tuple.getVar(1), freeVars);
         }
     }
 
@@ -835,21 +839,30 @@ final class DefaultTranslator extends AbstractTranslator {
         }
 
         // Introduce an auxiliary relation f(x,y) = [[(x,y) \in expr]] of type sort->sort
+        // Also include any free variables in the term as extra arguments.
+        List<AnnotatedVar> freeVars = PortusUtil.computeFreeVariables(expr, context);
+        // The type of the aux relation is (sort,sort,*extras)->Bool
+        List<Sort> auxRelSorts = new ArrayList<>();
+        auxRelSorts.add(sort);
+        auxRelSorts.add(sort);
+        auxRelSorts.addAll(freeVars.stream().map(AnnotatedVar::sort).collect(Collectors.toList()));
         String auxRelationName = context.nameGenerator.freshName("closureAux_" + sort.name());
         auxClosureRelationNames.add(new Pair<>(new Pair<>(expr, sort), auxRelationName));
-        FuncDecl auxDecl = FuncDecl.mkFuncDecl(auxRelationName, sort, sort, Sort.Bool());
+        FuncDecl auxDecl = FuncDecl.mkFuncDecl(auxRelationName, auxRelSorts, Sort.Bool());
         context.addFunctionDeclaration(auxDecl);
 
         // Give it our desired interpretation with an axiom "forall x, y: sort . f(x,y) = [[(x, y) \in expr]]".
         // TODO: this can be done more cheaply (avoiding the forall) with a definition instead
-        // TODO: handle "contextual" variables
         Var x = Term.mkVar(context.nameGenerator.freshName("x"));
         Var y = Term.mkVar(context.nameGenerator.freshName("y"));
+        List<AnnotatedVar> axiomDecls = new ArrayList<>(Arrays.asList(x.of(sort), y.of(sort)));
+        axiomDecls.addAll(freeVars);
+        List<Var> allVars = axiomDecls.stream().map(AnnotatedVar::variable).collect(Collectors.toList());
         Term inExpr = recursivelyTranslate(ExprElementOf.make(
                 new VarTuple(x.of(sort), y.of(sort)), expr), context);
-        context.addAxiom(Term.mkForall(Arrays.asList(x.of(sort), y.of(sort)),
+        context.addAxiom(Term.mkForall(axiomDecls,
                 Term.mkIff(
-                        Term.mkApp(auxRelationName, x, y),
+                        Term.mkApp(auxRelationName, allVars),
                         inExpr)));
 
         return auxRelationName;

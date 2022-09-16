@@ -240,12 +240,12 @@ public class PortusLogger implements EventLogger {
 
         @Override
         public Integer visitClosure(Closure term) {
-            return 1 + sumVisits(term.arguments());
+            return 1 + sumVisits(term.allArguments());
         }
 
         @Override
         public Integer visitReflexiveClosure(ReflexiveClosure term) {
-            return 1 + sumVisits(term.arguments());
+            return 1 + sumVisits(term.allArguments());
         }
 
         private int sumVisits(scala.collection.Iterable<? extends Term> iterable) {

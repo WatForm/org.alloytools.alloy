@@ -1,8 +1,21 @@
 package ca.uwaterloo.watform.portus;
 
+import edu.mit.csail.sdg.alloy4.Err;
+import edu.mit.csail.sdg.alloy4.ErrorFatal;
+import edu.mit.csail.sdg.ast.Assert;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprBinary;
+import edu.mit.csail.sdg.ast.ExprCall;
+import edu.mit.csail.sdg.ast.ExprConstant;
+import edu.mit.csail.sdg.ast.ExprITE;
+import edu.mit.csail.sdg.ast.ExprLet;
+import edu.mit.csail.sdg.ast.ExprList;
+import edu.mit.csail.sdg.ast.ExprQt;
 import edu.mit.csail.sdg.ast.ExprUnary;
+import edu.mit.csail.sdg.ast.ExprVar;
+import edu.mit.csail.sdg.ast.Func;
+import edu.mit.csail.sdg.ast.Sig;
+import edu.mit.csail.sdg.parser.Macro;
 import fortress.data.IntSuffixNameGenerator;
 import fortress.data.NameGenerator;
 import fortress.msfol.AnnotatedVar;
@@ -183,6 +196,134 @@ final class PortusUtil {
             }
         }
         return false;
+    }
+
+    /**
+     * Get a list of the variables which are free in the translation of expr, with sorts determined by the context
+     * (which should assign a Fortress var for each free Alloy var).
+     */
+    public static List<AnnotatedVar> computeFreeVariables(Expr expr, TranslationContext inContext) {
+        // make a copy just in case
+        TranslationContext context = new TranslationContext(inContext);
+
+        // simple recursive implementation
+        return expr.accept(new FortressVisitReturn<List<AnnotatedVar>>() {
+            @SafeVarargs
+            private final List<AnnotatedVar> union(List<AnnotatedVar>... lists) {
+                // this is O(n^2) to union two lists of length n, but this shouldn't be a bottleneck
+                List<AnnotatedVar> result = new ArrayList<>();
+                for (List<AnnotatedVar> list : lists) {
+                    for (AnnotatedVar var : list) {
+                        if (!result.contains(var)) {
+                            result.add(var);
+                        }
+                    }
+                }
+                return result;
+            }
+
+            @Override
+            public List<AnnotatedVar> visit(ExprBinary x) throws Err {
+                return union(visitThis(x.left), visitThis(x.right));
+            }
+
+            @Override
+            public List<AnnotatedVar> visit(ExprList x) throws Err {
+                //noinspection unchecked
+                return union(x.args.stream()
+                        .map(this::visitThis)
+                        .toArray(List[]::new));
+            }
+
+            @Override
+            public List<AnnotatedVar> visit(ExprCall x) throws Err {
+                //noinspection unchecked
+                return union(x.args.stream()
+                        .map(this::visitThis)
+                        .toArray(List[]::new));
+            }
+
+            @Override
+            public List<AnnotatedVar> visit(ExprConstant x) throws Err {
+                return new ArrayList<>();
+            }
+
+            @Override
+            public List<AnnotatedVar> visit(ExprITE x) throws Err {
+                return union(visitThis(x.cond), visitThis(x.left), visitThis(x.right));
+            }
+
+            @Override
+            public List<AnnotatedVar> visit(ExprLet x) throws Err {
+                return visitThis(x.sub);
+            }
+
+            @Override
+            public List<AnnotatedVar> visit(ExprQt x) throws Err {
+                // the quantified variables aren't free - remove them from the list
+                List<AnnotatedVar> subFreeVars = visitThis(x.sub);
+                List<String> quantifiedVarNames = x.decls.stream()
+                        .flatMap(decl -> decl.names.stream())
+                        .map(name -> name.label)
+                        .collect(Collectors.toList());
+                return subFreeVars.stream()
+                        .filter(var -> !quantifiedVarNames.contains(var.name()))
+                        .collect(Collectors.toList());
+            }
+
+            @Override
+            public List<AnnotatedVar> visit(ExprUnary x) throws Err {
+                return visitThis(x.sub);
+            }
+
+            @Override
+            public List<AnnotatedVar> visit(ExprVar x) throws Err {
+                // If there's a let mapping, use free variables existing at the point of the 'let'
+                if (context.hasLetMapping(x.label)) {
+                    TranslationContext.LetContext letContext = context.getLetMapping(x.label);
+                    assert letContext != null;
+                    try {
+                        letContext.useLetMapping();
+                        return visitThis(letContext.getExpr());
+                    } finally {
+                        letContext.resetMapping();
+                    }
+                }
+
+                // Otherwise, it should be in the context - use it
+                if (!context.hasVarMapping(x.label)) {
+                    throw new ErrorFatal("Unknown variable: " + x.label);
+                }
+                return Collections.singletonList(context.getVarMapping(x.label));
+            }
+
+            @Override
+            public List<AnnotatedVar> visit(Sig.Field x) throws Err {
+                // fields aren't variables
+                return new ArrayList<>();
+            }
+
+            @Override
+            public List<AnnotatedVar> visit(ExprElementOf x) throws Err {
+                // treat the tuple as free vars until proven otherwise
+                return union(x.tuple.getAnnotatedVars(), visitThis(x.sub));
+            }
+
+            @Override
+            public List<AnnotatedVar> visit(Func x) throws Err {
+                throw new ErrorFatal("Visiting Func isn't supported!");
+            }
+
+            @Override
+            public List<AnnotatedVar> visit(Assert x) throws Err {
+                throw new ErrorFatal("Visiting Assert isn't supported!");
+            }
+
+            @Override
+            public List<AnnotatedVar> visit(Macro macro) throws Err {
+                throw new ErrorFatal("Visiting Macro isn't supported!");
+            }
+        });
     }
 
 }

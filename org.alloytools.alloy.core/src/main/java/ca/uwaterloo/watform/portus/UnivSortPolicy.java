@@ -67,9 +67,9 @@ class UnivSortPolicy extends SortPolicy {
 
     @Override
     public void configureModelFinderScopes(ModelFinder modelFinder) {
-        modelFinder.setAnalysisScope(univ, univScope);
+        modelFinder.setExactScope(univ, univScope);
         // TODO - allow configuring modular vs unbounded ints?
-        modelFinder.setAnalysisScope(Sort.Int(), bitwidth);
+        modelFinder.setExactScope(Sort.Int(), bitwidth);
     }
 
 }
