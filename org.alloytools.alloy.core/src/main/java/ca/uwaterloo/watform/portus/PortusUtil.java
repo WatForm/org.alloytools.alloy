@@ -298,6 +298,12 @@ final class PortusUtil {
             }
 
             @Override
+            public List<AnnotatedVar> visit(Sig sig) throws Err {
+                // sigs aren't variables
+                return new ArrayList<>();
+            }
+
+            @Override
             public List<AnnotatedVar> visit(Sig.Field x) throws Err {
                 // fields aren't variables
                 return new ArrayList<>();
