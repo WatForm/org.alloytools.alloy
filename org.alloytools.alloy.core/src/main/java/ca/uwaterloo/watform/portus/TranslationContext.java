@@ -147,6 +147,14 @@ final class TranslationContext {
     }
 
     /**
+     * Have we added a function with the given name?
+     * Useful for avoiding adding duplicate functions.
+     */
+    public boolean hasFunctionWithName(String name) {
+        return theory.functionDeclarations().exists(func -> func.name().equals(name));
+    }
+
+    /**
      * Add a mapping from an Alloy variable name to a Fortress variable.
      * The mapping should be valid for the current lexical scope and be removed at the end
      * of the scope with {@link #removeMapping(String)}.

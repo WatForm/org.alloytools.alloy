@@ -8,7 +8,7 @@ import fortress.msfol.Term;
 /**
  * The join optimization from KT 5.1.
  */
-class JoinOptTranslator extends AbstractTranslator {
+final class JoinOptTranslator extends AbstractTranslator {
 
     public JoinOptTranslator(Translator topLevel) {
         super(topLevel);

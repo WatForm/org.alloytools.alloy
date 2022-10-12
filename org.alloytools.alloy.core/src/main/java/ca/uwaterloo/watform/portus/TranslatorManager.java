@@ -34,6 +34,7 @@ final class TranslatorManager implements Translator {
         // but for now:
         translators.add(new FunctionOptTranslator(this, true));
         translators.add(new JoinOptTranslator(this));
+        translators.add(new OrderingModuleOptTranslator(this));
         translators.add(new DefaultTranslator(this));
     }
 

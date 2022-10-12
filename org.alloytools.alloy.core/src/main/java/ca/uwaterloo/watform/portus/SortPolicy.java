@@ -2,6 +2,7 @@ package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.Err;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
+import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.ast.Assert;
 import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
@@ -19,6 +20,7 @@ import edu.mit.csail.sdg.ast.Func;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.ast.Type;
 import edu.mit.csail.sdg.parser.Macro;
+import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.modelfind.ModelFinder;
 import fortress.msfol.AnnotatedVar;
 import fortress.msfol.Sort;
@@ -27,6 +29,7 @@ import fortress.msfol.Theory;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
@@ -37,6 +40,12 @@ import java.util.stream.StreamSupport;
  * An abstraction responsible for assigning sigs to sorts. Should be immutable.
  */
 abstract class SortPolicy {
+
+    protected final List<Sig> allSigs;
+
+    public SortPolicy(Iterable<Sig> allSigs) {
+        this.allSigs = PortusUtil.iterableToList(allSigs);
+    }
 
     /**
      * Get the sort assigned to a given signature. Should have no side effects.
@@ -55,6 +64,49 @@ abstract class SortPolicy {
 
     /** Add all the scopes of the sorts to the model finder. */
     public abstract void configureModelFinderScopes(ModelFinder modelFinder);
+
+    /** Get the inclusive range of domain element indices in the sort spanned by this sig. */
+    public Pair<Integer, Integer> getDomainElementRange(Sig sig, ScopeComputer scoper) {
+        if (!(sig instanceof Sig.PrimSig)) {
+            // TODO: can we support subset sigs?
+            return null;
+        }
+        if (sig == Sig.SIGINT) {
+            // domain elements of Int are special, so we don't support them
+            return null;
+        }
+        if (!scoper.isExact(sig)) {
+            // we only support exact scopes - a warning for the ordering module is printed in that optimization
+            return null;
+        }
+
+        Sig.PrimSig primSig = (Sig.PrimSig) sig;
+        Sort sort = getSort(primSig);
+        if (sort == null) {
+            // they've passed in something we can't deal with
+            return null;
+        }
+        int sigScope = scoper.sig2scope(sig);
+
+        List<Sig.PrimSig> siblings = allSigs.stream()
+                .filter(otherSig -> otherSig instanceof Sig.PrimSig && scoper.isExact(otherSig))
+                .map(otherSig -> (Sig.PrimSig) otherSig)
+                .filter(otherSig -> primSig.isTopLevel()
+                            ? sort == getSort(otherSig)
+                            : primSig.parent == otherSig.parent)
+                .sorted(Comparator.comparing(s -> s.label))
+                .collect(Collectors.toList());
+
+        int domainElementStart = 1;
+        for (Sig.PrimSig sibling : siblings) {
+            if (sibling == sig) {
+                break;
+            }
+            domainElementStart += scoper.sig2scope(sibling);
+        }
+
+        return new Pair<>(domainElementStart, domainElementStart + sigScope - 1);
+    }
 
     /**
      * For each position i in the arity of `expr` (i.e. 1<=i<=arity), find the single sig Si such that

@@ -11,7 +11,7 @@ import fortress.msfol.Theory;
  * A simple sort policy which assigns everything to a single univ sort, except for integers, which it assigns
  * to the built-in Int sort. Immutable.
  */
-class UnivSortPolicy extends SortPolicy {
+final class UnivSortPolicy extends SortPolicy {
 
     private final Sort univ;
     private final int univScope;
@@ -23,6 +23,7 @@ class UnivSortPolicy extends SortPolicy {
 
     /** Pass in the univ sort for testing purposes. */
     UnivSortPolicy(Sort univ, Iterable<Sig> sigs, ScopeComputer scoper) {
+        super(sigs);
         this.univ = univ;
         this.bitwidth = scoper.getBitwidth();
 

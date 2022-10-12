@@ -199,6 +199,15 @@ final class PortusUtil {
     }
 
     /**
+     * Convert an iterable to a list. Java doesn't make this as easy as it should be.
+     */
+    public static <T> List<T> iterableToList(Iterable<T> iterable) {
+        List<T> list = new ArrayList<>();
+        iterable.forEach(list::add);
+        return list;
+    }
+
+    /**
      * Get a list of the variables which are free in the translation of expr, with sorts determined by the context
      * (which should assign a Fortress var for each free Alloy var).
      */
