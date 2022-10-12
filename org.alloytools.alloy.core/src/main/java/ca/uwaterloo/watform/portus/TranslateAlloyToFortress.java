@@ -18,8 +18,8 @@ import fortress.msfol.Term;
 import fortress.msfol.Theory;
 import fortress.operations.SmtlibConverter;
 import fortress.solverinterface.SolverInterface;
-import fortress.solverinterface.SolverSession;
 import fortress.solverinterface.Z3CliInterface$;
+import fortress.solverinterface.solver;
 import fortress.util.Milliseconds;
 
 import java.io.File;
@@ -187,7 +187,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
         try (Writer writer = new FileWriter(smtlibFile)) {
             // The trick is to replace Fortress's solver connection (SolverSession) with one that just translates
             // everything to SMT-LIB and writes to the file.
-            ModelFinder finder = createModelFinder(() -> new SolverSession() {
+            ModelFinder finder = createModelFinder(() -> new solver() {
                 @Override
                 public void setTheory(Theory theory) {
                     SmtlibConverter converter = new SmtlibConverter(writer);

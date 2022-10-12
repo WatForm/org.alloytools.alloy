@@ -15,6 +15,7 @@ import fortress.msfol.Value;
 import org.junit.Before;
 import org.junit.Test;
 import scala.collection.immutable.Seq;
+import scala.collection.immutable.Set$;
 import scala.jdk.javaapi.CollectionConverters;
 
 import java.util.ArrayList;
@@ -37,7 +38,6 @@ public class FortressSolutionTest {
     private FortressSolution solution;
 
     private <A, B> scala.collection.immutable.Map<A, B> toScalaMap(Map<A, B> map) {
-        //noinspection unchecked - IntelliJ doesn't like Scala interop
         return scala.collection.immutable.Map.from(CollectionConverters.asScala(map));
     }
 
@@ -64,7 +64,8 @@ public class FortressSolutionTest {
         Interpretation interpretation = new BasicInterpretation(
                 this.<Sort, Seq<Value>>toScalaMap(sorts),
                 this.<AnnotatedVar, Value>toScalaMap(constants),
-                this.<FuncDecl, scala.collection.immutable.Map<Seq<Value>, Value>>toScalaMap(functions));
+                this.<FuncDecl, scala.collection.immutable.Map<Seq<Value>, Value>>toScalaMap(functions),
+                Set$.MODULE$.empty());
 
         solution = new FortressSolution(
                 interpretation, new TranslatorManager(context.options), context,
