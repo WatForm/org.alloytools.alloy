@@ -78,11 +78,11 @@ public final class TranslateAlloyToFortress implements CommandRunner {
         logger.translationFinished(context.getTheory());
 
         // Write raw MSFOL or SMT-LIB to file if the appropriate solver is chosen
-        if (options.solver == A4Options.SatSolver.FORTRESS_MSFOL) {
+        if (options.solver.id().equals(A4Options.SatSolver.FORTRESS_MSFOL.id())) {
             writeFortressToFile(logger, options, context);
             return null;
         }
-        if (options.solver == A4Options.SatSolver.SMTLIB) {
+        if (options.solver.id().equals(A4Options.SatSolver.SMTLIB.id())) {
             writeSmtlibToFile(logger, options, context);
             return null;
         }

@@ -25,3 +25,4 @@
   generic between Fortress and Kodkod solutions. Made `A4Solution`'s `atom2name` and `atom2sig`
   methods public so they can be added to `AlloySolution`.
 - Made `A4TupleSet`'s constructor public so that Portus can call it.
+- Small modifications in `SimpleCLI` to support dumping SMTLIB from the command line.

@@ -50,6 +50,7 @@ import edu.mit.csail.sdg.translator.AlloySolution;
  * "ExampleUsingTheCompiler.java"
  *
  * @modified [electrum] updated reporting
+ * @modified [portus] added support for dumping Fortress SMTLIB
  */
 public final class SimpleCLI {
 
@@ -126,7 +127,12 @@ public final class SimpleCLI {
         }
 
         @Override
-        public void resultCNF(String filename) {}
+        public void resultCNF(String filename) {
+            // Modified by Portus: output CNF filename to facilitate scripting Portus
+            debug("Output to: " + filename);
+            if (db)
+                db("Output to: " + filename);
+        }
 
         @Override
         public void resultSAT(Object command, long solvingTime, Object solution) {
@@ -188,8 +194,10 @@ public final class SimpleCLI {
     }
 
     public static void main(String[] args) throws Exception {
+        // Modified by Portus: add dump to Fortress SMTLIB option
         final boolean sat4j = "yes".equals(System.getProperty("sat4j"));
         final boolean minisat = "yes".equals(System.getProperty("minisat"));
+        final boolean fortressDumpToSmtlib = "yes".equals(System.getProperty("fortressDumpToSmtlib"));
         SatSolver solver = A4Options.SatSolver.make("mem", "mem", "/zweb/sat/mem");
         final SimpleReporter rep = new SimpleReporter();
         final StringBuilder sb = rep.sb;
@@ -263,7 +271,14 @@ public final class SimpleCLI {
                 A4Options options = new A4Options();
                 options.originalFilename = filename;
                 options.solverDirectory = "/zweb/zweb/tmp/alloy4/x86-freebsd";
-                options.solver = sat4j ? A4Options.SatSolver.SAT4J : (minisat ? A4Options.SatSolver.MiniSatJNI : solver);
+                if (sat4j)
+                    options.solver = A4Options.SatSolver.SAT4J;
+                else if (minisat)
+                    options.solver = A4Options.SatSolver.MiniSatJNI;
+                else if (fortressDumpToSmtlib)
+                    options.solver = A4Options.SatSolver.SMTLIB;
+                else
+                    options.solver = solver;
                 for (int i = 0; i < cmds.size(); i++) {
                     Command c = cmds.get(i);
                     if (db) {
