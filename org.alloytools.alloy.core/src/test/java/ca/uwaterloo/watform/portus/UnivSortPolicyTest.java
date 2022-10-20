@@ -85,6 +85,20 @@ public class UnivSortPolicyTest {
     }
 
     @Test
+    public void testGetSortScope_univ_includingBuiltins() {
+        // should be the sum of all *non-builtin* sig scopes
+        Sig sig1 = new Sig.PrimSig("S1");
+        Sig sig2 = new Sig.PrimSig("S2");
+        Sig sig3 = new Sig.PrimSig("S3");
+        when(scoper.sig2scope(sig1)).thenReturn(3);
+        when(scoper.sig2scope(sig2)).thenReturn(7);
+        when(scoper.sig2scope(sig3)).thenReturn(11);
+        SortPolicy policy = new UnivSortPolicy(
+                univ, Arrays.asList(sig1, sig2, sig3, Sig.UNIV, Sig.SIGINT, Sig.STRING), scoper);
+        assertEquals(21, policy.getSortScope(univ));
+    }
+
+    @Test
     public void testGetSortScope_int() {
         // should be the bitwidth
         when(scoper.getBitwidth()).thenReturn(7);
