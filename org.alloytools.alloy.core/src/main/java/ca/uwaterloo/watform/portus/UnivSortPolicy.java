@@ -30,7 +30,8 @@ final class UnivSortPolicy extends SortPolicy {
         // Determine the scope of univ: the sum of all the top-level sorts' max scopes.
         int univScope = 0;
         for (Sig sig : sigs) {
-            if (sig.isTopLevel()) {
+            // Don't count subsigs and don't count builtins like univ,Int,String
+            if (sig.isTopLevel() && !sig.builtin) {
                 univScope += scoper.sig2scope(sig);
             }
         }
