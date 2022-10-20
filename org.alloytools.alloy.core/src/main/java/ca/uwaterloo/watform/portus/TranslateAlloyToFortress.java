@@ -14,6 +14,7 @@ import fortress.interpretation.Interpretation;
 import fortress.modelfind.FortressTHREE;
 import fortress.modelfind.ModelFinder;
 import fortress.modelfind.ModelFinderResult;
+import fortress.msfol.Sort;
 import fortress.msfol.Term;
 import fortress.msfol.Theory;
 import fortress.operations.SmtlibConverter;
@@ -29,8 +30,10 @@ import java.io.Writer;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -169,14 +172,15 @@ public final class TranslateAlloyToFortress implements CommandRunner {
 
     private void writeFortressToFile(PortusLogger logger, A4Options options, TranslationContext context)
             throws IOException {
+        List<String> lines = new ArrayList<>();
+        lines.add(context.getTheory().toString());
+        lines.add("Bitwidth: " + context.getBitwidth());
+        for (Sort sort : context.getTheory().sortsJava()) {
+            lines.add("Scope of " + sort.name() + ": " + context.sortPolicy.getSortScope(sort));
+        }
+
         File fortressFile = File.createTempFile("tmp", ".msfol", new File(options.tempDirectory));
-        Files.write(
-                Paths.get(fortressFile.getAbsolutePath()),
-                Arrays.asList(
-                        context.getTheory().toString(),
-                        // TODO: print out other scopes?
-                        "Bitwidth: " + context.getBitwidth()),
-                Charset.defaultCharset());
+        Files.write(Paths.get(fortressFile.getAbsolutePath()), lines, Charset.defaultCharset());
         logger.outputFilename(fortressFile.getAbsolutePath());
     }
 
