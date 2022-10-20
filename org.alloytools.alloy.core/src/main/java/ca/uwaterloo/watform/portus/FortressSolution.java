@@ -14,6 +14,7 @@ import edu.mit.csail.sdg.ast.Func;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.A4Solution;
 import edu.mit.csail.sdg.translator.A4SolutionWriter;
+import edu.mit.csail.sdg.translator.A4Tuple;
 import edu.mit.csail.sdg.translator.A4TupleSet;
 import edu.mit.csail.sdg.translator.AlloySolution;
 import fortress.interpretation.Interpretation;
@@ -405,8 +406,20 @@ public final class FortressSolution implements AlloySolution {
 
     @Override
     public Sig.PrimSig atom2sig(Object atom) {
-        // TODO: find the sig of an atom (brute force?)
-        return null;
+        // For now, brute force which sig it's in by manually loading each sig's atoms
+        // TODO: if this is hurting perf, cache the sigs' atoms
+        for (Sig sig : getAllReachableSigs()) {
+            if (sig instanceof Sig.PrimSig) {
+                A4TupleSet sigAtoms = eval(sig);
+                for (A4Tuple tuple : sigAtoms) {
+                    assert tuple.arity() == 1;
+                    if (tuple.atom(0).equals(atom.toString())) {
+                        return (Sig.PrimSig) sig;
+                    }
+                }
+            }
+        }
+        return Sig.UNIV; // didn't find it
     }
 
 }
