@@ -389,7 +389,7 @@ public final class FortressSolution implements AlloySolution {
     @Override
     public String format() {
         // TODO - do we need to do this?
-        return null;
+        return interpretation.toString();
     }
 
     @Override
