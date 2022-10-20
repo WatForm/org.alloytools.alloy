@@ -272,9 +272,8 @@ public class AlloyASTMatcher extends TypeSafeMatcher<Expr> {
                 }
             }
 
-            // make sure all the fields + facts are the same
-            return areListsEquivalent(x.getFields(), y.getFields())
-                    && areListsEquivalent(x.getFacts(), y.getFacts());
+            // to avoid infinite recursion, don't bother checking the fields and facts
+            return true;
         }
 
         @Override

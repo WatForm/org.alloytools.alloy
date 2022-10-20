@@ -820,7 +820,9 @@ final class DefaultTranslator extends AbstractTranslator {
         // Does expr happen to already be a binary relation (field of arity 2)? If so, just use it.
         if (expr instanceof Sig.Field) {
             Sig.Field field = (Sig.Field) expr;
-            if (field.type().arity() == 2) {
+            // It's possible that the function optimization optimized this field, so we don't have it.
+            // TODO: is it possible to close over a binary function in the function optimization?
+            if (field.type().arity() == 2 && relationPredicateNames.containsKey(field)) {
                 return relationPredicateNames.get(field);
             }
         }

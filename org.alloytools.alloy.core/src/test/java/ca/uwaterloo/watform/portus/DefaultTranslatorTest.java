@@ -1689,6 +1689,94 @@ public class DefaultTranslatorTest {
     }
 
     @Test
+    public void testTranslate_transitiveClosure_fieldButNoRelation() {
+        // test [[(x,y) \in ^f]] := Closure(g(x,y)) where g: (univ, univ)->Bool is a new relation, with the defining
+        // axiom "forall x,y: univ . g(x,y) <=> [[(x,y) \in f]]", where f is a field without an associated relation
+        // (e.g. it was optimized by the function optimization)
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        Sig.Field f = sig.addField("f", sig); // f is of type sig->sig
+        Var x = Term.mkVar("x"), y = Term.mkVar("y");
+
+        // mock out [[(x,y) \in f]] from the axiom
+        Var flagInF = makeFlagConstant("inF");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(
+                ExprElementOf.make(new VarTuple(x.of(univ), y.of(univ)), f))), any()))
+                .thenReturn(flagInF);
+
+        Term result = translator.translate(
+                ExprElementOf.make(new VarTuple(x.of(univ), y.of(univ)), f.closure()), context);
+
+        // ensure a relation of type (univ, univ) -> Bool was added
+        assertEquals(1, context.getTheory().functionDeclarations().size());
+        FuncDecl relation = context.getTheory().functionDeclarations().head();
+        assertEquals(2, relation.arity());
+        assertEquals(univ, relation.argSorts().head());
+        assertEquals(univ, relation.argSorts().last());
+        assertEquals(Sort.Bool(), relation.resultSort());
+
+        // ensure the result correctly uses that relation
+        assertEquals(Term.mkClosure(relation.name(), x, y), result);
+
+        // ensure the correct axiom was added
+        assertEquals(1, context.getTheory().axioms().size());
+        Term axiom = context.getTheory().axioms().head();
+        assertThat(axiom, isAlphaEquivalentTerm(
+                Term.mkForall(Arrays.asList(x.of(univ), y.of(univ)),
+                        Term.mkIff(
+                                Term.mkApp(relation.name(), x, y),
+                                flagInF))));
+        // make *extra* sure that it used the correct relation name
+        Forall forall = (Forall) axiom;
+        Iff innerIff = (Iff) forall.body();
+        App relationApp = (App) innerIff.left();
+        assertEquals(relation.name(), relationApp.functionName());
+    }
+
+    @Test
+    public void testTranslate_reflexiveClosure_fieldButNoRelation() {
+        // test [[(x,y) \in *f]] := RClosure(g(x,y)) where g: (univ, univ)->Bool is a new relation, with the defining
+        // axiom "forall x,y: univ . g(x,y) <=> [[(x,y) \in f]]", where f is a field without an associated relation
+        // (e.g. it was optimized by the function optimization)
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        Sig.Field f = sig.addField("f", sig); // f is of type sig->sig
+        Var x = Term.mkVar("x"), y = Term.mkVar("y");
+
+        // mock out [[(x,y) \in f]] from the axiom
+        Var flagInF = makeFlagConstant("inF");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(
+                ExprElementOf.make(new VarTuple(x.of(univ), y.of(univ)), f))), any()))
+                .thenReturn(flagInF);
+
+        Term result = translator.translate(
+                ExprElementOf.make(new VarTuple(x.of(univ), y.of(univ)), f.reflexiveClosure()), context);
+
+        // ensure a relation of type (univ, univ) -> Bool was added
+        assertEquals(1, context.getTheory().functionDeclarations().size());
+        FuncDecl relation = context.getTheory().functionDeclarations().head();
+        assertEquals(2, relation.arity());
+        assertEquals(univ, relation.argSorts().head());
+        assertEquals(univ, relation.argSorts().last());
+        assertEquals(Sort.Bool(), relation.resultSort());
+
+        // ensure the result correctly uses that relation
+        assertEquals(Term.mkReflexiveClosure(relation.name(), x, y), result);
+
+        // ensure the correct axiom was added
+        assertEquals(1, context.getTheory().axioms().size());
+        Term axiom = context.getTheory().axioms().head();
+        assertThat(axiom, isAlphaEquivalentTerm(
+                Term.mkForall(Arrays.asList(x.of(univ), y.of(univ)),
+                        Term.mkIff(
+                                Term.mkApp(relation.name(), x, y),
+                                flagInF))));
+        // make *extra* sure that it used the correct relation name
+        Forall forall = (Forall) axiom;
+        Iff innerIff = (Iff) forall.body();
+        App relationApp = (App) innerIff.left();
+        assertEquals(relation.name(), relationApp.functionName());
+    }
+
+    @Test
     public void testTranslate_transitiveClosure_intToInt() {
         // test [[(x,y) \in ^e]] := Closure(f(x,y)) where f: (Int,Int)->Bool is a new relation, with the defining
         // axiom "forall x,y: Int . f(x,y) <=> [[(x,y) \in e]]"

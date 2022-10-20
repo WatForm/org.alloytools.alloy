@@ -17,6 +17,11 @@ import java.io.StringWriter;
 import java.util.Arrays;
 import java.util.List;
 
+/**
+ * A correctness checker CLI for Portus.
+ * Given a list of Alloy files on the command line, runs them through Portus and Fortress to generate
+ * interpretations, then ensures that each interpretation is valid according to Kodkod.
+ */
 public final class CorrectnessCLI {
 
     private static final A4Options.SatSolver FORTRESS_SOLVER = A4Options.SatSolver.Z3;
