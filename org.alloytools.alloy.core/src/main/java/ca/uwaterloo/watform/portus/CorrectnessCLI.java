@@ -69,6 +69,8 @@ public final class CorrectnessCLI {
             // Convert it to an A4Solution to validate it with Kodkod
             A4Solution kodkodSol = convertToKodkod(fortressSol);
 
+            System.out.println("  Kodkod interpretation: " + kodkodSol);
+
             // The assertion in the command needs to be valid according to Kodkod too
             // Typechecking should ensure we don't get any class cast errors here...
             boolean assertionValid = (boolean) kodkodSol.eval(command.formula);

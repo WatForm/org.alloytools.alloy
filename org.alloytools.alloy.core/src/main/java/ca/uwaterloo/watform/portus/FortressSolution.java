@@ -101,7 +101,7 @@ public final class FortressSolution implements AlloySolution {
                     atomsToSorts.put(atom, sort);
                 }
             }
-            this.universe = new Universe(fortressAtoms);
+            this.universe = new Universe(sanitizeIntLiteralsForKodkod(fortressAtoms));
         } else {
             this.universe = null;
         }
@@ -254,7 +254,7 @@ public final class FortressSolution implements AlloySolution {
                 formula = Substituter.apply(
                         vars.get(i).variable(), tuple.get(i), formula, contextCopy.nameGenerator);
             }
-            
+
             boolean inSet = evaluateFormula(formula, interpretation);
             System.out.println(inExpr + " | " + formula + " | " + inSet);
             if (inSet) {
@@ -262,9 +262,15 @@ public final class FortressSolution implements AlloySolution {
             }
         }
 
+        // A4SolutionWriter/Reader don't process Int normally but instead assume that int literals are represented
+        // by actual integers - so make sure that's the case.
+        List<List<Object>> processedTuples = tupleSet.stream()
+                .map(this::sanitizeIntLiteralsForKodkod)
+                .collect(Collectors.toList());
+
         // Convert the tuple set to the A4TupleSet that Alloy expects
         TupleFactory tupleFactory = universe.factory();
-        List<Tuple> tuples = tupleSet.stream()
+        List<Tuple> tuples = processedTuples.stream()
                 .map(tupleFactory::tuple)
                 .collect(Collectors.toList());
         TupleSet result;
@@ -314,6 +320,19 @@ public final class FortressSolution implements AlloySolution {
             }
             return result;
         }
+    }
+
+    // A4SolutionReader/Writer want the int literals to be actual Integer objects, so convert IntegerLiterals.
+    private List<Object> sanitizeIntLiteralsForKodkod(List<Value> values) {
+        return values.stream()
+                .map(value -> {
+                    if (value instanceof IntegerLiteral) {
+                        return ((IntegerLiteral) value).value();
+                    } else {
+                        return value;
+                    }
+                })
+                .collect(Collectors.toList());
     }
 
     @Override
