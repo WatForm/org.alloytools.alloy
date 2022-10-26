@@ -84,7 +84,7 @@ public class FunctionOptTranslatorTest {
         when(mockSortPolicy.getSort(sigB)).thenReturn(sortB);
         Sig.Field field = sigA.addField("f", sigB.oneOf());
 
-        Translator translator = new FunctionOptTranslator(mockRoot, false);
+        Translator translator = new FunctionOptTranslator(mockRoot, true); // even when lone opt is on
         when(mockRoot.translate(any(), any()))
                 .then(useTestFunction("inA", sigA))
                 .then(useTestFunction("inB", sigB));

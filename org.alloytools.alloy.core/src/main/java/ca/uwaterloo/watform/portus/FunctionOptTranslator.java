@@ -2,6 +2,7 @@ package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.ConstList;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
+import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprBinary;
 import edu.mit.csail.sdg.ast.ExprUnary;
@@ -30,6 +31,13 @@ final class FunctionOptTranslator extends AbstractTranslator {
             ExprBinary.Op.SOME_ARROW_ONE,
             ExprBinary.Op.ONE_ARROW_ONE,
             ExprBinary.Op.LONE_ARROW_ONE));
+
+    // Same, but for "lone".
+    private static final ConstList<ExprBinary.Op> FUNCTION_LONE_OPS = ConstList.make(Arrays.asList(
+            ExprBinary.Op.ANY_ARROW_LONE,
+            ExprBinary.Op.SOME_ARROW_LONE,
+            ExprBinary.Op.ONE_ARROW_LONE,
+            ExprBinary.Op.LONE_ARROW_LONE));
 
     // A POJO collecting information about a field subject to this optimization.
     private static final class FieldFuncInfo {
@@ -72,8 +80,8 @@ final class FunctionOptTranslator extends AbstractTranslator {
     @Override
     public Term translate(Sig.Field field, TranslationContext context) {
         Expr bound = productWithRightMultiplicity(field.sig, field.decl().expr);
-        List<Expr> funcTypeExprs = getFunctionTypeExprs(bound);
-        if (funcTypeExprs == null) return null; // not a function, not applicable
+        Pair<List<Expr>, ExprUnary.Op> funcTypeExprsAndMult = getFunctionTypeExprs(bound);
+        if (funcTypeExprsAndMult == null) return null; // not a function, not applicable
 
         List<Sort> allSorts = context.sortPolicy.getMinimalExprSorts(field,
                 "A field declaration must have definite Portus sorts!", context);
@@ -85,13 +93,13 @@ final class FunctionOptTranslator extends AbstractTranslator {
         context.addFunctionDeclaration(FuncDecl.mkFuncDecl(funcName, argSorts, resultSort));
 
         String domainPredName = null;
-        if (optimizeLone) {
+        if (optimizeLone && funcTypeExprsAndMult.b == ExprUnary.Op.LONE) {
             // Generate the inDomain predicate
             domainPredName = context.nameGenerator.freshName("inDomain");
             context.addFunctionDeclaration(FuncDecl.mkFuncDecl(domainPredName, argSorts, Sort.Bool()));
         }
 
-        FieldFuncInfo info = new FieldFuncInfo(funcName, argSorts, resultSort, funcTypeExprs, domainPredName);
+        FieldFuncInfo info = new FieldFuncInfo(funcName, argSorts, resultSort, funcTypeExprsAndMult.a, domainPredName);
         context.addAxiom(makeOptimizedFunctionAxiom(info, context));
         optimizedFieldsInfo.put(field, info);
 
@@ -154,22 +162,25 @@ final class FunctionOptTranslator extends AbstractTranslator {
         }
     }
 
-    /** If expr is a function type e1->...->[l]one en, return [e1,...,en], else return null. */
-    private List<Expr> getFunctionTypeExprs(Expr expr) {
+    /** If expr is a function type e1->...->[l]one en, return ([e1,...,en], [l]one), else return null. */
+    private Pair<List<Expr>, ExprUnary.Op> getFunctionTypeExprs(Expr expr) {
         if (!(expr instanceof ExprBinary)) return null;
         ExprBinary binExpr = (ExprBinary) expr.deNOP();
         if (!binExpr.op.isArrow) return null;
 
-        List<Expr> rightExprs = getFunctionTypeExprs(binExpr.right);
+        Pair<List<Expr>, ExprUnary.Op> rightExprs = getFunctionTypeExprs(binExpr.right);
         if (rightExprs != null) {
             // there's a correct multiplicity on the rightmost arrow, so it's a function
             List<Expr> exprs = new ArrayList<>();
             exprs.add(binExpr.left);
-            exprs.addAll(rightExprs);
-            return exprs;
-        } else if (binExpr.right.type().arity() == 1 && FUNCTION_ONE_OPS.contains(binExpr.op)) {
+            exprs.addAll(rightExprs.a);
+            return new Pair<>(exprs, rightExprs.b);
+        } else if (binExpr.right.type().arity() == 1 && (
+                FUNCTION_ONE_OPS.contains(binExpr.op) || (
+                        optimizeLone && FUNCTION_LONE_OPS.contains(binExpr.op)))) {
             // this is the rightmost arrow and the last element in the arity has correct multiplicity: it's a function
-            return Arrays.asList(binExpr.left, binExpr.right);
+            ExprUnary.Op mult = FUNCTION_ONE_OPS.contains(binExpr.op) ? ExprUnary.Op.ONE : ExprUnary.Op.LONE;
+            return new Pair<>(Arrays.asList(binExpr.left, binExpr.right), mult);
         } else {
             return null; // not a function
         }
