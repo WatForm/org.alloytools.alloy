@@ -40,6 +40,7 @@ public final class CorrectnessCLI {
         stringWriter.flush();
 
         String xml = stringWriter.toString();
+        System.out.println(xml);
         return A4SolutionReader.read(null, new XMLNode(new StringReader(xml)));
     }
 
@@ -63,6 +64,8 @@ public final class CorrectnessCLI {
                 return;
             }
 
+            System.out.println("  Interpretation: " + fortressSol.format());
+
             // Convert it to an A4Solution to validate it with Kodkod
             A4Solution kodkodSol = convertToKodkod(fortressSol);
 
@@ -72,10 +75,11 @@ public final class CorrectnessCLI {
             if (assertionValid) {
                 System.out.println("  OK");
             } else {
-                System.out.println("  ERROR: Interpretation not valid according to Kodkod! " + fortressSol.format());
+                System.err.println("  ERROR: Interpretation not valid according to Kodkod! " + fortressSol.format());
             }
         } catch (Exception e) {
-            System.out.println("  EXCEPTION: " + e);
+            System.err.println("  EXCEPTION:");
+            e.printStackTrace();
         }
     }
 

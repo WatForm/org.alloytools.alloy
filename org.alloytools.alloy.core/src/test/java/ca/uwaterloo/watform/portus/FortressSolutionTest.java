@@ -33,7 +33,9 @@ import static org.mockito.Mockito.mock;
 
 public class FortressSolutionTest {
 
-    private static final int NUM_ELEMS = 3;
+    private static final int NUM_UNIV_ELEMS = 3;
+    private static final int INT_BITWIDTH = 4;
+    private static final int NUM_INT_ELEMS = 1 << INT_BITWIDTH;
 
     private FortressSolution solution;
 
@@ -50,12 +52,12 @@ public class FortressSolutionTest {
 
         Map<Sort, Seq<Value>> sorts = new HashMap<>();
         List<Value> elems = new ArrayList<>();
-        for (int i = 1; i <= NUM_ELEMS; i++) {
+        for (int i = 1; i <= NUM_UNIV_ELEMS; i++) {
             elems.add(DomainElement.apply(i, univ));
         }
         sorts.put(univ, CollectionConverters.asScala(elems).toSeq());
         List<Value> intElems = new ArrayList<>();
-        for (int i = -8; i <= 7; i++) {
+        for (int i = -NUM_INT_ELEMS/2; i < NUM_INT_ELEMS/2; i++) {
             intElems.add(IntegerLiteral.apply(i));
         }
         sorts.put(Sort.Int(), CollectionConverters.asScala(intElems).toSeq());
@@ -77,7 +79,7 @@ public class FortressSolutionTest {
         // the atoms won't be distinguishable, so check their size + arity
         A4TupleSet tupleSet = solution.eval(Sig.UNIV);
         assertEquals(1, tupleSet.arity());
-        assertEquals(NUM_ELEMS, tupleSet.size());
+        assertEquals(NUM_UNIV_ELEMS + NUM_INT_ELEMS, tupleSet.size());
     }
 
     @Test
@@ -86,7 +88,7 @@ public class FortressSolutionTest {
         assertThat(result, instanceOf(A4TupleSet.class));
         A4TupleSet tupleSet = (A4TupleSet) result;
         assertEquals(2, tupleSet.arity());
-        assertEquals(NUM_ELEMS * NUM_ELEMS, tupleSet.size());
+        assertEquals((NUM_UNIV_ELEMS + NUM_INT_ELEMS) * (NUM_UNIV_ELEMS + NUM_INT_ELEMS), tupleSet.size());
     }
 
     @Test

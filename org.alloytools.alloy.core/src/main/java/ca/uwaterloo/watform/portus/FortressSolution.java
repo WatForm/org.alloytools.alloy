@@ -19,17 +19,17 @@ import edu.mit.csail.sdg.translator.A4TupleSet;
 import edu.mit.csail.sdg.translator.AlloySolution;
 import fortress.interpretation.Interpretation;
 import fortress.msfol.AnnotatedVar;
+import fortress.msfol.IntegerLiteral;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
 import fortress.msfol.Theory;
 import fortress.msfol.Value;
 import fortress.operations.InterpretationVerifier;
+import fortress.operations.Substituter;
 import kodkod.instance.Tuple;
 import kodkod.instance.TupleFactory;
 import kodkod.instance.TupleSet;
 import kodkod.instance.Universe;
-import scala.collection.immutable.Seq;
-import scala.jdk.javaapi.CollectionConverters;
 
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -41,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public final class FortressSolution implements AlloySolution {
 
@@ -62,6 +63,9 @@ public final class FortressSolution implements AlloySolution {
     /** Map atoms from Fortress to Alloy. */
     private final Map<Value, ExprVar> fortressToAlloyAtoms = new HashMap<>();
 
+    /** Get the sort of any Fortress atom. */
+    private final Map<Value, Sort> atomsToSorts = new HashMap<>();
+
     /** The single Kodkod universe of atoms - Alloy requires a consistent Universe object. */
     private final Universe universe;
 
@@ -76,18 +80,25 @@ public final class FortressSolution implements AlloySolution {
 
         if (interpretation != null) {
             // Generate Alloy atoms (ExprVars) for each Fortress atom
-            Map<Sort, List<Value>> sortInterpretations = interpretation.sortInterpretationsJava();
+            Map<Sort, List<Value>> sortInterpretations = new HashMap<>(interpretation.sortInterpretationsJava());
+
+            // Manually include integers if they aren't already included
+            if (!sortInterpretations.containsKey(Sort.Int())) {
+                // TODO: is it okay to specify *which* integers are included like this?
+                int intScope = context.getIntScope();
+                sortInterpretations.put(Sort.Int(), IntStream.range(-intScope/2, intScope/2)
+                        .mapToObj(IntegerLiteral::apply)
+                        .collect(Collectors.toList()));
+            }
+
             List<Value> fortressAtoms = new ArrayList<>();
             for (Sort sort : sortInterpretations.keySet()) {
-                if (sort == Sort.Int()) {
-                    // ignore integers, they're generated automatically
-                    continue;
-                }
                 List<Value> sortAtoms = sortInterpretations.get(sort);
                 fortressAtoms.addAll(sortAtoms);
                 for (Value atom : sortAtoms) {
                     ExprVar alloyAtom = ExprVar.make(null, atom.toString());
                     fortressToAlloyAtoms.put(atom, alloyAtom);
+                    atomsToSorts.put(atom, sort);
                 }
             }
             this.universe = new Universe(fortressAtoms);
@@ -222,40 +233,29 @@ public final class FortressSolution implements AlloySolution {
             throw new ErrorAPI("Can't eval() int expression!");
         }
 
-        // It's a tuple set - manually evaluate {(x1,...,xn) : univ^n | [[(x1,...,xn) \in expr]]}
+        // It's a tuple set - manually evaluate {(x1,...,xn) : sorts | [[(x1,...,xn) \in expr]]}
         List<List<Value>> tupleSet = new ArrayList<>();
         Set<Value> atoms = fortressToAlloyAtoms.keySet();
         int arity = expr.type().arity();
         for (List<Value> tuple : cartesianPower(atoms, arity)) {
-            // ExprElementOf only takes Vars, so use fake sorts to work around:
-            // (x1,...,xn) \in expr --> forall y1: X1. ... forall yn: Xn. (y1,...,yn) \in expr
-            // where X1 = {x1}, ..., Xn = {xn}
-            // TODO - make ExprElementOf take Values
+            // ExprElementOf only takes Vars, so use tricks to get around:
+            // for (v1,...,vn) \in expr, make vars x1,...,xn and translate [[(x1,...,xn) \in expr]]
+            // and then substitute xi->vi for i=1..n.
             List<AnnotatedVar> vars = tuple.stream()
-                    .map(value -> Term.mkVar("var_" + value).of(Sort.mkSortConst("Sort_" + value)))
+                    .map(atom -> Term.mkVar("var_" + atom).of(atomsToSorts.get(atom)))
                     .collect(Collectors.toList());
 
-            // Translate [[(y1,...,yn) \in expr]] - copy the context to avoid any modifications
             TranslationContext contextCopy = new TranslationContext(context);
             Expr inExpr = ExprElementOf.make(new VarTuple(vars), expr);
             Term formula = translator.translate(inExpr, contextCopy);
 
-            // Add on the fake sorts (going backwards for elegance)
-            Interpretation fakeSortInterp = interpretation;
+            // Substitute for the values we want to evaluate
             for (int i = 0; i < tuple.size(); i++) {
-                Value value = tuple.get(i);
-                AnnotatedVar var = vars.get(i);
-
-                // Add the fake sort
-                Seq<Value> fakeSortValue = CollectionConverters.asScala(
-                        Collections.singletonList(value)).toList();
-                fakeSortInterp = fakeSortInterp.updateSortInterpretations(var.sort(), fakeSortValue);
-
-                // Add the forall onto the formula
-                formula = Term.mkForall(var, formula);
+                formula = Substituter.apply(
+                        vars.get(i).variable(), tuple.get(i), formula, contextCopy.nameGenerator);
             }
-
-            boolean inSet = evaluateFormula(formula, fakeSortInterp);
+            
+            boolean inSet = evaluateFormula(formula, interpretation);
             if (inSet) {
                 tupleSet.add(tuple);
             }
@@ -389,7 +389,6 @@ public final class FortressSolution implements AlloySolution {
 
     @Override
     public String format() {
-        // TODO - do we need to do this?
         return interpretation.toString();
     }
 
