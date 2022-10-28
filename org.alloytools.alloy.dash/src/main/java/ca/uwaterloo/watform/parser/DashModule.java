@@ -71,12 +71,19 @@ import ca.uwaterloo.watform.ast.DashAction;
 import ca.uwaterloo.watform.ast.DashBuffer;
 import ca.uwaterloo.watform.ast.DashConcState;
 import ca.uwaterloo.watform.ast.DashCondition;
+import ca.uwaterloo.watform.ast.DashDoExpr;
 import ca.uwaterloo.watform.ast.DashEvent;
+import ca.uwaterloo.watform.ast.DashFrom;
+import ca.uwaterloo.watform.ast.DashGoto;
 import ca.uwaterloo.watform.ast.DashInit;
 import ca.uwaterloo.watform.ast.DashInvariant;
+import ca.uwaterloo.watform.ast.DashOn;
+import ca.uwaterloo.watform.ast.DashSend;
 import ca.uwaterloo.watform.ast.DashState;
+import ca.uwaterloo.watform.ast.DashTemplateCall;
 import ca.uwaterloo.watform.ast.DashTrans;
 import ca.uwaterloo.watform.ast.DashTransTemplate;
+import ca.uwaterloo.watform.ast.DashWhenExpr;
 import ca.uwaterloo.watform.parser.DashOptions;
 import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
@@ -1590,6 +1597,7 @@ public final class DashModule extends Browsable implements Module {
         calculateConfRelations();
         calculateEventRelations();
         calculateDefaultStates(topLevelConcState);
+        getAllTransitions();
         stateHierarchy = (concStates.size() > 1) ? true: false;
     }
     
@@ -1618,7 +1626,14 @@ public final class DashModule extends Browsable implements Module {
 					confTuples.add(confCount);
 				}
 			}
+			concState.addSelfToInnerConcState();
+		    addInnerConcStates(concState);
 			Collections.reverse(concState.getIdentifiers());
+    	}
+    	// there are no replicated components in the model
+    	if (confTuples.size() == 0) {
+    		// the only level in the model is level 0 
+    		confTuples.add(0);
     	}
     	Collections.sort(confTuples);
     }
@@ -1670,6 +1685,13 @@ public final class DashModule extends Browsable implements Module {
     				calculateDefaultStates(innerConcState);
     			}
     		}
+    	}
+    	
+    	// For models without a basic state
+    	if(initialDefaultStates.size() == 0) {
+    		initialDefaultStates.put(concState.getIdentifiers().size(), new ArrayList<DashState>());
+    		DashState tempDefaultState = new DashState(null, concState.getFullyQualName(), null, true);
+    		initialDefaultStates.get(concState.getIdentifiers().size()).add(tempDefaultState);
     	}
     }
     
@@ -1734,7 +1756,7 @@ public final class DashModule extends Browsable implements Module {
 	
 	public void addConcState(DashState parent, DashConcState concState) {	
 	    concState.setFullyQualName(parent.getFullyQualName() + '_' + concState.getRawName());
-	    concState.setParentConcState(getParentConcState(parent));
+	    concState.setParentConcState(DashHelper.getParentConcState(parent));
 	    concState.setParentORState(parent);
 	    concState.setParent(parent);
 	    concStates.put(concState.getFullyQualName(), concState);	
@@ -1763,6 +1785,14 @@ public final class DashModule extends Browsable implements Module {
             addBuffer((DashBuffer) buffer, concState);
 	    for (Decl decl : concState.getVariables())	
 	        readVariablesDeclared(decl, concState);	
+	}
+	
+	private void addInnerConcStates(DashConcState concState) {
+		DashConcState parent = concState.getParentConcState();
+		while (parent != null) {
+			parent.addInnerConcState(concState);
+			parent = parent.getParentConcState();
+		}
 	}
 	
 	public void addBuffer(DashBuffer buffer, DashConcState concState) {
@@ -1904,8 +1934,9 @@ public final class DashModule extends Browsable implements Module {
             state.setParent(parent);
         }
 
-        if (state.isDefault())
+        if (state.isDefault()) {
             defaultStates.add(state);
+        }
 
         states.put(modifiedStateName, state);
 
@@ -1916,7 +1947,25 @@ public final class DashModule extends Browsable implements Module {
             addConcState(state, innerState);
         }
     }
+    
+    /* Fetch all the transitions in the model */
+    private void getAllTransitions() {
+       for (DashConcState concState : concStates.values()) {
+           for (DashTrans transition : concState.getTransitions()) {
+               addTrans(concState, transition);
+           }
+           for (DashTemplateCall templateCall : concState.getTemplateCalls()) {
+               addTemplateCall(concState, templateCall);
+           }
+       }
 
+       for (DashState state : states.values()) {
+           for (DashTrans transition : state.getTransitions()) {
+               addTrans(state, transition);
+           }
+       }
+   }
+    
     /*
      * This is called by the addConcState function once it finds a transition
      * template
@@ -1924,6 +1973,183 @@ public final class DashModule extends Browsable implements Module {
     public void addTransTemplate(DashConcState parent, DashTransTemplate transTemplate) {
         transTemplate.parent = parent;
         transitionTemplates.put(transTemplate.name, transTemplate);
+    }
+
+   /*
+    * This is called by the getAllTransitions function once it finds a transition
+    * inside an OR state
+    */
+    private void addTrans(DashState parent, DashTrans transition) {
+       String modifiedTransName = parent.getFullyQualName() + '_' + transition.getRawName();
+       transition.setFullyQualName(modifiedTransName);
+       transition.setParent(parent);
+
+       /*
+        * If we have more than one from command (source), split up the transition such
+        * that each transition represents one from command.
+        */
+       if (transition.getOrigin() != null && transition.getOrigin().fromExpr.size() > 0) {
+           for (String fromExpr : transition.getOrigin().fromExpr) {
+               if (transition.getRawName() == null)
+                   modifiedTransName = parent.getFullyQualName() + "_t_" + (++transitionCount);
+               generateTransition(transition, fromExpr, modifiedTransName);
+           }
+       } else {
+           if (transition.getRawName() == null)
+               modifiedTransName = parent.getFullyQualName() + "_t_" + (++transitionCount);
+           transition.setFullyQualName(modifiedTransName);
+           transition.setParentConcState(DashHelper.getParentConcState(parent));
+           transition.getParentConcState().addAllTransition(transition);
+           transitions.put(modifiedTransName, transition);
+       }
+   }
+   
+   /*
+    * This is called by the getAllTransitions function once it finds a transition
+    * inside an conc state
+    */
+    private void addTrans(DashConcState parent, DashTrans transition) {
+   	String modifiedTransName = parent.getFullyQualName() + '_' + transition.getRawName();
+       transition.setFullyQualName(modifiedTransName);
+       transition.setParent(parent);
+
+       /*
+        * If we have more than one from command (source), split up the transition such
+        * that each transition represents one from command.
+        */
+       if (transition.getOrigin() != null && transition.getOrigin().fromExpr.size() > 0) {
+           for (String fromExpr : transition.getOrigin().fromExpr) {
+               if (transition.getRawName() == null)
+                   modifiedTransName = parent.getFullyQualName() + "_t_" + (++transitionCount);
+               generateTransition(transition, fromExpr, modifiedTransName);
+           }
+       } else {
+           if (transition.getRawName() == null)
+               modifiedTransName = parent.getFullyQualName() + "_t_" + (++transitionCount);
+           transition.setFullyQualName(modifiedTransName);
+           transition.setParentConcState(parent);
+           transition.getParentConcState().addAllTransition(transition);
+           transitions.put(modifiedTransName, transition);
+       }
+   }
+
+   /*
+    * This is called by the addConcState function once it finds a transition
+    * template call. It refers to the template being called and uses it to create
+    * new transitions
+    */
+    private void addTemplateCall(DashConcState parent, DashTemplateCall templateCall) {
+       DashTransTemplate transTemplate = transitionTemplates.get(templateCall.templateName);
+       List<String> declNames = new ArrayList<String>();
+
+       //Each decl is an argument for a template call
+       for (Decl decl : transTemplate.decls) {
+           declNames.add(decl.get().toString());
+       }
+
+       DashTrans trans = new DashTrans(null, templateCall.name, new ArrayList<Object>());
+       trans.setParent(parent);
+
+       //If we have an On command, check if it matches an argument. If it does, then set the on Command
+       //to that of the argument
+       if (transTemplate.onExpr != null) {
+           if (declNames.indexOf(transTemplate.onExpr.getRawName()) != -1)
+               trans.onExpr = new DashOn(null, templateCall.templateParam.get(declNames.indexOf(transTemplate.onExpr.getRawName())), checkInternalEvent(trans));
+           else
+               trans.onExpr = new DashOn(null, transTemplate.onExpr.getRawName(), checkInternalEvent(trans));
+       }
+
+       //If we have a From command, check if it matches an argument. If it does, then set the From Command
+       //to that of the argument
+       if (transTemplate.fromExpr != null && !transTemplate.fromExpr.fromAll) {
+           List<String> fromExprList = new ArrayList<String>();
+
+           for (String fromExpr : transTemplate.fromExpr.fromExpr) {
+               if (declNames.indexOf(fromExpr) != -1)
+                   fromExprList.add(templateCall.templateParam.get(declNames.indexOf(fromExpr)));
+               else
+                   fromExprList.add(fromExpr);
+           }
+           trans.setOrigin(new DashFrom(fromExprList, false));
+       }
+
+       //If we have a Goto command, check if it matches an argument. If it does, then set the Goto Command
+       //to that of the argument
+       if (transTemplate.gotoExpr != null) {
+           if (declNames.indexOf(transTemplate.gotoExpr.gotoExpr.get(0)) != -1)
+               trans.gotoExpr = new DashGoto(templateCall.templateParam.get(declNames.indexOf(transTemplate.gotoExpr.gotoExpr.get(0))));
+           else
+               trans.gotoExpr = new DashGoto(transTemplate.gotoExpr.gotoExpr);
+       }
+
+       //If we have a Send command, check if it matches an argument. If it does, then set the Send Command
+       //to that of the argument
+       if (transTemplate.sendExpr != null) {
+           if (declNames.indexOf(transTemplate.sendExpr.getRawName()) != -1)
+               trans.sendExpr = new DashSend(null, templateCall.templateParam.get(declNames.indexOf(transTemplate.sendExpr.getRawName())));
+           else
+               trans.sendExpr = new DashSend(null, transTemplate.sendExpr.getRawName());
+       }
+
+       //If we have a do command, add it to our transition
+       if (transTemplate.doExpr != null) {
+           trans.doExpr = new DashDoExpr(null, transTemplate.doExpr.expr);
+       }
+
+       //If we have a when command, add it to our transition
+       if (transTemplate.whenExpr != null) {
+           trans.whenExpr = new DashWhenExpr(null, transTemplate.whenExpr.expr);
+       }
+
+       //If the from command is: from *, then we need to fetch all the Or states in the conc state,
+       //and create new transitions each with a different or state as the source
+       if (transTemplate.fromExpr != null && transTemplate.fromExpr.fromAll) {
+           for (DashState state : parent.getInnerORStates()) {
+               trans.setOrigin(new DashFrom(state.getRawName(), false));
+               trans.setFullyQualName(parent.getFullyQualName() + "_" + templateCall.name + "__" + (++transitionCount));
+               trans.setParentConcState(parent);
+               trans.getParentConcState().addAllTransition(trans);
+               transitions.put(trans.getFullyQualName(), new DashTrans(trans));
+           }
+       } //If we have more than one From command, create a new transition for each for command
+       else if (transTemplate.fromExpr != null && trans.getOrigin().fromExpr.size() > 0) {
+           for (String fromExpr : trans.getOrigin().fromExpr)
+               generateTransition(trans, fromExpr, parent.getFullyQualName() + "_" + templateCall.name + "__" + (++transitionCount));
+       } else {
+       	trans.setFullyQualName(parent.getFullyQualName() + "_" + templateCall.name + "__" + (++transitionCount));
+           trans.setParentConcState(parent);
+           trans.getParentConcState().addAllTransition(trans);
+           transitions.put(trans.getFullyQualName(), trans);
+       }
+   }
+    
+    private void generateTransition(DashTrans transition, String fromExpr, String modifiedName) {
+        DashTrans trans = new DashTrans(transition); // New transition representing one of the From commands
+        trans.setOrigin(new DashFrom(fromExpr, false)); // Add the from command to the new transition
+        trans.setFullyQualName(modifiedName);
+        trans.setParentConcState(DashHelper.getParentConcState(transition.getParent()));
+        trans.getParentConcState().addAllTransition(trans);
+        transitions.put(modifiedName, trans);
+    }
+    
+   Boolean checkInternalEvent(DashTrans trans)
+    {
+        if (trans.onExpr == null)
+            return false;
+    	
+        String onCommand = trans.onExpr.getRawName();
+
+        if (onCommand.contains("/")) 
+            onCommand = onCommand.substring(onCommand.lastIndexOf('/') + 1);
+
+        for(DashConcState concState: concStates.values()) {
+        	for(DashEvent event: concState.getEvents()) {
+        		if(event.type.equals("event") && event.getRawName().equals(onCommand)) {
+        			return true;
+        		}
+        	}
+        }  
+        return false;
     }
 
     public void addEvent(DashConcState parent, DashEvent event) {
@@ -1962,25 +2188,11 @@ public final class DashModule extends Browsable implements Module {
         envVariableNames.put(concState.getFullyQualName(), variables);
     }
 
-    /* Retrive the concurrent state inside which "item" is located */
-    static DashConcState getParentConcState(Object item) {
-        if (item instanceof DashState) {
-            if (((DashState) item).getParent() instanceof DashState)
-                getParentConcState(((DashState) item).getParent());
-            if (((DashState) item).getParent() instanceof DashConcState)
-                return (DashConcState) ((DashState) item).getParent();
-        }
-
-        if (item instanceof DashConcState)
-            return (DashConcState) item;
-
-        return null;
-    }
     
     public void importModules() {
     	status = 0;
     	if (DashOptions.ctlModelChecking)
-    		addOpen(null, null, ExprVar.make(null, "util/ctl"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "Snapshot"))), null);
+    		addOpen(null, null, ExprVar.make(null, "util/path_ctl"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "Snapshot"))), null);
     	if (DashOptions.generateTraces)
     		addOpen(null, null, ExprVar.make(null, "util/ordering"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "Snapshot"))), ExprVar.make(modulePos, "snapshot")); 
 		if(stateHierarchy)

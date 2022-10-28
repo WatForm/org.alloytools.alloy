@@ -421,7 +421,7 @@ public class DashValidation {
     		vars.addAll(eventNames.get(parent));
     	}
     	
-    	for (DashConcState innrConcStates: concState.getInnerConcStates()) {
+    	for (DashConcState innrConcStates: DashHelper.getNestedConcStates(concState)) {
         	if (declarationNames.get(innrConcStates.getFullyQualName()) != null) {
         		vars.addAll(declarationNames.get(innrConcStates.getFullyQualName()));
         	}

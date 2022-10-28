@@ -789,7 +789,7 @@ public class DashModelsTest {
         new CoreDashToAlloy().convertToAlloyAST(module, "", "");
         DashOptions.isElectrum = false;
 
-        String expectedOutput = "AND[snapshot/first.init, (all s | ! s in snapshot/last => s . next.s.small_step)]";
+        String expectedOutput = "AND[snapshot/first.init, (all s | ! s in snapshot/last => s . next.s.small_step), (all s | AND[! s in snapshot/last, ! s . next.s.small_step] => s . next.s.equals)]";
 
         if (!expectedOutput.equals(coreDashModule.facts.get(0).b.toString()))
             throw new Exception("Fact Not Stored Properly." + " Actual: " + coreDashModule.facts.get(0).b.toString());

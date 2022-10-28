@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 
 import ca.uwaterloo.watform.ast.DashConcState;
+import ca.uwaterloo.watform.ast.DashEvent;
 import ca.uwaterloo.watform.ast.DashState;
 import ca.uwaterloo.watform.ast.DashTrans;
 import edu.mit.csail.sdg.alloy4.Err;
@@ -70,7 +71,6 @@ public class DashHelper {
 	
 	public static Expr createParameterizedElectrumVar(String var, Expr expr, DashModule module) {
 		DashConcState concState = module.variable2ConcState.get(var);
-		System.out.println("Looking at: " + var + " IDs Size: " + concState.getIdentifiers().size());
 		if (expr instanceof ExprUnary && concState.getIdentifiers().size() > 1) {
 			ExprUnary exprUnary = (ExprUnary) expr;	
 			int index = concState.getIdentifiers().size() - 1;
@@ -110,21 +110,29 @@ public class DashHelper {
 	
 	public static Expr addParametersJoin (Expr expr, int totalIEs) {
         for (int i = 0; i < totalIEs; i++) {
-        	expr = ExprBadJoin.make(null, null, ExprVar.make(null, "p" + i), expr);
+        	expr = ExprBadJoin.make(null, null, createExprVar("p" + i), expr);
+        }
+        return expr;
+	}
+	
+	public static Expr addIdentifiersJoin (Expr expr, List<String> identifiers, boolean ignoreFirst) {
+        for (int i = 0; i < identifiers.size(); i++) {
+        	if (ignoreFirst && i == 0) continue;
+        	expr = ExprBadJoin.make(null, null, createExprVar(identifiers.get(i)), expr);
         }
         return expr;
 	}
 	
 	public static Expr addParametersArrow (Expr expr, DashConcState concState) {
 		for (int i = concState.getIdentifiers().size() - 1; i >= 0; i--) {
-			expr = ExprBinary.Op.ARROW.make(null, null, ExprVar.make(null, "p" + i), expr);
+			expr = ExprBinary.Op.ARROW.make(null, null, createExprVar("p" + i), expr);
 		}
 		return expr;
 	}
 	
 	public static Expr addParametersArrow (Expr expr, int ies) {
 		for (int i = ies - 1; i >= 0; i--) {
-			expr = ExprBinary.Op.ARROW.make(null, null, ExprVar.make(null, "p" + i), expr);
+			expr = ExprBinary.Op.ARROW.make(null, null, createExprVar("p" + i), expr);
 		}
 		return expr;
 	}
@@ -192,6 +200,30 @@ public class DashHelper {
 			equals = equals == null ? equal : ExprBinary.Op.AND.make(null, null, equals, equal);
 		}
 		return equals;
+	}
+	
+	public static List<DashConcState> getNestedConcStates (DashConcState concState) {
+		List<DashConcState> innerConcStates = new ArrayList<DashConcState>();
+		if (concState.getInnerConcStates().size() > 0) {
+			return concState.getInnerConcStates();
+		}
+		if (concState.getInnerORStates().size() > 0) {
+			for (DashState innerState: concState.getInnerORStates()) {
+				getConcurrentStateInORState(innerState, innerConcStates);
+			}
+		}
+		return innerConcStates;
+	}
+	
+	public static void getConcurrentStateInORState(DashState state, List<DashConcState> concStates) {
+		if (state.getInnerConcStates().size() > 0) {
+			concStates.addAll(state.getInnerConcStates());
+		}
+		if(state.getInnerORStates().size() > 0) {
+			for (DashState innerState: state.getInnerORStates()) {
+				getConcurrentStateInORState(innerState, concStates);
+			}
+		}
 	}
 	
     public static DashConcState getConcStateReferred (Expr ref, DashConcState parent) {
@@ -696,21 +728,66 @@ public class DashHelper {
 		Expr varPrimed = ExprUnary.Op.PRIME.make(null, createExprVar(var));
 		return createExprBadJoin("s", varPrimed);
 	}	
-    /*
-     * Taken from the Dash.cup file. It is used for handling difficult parsing
-     * ambiguities with Alloy expressions
-     */
-    private static Expr mult(Expr x) throws Err {
-        if (x instanceof ExprUnary) {
-            ExprUnary y = (ExprUnary) x;
-            if (y.op == ExprUnary.Op.SOME)
-                return ExprUnary.Op.SOMEOF.make(y.pos, y.sub);
-            if (y.op == ExprUnary.Op.LONE)
-                return ExprUnary.Op.LONEOF.make(y.pos, y.sub);
-            if (y.op == ExprUnary.Op.ONE)
-                return ExprUnary.Op.ONEOF.make(y.pos, y.sub);
-        }
-        return x;
-    }
 
+   public static Boolean checkInternalEvent(DashTrans trans, DashModule module)
+   {
+       if (trans.onExpr == null)
+           return false;
+   	
+       String onCommand = trans.onExpr.getRawName();
+
+       if (onCommand.contains("/")) 
+           onCommand = onCommand.substring(onCommand.lastIndexOf('/') + 1);
+
+       for(DashConcState concState: module.concStates.values()) {
+		for(DashEvent event: concState.getEvents()) {
+			if(event.type.equals("event") && event.getRawName().equals(onCommand)) {
+				return true;
+			}
+		}
+       }  
+       return false;
+   }
+   
+   public static void getInnerStates(DashState state, List<DashState> states) {
+		for(DashState innerState: state.getInnerORStates()) {	
+			states.add(innerState);
+			
+			if(innerState.getInnerORStates().size() > 0)
+				getInnerStates(innerState, states);
+		}
+  }
+   
+  public static DashConcState getParentConcState(Object item) { 	
+       if (item instanceof DashState) {
+           if (((DashState) item).getParent() instanceof DashState)
+               return getParentConcState(((DashState) item).getParent());
+           if (((DashState) item).getParent() instanceof DashConcState)
+               return (DashConcState) ((DashState) item).getParent();
+       }
+
+       if (item instanceof DashConcState)
+           return (DashConcState) item;
+
+       return null;
+   }
+
+  public static Object getParent(Object parent) {
+       if (parent instanceof DashState)
+           return ((DashState) parent).getParent();
+       if (parent instanceof DashConcState)
+           return ((DashConcState) parent).getParent();
+       return null;
+   }
+  
+  /* Get all the transitions within a state */
+  public static void getInnerTransitions(DashState state, List<DashTrans> transitions) {
+  	for(DashTrans trans: state.getTransitions()) {
+  		transitions.add(trans);
+  	}
+  	
+  	for(DashState innerState: state.getInnerORStates()) {
+  		getInnerTransitions(innerState, transitions);
+  	}
+  }
 }

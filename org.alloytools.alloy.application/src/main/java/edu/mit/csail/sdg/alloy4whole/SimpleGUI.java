@@ -1448,7 +1448,7 @@ public final class SimpleGUI implements ComponentListener, Listener {
                 dash = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, text.get().getText());
             }
             DashValidation.validateDashModel(dash);
-            System.out.println("FileName: " + fileName.toString() + " Path: " + path.toString());
+            //System.out.println("FileName: " + fileName.toString() + " Path: " + path.toString());
             DashModule coreDash = new DashToCoreDash().transformToCoreDash(dash, "", "");
             DashModule alloy = DashOptions.isElectrum ? new CoreDashToElectrum().convertToElectrumAST(coreDash, "", "") : new CoreDashToAlloy().convertToAlloyAST(coreDash, "", "");
             alloy = DashModule.resolveAll(A4Reporter.NOP, alloy);

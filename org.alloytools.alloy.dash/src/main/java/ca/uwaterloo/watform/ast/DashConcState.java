@@ -1,7 +1,9 @@
 package ca.uwaterloo.watform.ast;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import edu.mit.csail.sdg.alloy4.Pos;
 import edu.mit.csail.sdg.ast.Decl;
@@ -10,18 +12,22 @@ import edu.mit.csail.sdg.ast.ExprVar;
 /* This class is responsible for holding information regarding each concurrent state
  * declared within a DASH model */
 public class DashConcState extends DashSuperState {
-    private DashState			    parentState;
-    private String                  param        = new String();
-    private List<String>     	    IEs   		 = new ArrayList<String>();
-    private List<DashBuffer>        buffers      = new ArrayList<DashBuffer>();
-    private List<DashTemplateCall>  templateCall = new ArrayList<DashTemplateCall>();
-    private List<DashTransTemplate> templateDecl = new ArrayList<DashTransTemplate>();
-    private List<DashEvent>         events       = new ArrayList<DashEvent>();
-    private List<Decl>              decls        = new ArrayList<Decl>();
-    private List<DashInit>          init         = new ArrayList<DashInit>();
-    private List<DashInvariant>     invariant    = new ArrayList<DashInvariant>();
-    private List<DashAction>        action       = new ArrayList<DashAction>();
-    private List<DashCondition>     condition    = new ArrayList<DashCondition>();
+    private DashState			    				parentState;
+    private String                  				param          = new String();
+    
+    private List<String>     	    				IEs   		   = new ArrayList<String>();
+    private List<DashBuffer>        				buffers        = new ArrayList<DashBuffer>();
+    private List<DashTemplateCall>  				templateCall   = new ArrayList<DashTemplateCall>();
+    private List<DashTransTemplate> 				templateDecl   = new ArrayList<DashTransTemplate>();
+    private List<DashEvent>         				events         = new ArrayList<DashEvent>();
+    private List<Decl>              				decls          = new ArrayList<Decl>();
+    private List<DashInit>          				init           = new ArrayList<DashInit>();
+    private List<DashInvariant>     				invariant      = new ArrayList<DashInvariant>();
+    private List<DashAction>        				action         = new ArrayList<DashAction>();
+    private List<DashCondition>     				condition      = new ArrayList<DashCondition>();
+    private List<DashTrans>     					allTransitions = new ArrayList<DashTrans>();
+    private Map<Integer, List<DashConcState>>     	allChildConcStates = new LinkedHashMap<Integer, List<DashConcState>>();
+
 
     /*
      * This constructor is called by DashParser.java when it completes parsing a
@@ -39,7 +45,7 @@ public class DashConcState extends DashSuperState {
                 concStates.add((DashConcState) item);
             if (item instanceof DashState)
                 states.add((DashState) item);
-            if (item instanceof DashTrans)
+            if (item instanceof DashTrans) 
                 transitions.add((DashTrans) item);
             if (item instanceof Decl)
                 decls.add((Decl) item);
@@ -77,6 +83,7 @@ public class DashConcState extends DashSuperState {
 		this.states = concState.states;
 		this.param = concState.param;
 		this.transitions = concState.transitions;
+		this.allTransitions = concState.allTransitions;
 		this.templateCall = concState.templateCall;		
 		this.templateDecl = concState.templateDecl;
 		this.events = concState.events;
@@ -97,6 +104,14 @@ public class DashConcState extends DashSuperState {
 		this.parentState = parentState;
 	}
 	
+	public void addAllTransition(DashTrans transition) {
+		this.allTransitions.add(transition);
+	}
+	
+	public Map<Integer, List<DashConcState>> getAllChildConcStates() {
+		return allChildConcStates;
+	}
+	
 	public boolean isParameterized () {
 		return !param.isEmpty();
 	}
@@ -115,6 +130,10 @@ public class DashConcState extends DashSuperState {
 	
 	public List<DashTransTemplate> getTemplateDeclarations(){
 		return templateDecl;
+	}
+	
+	public List<DashTrans> getAllTransitions (){
+		return allTransitions;
 	}
 	
 	public List<DashBuffer> getBuffers(){
@@ -142,5 +161,41 @@ public class DashConcState extends DashSuperState {
 	
 	public List<DashCondition> getConditions() {
 		return condition;
+	}
+	
+	public void addInnerConcState(DashConcState concState) {
+		int identifiers = concState.getIdentifiers().size();
+		if(!(this.allChildConcStates).containsKey(identifiers)) {
+			this.allChildConcStates.put(identifiers, new ArrayList<DashConcState>());
+			this.allChildConcStates.get(identifiers).add(concState);
+		}
+		else {
+			this.allChildConcStates.get(identifiers).add(concState);
+		}
+	}
+	
+	public void addSelfToInnerConcState() {
+		int identifiers = getIdentifiers().size();
+		if(!this.allChildConcStates.containsKey(identifiers)) {
+			this.allChildConcStates.put(identifiers, new ArrayList<DashConcState>());
+			this.allChildConcStates.get(identifiers).add(this);
+		}
+		else {
+			this.allChildConcStates.get(identifiers).add(this);
+		}
+	}
+	
+	public DashConcState getTopParentRepConcState() {
+		List<DashConcState> parents = new ArrayList<DashConcState>();
+		DashConcState parent = new DashConcState(getParentConcState());
+		while (parent != null) {
+			parents.add(new DashConcState(parent));
+			parent = parent.getParentConcState();
+		}
+		for (int i = parents.size() - 1; i >= 0; i--){
+			if (parents.get(i).isParameterized())
+				return parents.get(i);
+		}
+		return this;
 	}
 }

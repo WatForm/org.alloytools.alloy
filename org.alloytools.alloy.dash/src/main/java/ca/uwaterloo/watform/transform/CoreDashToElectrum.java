@@ -152,17 +152,17 @@ public class CoreDashToElectrum {
         
         for (DashConcState concState: module.concStates.values()) {
         	if (concState.getIdentifiers().size() > 0) {
-        		System.out.println("Looking at: " + concState.getFullyQualName());
                 /* Creating the following expression: variable: mappings (variable: param -> mapping if parameterized)*/
                 for (String variableName : module.variable2Expression.keySet()) {
                 	if (!module.variable2ConcState.get(variableName).getFullyQualName().equals(concState.getFullyQualName())) continue;       		
                     b = module.variable2Expression.get(variableName);
                     b = DashHelper.createParameterizedElectrumVar(variableName, b, module);
                     a.add(ExprVar.make(null, variableName));
-                	decls.add(new Decl(null, null, null, new Pos("var", 0, 0), a, convertToExprUnary(b))); 
+                	decls.add(new Decl(null, null, null, new Pos("var", 0, 0), a, convertToExprUnary(b)));              
                     a.clear();
                 }
                 addSigAST(module, concState.getReplicatedIdentifier(), ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "Identifiers"))), new ArrayList<Decl>(decls), null, null, null, null, null);
+                decls.clear();
         	}
         }
         
@@ -445,7 +445,7 @@ public class CoreDashToElectrum {
      * Model
      */
     private void createPostConditionAST(DashTrans transition, DashModule module) {
-    	System.out.println("\nTransition: " + transition.getFullyQualName());
+    	//System.out.println("\nTransition: " + transition.getFullyQualName());
     	DashConcState parent = getParentConcState(transition.getParent());
     	Expr sendExpr = null;
         Expr expression = null;
@@ -1806,7 +1806,8 @@ public class CoreDashToElectrum {
              	else {
             		if (!isRef && (isCreatingInit) && (!isCreatingExprQt) && parent.getIdentifiers().size() > 0) {
             			Expr variable = parent.getIdentifiers().size() == 0 ? DashHelper.createExprBadJoin("Variables", DashHelper.createExprVar(qualifiedVarName)) : DashHelper.createExprVar(qualifiedVarName);
-            			variable = DashHelper.addParametersJoin(variable, parent.getIdentifiers().size());
+            			variable = DashHelper.createBinaryExpr(DashHelper.createExprVar("p" + module.identifiers.indexOf(parent.getReplicatedIdentifier())), ExprBinary.Op.JOIN, variable);
+            			//variable = DashHelper.addParametersJoin(variable, parent.getIdentifiers().size());
 	                	return variable;
             		}
             		else if (!isRef && !(isCreatingInit && isCreatingExprQt)) { // No need to DotJoin the "p0" expr if it is a reference to another parameterized concurrent state
@@ -1830,7 +1831,6 @@ public class CoreDashToElectrum {
     // This gets confusing!
     private void manageBufferCall(Expr left, Expr right, DashModule module, DashConcState parent) {
     	ExprBadJoin joinLeft = null;
-    	//System.out.println("\nLeft: " + left + " Right: " + right);
         if (left instanceof ExprBadJoin) {
         	 joinLeft = (ExprBadJoin) left;
         	 joinLeft = (ExprBadJoin) breakdownBufferCall(joinLeft, parent);
@@ -1844,9 +1844,9 @@ public class CoreDashToElectrum {
         	 foundBuffer = (bufferCommands.contains(right.toString()) && module.buffers.containsKey(joinLeftRightRight.toString())) ? true : false;
         	 if (bufferCommands.contains(right.toString()) && (joinLeft.right instanceof ExprBadJoin && joinLeft.left instanceof ExprVar)) {
         		 ExprBadJoin joinLeftRight = (ExprBadJoin) joinLeft.right;
-            	 //System.out.println("Join Left: " + joinLeft + " joinLeftRight: " + joinLeftRight);
+            	 System.out.println("Join Left: " + joinLeft + " joinLeftRight: " + joinLeftRight);
         		 if (module.buffers.containsKey(joinLeftRight.right.toString()) && bufferCommands.contains(right.toString())) {
-        			 System.out.println("Changing1: " + joinLeftRight.right.toString() + " Left: " + joinLeft.left + " Command: " + right.toString());
+        			 //System.out.println("Changing1: " + joinLeftRight.right.toString() + " Left: " + joinLeft.left + " Command: " + right.toString());
         			 paramBuffer.put(joinLeftRight.right.toString(), joinLeft.left);
         			 changedVars.put(joinLeftRight.right.toString(), module.buffers.get(joinLeftRight.right.toString()));
         			 if (module.buffers.get(joinLeftRight.right.toString()).isParameterized()) {
@@ -1861,7 +1861,8 @@ public class CoreDashToElectrum {
         			 System.out.println("ChangingBuffer2: " + joinLeftRight.toString() + " Left: " + joinLeft + " Command: " + right.toString());
         			 paramBuffer.put(joinLeftRight.toString(), joinLeft.left);
         			 changedVars.put(joinLeftRight.toString(), module.buffers.get(joinLeftRight.toString()));
-        			 changedLocalVars.put(joinLeftRight.toString(), module.buffers.get(joinLeftRight.toString()));
+        			 if (joinLeft.left.toString().equals("p0"))
+        				 changedLocalVars.put(joinLeftRight.toString(), module.buffers.get(joinLeftRight.toString()));
         			 if (module.buffers.get(joinLeftRight.toString()).isParameterized()) {
         				 localBufferChanged.put(joinLeftRight.toString(), joinLeft.left);
         			 }
@@ -1873,7 +1874,7 @@ public class CoreDashToElectrum {
         		 ExprVar joinLeftRight = (ExprVar) joinLeft.right;
         		 //System.out.println("joinLeftRight: " + joinLeftRight + " Right: " + right.toString());
         		 if (module.buffers.containsKey(joinLeftRight.toString()) && bufferCommands.contains(right.toString())) {
-        			 System.out.println("Changing3: " + joinLeftRight.toString() + " Left: " + joinLeft.left + " Command: " + right.toString());
+        			 //System.out.println("Changing3: " + joinLeftRight.toString() + " Left: " + joinLeft.left + " Command: " + right.toString());
         			 paramBuffer.put(joinLeftRight.toString(), joinLeft.left);
         			 changedVars.put(joinLeftRight.toString(), module.buffers.get(joinLeftRight.toString()));
         			 if (module.buffers.get(joinLeftRight.toString()).isParameterized()) {

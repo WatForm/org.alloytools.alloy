@@ -35,7 +35,7 @@ public abstract class DashSuperAST {
     }
     
     public void setParentConcState(DashConcState parentConcState) {
-    	this.parentConcState = new DashConcState(parentConcState);
+    	this.parentConcState = parentConcState;
     }
     
     public Object getParent() {

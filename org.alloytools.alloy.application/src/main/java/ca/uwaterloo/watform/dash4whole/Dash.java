@@ -7,26 +7,27 @@ import java.util.Scanner;
 import ca.uwaterloo.watform.parser.DashModule;
 import ca.uwaterloo.watform.parser.DashOptions;
 import ca.uwaterloo.watform.parser.DashUtil;
+import ca.uwaterloo.watform.transform.CoreDashToAlloy;
 import ca.uwaterloo.watform.transform.CoreDashToElectrum;
 import ca.uwaterloo.watform.transform.DashToCoreDash;
 import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.alloy4viz.VizGUI;
+import edu.mit.csail.sdg.ast.Command;
 import edu.mit.csail.sdg.translator.A4Options;
+import edu.mit.csail.sdg.translator.A4Solution;
+import edu.mit.csail.sdg.translator.TranslateAlloyToKodkod;
 
 public class Dash {
-
     @SuppressWarnings("resource" )
     public static void main(String args[]) throws Exception {
-
         System.out.println("Please specify the .dsh file path:");
         Scanner sc = new Scanner(System.in);
-        String actual = "C:\\Users\\Tamjid Hossain\\Desktop\\Dash Processes Models\\LeaderElectionElec1.dsh";
+        String actual = sc.next();
 
         if (!actual.endsWith(".dsh")) {
             System.err.println("File not supported.\nExpected a Dash file with 'dsh' extension");
             return;
         }
-
         DashOptions.generateSigAxioms = false;
         DashOptions.ctlModelChecking = false;
         DashOptions.generateTraces = true;
@@ -52,45 +53,33 @@ public class Dash {
 
             //Parse+typecheck the model
             System.out.println("=========== Parsing+Typechecking " + fileName + " =============");
-            DashOptions.variablesUnchanged = true;
-            DashOptions.assumeSingleInput = false;
-            DashOptions.generateSigAxioms = false;
-            DashOptions.ctlModelChecking = false;
-            DashOptions.isElectrum = true;
-            DashOptions.createLoop = true;
-            DashOptions.generateTraces = false;
+
             DashModule dash = DashUtil.parseEverything_fromFileDash(rep, null, actual);
             DashModule coreDash = new DashToCoreDash().transformToCoreDash(dash, fileName.toString(), "");
-            DashModule alloy = new CoreDashToElectrum().convertToElectrumAST(coreDash, "", "");
-            //System.out.println(DashModuleToString.getString(alloy));
+            DashModule alloy = DashOptions.isElectrum ? new CoreDashToElectrum().convertToElectrumAST(coreDash, "", "") : new CoreDashToAlloy().convertToAlloyAST(coreDash, "", "");
             alloy = DashModule.resolveAll(rep == null ? A4Reporter.NOP : rep, alloy);
-            //System.out.println(DashModuleToString.getString(alloy));
-
-            actual = "C:\\Users\\Tamjid Hossain\\Desktop\\Dash Processes Models\\LeaderElection.dsh";
-
-            //dash = DashUtil.parseEverything_fromFileDash(rep, null, actual);
-            //coreDashModule = new DashToCoreDash().transformToCoreDash(dash, fileName.toString(), actual);
-            //alloy = new CoreDashToAlloy().convertToAlloyAST(coreDashModule, fileName.toString(), actual);
-            //alloy = DashModule.resolveAll(rep == null ? A4Reporter.NOP : rep, alloy);
 
             // Choose some default options for how you want to execute the
             // commands
             A4Options options = new A4Options();
 
             options.solver = A4Options.SatSolver.SAT4J;
-            /*
-             * for (Command command : alloy.getAllCommands()) { // Execute the command
-             * System.out.println("============ Command " + command + ": ============");
-             * A4Solution ans = TranslateAlloyToKodkod.execute_command(rep,
-             * alloy.getAllReachableSigs(), command, options); // Print the outcome
-             * System.out.println(ans); // If satisfiable... if (ans.satisfiable()) { // You
-             * can query "ans" to find out the values of each set or // type. // This can be
-             * useful for debugging. // // You can also write the outcome to an XML file
-             * ans.writeXML("alloy_example_output.xml"); // // You can then visualize the
-             * XML file by calling this: if (viz == null) { viz = new VizGUI(false,
-             * "alloy_example_output.xml", null); } else {
-             * viz.loadXML("alloy_example_output.xml", true); } } }
-             */
+
+            for (Command command : alloy.getAllCommands()) { // Execute the command
+                System.out.println("============ Command " + command + ": ============");
+                A4Solution ans = TranslateAlloyToKodkod.execute_command(rep, alloy.getAllReachableSigs(), command, options); // Print the outcome
+                System.out.println(ans); // If satisfiable...
+                if (ans.satisfiable()) { // You can query "ans" to find out the values of each set or // type. // This can be useful for debugging. //
+                    // You can also write the outcome to an XML file
+                    ans.writeXML("alloy_example_output.xml"); // // You can then visualize the XML file by calling this:
+                    if (viz == null) {
+                        viz = new VizGUI(false, "alloy_example_output.xml", null);
+                    } else {
+                        viz.loadXML("alloy_example_output.xml", true);
+                    }
+                }
+            }
+
         }
     }
 }

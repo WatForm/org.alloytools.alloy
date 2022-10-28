@@ -33,7 +33,7 @@ public class DashGoto {
     public DashGoto(DashGoto gotoCom) {
     	this.pos = gotoCom.pos;
     	this.gotoExpr = gotoCom.gotoExpr;
-    	this.gotoExprs = gotoCom.gotoExprs;
+    	this.gotoExprs = new LinkedHashMap<String, DashConcState>(gotoCom.gotoExprs);
     	this.enteringDefaultStates = gotoCom.enteringDefaultStates;
     	this.name = gotoCom.name;
     	this.param = gotoCom.param;
@@ -57,7 +57,6 @@ public class DashGoto {
        this.pos = pos;
        this.gotoExpr = new ArrayList<String>(Arrays.asList(gotoExpr));
        this.param = param;
-       System.out.println("Param: " + param);
    }
     
     public DashGoto(List<String> gotoExpr) {
