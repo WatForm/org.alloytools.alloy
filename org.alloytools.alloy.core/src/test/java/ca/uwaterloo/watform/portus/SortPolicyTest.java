@@ -139,6 +139,35 @@ public class SortPolicyTest {
     }
 
     @Test
+    public void testGetDomainElementRange_twoTopLevelOneChild() {
+        // top-level S, T with T1 extends T
+        Sort sort = Sort.mkSortConst("sort");
+        Sig.PrimSig topLevel = new Sig.PrimSig("S");
+        Sig.PrimSig parent = new Sig.PrimSig("T");
+        Sig.PrimSig child = new Sig.PrimSig(null, "T1", new Pos("", 0, 0), parent);
+        policy = mock(SortPolicy.class, withSettings()
+                .useConstructor(Arrays.asList(topLevel, parent, child))
+                .defaultAnswer(CALLS_REAL_METHODS));
+
+        when(scoper.isExact(topLevel)).thenReturn(true);
+        when(scoper.isExact(parent)).thenReturn(true);
+        when(scoper.isExact(child)).thenReturn(true);
+        when(scoper.sig2scope(topLevel)).thenReturn(3);
+        when(scoper.sig2scope(parent)).thenReturn(8);
+        when(scoper.sig2scope(child)).thenReturn(5);
+        when(policy.getSort(topLevel)).thenReturn(sort);
+        when(policy.getSort(parent)).thenReturn(sort);
+        when(policy.getSort(child)).thenReturn(sort);
+
+        Pair<Integer, Integer> topLevelRange = policy.getDomainElementRange(topLevel, scoper);
+        assertRange(1, 3, topLevelRange);
+        Pair<Integer, Integer> parentRange = policy.getDomainElementRange(parent, scoper);
+        assertRange(4, 11, parentRange);
+        Pair<Integer, Integer> childRange = policy.getDomainElementRange(child, scoper);
+        assertRange(4, 8, childRange);
+    }
+
+    @Test
     public void testGetDomainElementRange_nonExact() {
         // we don't support non-exact scopes because we can't assign a definite domain element range
         Sig sig = new Sig.PrimSig("S");

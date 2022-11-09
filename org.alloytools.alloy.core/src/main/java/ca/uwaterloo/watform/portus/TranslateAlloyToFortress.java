@@ -11,6 +11,7 @@ import edu.mit.csail.sdg.translator.AlloySolution;
 import edu.mit.csail.sdg.translator.CommandRunner;
 import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.interpretation.Interpretation;
+import fortress.modelfind.ErrorResult;
 import fortress.modelfind.FortressTHREE;
 import fortress.modelfind.ModelFinder;
 import fortress.modelfind.ModelFinderResult;
@@ -94,6 +95,14 @@ public final class TranslateAlloyToFortress implements CommandRunner {
             context.configureModelFinder(finder);
             finder.addLogger(logger);
             ModelFinderResult result = finder.checkSat();
+
+            if (result instanceof ErrorResult) {
+                throw new ErrorFatal("Fortress error: " + ((ErrorResult) result).message());
+            }
+            // TODO: handle timeouts better, there's not much Alloy infrastructure for it
+            if (result == ModelFinderResult.Timeout()) {
+                throw new ErrorFatal("SMT solver timeout.");
+            }
 
             Interpretation interpretation = (result == ModelFinderResult.Sat()) ? finder.viewModel() : null;
             return new FortressSolution(

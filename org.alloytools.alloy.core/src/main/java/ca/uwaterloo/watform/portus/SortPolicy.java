@@ -92,12 +92,13 @@ abstract class SortPolicy {
                 .filter(otherSig -> otherSig instanceof Sig.PrimSig && scoper.isExact(otherSig))
                 .map(otherSig -> (Sig.PrimSig) otherSig)
                 .filter(otherSig -> primSig.isTopLevel()
-                            ? sort == getSort(otherSig)
+                            ? otherSig.isTopLevel() && sort == getSort(otherSig)
                             : primSig.parent == otherSig.parent)
-                .sorted(Comparator.comparing(s -> s.label))
+                .sorted(Comparator.comparing(s -> s.label)) // hopefully the labels are unique
                 .collect(Collectors.toList());
 
-        int domainElementStart = 1;
+        // start in the parent's range, then find our offset according to our order with our siblings
+        int domainElementStart = primSig.isTopLevel() ? 1 : getDomainElementRange(primSig.parent, scoper).a;
         for (Sig.PrimSig sibling : siblings) {
             if (sibling == sig) {
                 break;

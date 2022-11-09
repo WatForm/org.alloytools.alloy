@@ -60,6 +60,12 @@ public class UnivSortPolicyTest {
     }
 
     @Test
+    public void testGetSort_seqIdx() {
+        SortPolicy policy = new UnivSortPolicy(univ, new ArrayList<>(), scoper);
+        assertEquals(Sort.Int(), policy.getSort(Sig.SEQIDX));
+    }
+
+    @Test
     public void testGetSort_univ() {
         SortPolicy policy = new UnivSortPolicy(univ, new ArrayList<>(), scoper);
         assertNull(policy.getSort(Sig.UNIV));

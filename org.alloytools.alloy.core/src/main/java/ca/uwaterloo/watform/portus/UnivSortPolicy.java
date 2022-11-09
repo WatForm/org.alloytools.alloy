@@ -41,7 +41,7 @@ final class UnivSortPolicy extends SortPolicy {
 
     @Override
     public Sort getSort(Sig sig) {
-        if (sig == Sig.SIGINT) {
+        if (sig == Sig.SIGINT || sig == Sig.SEQIDX) {
             return Sort.Int();
         } else if (sig == Sig.UNIV || sig == Sig.NONE) {
             // we can't assign sorts to univ or none, but we can check if any element is in them
