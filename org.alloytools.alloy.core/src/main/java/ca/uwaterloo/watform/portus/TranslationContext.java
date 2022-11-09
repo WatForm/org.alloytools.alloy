@@ -134,6 +134,13 @@ final class TranslationContext {
         return scoper.getBitwidth();
     }
 
+    /**
+     * Get the maximum sequence length, i.e. the scope of the `seq/Int` sig.
+     */
+    public int getMaxSeq() {
+        return scoper.getMaxSeq();
+    }
+
     public void addAxiom(Term axiom) {
         theory = theory.withAxiom(axiom);
     }

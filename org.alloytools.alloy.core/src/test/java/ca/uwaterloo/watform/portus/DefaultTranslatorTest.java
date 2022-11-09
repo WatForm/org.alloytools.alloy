@@ -3437,6 +3437,31 @@ public class DefaultTranslatorTest {
     }
 
     @Test
+    public void testTranslate_seq_inSeqIdx() {
+        // test [[x \in seq/Int]] := x >= 0 && x <= maxseq-1, for maxseq = 5
+        when(mockScoper.getMaxSeq()).thenReturn(5);
+        when(mockScoper.getBitwidth()).thenReturn(4); // just need 2^(bitwidth-1) >= maxseq
+        Var x = Term.mkVar("x");
+        Term result = translator.translate(ExprElementOf.make(x.of(Sort.Int()), Sig.SEQIDX), context);
+        Term expected = Term.mkAnd(
+                Term.mkGE(x, IntegerLiteral.apply(0)),
+                Term.mkLE(x, IntegerLiteral.apply(4)));
+        assertEquals(expected, result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_seq_inSeqIdx_false() {
+        // test [[x \in seq/Int]] short circuits to bottom when x isn't an Int
+        when(mockScoper.getMaxSeq()).thenReturn(5);
+        when(mockScoper.getBitwidth()).thenReturn(4);
+        Var x = Term.mkVar("x");
+        Term result = translator.translate(ExprElementOf.make(x.of(Sort.Bool()), Sig.SEQIDX), context);
+        assertEquals(Term.mkBottom(), result);
+        assertContextEmpty();
+    }
+
+    @Test
     public void testTranslate_binaryOperationExpression_mixedIntNonInt_fails() {
         // test [[S X 2]] fails for select binary operations X, since we disallow mixing integers with non-integers
         Sig.PrimSig sig = new Sig.PrimSig("S");

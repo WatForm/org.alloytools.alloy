@@ -34,6 +34,7 @@ final class FunctionOptTranslator extends AbstractTranslator {
 
     // Same, but for "lone".
     private static final ConstList<ExprBinary.Op> FUNCTION_LONE_OPS = ConstList.make(Arrays.asList(
+            ExprBinary.Op.ISSEQ_ARROW_LONE,
             ExprBinary.Op.ANY_ARROW_LONE,
             ExprBinary.Op.SOME_ARROW_LONE,
             ExprBinary.Op.ONE_ARROW_LONE,

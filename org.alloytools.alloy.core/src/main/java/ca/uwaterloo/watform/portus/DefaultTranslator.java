@@ -227,6 +227,17 @@ final class DefaultTranslator extends AbstractTranslator {
             } else if (sig.equals(Sig.SIGINT)) {
                 // it's an int iff its sort is int - evaluate at compile time using var's type
                 return var.sort().equals(Sort.Int()) ? Term.mkTop() : Term.mkBottom();
+            } else if (sig.equals(Sig.SEQIDX)) {
+                // seq/Int is just ints in [0, maxseq-1] - TODO optimize sequences
+                // Note: we use "<= maxseq - 1" and not "< maxseq" to support the case where
+                // maxseq = 2^(bitwidth-1), so maxseq isn't representable in the bitwidth but maxseq-1 is.
+                if (var.sort().equals(Sort.Int())) {
+                    return Term.mkAnd(
+                            Term.mkGE(var.variable(), IntegerLiteral.apply(0)),
+                            Term.mkLE(var.variable(), IntegerLiteral.apply(context.getMaxSeq() - 1)));
+                } else {
+                    return Term.mkBottom();
+                }
             } else if (sig.equals(Sig.STRING)) {
                 // TODO - implement strings for real
                 return Term.mkBottom();

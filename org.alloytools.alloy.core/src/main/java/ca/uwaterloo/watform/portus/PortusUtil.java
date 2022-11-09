@@ -105,6 +105,7 @@ final class PortusUtil {
             case ONE_ARROW_LONE:
             case LONE_ARROW_LONE:
             case SOME_ARROW_LONE:
+            case ISSEQ_ARROW_LONE:
                 return ExprUnary.Op.LONE;
             case ANY_ARROW_SOME:
             case ONE_ARROW_SOME:
