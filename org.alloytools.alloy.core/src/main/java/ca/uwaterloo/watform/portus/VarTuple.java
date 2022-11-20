@@ -1,6 +1,7 @@
 package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.ConstList;
+import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import fortress.msfol.AnnotatedVar;
 import fortress.msfol.Sort;
 import fortress.msfol.Var;
@@ -11,6 +12,9 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+/**
+ * A list of Fortress variables annotated with their sorts, with a bunch of convenience methods.
+ */
 final class VarTuple {
 
     private final ConstList<AnnotatedVar> vars;

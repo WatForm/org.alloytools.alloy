@@ -147,8 +147,7 @@ final class PortusUtil {
         }
 
         // TODO: can we use FastSubstituter in some cases?
-        @SuppressWarnings("unchecked") // IntelliJ false positive
-        NameGenerator nameGen = new IntSuffixNameGenerator(new HashSet<String>(), 0);
+        NameGenerator nameGen = new IntSuffixNameGenerator(new HashSet<>(), 0);
         for (int i = 0; i < a.size(); i++) {
             Var from = a.get(i).variable();
             Term to = b.get(i);

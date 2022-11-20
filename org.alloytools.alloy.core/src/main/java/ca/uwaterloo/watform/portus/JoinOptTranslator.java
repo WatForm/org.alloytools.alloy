@@ -19,8 +19,8 @@ final class JoinOptTranslator extends AbstractTranslator {
         if (expr.op != ExprBinary.Op.JOIN) return null;
 
         // Translate [[(x1,...,xn) \in v . e]] := [[(v,x1,...,xn) \in e]]
-        if (expr.left instanceof ExprVar) {
-            ExprVar left = (ExprVar) expr.left;
+        if (expr.left.deNOP() instanceof ExprVar) {
+            ExprVar left = (ExprVar) expr.left.deNOP();
             if (context.hasVarMapping(left.label)) {
                 AnnotatedVar leftVar = context.getVarMapping(left.label);
                 VarTuple newTuple = new VarTuple(leftVar).concat(tuple);
@@ -29,8 +29,8 @@ final class JoinOptTranslator extends AbstractTranslator {
         }
 
         // Translate [[(x1,...,xn) \in e . v]] := [[(x1,...,xn,v) \in e]]
-        if (expr.right instanceof ExprVar) {
-            ExprVar right = (ExprVar) expr.right;
+        if (expr.right.deNOP() instanceof ExprVar) {
+            ExprVar right = (ExprVar) expr.right.deNOP();
             if (context.hasVarMapping(right.label)) {
                 AnnotatedVar rightVar = context.getVarMapping(right.label);
                 VarTuple newTuple = tuple.concat(new VarTuple(rightVar));

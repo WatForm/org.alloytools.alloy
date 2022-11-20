@@ -21,7 +21,7 @@ import java.util.Map;
 
 /**
  * A translator for the function optimization, based on KT 5.5.
- * For now, we optimize only S1->S2->...->one Sn (and they're partial functions).
+ * For now, we optimize only S1->S2->...->[l]one Sn (and they're partial functions).
  */
 final class FunctionOptTranslator extends AbstractTranslator {
 
@@ -43,6 +43,7 @@ final class FunctionOptTranslator extends AbstractTranslator {
     // A POJO collecting information about a field subject to this optimization.
     private static final class FieldFuncInfo {
         // Invariant: argSorts.size() + 1 == sum of boundExpr.type().arity() for each boundExpr in boundExprs
+        // Also, we must have at least one arg sort.
         public final String funcName;
         public final List<Sort> argSorts;
         public final Sort resultSort;
@@ -63,6 +64,9 @@ final class FunctionOptTranslator extends AbstractTranslator {
             int totalArity = boundExprs.stream().mapToInt(expr -> expr.type().arity()).sum();
             if (totalArity != argSorts.size() + 1) {
                 throw new ErrorFatal("Internal Portus error: function optimization arities do not match!");
+            }
+            if (argSorts.isEmpty()) {
+                throw new ErrorFatal("Internal Portus error: function optimization field with no arg sorts!");
             }
         }
     }
@@ -122,12 +126,20 @@ final class FunctionOptTranslator extends AbstractTranslator {
 
         Term domainFormula = makeDomainFormula(new VarTuple(decls), info, context);
 
-        // do this substitution because ExprElementOf/VarTuple only supports AnnotatedVars
-        AnnotatedVar y = Term.mkVar(context.nameGenerator.freshName("y")).of(info.resultSort);
-        Term funcApp = Term.mkApp(info.funcName, vars);
-        Term consequent = recursivelyTranslate(
-                ExprElementOf.make(y, info.boundExprs.get(info.boundExprs.size() - 1)), context);
-        consequent = PortusUtil.substitute(y, funcApp, consequent);
+        Term consequent;
+        try {
+            // Map "this" to the first variable, because it represents the signature's atom
+            context.addVarMapping("this", decls.get(0));
+
+            // do this substitution because ExprElementOf/VarTuple only supports AnnotatedVars
+            AnnotatedVar y = Term.mkVar(context.nameGenerator.freshName("y")).of(info.resultSort);
+            Term funcApp = Term.mkApp(info.funcName, vars);
+            consequent = recursivelyTranslate(
+                    ExprElementOf.make(y, info.boundExprs.get(info.boundExprs.size() - 1)), context);
+            consequent = PortusUtil.substitute(y, funcApp, consequent);
+        } finally {
+            context.removeMapping("this");
+        }
 
         return Term.mkForall(decls, Term.mkImp(domainFormula, consequent));
     }
@@ -289,25 +301,32 @@ final class FunctionOptTranslator extends AbstractTranslator {
             return Term.mkApp(info.domainPredName, vars.getVars());
         }
 
-        List<Term> conjuncts = new ArrayList<>();
-        int varIdx = 0;
+        // Map "this" to the first var in the tuple, because it's the one bounded by the enclosing signature.
+        try {
+            context.addVarMapping("this", vars.getAnnotatedVar(0));
 
-        // Ignore the last bound expr, it's for the result
-        for (Expr expr : info.boundExprs.subList(0, info.boundExprs.size() - 1)) {
-            int arity = expr.type().arity();
-            if (varIdx + arity > vars.size()) {
-                // out of variables - arities are mismatched
-                throw new ErrorFatal("Mismatched arities in optimized field expression!");
+            List<Term> conjuncts = new ArrayList<>();
+            int varIdx = 0;
+
+            // Ignore the last bound expr, it's for the result
+            for (Expr expr : info.boundExprs.subList(0, info.boundExprs.size() - 1)) {
+                int arity = expr.type().arity();
+                if (varIdx + arity > vars.size()) {
+                    // out of variables - arities are mismatched
+                    throw new ErrorFatal("Mismatched arities in optimized field expression!");
+                }
+
+                VarTuple subTuple = vars.slice(varIdx, varIdx + arity);
+                Term conjunct = recursivelyTranslate(ExprElementOf.make(subTuple, expr), context);
+                conjuncts.add(conjunct);
+
+                varIdx += arity;
             }
 
-            VarTuple subTuple = vars.slice(varIdx, varIdx + arity);
-            Term conjunct = recursivelyTranslate(ExprElementOf.make(subTuple, expr), context);
-            conjuncts.add(conjunct);
-
-            varIdx += arity;
+            return conjuncts.isEmpty() ? Term.mkTop() : Term.mkAnd(conjuncts);
+        } finally {
+            context.removeMapping("this");
         }
-
-        return conjuncts.isEmpty() ? Term.mkTop() : Term.mkAnd(conjuncts);
     }
 
 }

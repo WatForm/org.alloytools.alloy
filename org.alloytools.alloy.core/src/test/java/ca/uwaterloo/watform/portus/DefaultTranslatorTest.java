@@ -210,8 +210,7 @@ public class DefaultTranslatorTest {
                                 Term.mkEq(y, x2))))));
 
         // this should be the only axiom
-        @SuppressWarnings("unchecked") // IntelliJ gives a false positive
-        Set<Term> axioms = CollectionConverters.<Term>asJava(context.getTheory().axioms());
+        Set<Term> axioms = CollectionConverters.asJava(context.getTheory().axioms());
         assertThat(axioms, contains(isAlphaEquivalentTerm(exactScopeAxiom)));
 
         // should have no constants, one function for the membership predicate
@@ -256,8 +255,7 @@ public class DefaultTranslatorTest {
                                 Term.mkEq(x1, x2))));
 
         // this should be the only axiom
-        @SuppressWarnings("unchecked") // IntelliJ gives a false positive
-        Set<Term> axioms = CollectionConverters.<Term>asJava(context.getTheory().axioms());
+        Set<Term> axioms = CollectionConverters.asJava(context.getTheory().axioms());
         assertThat(axioms, contains(isAlphaEquivalentTerm(nonExactScopeAxiom)));
 
         // should have no constants, one function for the membership predicate
@@ -322,8 +320,7 @@ public class DefaultTranslatorTest {
                         inChildFlag, Term.mkEq(y, x1))));
 
         // should have two axioms: subset and exact scope
-        @SuppressWarnings("unchecked") // IntelliJ gives a false positive
-        Set<Term> axioms = CollectionConverters.<Term>asJava(context.getTheory().axioms());
+        Set<Term> axioms = CollectionConverters.asJava(context.getTheory().axioms());
         //noinspection unchecked
         assertThat(axioms, containsInAnyOrder(
                 is(subsetFlag),
@@ -430,8 +427,7 @@ public class DefaultTranslatorTest {
                         Term.mkEq(x0, x1)));
 
         // should have exactly these axioms
-        @SuppressWarnings("unchecked") // IntelliJ gives a false positive
-        Set<Term> axioms = CollectionConverters.<Term>asJava(context.getTheory().axioms());
+        Set<Term> axioms = CollectionConverters.asJava(context.getTheory().axioms());
         //noinspection unchecked
         assertThat(axioms, containsInAnyOrder(
                 is(makeFlagConstant("subset_one_Child1")), // subset axiom, child1
@@ -482,15 +478,30 @@ public class DefaultTranslatorTest {
 
     @Test
     public void testTranslate_field_set() {
-        // test "sig A {f: set e}" results in a relation and an axiom [[f in A->e]]
+        // test "sig A {f: set e}" results in a relation and the proper bound axiom
         Sig.PrimSig sig = new Sig.PrimSig("A");
+        when(mockSortPolicy.getSort(sig)).thenReturn(univ);
         Expr e = makeTestVarWithType("e", Type.make(sig)); // addField() requires it to be typechecked
         Sig.Field f = sig.addField("f", e.setOf());
 
-        // mock out [[f in A->e]]
-        Var domainAxiom = makeFlagConstant("domainAxiom");
-        when(mockRoot.translate(argThat(isSameAs(f.in(sig.product(e)))), any()))
-                .thenReturn(domainAxiom);
+        // mock out the parts of the bound axiom
+        Var rangeAxiom = makeFlagConstant("rangeAxiom");
+        // [[all this: A | this.f in set e]]
+        Expr expectedRangeAxiom = f.sig.decl.get().join(f).in(e.setOf()).forAll(f.sig.decl);
+        when(mockRoot.translate(argThat(isAlphaEquivalent(expectedRangeAxiom)), any()))
+                .thenReturn(rangeAxiom);
+        Var inF = makeFlagConstant("inF");
+        AnnotatedVar x0 = Term.mkVar("x_0").of(univ), x1 = Term.mkVar("x_1").of(univ);
+        // (x0,x1) \in f
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(new VarTuple(x0, x1), f))), any()))
+                .thenReturn(inF);
+        // x0 \in A
+        Var inA = makeFlagConstant("inA");
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(x0, sig))), any()))
+                .thenReturn(inA);
+        // forall x0: sort, x1: sort . [[(x0, x1) \in f]] => [[x0 \in A]]
+        Term domainAxiom = Term.mkForall(Arrays.asList(x0, x1), Term.mkImp(inF, inA));
+        Term boundAxiom = Term.mkAnd(domainAxiom, rangeAxiom);
 
         Term result = translator.translate(f, context);
         assertThat(result, is(notNullValue()));
@@ -503,9 +514,8 @@ public class DefaultTranslatorTest {
         assertEquals(Sort.Bool(), relationPred.resultSort());
 
         // make sure the domain axiom is the only axiom
-        @SuppressWarnings("unchecked") // IntelliJ gives a false positive
-        Set<Term> axioms = CollectionConverters.<Term>asJava(context.getTheory().axioms());
-        assertThat(axioms, containsInAnyOrder(domainAxiom));
+        Set<Term> axioms = CollectionConverters.asJava(context.getTheory().axioms());
+        assertThat(axioms, containsInAnyOrder(boundAxiom));
 
         // should have no constants
         assertThat(context.getTheory().constants().size(), is(0));
@@ -520,10 +530,24 @@ public class DefaultTranslatorTest {
         Expr e2 = makeTestVarWithType("e2", Type.make(sig)); // addField() requires it to be typechecked
         Sig.Field f = sig.addField("f", e1.product(e2).setOf());
 
-        // mock out [[f in A->e1->e2]]
-        Var domainAxiom = makeFlagConstant("domainAxiom");
-        when(mockRoot.translate(argThat(isSameAs(f.in(sig.product(e1.product(e2))))), any()))
-                .thenReturn(domainAxiom);
+        // mock out the parts of the bound axiom
+        Var rangeAxiom = makeFlagConstant("rangeAxiom");
+        // [[all this: A | this.f in set e1->e2]]
+        Expr expectedRangeAxiom = f.sig.decl.get().join(f).in(e1.product(e2).setOf()).forAll(f.sig.decl);
+        when(mockRoot.translate(argThat(isAlphaEquivalent(expectedRangeAxiom)), any()))
+                .thenReturn(rangeAxiom);
+        Var inF = makeFlagConstant("inF");
+        AnnotatedVar x0 = Term.mkVar("x_0").of(univ), x1 = Term.mkVar("x_1").of(univ), x2 = Term.mkVar("x_2").of(univ);
+        // (x0,x1,x2) \in f
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(new VarTuple(x0, x1, x2), f))), any()))
+                .thenReturn(inF);
+        // x0 \in A
+        Var inA = makeFlagConstant("inA");
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(x0, sig))), any()))
+                .thenReturn(inA);
+        // forall x0: sort, x1: sort, x2: sort . [[(x0, x1, x2) \in f]] => [[x0 \in A]]
+        Term domainAxiom = Term.mkForall(Arrays.asList(x0, x1, x2), Term.mkImp(inF, inA));
+        Term boundAxiom = Term.mkAnd(domainAxiom, rangeAxiom);
 
         Term result = translator.translate(f, context);
         assertThat(result, is(notNullValue()));
@@ -535,10 +559,9 @@ public class DefaultTranslatorTest {
         assertEquals(3, relationPred.arity()); // arity of A->e1->e2
         assertEquals(Sort.Bool(), relationPred.resultSort());
 
-        // make sure the domain axiom is the only axiom
-        @SuppressWarnings("unchecked") // IntelliJ gives a false positive
-        Set<Term> axioms = CollectionConverters.<Term>asJava(context.getTheory().axioms());
-        assertThat(axioms, containsInAnyOrder(domainAxiom));
+        // make sure the bound axiom is the only axiom
+        Set<Term> axioms = CollectionConverters.asJava(context.getTheory().axioms());
+        assertThat(axioms, containsInAnyOrder(boundAxiom));
 
         // should have no constants
         assertThat(context.getTheory().constants().size(), is(0));
@@ -552,10 +575,24 @@ public class DefaultTranslatorTest {
         Expr e = makeTestVarWithType("e", Type.make(sig)); // addField() requires it to be typechecked
         Sig.Field f = sig.addField("f", e.oneOf());
 
-        // mock out [[f in A->one e]]
-        Var domainAxiom = makeFlagConstant("domainAxiom");
-        when(mockRoot.translate(argThat(isSameAs(f.in(sig.any_arrow_one(e)))), any()))
-                .thenReturn(domainAxiom);
+        // mock out the parts of the bound axiom
+        Var rangeAxiom = makeFlagConstant("rangeAxiom");
+        // [[all this: A | this.f in one e]]
+        Expr expectedRangeAxiom = f.sig.decl.get().join(f).in(e.oneOf()).forAll(f.sig.decl);
+        when(mockRoot.translate(argThat(isAlphaEquivalent(expectedRangeAxiom)), any()))
+                .thenReturn(rangeAxiom);
+        Var inF = makeFlagConstant("inF");
+        AnnotatedVar x0 = Term.mkVar("x_0").of(univ), x1 = Term.mkVar("x_1").of(univ);
+        // (x0,x1) \in f
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(new VarTuple(x0, x1), f))), any()))
+                .thenReturn(inF);
+        // x0 \in A
+        Var inA = makeFlagConstant("inA");
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(x0, sig))), any()))
+                .thenReturn(inA);
+        // forall x0: sort, x1: sort . [[(x0, x1) \in f]] => [[x0 \in A]]
+        Term domainAxiom = Term.mkForall(Arrays.asList(x0, x1), Term.mkImp(inF, inA));
+        Term boundAxiom = Term.mkAnd(domainAxiom, rangeAxiom);
 
         Term result = translator.translate(f, context);
         assertThat(result, is(notNullValue()));
@@ -567,10 +604,9 @@ public class DefaultTranslatorTest {
         assertEquals(2, relationPred.arity());
         assertEquals(Sort.Bool(), relationPred.resultSort());
 
-        // make sure the domain axiom is the only axiom
-        @SuppressWarnings("unchecked") // IntelliJ gives a false positive
-        Set<Term> axioms = CollectionConverters.<Term>asJava(context.getTheory().axioms());
-        assertThat(axioms, containsInAnyOrder(domainAxiom));
+        // make sure the bound axiom is the only axiom
+        Set<Term> axioms = CollectionConverters.asJava(context.getTheory().axioms());
+        assertThat(axioms, containsInAnyOrder(boundAxiom));
 
         // should have no constants
         assertThat(context.getTheory().constants().size(), is(0));
@@ -584,10 +620,24 @@ public class DefaultTranslatorTest {
         Expr e = makeTestVarWithType("e", Type.make(sig)); // addField() requires it to be typechecked
         Sig.Field f = sig.addField("f", e.loneOf());
 
-        // mock out [[f in A->lone e]]
-        Var domainAxiom = makeFlagConstant("domainAxiom");
-        when(mockRoot.translate(argThat(isSameAs(f.in(sig.any_arrow_lone(e)))), any()))
-                .thenReturn(domainAxiom);
+        // mock out the parts of the bound axiom
+        Var rangeAxiom = makeFlagConstant("rangeAxiom");
+        // [[all this: A | this.f in one e]]
+        Expr expectedRangeAxiom = f.sig.decl.get().join(f).in(e.loneOf()).forAll(f.sig.decl);
+        when(mockRoot.translate(argThat(isAlphaEquivalent(expectedRangeAxiom)), any()))
+                .thenReturn(rangeAxiom);
+        Var inF = makeFlagConstant("inF");
+        AnnotatedVar x0 = Term.mkVar("x_0").of(univ), x1 = Term.mkVar("x_1").of(univ);
+        // (x0,x1) \in f
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(new VarTuple(x0, x1), f))), any()))
+                .thenReturn(inF);
+        // x0 \in A
+        Var inA = makeFlagConstant("inA");
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(x0, sig))), any()))
+                .thenReturn(inA);
+        // forall x0: sort, x1: sort . [[(x0, x1) \in f]] => [[x0 \in A]]
+        Term domainAxiom = Term.mkForall(Arrays.asList(x0, x1), Term.mkImp(inF, inA));
+        Term boundAxiom = Term.mkAnd(domainAxiom, rangeAxiom);
 
         Term result = translator.translate(f, context);
         assertThat(result, is(notNullValue()));
@@ -599,10 +649,9 @@ public class DefaultTranslatorTest {
         assertEquals(2, relationPred.arity());
         assertEquals(Sort.Bool(), relationPred.resultSort());
 
-        // make sure the domain axiom is the only axiom
-        @SuppressWarnings("unchecked") // IntelliJ gives a false positive
-        Set<Term> axioms = CollectionConverters.<Term>asJava(context.getTheory().axioms());
-        assertThat(axioms, containsInAnyOrder(domainAxiom));
+        // make sure the bound axiom is the only axiom
+        Set<Term> axioms = CollectionConverters.asJava(context.getTheory().axioms());
+        assertThat(axioms, containsInAnyOrder(boundAxiom));
 
         // should have no constants
         assertThat(context.getTheory().constants().size(), is(0));
@@ -616,10 +665,24 @@ public class DefaultTranslatorTest {
         Expr e = makeTestVarWithType("e", Type.make(sig)); // addField() requires it to be typechecked
         Sig.Field f = sig.addField("f", e.someOf());
 
-        // mock out [[f in A->some e]]
-        Var domainAxiom = makeFlagConstant("domainAxiom");
-        when(mockRoot.translate(argThat(isSameAs(f.in(sig.any_arrow_some(e)))), any()))
-                .thenReturn(domainAxiom);
+        // mock out the parts of the bound axiom
+        Var rangeAxiom = makeFlagConstant("rangeAxiom");
+        // [[all this: A | this.f in one e]]
+        Expr expectedRangeAxiom = f.sig.decl.get().join(f).in(e.someOf()).forAll(f.sig.decl);
+        when(mockRoot.translate(argThat(isAlphaEquivalent(expectedRangeAxiom)), any()))
+                .thenReturn(rangeAxiom);
+        Var inF = makeFlagConstant("inF");
+        AnnotatedVar x0 = Term.mkVar("x_0").of(univ), x1 = Term.mkVar("x_1").of(univ);
+        // (x0,x1) \in f
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(new VarTuple(x0, x1), f))), any()))
+                .thenReturn(inF);
+        // x0 \in A
+        Var inA = makeFlagConstant("inA");
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(x0, sig))), any()))
+                .thenReturn(inA);
+        // forall x0: sort, x1: sort . [[(x0, x1) \in f]] => [[x0 \in A]]
+        Term domainAxiom = Term.mkForall(Arrays.asList(x0, x1), Term.mkImp(inF, inA));
+        Term boundAxiom = Term.mkAnd(domainAxiom, rangeAxiom);
 
         Term result = translator.translate(f, context);
         assertThat(result, is(notNullValue()));
@@ -631,10 +694,9 @@ public class DefaultTranslatorTest {
         assertEquals(2, relationPred.arity());
         assertEquals(Sort.Bool(), relationPred.resultSort());
 
-        // make sure the domain axiom is the only axiom
-        @SuppressWarnings("unchecked") // IntelliJ gives a false positive
-        Set<Term> axioms = CollectionConverters.<Term>asJava(context.getTheory().axioms());
-        assertThat(axioms, containsInAnyOrder(domainAxiom));
+        // make sure the bound axiom is the only axiom
+        Set<Term> axioms = CollectionConverters.asJava(context.getTheory().axioms());
+        assertThat(axioms, containsInAnyOrder(boundAxiom));
 
         // should have no constants
         assertThat(context.getTheory().constants().size(), is(0));

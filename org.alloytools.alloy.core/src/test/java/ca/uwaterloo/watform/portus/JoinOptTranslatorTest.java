@@ -2,6 +2,7 @@ package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprConstant;
+import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.ScopeComputer;
@@ -95,6 +96,50 @@ public class JoinOptTranslatorTest {
                 .thenReturn(flag);
 
         assertEquals(flag, translator.translate(ExprElementOf.make(new VarTuple(x), e.join(alloyV)), context));
+    }
+
+    @Test
+    public void testTranslate_join_leftWithNoop() {
+        // test [[x \in NOOP(v) . e]] := [[(v,x) \in e]]
+        Sig sigA = new Sig.PrimSig("A");
+        Sig sigB = new Sig.PrimSig("B");
+        when(mockSortPolicy.getSort(sigA)).thenReturn(testSort);
+        when(mockSortPolicy.getSort(sigB)).thenReturn(testSort);
+        Expr e = sigA.product(sigB);
+
+        ExprVar alloyV = ExprVar.make(null, "v");
+        AnnotatedVar v = Term.mkVar("v").of(testSort);
+        context.addVarMapping("v", v);
+
+        AnnotatedVar x = Term.mkVar("x").of(testSort);
+        Var flag = Term.mkVar("flag");
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(new VarTuple(v, x), e))), any()))
+                .thenReturn(flag);
+
+        Expr noop = ExprUnary.Op.NOOP.make(null, alloyV);
+        assertEquals(flag, translator.translate(ExprElementOf.make(new VarTuple(x), noop.join(e)), context));
+    }
+
+    @Test
+    public void testTranslate_join_rightWithNoop() {
+        // test [[x \in e . NOOP(v)]] := [[(x,v) \in e]]
+        Sig sigA = new Sig.PrimSig("A");
+        Sig sigB = new Sig.PrimSig("B");
+        when(mockSortPolicy.getSort(sigA)).thenReturn(testSort);
+        when(mockSortPolicy.getSort(sigB)).thenReturn(testSort);
+        Expr e = sigA.product(sigB);
+
+        ExprVar alloyV = ExprVar.make(null, "v");
+        AnnotatedVar v = Term.mkVar("v").of(testSort);
+        context.addVarMapping("v", v);
+
+        AnnotatedVar x = Term.mkVar("x").of(testSort);
+        Var flag = Term.mkVar("flag");
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(new VarTuple(x, v), e))), any()))
+                .thenReturn(flag);
+
+        Expr noop = ExprUnary.Op.NOOP.make(null, alloyV);
+        assertEquals(flag, translator.translate(ExprElementOf.make(new VarTuple(x), e.join(noop)), context));
     }
 
 }

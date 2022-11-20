@@ -154,8 +154,11 @@ public class AlloyASTMatcher extends TypeSafeMatcher<Expr> {
 
         @Override
         public Boolean visit(ExprLet x) throws Err {
-            throw new UnsupportedOperationException(
-                    "Alpha-equivalence is not yet supported for ExprLet");
+            if (!(testing instanceof ExprLet)) return false;
+            ExprLet y = (ExprLet) testing;
+            return equivalent(x.var, y.var)
+                    && equivalent(x.expr, y.expr)
+                    && equivalent(x.sub, y.sub);
         }
 
         @Override
