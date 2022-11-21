@@ -1042,6 +1042,10 @@ final class DefaultTranslator extends AbstractTranslator {
             // Special case: Int's scope is the bitwidth and not 2^bitwidth, so use context.getIntScope() instead
             sortScopes.add(sort == Sort.Int() ? context.getIntScope() : context.sortPolicy.getSortScope(sort));
             currentIdxs.add(1);
+
+            // We're expanding over the domain elements of the sort, so its scope can't be changed arbitrarily
+            // in the output - mark it unchanging
+            context.markSortUnchanging(sort);
         }
 
         Term result = null;

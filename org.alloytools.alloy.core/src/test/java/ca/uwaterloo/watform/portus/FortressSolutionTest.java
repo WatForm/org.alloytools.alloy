@@ -39,10 +39,6 @@ public class FortressSolutionTest {
 
     private FortressSolution solution;
 
-    private <A, B> scala.collection.immutable.Map<A, B> toScalaMap(Map<A, B> map) {
-        return scala.collection.immutable.Map.from(CollectionConverters.asScala(map));
-    }
-
     @Before
     public void setUp() {
         Sort univ = Sort.mkSortConst("testUniv");
@@ -64,9 +60,9 @@ public class FortressSolutionTest {
         Map<AnnotatedVar, Value> constants = new HashMap<>();
         Map<FuncDecl, scala.collection.immutable.Map<Seq<Value>, Value>> functions = new HashMap<>();
         Interpretation interpretation = new BasicInterpretation(
-                this.<Sort, Seq<Value>>toScalaMap(sorts),
-                this.<AnnotatedVar, Value>toScalaMap(constants),
-                this.<FuncDecl, scala.collection.immutable.Map<Seq<Value>, Value>>toScalaMap(functions),
+                PortusUtil.<Sort, Seq<Value>>toScalaMap(sorts),
+                PortusUtil.<AnnotatedVar, Value>toScalaMap(constants),
+                PortusUtil.<FuncDecl, scala.collection.immutable.Map<Seq<Value>, Value>>toScalaMap(functions),
                 Set$.MODULE$.empty());
 
         solution = new FortressSolution(

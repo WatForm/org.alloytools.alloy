@@ -11,10 +11,15 @@ import fortress.data.NameGenerator;
 import fortress.modelfind.ModelFinder;
 import fortress.msfol.AnnotatedVar;
 import fortress.msfol.FuncDecl;
+import fortress.msfol.Sort;
 import fortress.msfol.Term;
 import fortress.msfol.Theory;
+import fortress.problemstate.Scope;
 import scala.collection.Set$;
-import scala.collection.immutable.Set;
+
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Represents the translation environment for a certain expression, including the
@@ -87,14 +92,17 @@ final class TranslationContext {
     // The current theory. Mutable.
     private Theory theory;
 
-    // The scope needed for the universal sort.
-    // This should be the sum of the scopes of all top-level sorts.
-    private int totalScope = 0;
-
     // The current lexical scope's mapping from Alloy variable labels to either
     // Fortress Vars or Alloy expressions as used in the "let x = e | ..." construct.
     // We use a single Env so these types of mappings can shadow each other.
     private Env<String, Either<AnnotatedVar, LetContext>> alloyVarMapping;
+
+    // The list of sorts to mark as unchanging in Fortress.
+    // This should include any sort for which the Portus translation depends on the scope,
+    // i.e. whenever we expand over the atoms of a sort or refer to its domain elements.
+    // If a sort is unchanging then we can't mess with its scope in the output, because it no longer
+    // represents the same problem.
+    private final Set<Sort> unchangingSorts;
 
     public TranslationContext(FortressOptions options, ScopeComputer scoper, SortPolicy sortPolicy) {
         this.options = options;
@@ -102,7 +110,9 @@ final class TranslationContext {
         this.sortPolicy = sortPolicy;
         this.alloyVarMapping = new Env<>();
         this.theory = sortPolicy.addSortsToTheory(Theory.empty());
-        this.nameGenerator = new IntSuffixNameGenerator((Set<String>) Set$.MODULE$.empty(), 0);
+        this.nameGenerator = new IntSuffixNameGenerator(
+                (scala.collection.immutable.Set<String>) Set$.MODULE$.empty(), 0);
+        this.unchangingSorts = new HashSet<>();
     }
 
     /**
@@ -114,10 +124,10 @@ final class TranslationContext {
         this.options = context.options;
         this.scoper = context.scoper;
         this.theory = context.theory; // theory is immutable
-        this.totalScope = context.totalScope;
         this.sortPolicy = context.sortPolicy;
         this.alloyVarMapping = context.alloyVarMapping.dup();
         this.nameGenerator = context.nameGenerator;
+        this.unchangingSorts = new HashSet<>(context.unchangingSorts);
     }
 
     /**
@@ -250,11 +260,20 @@ final class TranslationContext {
     /** Configure a model finder's theory and scopes to check this translation. */
     public void configureModelFinder(ModelFinder finder) {
         finder.setTheory(theory);
-        sortPolicy.configureModelFinderScopes(finder);
+        sortPolicy.configureModelFinderScopes(finder, unchangingSorts);
+    }
+
+    /** Mark the sort as unchanging in the Fortress output. */
+    public void markSortUnchanging(Sort sort) {
+        unchangingSorts.add(sort);
+    }
+
+    public Map<Sort, Scope> getSortToScopeMap() {
+        return sortPolicy.getSortToScopeMap(unchangingSorts);
     }
 
     /**
-     * Get the theory being built. This is for debugging and visibilitiy; for solving prefer
+     * Get the theory being built. This is for debugging and visibility; for solving prefer
      * {@link #configureModelFinder(ModelFinder)}.
      */
     public Theory getTheory() {

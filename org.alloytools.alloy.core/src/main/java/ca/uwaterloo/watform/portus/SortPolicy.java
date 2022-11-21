@@ -25,12 +25,15 @@ import fortress.modelfind.ModelFinder;
 import fortress.msfol.AnnotatedVar;
 import fortress.msfol.Sort;
 import fortress.msfol.Theory;
+import fortress.problemstate.Scope;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -62,8 +65,22 @@ abstract class SortPolicy {
     /** Return a theory with the sorts assigned by the policy added. */
     public abstract Theory addSortsToTheory(Theory theory);
 
-    /** Add all the scopes of the sorts to the model finder. */
-    public abstract void configureModelFinderScopes(ModelFinder modelFinder);
+    /**
+     * Add all the scopes of the sorts to the model finder.
+     * {@code unchangingSorts} is the list of sorts which should be marked as 'unchanging': their scope cannot be
+     * changed in the output (without messing up the semantics of the problem).
+     */
+    public void configureModelFinderScopes(ModelFinder modelFinder, Set<Sort> unchangingSorts) {
+        for (Map.Entry<Sort, Scope> sortAndScope : getSortToScopeMap(unchangingSorts).entrySet()) {
+            modelFinder.setScope(sortAndScope.getKey(), sortAndScope.getValue());
+        }
+    }
+
+    /**
+     * Get a map of sorts assigned by the policy to their Fortress scopes.
+     * This method is for configuring model finders and dumping. Use getSortScope() for most use-cases.
+     */
+    public abstract Map<Sort, Scope> getSortToScopeMap(Set<Sort> unchangingSorts);
 
     /** Get the inclusive range of domain element indices in the sort spanned by this sig. */
     public Pair<Integer, Integer> getDomainElementRange(Sig sig, ScopeComputer scoper) {

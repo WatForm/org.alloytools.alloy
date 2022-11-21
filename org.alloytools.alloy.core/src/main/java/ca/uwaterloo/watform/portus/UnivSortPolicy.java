@@ -6,6 +6,12 @@ import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.modelfind.ModelFinder;
 import fortress.msfol.Sort;
 import fortress.msfol.Theory;
+import fortress.problemstate.ExactScope;
+import fortress.problemstate.Scope;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * A simple sort policy which assigns everything to a single univ sort, except for integers, which it assigns
@@ -68,10 +74,12 @@ final class UnivSortPolicy extends SortPolicy {
     }
 
     @Override
-    public void configureModelFinderScopes(ModelFinder modelFinder) {
-        modelFinder.setExactScope(univ, univScope);
+    public Map<Sort, Scope> getSortToScopeMap(Set<Sort> unchangingSorts) {
+        Map<Sort, Scope> map = new HashMap<>();
+        map.put(univ, ExactScope.apply(univScope, unchangingSorts.contains(univ)));
         // TODO - allow configuring modular vs unbounded ints?
-        modelFinder.setExactScope(Sort.Int(), bitwidth);
+        map.put(Sort.Int(), ExactScope.apply(bitwidth, unchangingSorts.contains(Sort.Int())));
+        return map;
     }
 
 }

@@ -23,10 +23,12 @@ import fortress.msfol.Term;
 import fortress.msfol.Var;
 import fortress.operations.Substituter;
 import scala.collection.immutable.HashSet;
+import scala.jdk.javaapi.CollectionConverters;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -35,6 +37,11 @@ import java.util.stream.Collectors;
 final class PortusUtil {
 
     private PortusUtil() {}
+
+    /** Convert a java.util.Map to a scala.collection.immutable.Map. */
+    public static <A, B> scala.collection.immutable.Map<A, B> toScalaMap(Map<A, B> map) {
+        return scala.collection.immutable.Map.from(CollectionConverters.asScala(map));
+    }
 
     /**
      * Software Abstractions, sec. 3.6.4: a "declaration formula" is a expression of the form
