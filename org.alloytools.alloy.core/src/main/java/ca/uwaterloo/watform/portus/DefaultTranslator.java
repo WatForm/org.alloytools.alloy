@@ -908,6 +908,12 @@ final class DefaultTranslator extends AbstractTranslator {
     /** Translate an ExprList formula. */
     @Override
     public Term translate(ExprList expr, TranslationContext context) {
+        if (expr.op == ExprList.Op.DISJOINT) {
+            return translateDisjoint(expr.args, context);
+        } else if (expr.op == ExprList.Op.TOTALORDER) {
+            throw new ErrorFatal("Portus does not yet support TOTALORDER");
+        }
+
         // first, just translate all the args (they all must be formulas)
         context.sortPolicy.checkIsFormula("AND or OR arguments must all be formulas", expr.args);
         List<Term> translatedArgs = expr.args.stream()
@@ -925,6 +931,37 @@ final class DefaultTranslator extends AbstractTranslator {
                 // we don't yet support DISJOINT or TOTALORDER
                 throw new ErrorFatal("Unsupported ExprList formula: " + expr.op);
         }
+    }
+
+    /** Translate "disj [e1,...,en]", asserting that e1,...,en are all disjoint. */
+    private Term translateDisjoint(List<Expr> args, TranslationContext context) {
+        // If there's <=1 argument, short-circuit to true (doesn't make much sense)
+        if (args.size() <= 1) {
+            return Term.mkTop();
+        }
+
+        // The common case is that e1,...,en are all bound vars, which comes from desugaring "all disj"/"no disj"/etc.
+        // If this is the case (or, in theory, e1,...,en are otherwise all convertible to Fortress Terms), then we can
+        // directly use Fortress's "distinct" primitive.
+        // In theory e1,...,en can be arbitrary expressions, but the "disj [e1,...,en]" construct is poorly
+        // documented and probably not well-used, so we don't support it for now. We only support bound vars.
+        List<AnnotatedVar> vars = args.stream().map(arg -> {
+            if (arg instanceof ExprVar) {
+                ExprVar var = (ExprVar) arg;
+                if (context.hasVarMapping(var.label)) {
+                    return context.getVarMapping(var.label);
+                }
+            }
+            throw new ErrorFatal("Portus only supports disj[] with bound variables.");
+        }).collect(Collectors.toList());
+
+        // Make sure they have the same sort - we don't support it if they don't.
+        // (If we do have to support this - partition by sort and map to a conjunction of distincts.)
+        if (vars.stream().map(AnnotatedVar::sort).distinct().count() > 1) {
+            throw new ErrorFatal("Portus only supports disj[] with variables of the same top-level sort.");
+        }
+
+        return Term.mkDistinct(vars.stream().map(AnnotatedVar::variable).collect(Collectors.toList()));
     }
 
     /** Translate "Q e", where Q is one of {one, lone, some, no} and e is an expression. */

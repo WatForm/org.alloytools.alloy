@@ -2415,6 +2415,51 @@ public class DefaultTranslatorTest {
     }
 
     @Test
+    public void testTranslate_all_disj() {
+        // test [[all disj x1, x2: e | f]] := forall x1, x2: univ . [[x1 \in e]] && [[x2 \in e]] =>
+        //   [[disj[x1,x2]]] => [[f]]
+        Sig.PrimSig sig = new Sig.PrimSig("S1");
+        ExprVar e = makeTestVarWithType("e", Type.make(sig));
+        ExprVar x1 = makeTestFormulaVar("x1"), x2 = makeTestFormulaVar("x2");
+        Decl xs = new Decl(null, new Pos(null, 0, 0), null, null, Arrays.asList(x1, x2), e); // make disjoint
+        ExprVar f = makeTestFormulaVar("f");
+        Var flagInE1 = makeFlagConstant("x1InE1"), flagInE2 = makeFlagConstant("x2InE2");
+        Var flagSub = makeFlagConstant("disjImpliesF");
+        Var flagX = makeFlagConstant("x");
+
+        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(flagX.of(univ), e))), any()))
+                .thenReturn(flagInE1, flagInE2);
+
+        AtomicReference<AnnotatedVar> fortressX1 = new AtomicReference<>();
+        AtomicReference<AnnotatedVar> fortressX2 = new AtomicReference<>();
+        when(mockRoot.translate(
+                argThat(isAlphaEquivalent(ExprList.makeDISJOINT(null, null, Arrays.asList(x1, x2)).implies(f))), any()))
+                .then(ctx -> {
+                    // make sure x1 and x2 have mappings here and capture them
+                    TranslationContext context = ctx.getArgument(1);
+                    assertTrue(context.hasVarMapping("x1"));
+                    assertTrue(context.hasVarMapping("x2"));
+                    fortressX1.set(context.getVarMapping("x1"));
+                    fortressX2.set(context.getVarMapping("x2"));
+                    return flagSub;
+                });
+
+        Term result = translator.translate(f.forAll(xs), context);
+        assertNotNull(fortressX1.get()); // make sure we captured references, so we translated [[f]]
+        assertNotNull(fortressX2.get());
+        // use the captured reference to construct the expected translation
+        Term expected = Term.mkForall(
+                Arrays.asList(fortressX1.get(), fortressX2.get()),
+                Term.mkImp(Term.mkAnd(flagInE1, flagInE2), flagSub));
+        assertEquals(expected, result);
+
+        // make sure the mappings were removed after translation
+        assertFalse(context.hasVarMapping("x1"));
+        assertFalse(context.hasVarMapping("x2"));
+        assertContextEmpty();
+    }
+
+    @Test
     public void testTranslate_some() {
         // test [[some x: e | f]] := exists x: univ . [[x \in e]] && [[f]]
         Sig.PrimSig sig = new Sig.PrimSig("S");
@@ -3167,6 +3212,29 @@ public class DefaultTranslatorTest {
                         Term.mkEq(x, y)))));
         assertEquals(expected, result);
         assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_disj() {
+        // test [[disj[e1,e2]]] := DISTINCT(v1,v2) where e1,e2 are variables bound to v1,v2
+        ExprVar e1 = makeTestVariable("e1"), e2 = makeTestVariable("e2");
+        Var v1 = Term.mkVar("v1"), v2 = Term.mkVar("v2");
+        context.addVarMapping("e1", v1.of(univ));
+        context.addVarMapping("e2", v2.of(univ));
+        Term result = translator.translate(ExprList.makeDISJOINT(null, null, Arrays.asList(e1, e2)), context);
+        assertEquals(Term.mkDistinct(v1, v2), result);
+    }
+
+    @Test
+    public void testTranslate_disj_3vars() {
+        // test [[disj[e1,e2,e3]]] := DISTINCT(v1,v2,v3) where e1,e2,e3 are variables bound to v1,v2,v3
+        ExprVar e1 = makeTestVariable("e1"), e2 = makeTestVariable("e2"), e3 = makeTestVariable("e3");
+        Var v1 = Term.mkVar("v1"), v2 = Term.mkVar("v2"), v3 = Term.mkVar("v3");
+        context.addVarMapping("e1", v1.of(univ));
+        context.addVarMapping("e2", v2.of(univ));
+        context.addVarMapping("e3", v3.of(univ));
+        Term result = translator.translate(ExprList.makeDISJOINT(null, null, Arrays.asList(e1, e2, e3)), context);
+        assertEquals(Term.mkDistinct(v1, v2, v3), result);
     }
 
     @Test
