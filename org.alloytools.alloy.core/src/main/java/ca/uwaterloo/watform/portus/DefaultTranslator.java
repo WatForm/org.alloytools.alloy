@@ -626,6 +626,7 @@ final class DefaultTranslator extends AbstractTranslator {
         Term inE1 = recursivelyTranslate(ExprElementOf.make(new VarTuple(vars), e1), context);
         Term inE2 = recursivelyTranslate(ExprElementOf.make(new VarTuple(vars), e2), context);
         Term condition;
+        Expr multCondition = null;
         if (op == ExprBinary.Op.EQUALS || e2.mult() == ExprUnary.Op.EXACTLYOF) {
             // "exactly" is used in the meta feature and means to treat "in exactly" like "=" as a hack
             condition = Term.mkIff(inE1, inE2);
@@ -633,7 +634,6 @@ final class DefaultTranslator extends AbstractTranslator {
             condition = Term.mkImp(inE1, inE2);
 
             // Add additional "M e2" conditions for "e1 in M e2", where M is a multiplicity
-            Expr multCondition = null;
             switch (e2.mult()) {
                 case ONEOF:
                     multCondition = e2.one();
@@ -645,12 +645,13 @@ final class DefaultTranslator extends AbstractTranslator {
                     multCondition = e2.some();
                     break;
             }
-            if (multCondition != null) {
-                condition = Term.mkAnd(condition, recursivelyTranslate(multCondition, context));
-            }
         }
 
-        return Term.mkForall(vars, condition);
+        Term result = Term.mkForall(vars, condition);
+        if (multCondition != null) {
+            result = Term.mkAnd(result, recursivelyTranslate(multCondition, context));
+        }
+        return result;
     }
 
     /** Translate "lhs op rhs", where op is an arithmetic comparison like <, >, =<, >=.  */

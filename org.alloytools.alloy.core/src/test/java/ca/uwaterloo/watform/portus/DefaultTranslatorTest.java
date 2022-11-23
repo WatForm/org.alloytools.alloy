@@ -1534,6 +1534,119 @@ public class DefaultTranslatorTest {
     }
 
     @Test
+    public void testTranslate_inOneOf() {
+        // test [[e1 in ONEOF(e2)]] := (forall x: univ . [[x \in ONEOF(e1)]] => [[x \in e2]]) && [[one ONEOF(e2)]]
+        // there's some unnecessary mult wrapping, but they're treated like noops so it's fine
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e1 = makeTestVarWithType("e1", Type.make(sig));
+        ExprVar e2 = makeTestVarWithType("e2", Type.make(sig));
+        Var flagInE1 = makeFlagConstant("xInE1"), flagInE2 = makeFlagConstant("xInE2");
+        Var flagOneE2 = makeFlagConstant("oneE2");
+        Var x = Term.mkVar("x");
+
+        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(x.of(univ), e1))), any()))
+                .thenReturn(flagInE1);
+        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(x.of(univ), e2.oneOf()))), any()))
+                .thenReturn(flagInE2);
+        when(mockRoot.translate(argThat(isSameAs(e2.oneOf().one())), any()))
+                .thenReturn(flagOneE2);
+
+        Term result = translator.translate(e1.in(e2.oneOf()), context);
+        Term expected = Term.mkAnd(Term.mkForall(x.of(univ), Term.mkImp(flagInE1, flagInE2)), flagOneE2);
+        assertThat(result, isAlphaEquivalentTerm(expected));
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_inLoneOf() {
+        // test [[e1 in LONEOF(e2)]] := (forall x: univ . [[x \in LONEOF(e1)]] => [[x \in e2]]) && [[lone LONEOF(e2)]]
+        // there's some unnecessary mult wrapping, but they're treated like noops so it's fine
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e1 = makeTestVarWithType("e1", Type.make(sig));
+        ExprVar e2 = makeTestVarWithType("e2", Type.make(sig));
+        Var flagInE1 = makeFlagConstant("xInE1"), flagInE2 = makeFlagConstant("xInE2");
+        Var flagLoneE2 = makeFlagConstant("loneE2");
+        Var x = Term.mkVar("x");
+
+        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(x.of(univ), e1))), any()))
+                .thenReturn(flagInE1);
+        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(x.of(univ), e2.loneOf()))), any()))
+                .thenReturn(flagInE2);
+        when(mockRoot.translate(argThat(isSameAs(e2.loneOf().lone())), any()))
+                .thenReturn(flagLoneE2);
+
+        Term result = translator.translate(e1.in(e2.loneOf()), context);
+        Term expected = Term.mkAnd(Term.mkForall(x.of(univ), Term.mkImp(flagInE1, flagInE2)), flagLoneE2);
+        assertThat(result, isAlphaEquivalentTerm(expected));
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_inSomeOf() {
+        // test [[e1 in SOMEOF(e2)]] := (forall x: univ . [[x \in LONEOF(e1)]] => [[x \in e2]]) && [[some SOMEOF(e2)]]
+        // there's some unnecessary mult wrapping, but they're treated like noops so it's fine
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e1 = makeTestVarWithType("e1", Type.make(sig));
+        ExprVar e2 = makeTestVarWithType("e2", Type.make(sig));
+        Var flagInE1 = makeFlagConstant("xInE1"), flagInE2 = makeFlagConstant("xInE2");
+        Var flagSomeE2 = makeFlagConstant("someE2");
+        Var x = Term.mkVar("x");
+
+        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(x.of(univ), e1))), any()))
+                .thenReturn(flagInE1);
+        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(x.of(univ), e2.someOf()))), any()))
+                .thenReturn(flagInE2);
+        when(mockRoot.translate(argThat(isSameAs(e2.someOf().some())), any()))
+                .thenReturn(flagSomeE2);
+
+        Term result = translator.translate(e1.in(e2.someOf()), context);
+        Term expected = Term.mkAnd(Term.mkForall(x.of(univ), Term.mkImp(flagInE1, flagInE2)), flagSomeE2);
+        assertThat(result, isAlphaEquivalentTerm(expected));
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_inSetOf_normal() {
+        // test [[e1 in SETOF(e2)]] := forall x: univ . [[x \in SETOF(e1)]] => [[x \in e2]], like normal
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e1 = makeTestVarWithType("e1", Type.make(sig));
+        ExprVar e2 = makeTestVarWithType("e2", Type.make(sig));
+        Var flagInE1 = makeFlagConstant("xInE1"), flagInE2 = makeFlagConstant("xInE2");
+        Var x = Term.mkVar("x");
+
+        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(x.of(univ), e1))), any()))
+                .thenReturn(flagInE1);
+        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(x.of(univ), e2.setOf()))), any()))
+                .thenReturn(flagInE2);
+
+        Term result = translator.translate(e1.in(e2.setOf()), context);
+        Term expected = Term.mkForall(x.of(univ), Term.mkImp(flagInE1, flagInE2));
+        assertThat(result, isAlphaEquivalentTerm(expected));
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_inExactlyOf() {
+        // test [[e1 in EXACTLYOF(e2)]] := forall x: univ . [[x \in EXACTLY(e1)]] <=> [[x \in e2]], like equals
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e1 = makeTestVarWithType("e1", Type.make(sig));
+        ExprVar e2 = makeTestVarWithType("e2", Type.make(sig));
+        Expr exactlyE2 = ExprUnary.Op.EXACTLYOF.make(null, e2);
+        Var flagInE1 = makeFlagConstant("xInE1"), flagInE2 = makeFlagConstant("xInE2");
+        Var x = Term.mkVar("x");
+
+        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(x.of(univ), e1))), any()))
+                .thenReturn(flagInE1);
+        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(x.of(univ), exactlyE2))), any()))
+                .thenReturn(flagInE2);
+
+        Term result = translator.translate(e1.equal(exactlyE2), context);
+        Term expected = Term.mkForall(x.of(univ), Term.mkIff(flagInE1, flagInE2));
+        assertThat(result, isAlphaEquivalentTerm(expected));
+        assertContextEmpty();
+    }
+
+    @Test
     public void testTranslate_notIn() {
         // test [[e1 !in e2]] := [[not (e1 in e2)]]
         ExprVar e1 = makeTestVariable("e1"), e2 = makeTestVariable("e2");
@@ -3643,7 +3756,7 @@ public class DefaultTranslatorTest {
     }
 
     @Test
-    public void testTranslate_inNoop() {
+    public void testTranslate_elementOfNoop() {
         // test [[x \in NOOP(e)]] := [[x \in e]]
         ExprVar e = makeTestVariable("e");
         Var flagE = makeFlagConstant("flagE");
@@ -3658,7 +3771,7 @@ public class DefaultTranslatorTest {
     }
 
     @Test
-    public void testTranslate_inNestedNoop() {
+    public void testTranslate_elementOfNestedNoop() {
         // test [[x \in NOOP(NOOP(e))]] := [[x \in e]]
         ExprVar e = makeTestVariable("e");
         Var flagE = makeFlagConstant("flagE");
@@ -3696,7 +3809,7 @@ public class DefaultTranslatorTest {
     }
 
     @Test
-    public void testTranslate_inCast2int() {
+    public void testTranslate_elementOfCast2int() {
         // test cast2int is ignored: [[x \in cast2int(e)]] := [[x \in e]]
         ExprVar e = makeTestVariable("e");
         Var flagE = makeFlagConstant("flagE");
@@ -3711,7 +3824,7 @@ public class DefaultTranslatorTest {
     }
 
     @Test
-    public void testTranslate_inCast2sigint() {
+    public void testTranslate_elementOfCast2sigint() {
         // test cast2sigint is ignored: [[x \in cast2sigint(e)]] := [[x \in e]]
         ExprVar e = makeTestVariable("e");
         Var flagE = makeFlagConstant("flagE");
@@ -3723,6 +3836,49 @@ public class DefaultTranslatorTest {
         Term result = translator.translate(testExpr, context);
         assertEquals(flagE, result);
         assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_multMarker() {
+        // test multiplicity markers (ONEOF, SETOF, etc) are ignored when translating on their own:
+        // [[ONEOF(e)]] := [[e]] and same for other multiplicity markers
+        List<ExprUnary.Op> multMarkers = Arrays.asList(
+                ExprUnary.Op.ONEOF,
+                ExprUnary.Op.LONEOF,
+                ExprUnary.Op.SOMEOF,
+                ExprUnary.Op.SETOF,
+                ExprUnary.Op.EXACTLYOF);
+        ExprVar e = makeTestVariable("e");
+        Var flagE = makeFlagConstant("flagE");
+        when(mockRoot.translate(eq(e), any())).thenReturn(flagE);
+        for (ExprUnary.Op marker : multMarkers) {
+            Term result = translator.translate(marker.make(null, e), context);
+            assertEquals(flagE, result);
+            assertContextEmpty();
+        }
+    }
+
+    @Test
+    public void testTranslate_elementOfMultMarker() {
+        // test multiplicity markers (ONEOF, SETOF, etc) are ignored when translating on their own:
+        // [[x \in ONEOF(e)]] := [[x \in e]] and same for other multiplicity markers
+        List<ExprUnary.Op> multMarkers = Arrays.asList(
+                ExprUnary.Op.ONEOF,
+                ExprUnary.Op.LONEOF,
+                ExprUnary.Op.SOMEOF,
+                ExprUnary.Op.SETOF,
+                ExprUnary.Op.EXACTLYOF);
+        ExprVar e = makeTestVariable("e");
+        Var flagInE = makeFlagConstant("flagE");
+        Var x = Term.mkVar("x");
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(x.of(univ), e))), any()))
+                .thenReturn(flagInE);
+        for (ExprUnary.Op marker : multMarkers) {
+            Expr testExpr = ExprElementOf.make(x.of(univ), marker.make(null, e));
+            Term result = translator.translate(testExpr, context);
+            assertEquals(flagInE, result);
+            assertContextEmpty();
+        }
     }
 
 }
