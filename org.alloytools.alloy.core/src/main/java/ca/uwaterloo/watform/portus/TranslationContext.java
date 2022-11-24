@@ -31,7 +31,7 @@ final class TranslationContext {
      * Represents the expression that an ExprVar is mapped to in "let" or a function/predicate call, as well as
      * some metadata.
      */
-    final class LetContext {
+    static final class LetContext {
         /** The expression a variable is mapped to in this "let". */
         private final Expr expr;
 
@@ -40,6 +40,9 @@ final class TranslationContext {
 
         /** The old Alloy variable name to Fortress var/let mapping when using useLetMapping(). */
         private Env<String, Either<AnnotatedVar, LetContext>> oldMapping = null;
+
+        /** The TranslationContext whose mapping we've changed with useLetMapping(). */
+        private TranslationContext mappedContext = null;
 
         private LetContext(Expr expr, Env<String, Either<AnnotatedVar, LetContext>> alloyVarMapping) {
             this.expr = expr;
@@ -52,28 +55,31 @@ final class TranslationContext {
         }
 
         /**
-         * Change this TranslationContext to use the old Alloy variable to Fortress var/let mapping which was in
+         * Change the TranslationContext to use the old Alloy variable to Fortress var/let mapping which was in
          * use at the time that this "let" was processed. Cannot be nested. Called {@link #resetMapping()} when done.
          * Use this to translate {@link #getExpr()} in the correct context.
          */
-        public void useLetMapping() {
+        public void useLetMapping(TranslationContext context) {
             if (oldMapping != null) {
                 throw new ErrorFatal("Internal Portus error: nested useLetMapping()");
             }
-            oldMapping = TranslationContext.this.alloyVarMapping;
-            TranslationContext.this.alloyVarMapping = savedVarMapping;
+            oldMapping = context.alloyVarMapping;
+            context.alloyVarMapping = savedVarMapping;
+            mappedContext = context;
         }
 
         /**
-         * Reset this TranslationContext to use the proper Alloy variable to Fortress var/let mapping. Must be called
-         * after {@link #useLetMapping()}.
+         * Reset the TranslationContext previously passed to {@link #useLetMapping(TranslationContext)} to use the
+         * proper Alloy variable to Fortress var/let mapping. Must be called after useLetMapping.
          */
         public void resetMapping() {
             if (oldMapping == null) {
                 throw new ErrorFatal("Internal Portus error: resetMapping() without useLetMapping()");
             }
-            TranslationContext.this.alloyVarMapping = oldMapping;
+            assert mappedContext != null;
+            mappedContext.alloyVarMapping = oldMapping;
             oldMapping = null;
+            mappedContext = null;
         }
     }
 

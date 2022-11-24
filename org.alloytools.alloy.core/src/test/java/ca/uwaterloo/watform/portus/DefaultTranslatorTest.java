@@ -3254,7 +3254,7 @@ public class DefaultTranslatorTest {
             assertEquals(e, letContext.getExpr());
 
             // make sure we saved the correct context (should be empty)
-            letContext.useLetMapping();
+            letContext.useLetMapping(context);
             assertContextEmpty(context);
             letContext.resetMapping();
 
@@ -3328,7 +3328,7 @@ public class DefaultTranslatorTest {
             assertEquals(e, letContext.getExpr());
 
             // make sure we saved the correct context (should be empty)
-            letContext.useLetMapping();
+            letContext.useLetMapping(context);
             assertContextEmpty(context);
             letContext.resetMapping();
 

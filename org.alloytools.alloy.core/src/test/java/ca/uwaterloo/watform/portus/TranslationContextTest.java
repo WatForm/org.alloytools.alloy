@@ -38,7 +38,7 @@ public class TranslationContextTest {
         assertNotNull(letContext);
         assertEquals(x, letContext.getExpr());
 
-        letContext.useLetMapping();
+        letContext.useLetMapping(context);
         assertFalse(context.hasLetMapping("x"));
         assertFalse(context.hasLetMapping("y"));
         assertFalse(context.hasVarMapping("x"));
@@ -54,7 +54,7 @@ public class TranslationContextTest {
         assertNotNull(letContext);
         assertEquals(y, letContext.getExpr());
 
-        letContext.useLetMapping();
+        letContext.useLetMapping(context);
         assertTrue(context.hasLetMapping("x"));
         assertFalse(context.hasLetMapping("y"));
         assertFalse(context.hasVarMapping("x"));
@@ -65,6 +65,36 @@ public class TranslationContextTest {
         assertTrue(context.hasLetMapping("y"));
         assertFalse(context.hasVarMapping("x"));
         assertFalse(context.hasVarMapping("y"));
+    }
+
+    @Test
+    public void testLetMappingWithCopying() {
+        // Test that when we copy a context containing let mappings, the copied context's let mappings affect
+        // the new context, not the old context.
+        ExprVar x = ExprVar.make(null, "x");
+        context.addLetMapping("x", x);
+        assertTrue(context.hasLetMapping("x"));
+        assertFalse(context.hasVarMapping("x"));
+
+        TranslationContext contextCopy = new TranslationContext(context);
+        assertTrue(contextCopy.hasLetMapping("x"));
+        assertFalse(contextCopy.hasVarMapping("x"));
+
+        TranslationContext.LetContext copyLetContext = contextCopy.getLetMapping("x");
+        assertNotNull(copyLetContext);
+        assertEquals(x, copyLetContext.getExpr());
+
+        copyLetContext.useLetMapping(contextCopy);
+        assertFalse(contextCopy.hasLetMapping("x")); // affects copy
+        assertFalse(contextCopy.hasVarMapping("x"));
+        assertTrue(context.hasLetMapping("x")); // doesn't affect original
+        assertFalse(context.hasVarMapping("x"));
+
+        copyLetContext.resetMapping();
+        assertTrue(contextCopy.hasLetMapping("x"));
+        assertFalse(contextCopy.hasVarMapping("x"));
+        assertTrue(context.hasLetMapping("x"));
+        assertFalse(context.hasVarMapping("x"));
     }
 
 }

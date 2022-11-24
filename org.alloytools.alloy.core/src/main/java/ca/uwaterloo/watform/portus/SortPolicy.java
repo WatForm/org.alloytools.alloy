@@ -380,7 +380,7 @@ abstract class SortPolicy {
             if (context.hasLetMapping(x.label)) {
                 TranslationContext.LetContext mapping = context.getLetMapping(x.label);
                 assert mapping != null;
-                mapping.useLetMapping();
+                mapping.useLetMapping(context);
                 try {
                     return visitThis(mapping.getExpr());
                 } finally {

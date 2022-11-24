@@ -1217,7 +1217,7 @@ final class DefaultTranslator extends AbstractTranslator {
 
             // Ensure we use the variable mappings from the let expression's location;
             // this avoids e.g. infinite recursion on "let a = a"
-            letContext.useLetMapping();
+            letContext.useLetMapping(context);
             try {
                 Expr mapped = ExprElementOf.make(tuple, letContext.getExpr());
                 return recursivelyTranslate(mapped, context);
@@ -1245,7 +1245,7 @@ final class DefaultTranslator extends AbstractTranslator {
         if (context.hasLetMapping(expr.label)) {
             TranslationContext.LetContext letContext = context.getLetMapping(expr.label);
             assert letContext != null;
-            letContext.useLetMapping();
+            letContext.useLetMapping(context);
             try {
                 return recursivelyTranslate(letContext.getExpr(), context);
             } finally {

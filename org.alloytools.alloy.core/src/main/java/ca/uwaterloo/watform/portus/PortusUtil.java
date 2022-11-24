@@ -299,7 +299,7 @@ final class PortusUtil {
                     TranslationContext.LetContext letContext = context.getLetMapping(x.label);
                     assert letContext != null;
                     try {
-                        letContext.useLetMapping();
+                        letContext.useLetMapping(context);
                         return visitThis(letContext.getExpr());
                     } finally {
                         letContext.resetMapping();
