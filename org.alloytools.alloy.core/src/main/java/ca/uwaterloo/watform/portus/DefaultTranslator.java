@@ -3,6 +3,7 @@ package ca.uwaterloo.watform.portus;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.alloy4.ErrorSyntax;
 import edu.mit.csail.sdg.alloy4.Pair;
+import edu.mit.csail.sdg.alloy4.Util;
 import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprBinary;
@@ -1273,7 +1274,7 @@ final class DefaultTranslator extends AbstractTranslator {
     @Override
     public Term translate(ExprConstant expr, TranslationContext context) {
         // The only ExprConstant formulas are TRUE and FALSE - we generate them in recursive translations.
-        // Also translate numbers since they're integer expressions (standalone).
+        // Also translate numbers (and min/max) since they're integer expressions (standalone).
         switch (expr.op) {
             case TRUE:
                 return Term.mkTop();
@@ -1281,6 +1282,10 @@ final class DefaultTranslator extends AbstractTranslator {
                 return Term.mkBottom();
             case NUMBER:
                 return IntegerLiteral.apply(expr.num);
+            case MIN:
+                return IntegerLiteral.apply(Util.min(context.getBitwidth()));
+            case MAX:
+                return IntegerLiteral.apply(Util.max(context.getBitwidth()));
             default:
                 throw new ErrorFatal("Unsupported ExprConstant formula/int expression: " + expr);
         }

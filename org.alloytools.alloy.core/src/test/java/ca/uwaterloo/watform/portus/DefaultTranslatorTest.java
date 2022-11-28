@@ -3801,6 +3801,24 @@ public class DefaultTranslatorTest {
     }
 
     @Test
+    public void testTranslate_min() {
+        // test [[min]] := -8 when the bitwidth is 4
+        when(mockScoper.getBitwidth()).thenReturn(4);
+        Term result = translator.translate(ExprConstant.MIN, context);
+        assertEquals(IntegerLiteral.apply(-8), result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_max() {
+        // test [[max]] := 7 when the bitwidth is 4
+        when(mockScoper.getBitwidth()).thenReturn(4);
+        Term result = translator.translate(ExprConstant.MAX, context);
+        assertEquals(IntegerLiteral.apply(7), result);
+        assertContextEmpty();
+    }
+
+    @Test
     public void testTranslate_noop() {
         // test [[NOOP(e)]] := [[e]], because Alloy has no-ops in its AST
         ExprVar e = makeTestVariable("e");
