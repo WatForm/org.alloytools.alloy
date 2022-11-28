@@ -1,9 +1,14 @@
 package ca.uwaterloo.watform.portus;
 
+import edu.mit.csail.sdg.alloy4.Pair;
+import edu.mit.csail.sdg.ast.Attr;
 import edu.mit.csail.sdg.ast.Expr;
+import edu.mit.csail.sdg.ast.ExprHasName;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.ScopeComputer;
+import fortress.msfol.AnnotatedVar;
 import fortress.msfol.FuncDecl;
+import fortress.msfol.IntegerLiteral;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
 import fortress.msfol.Theory;
@@ -19,6 +24,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -48,7 +54,8 @@ public class FunctionOptTranslatorTest {
     public void setUp() {
         mockRoot = mock(Translator.class);
         mockSortPolicy = mock(SortPolicy.class);
-        when(mockSortPolicy.addSortsToTheory(any())).thenReturn(Theory.empty().withSort(sortA).withSort(sortB));
+        when(mockSortPolicy.addSortsToTheory(any())).thenReturn(
+                Theory.empty().withSort(sortA).withSort(sortB).withSort(Sort.Int()));
         ScopeComputer mockScoper = mock(ScopeComputer.class);
         context = new TranslationContext(new FortressOptions(), mockScoper, mockSortPolicy);
     }
@@ -107,6 +114,68 @@ public class FunctionOptTranslatorTest {
                 Term.mkApp("inA", x),
                 Term.mkApp("inB", Term.mkApp(func.name(), x))));
         assertThat(theory.axioms().head(), isAlphaEquivalentTerm(expectedAxiom));
+    }
+
+    @Test
+    public void testTranslate_intJoin_boundVar() {
+        // test [[x.y]] := inA(x) => y(x) else 0 with "sig A {y: Int}"
+        Sig.PrimSig sigA = new Sig.PrimSig("A");
+        when(mockSortPolicy.getSort(sigA)).thenReturn(sortA);
+        when(mockSortPolicy.getSort(Sig.SIGINT)).thenReturn(Sort.Int());
+        Sig.Field intField = sigA.addField("y", Sig.SIGINT.oneOf());
+
+        Translator translator = new FunctionOptTranslator(mockRoot, true);
+        when(mockRoot.translate(any(), any()))
+                .then(useTestFunction("inA", sigA))
+                .then(useTestFunction("inInt", Sig.SIGINT))
+                .then(useTestFunction("inA", sigA));
+
+        // put it in the system and get the generated function name
+        assertNotNull(translator.translate(intField, context));
+        Theory theory = context.getTheory();
+        assertEquals(1, theory.functionDeclarations().size());
+        FuncDecl func = theory.functionDeclarations().head();
+
+        AnnotatedVar x = Term.mkVar("x").of(sortA);
+        context.addVarMapping("x", x);
+        ExprHasName alloyVar = sigA.oneOf("x").names.get(0);
+        Term result = translator.translate(alloyVar.join(intField), context);
+
+        Term expected = Term.mkIfThenElse(
+                Term.mkApp("inA", x.variable()),
+                Term.mkApp(func.name(), x.variable()),
+                IntegerLiteral.apply(0));
+        assertEquals(expected, result);
+    }
+
+    @Test
+    public void testTranslate_intJoin_oneSig() {
+        // test [[A.y]] := inA(@1) => y(@1) else 0 with "one sig A {y: Int}", where @1 is the domain element of sort(A)
+        // could be optimized better by a proper one sig optimization, but eh
+        Sig.PrimSig sigA = new Sig.PrimSig("A", Attr.ONE);
+        when(mockSortPolicy.getSort(sigA)).thenReturn(sortA);
+        when(mockSortPolicy.getSort(Sig.SIGINT)).thenReturn(Sort.Int());
+        when(mockSortPolicy.getDomainElementRange(eq(sigA), any())).thenReturn(new Pair<>(1, 1));
+        Sig.Field intField = sigA.addField("y", Sig.SIGINT.oneOf());
+
+        Translator translator = new FunctionOptTranslator(mockRoot, true);
+        when(mockRoot.translate(any(), any()))
+                .then(useTestFunction("inA", sigA))
+                .then(useTestFunction("inInt", Sig.SIGINT))
+                .then(useTestFunction("inA", sigA));
+
+        // put it in the system and get the generated function name
+        assertNotNull(translator.translate(intField, context));
+        Theory theory = context.getTheory();
+        assertEquals(1, theory.functionDeclarations().size());
+        FuncDecl func = theory.functionDeclarations().head();
+
+        Term result = translator.translate(sigA.join(intField), context);
+        Term expected = Term.mkIfThenElse(
+                Term.mkApp("inA", Term.mkDomainElement(1, sortA)),
+                Term.mkApp(func.name(), Term.mkDomainElement(1, sortA)),
+                IntegerLiteral.apply(0));
+        assertEquals(expected, result);
     }
 
 }

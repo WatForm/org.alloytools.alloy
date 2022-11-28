@@ -538,6 +538,9 @@ final class DefaultTranslator extends AbstractTranslator {
             case REM:
                 // these are integer expressions and not formulas
                 return translateArithmeticOperation(expr.op, expr.left, expr.right, context);
+            case JOIN:
+                // "x.y" might be an integer expression, but we don't handle it here because it needs functions
+                throw new ErrorFatal("Join integer expressions are only supported with the function optimization");
             case AND:
             case OR:
                 // confusingly, AND and OR aren't real ExprBinary ops
@@ -699,6 +702,17 @@ final class DefaultTranslator extends AbstractTranslator {
                 throw new ErrorFatal("Unsupported arithmetic operation: " + op);
         }
     }
+
+//    /** Translate "x.y" as an integer expression. */
+//    private Term translateJoinIntExpression(Expr lhs, Expr rhs, TranslationContext context) {
+//        // "x.y" is an integer expression iff y has type (sort(x),Int) and x is a singleton set.
+//        // We restrict x to a singleton (i.e. bound variable or one sig) because we don't support treating
+//        // sets of integers like integers. (Kodkod does support this, it just sums them.)
+//        // TODO: a proper one sig optimization should probably supplant much of this
+//        if (lhs instanceof ExprVar) {
+//            
+//        }
+//    }
 
     /** Translate the formula (or int expression) "f1 => f2 else f3". */
     @Override
