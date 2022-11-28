@@ -1301,6 +1301,8 @@ final class DefaultTranslator extends AbstractTranslator {
                 // "tuple \in none" is always false
                 return Term.mkBottom();
             case NUMBER:
+            case MIN:
+            case MAX:
                 return translateInIntExpr(tuple, expr, context);
             default:
                 throw new ErrorFatal("Unsupported ExprConstant expression: " + expr);
