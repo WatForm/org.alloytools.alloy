@@ -704,17 +704,6 @@ final class DefaultTranslator extends AbstractTranslator {
         }
     }
 
-//    /** Translate "x.y" as an integer expression. */
-//    private Term translateJoinIntExpression(Expr lhs, Expr rhs, TranslationContext context) {
-//        // "x.y" is an integer expression iff y has type (sort(x),Int) and x is a singleton set.
-//        // We restrict x to a singleton (i.e. bound variable or one sig) because we don't support treating
-//        // sets of integers like integers. (Kodkod does support this, it just sums them.)
-//        // TODO: a proper one sig optimization should probably supplant much of this
-//        if (lhs instanceof ExprVar) {
-//            
-//        }
-//    }
-
     /** Translate the formula (or int expression) "f1 => f2 else f3". */
     @Override
     public Term translate(ExprITE expr, TranslationContext context) {
@@ -1304,6 +1293,8 @@ final class DefaultTranslator extends AbstractTranslator {
             case MIN:
             case MAX:
                 return translateInIntExpr(tuple, expr, context);
+            case NEXT:
+                return translateNext(tuple, context);
             default:
                 throw new ErrorFatal("Unsupported ExprConstant expression: " + expr);
         }
@@ -1321,6 +1312,24 @@ final class DefaultTranslator extends AbstractTranslator {
             return Term.mkBottom();
         }
         return Term.mkEq(tuple.getVar(0), tuple.getVar(1));
+    }
+
+    /** Translate "tuple \in next". */
+    private Term translateNext(VarTuple tuple, TranslationContext context) {
+        // Translate as [[(x1, x2) \in next]] := x1 != max && x1 + 1 = x2
+        // Alloy semantics dictate that "max . next = none", so we add a guard.
+        // TODO: is the guard necessary/okay with Fortress semantics? Ask!!
+        if (tuple.size() != 2) {
+            throw new ErrorFatal("integer/next expects arity 2, but got " + tuple.size());
+        }
+        if (tuple.getSort(0) != Sort.Int() || tuple.getSort(1) != Sort.Int()) {
+            // next is Int->Int, so short-circuit here (typechecking should catch this)
+            return Term.mkBottom();
+        }
+        int max = Util.max(context.getBitwidth());
+        Term guard = Term.mkNot(Term.mkEq(tuple.getVar(0), IntegerLiteral.apply(max)));
+        Term check = Term.mkEq(Term.mkPlus(tuple.getVar(0), IntegerLiteral.apply(1)), tuple.getVar(1));
+        return Term.mkAnd(guard, check);
     }
 
     /** Translate a predicate or integer-valued function call. */

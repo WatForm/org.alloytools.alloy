@@ -26,7 +26,6 @@ import fortress.solverinterface.Z3CliInterface$;
 import fortress.solverinterface.solver;
 import fortress.util.Dump;
 import fortress.util.Milliseconds;
-import scala.jdk.javaapi.CollectionConverters;
 
 import java.io.File;
 import java.io.FileWriter;

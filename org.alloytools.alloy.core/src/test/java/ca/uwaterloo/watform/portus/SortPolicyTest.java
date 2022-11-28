@@ -217,6 +217,21 @@ public class SortPolicyTest {
     }
 
     @Test
+    public void testGetMinimalExprSorts_min() {
+        assertSorts(policy.getMinimalExprSorts(ExprConstant.MIN, "", context), Sort.Int());
+    }
+
+    @Test
+    public void testGetMinimalExprSorts_max() {
+        assertSorts(policy.getMinimalExprSorts(ExprConstant.MAX, "", context), Sort.Int());
+    }
+
+    @Test
+    public void testGetMinimalExprSorts_next() {
+        assertSorts(policy.getMinimalExprSorts(ExprConstant.NEXT, "", context), Sort.Int(), Sort.Int());
+    }
+
+    @Test
     public void testGetMinimalExprSorts_univ() {
         assertSorts(policy.getMinimalExprSorts(Sig.UNIV, "", context), INDEFINITE);
     }

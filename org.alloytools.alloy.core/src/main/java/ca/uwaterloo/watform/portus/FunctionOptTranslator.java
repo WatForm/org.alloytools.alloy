@@ -299,6 +299,7 @@ final class FunctionOptTranslator extends AbstractTranslator {
         // (because an empty set sums to 0).
         // TODO: it's possible (but slightly harder) to support x.y.z (= (x.y).z) as well
         // To support x.y.z we'd just have to modify castToScalar to return something useful for scalar x.y
+        // TODO: might also have to support fun/next (ExprConstant.NEXT) here
         left = left.deNOP();
         right = right.deNOP();
 

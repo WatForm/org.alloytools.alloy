@@ -3841,6 +3841,20 @@ public class DefaultTranslatorTest {
     }
 
     @Test
+    public void testTranslate_next() {
+        // test [[(x1, x2) \in next]] := x1 != 7 && x1 + 1 = x2 for bitwidth 4
+        when(mockScoper.getBitwidth()).thenReturn(4);
+        Var x1 = Term.mkVar("x1"), x2 = Term.mkVar("x2");
+        Term result = translator.translate(
+                ExprElementOf.make(new VarTuple(x1.of(Sort.Int()), x2.of(Sort.Int())), ExprConstant.NEXT), context);
+        Term expected = Term.mkAnd(
+                Term.mkNot(Term.mkEq(x1, IntegerLiteral.apply(7))),
+                Term.mkEq(Term.mkPlus(x1, IntegerLiteral.apply(1)), x2));
+        assertEquals(expected, result);
+        assertContextEmpty();
+    }
+
+    @Test
     public void testTranslate_noop() {
         // test [[NOOP(e)]] := [[e]], because Alloy has no-ops in its AST
         ExprVar e = makeTestVariable("e");

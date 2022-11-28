@@ -290,7 +290,12 @@ abstract class SortPolicy {
                 case FALSE:
                     return Collections.singletonList(Sort.Bool());
                 case NUMBER:
+                case MIN:
+                case MAX:
                     return Collections.singletonList(Sort.Int());
+                case NEXT:
+                    // function int->int
+                    return Arrays.asList(Sort.Int(), Sort.Int());
                 case IDEN:
                     // We can't assign a single type to iden
                     return Arrays.asList(null, null);
