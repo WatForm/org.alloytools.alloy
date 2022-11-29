@@ -1,10 +1,17 @@
 package ca.uwaterloo.watform.portus;
 
+import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.translator.ScopeComputer;
+import fortress.msfol.AnnotatedVar;
+import fortress.msfol.Sort;
+import fortress.msfol.Term;
 import org.junit.Before;
 import org.junit.Test;
+
+import java.util.Arrays;
+import java.util.List;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -95,6 +102,46 @@ public class TranslationContextTest {
         assertFalse(contextCopy.hasVarMapping("x"));
         assertTrue(context.hasLetMapping("x"));
         assertFalse(context.hasVarMapping("x"));
+    }
+
+    @Test
+    public void testSimultaneousLetMapping() {
+        // Test that when we simultaneously add two let mappings, they don't interfere.
+        Sort sort = Sort.mkSortConst("S");
+        AnnotatedVar xVar = Term.mkVar("x").of(sort);
+        context.addVarMapping("x", xVar);
+
+        ExprVar a = ExprVar.make(null, "a");
+        ExprVar x = ExprVar.make(null, "x");
+        List<Pair<String, Expr>> varNamesAndBoundExprs = Arrays.asList(
+                new Pair<>("x", a),
+                new Pair<>("y", x));
+        context.addSimultaneousLetMappings(varNamesAndBoundExprs);
+
+        assertTrue(context.hasLetMapping("x"));
+        assertTrue(context.hasLetMapping("y"));
+        assertFalse(context.hasVarMapping("x"));
+        assertFalse(context.hasVarMapping("y"));
+
+        // y should be mapped to the original x and not a
+        // that is, there should be no let mapping for x within y's let mapping
+        TranslationContext.LetContext letContext = context.getLetMapping("y");
+        assertNotNull(letContext);
+        letContext.useLetMapping(context);
+        assertFalse(context.hasLetMapping("x"));
+        assertFalse(context.hasLetMapping("y"));
+        assertTrue(context.hasVarMapping("x"));
+        assertFalse(context.hasVarMapping("y"));
+
+        letContext.resetMapping();
+        context.removeMapping("x");
+        context.removeMapping("y");
+
+        // removed the mappings - back to what it was before (which is the same as y's let context)
+        assertFalse(context.hasLetMapping("x"));
+        assertFalse(context.hasLetMapping("y"));
+        assertTrue(context.hasVarMapping("x"));
+        assertFalse(context.hasVarMapping("y"));
     }
 
 }

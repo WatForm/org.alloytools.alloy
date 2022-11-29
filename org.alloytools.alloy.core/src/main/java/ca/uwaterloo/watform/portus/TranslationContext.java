@@ -2,6 +2,7 @@ package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.Env;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
+import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprCall;
 import edu.mit.csail.sdg.ast.ExprVar;
@@ -17,7 +18,9 @@ import fortress.msfol.Theory;
 import fortress.problemstate.Scope;
 import scala.collection.Set$;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -215,6 +218,23 @@ final class TranslationContext {
     }
 
     /**
+     * Add multiple let mappings at the same time such that they don't conflict.
+     * Use this to map multiple let mappings such that variable references in later bound expressions with the same
+     * name as earlier variable names are not mapped to those variable names.
+     * For example, if you want to simultaneously map x=a and y=x, where the x in y=x is a preexisting bound var,
+     * calling addLetMapping twice would result in mapping y to a (i.e. let x=a | let y=x | ...) whereas calling
+     * this method results in mapping y to the original x, as desired.
+     * All mappings must be removed individually with {@link #removeMapping(String)}.
+     */
+    public void addSimultaneousLetMappings(List<Pair<String, Expr>> varNamesAndBoundExprs) {
+        Env<String, Either<AnnotatedVar, LetContext>> oldAlloyVarMapping = alloyVarMapping.dup();
+        for (Pair<String, Expr> varNameAndBoundExpr : varNamesAndBoundExprs) {
+            LetContext letContext = new LetContext(varNameAndBoundExpr.b, oldAlloyVarMapping);
+            alloyVarMapping.put(varNameAndBoundExpr.a, Either.asSecond(letContext));
+        }
+    }
+
+    /**
      * Does the current lexical scope have a bound expression associated with
      * the given Alloy variable name?
      */
@@ -245,11 +265,14 @@ final class TranslationContext {
      * A helper to add let mappings for all the variables in an ExprCall.
      */
     public void addLetMappingsFromCall(ExprCall call) {
+        // Add them simultaneously so they can't conflict
+        List<Pair<String, Expr>> varNamesAndBoundExprs = new ArrayList<>();
         for (int i = 0; i < call.fun.count(); i++) {
             Expr arg = call.args.get(i);
             ExprVar param = call.fun.get(i);
-            addLetMapping(param.label, arg);
+            varNamesAndBoundExprs.add(new Pair<>(param.label, arg));
         }
+        addSimultaneousLetMappings(varNamesAndBoundExprs);
     }
 
     /**
@@ -257,6 +280,7 @@ final class TranslationContext {
      * as previously added by {@link #addLetMappingsFromCall(ExprCall)}.
      */
     public void removeLetMappingsFromCall(ExprCall call) {
+        // Remove them individually, it's fine
         for (int i = 0; i < call.fun.count(); i++) {
             ExprVar param = call.fun.get(i);
             removeMapping(param.label);

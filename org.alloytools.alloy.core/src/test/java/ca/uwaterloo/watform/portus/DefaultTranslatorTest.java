@@ -3534,6 +3534,49 @@ public class DefaultTranslatorTest {
     }
 
     @Test
+    public void testTranslate_call_conflicting() {
+        // An obscure case that came up in the Chord model:
+        // "pred p[a: S, b: S] { f(a, b) }", [[ p[x, a] ]] := [[f(x, a)]] and not [[f(x, x)]], which is what could
+        // happen if we naively translated p[x,a] as let a=x | let b=a | f(a,b)
+        Sig.PrimSig sig = new Sig.PrimSig("Sig");
+        Decl aDecl = sig.oneOf("a");
+        Decl bDecl = sig.oneOf("b");
+        ExprVar argX = makeTestVariable("x");
+        ExprVar argA = makeTestVariable("a");
+        ExprVar f = makeTestFormulaVar("f");
+        Func pred = makeTestPred("p", Arrays.asList(aDecl, bDecl), f);
+
+        // make sure the arguments are x, a
+        Term flag = makeFlagConstant("flag");
+        when(mockRoot.translate(eq(f), any())).then(ctx -> {
+            TranslationContext context = ctx.getArgument(1);
+            assertTrue(context.hasLetMapping("a"));
+            assertTrue(context.hasLetMapping("b"));
+            assertEquals(argX, Objects.requireNonNull(context.getLetMapping("a")).getExpr());
+            assertEquals(argA, Objects.requireNonNull(context.getLetMapping("b")).getExpr());
+
+            // Make sure a's let mapping doesn't further translate it (to x)
+            TranslationContext.LetContext aLetMapping = Objects.requireNonNull(context.getLetMapping("b"));
+            aLetMapping.useLetMapping(context);
+            assertFalse(context.hasLetMapping("a"));
+            assertFalse(context.hasLetMapping("b")); // for good measure
+            aLetMapping.resetMapping();
+
+            return flag;
+        });
+
+        Term result = translator.translate(pred.call(argX, argA), context);
+        assertEquals(flag, result);
+
+        // make sure x, a are flushed from the context's mapping
+        assertContextEmpty();
+        assertFalse(context.hasLetMapping("x"));
+        assertFalse(context.hasLetMapping("a"));
+        assertFalse(context.hasVarMapping("x"));
+        assertFalse(context.hasVarMapping("a"));
+    }
+
+    @Test
     public void testTranslate_varAsExpression() {
         // test [[x]] := x (as an [integer] expression)
         Var x = Term.mkVar("x");
