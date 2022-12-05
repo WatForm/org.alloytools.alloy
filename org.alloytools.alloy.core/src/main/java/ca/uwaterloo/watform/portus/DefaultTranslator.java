@@ -1318,7 +1318,8 @@ final class DefaultTranslator extends AbstractTranslator {
     private Term translateNext(VarTuple tuple, TranslationContext context) {
         // Translate as [[(x1, x2) \in next]] := x1 != max && x1 + 1 = x2
         // Alloy semantics dictate that "max . next = none", so we add a guard.
-        // TODO: is the guard necessary/okay with Fortress semantics? Ask!!
+        // In fact, even with "prevent overflow" enabled, Alloy has "max.next = none" (even when max + 1 = min)!
+        // So we add this guard to comply with the (rather inconsistent) semantics for next.
         if (tuple.size() != 2) {
             throw new ErrorFatal("integer/next expects arity 2, but got " + tuple.size());
         }

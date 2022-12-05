@@ -43,6 +43,21 @@ final class PortusUtil {
         return scala.collection.immutable.Map.from(CollectionConverters.asScala(map));
     }
 
+    /** Strip wrappers we consider to be (pure) NOOPs: CAST2INT, CAST2SIGINT, NOOP. */
+    public static Expr stripPortusNoops(Expr expr) {
+        while (expr instanceof ExprUnary) {
+            ExprUnary unary = (ExprUnary) expr;
+            if (unary.op == ExprUnary.Op.NOOP
+                || unary.op == ExprUnary.Op.CAST2INT
+                || unary.op == ExprUnary.Op.CAST2SIGINT) {
+                expr = unary.sub;
+            } else {
+                break;
+            }
+        }
+        return expr;
+    }
+
     /**
      * Software Abstractions, sec. 3.6.4: a "declaration formula" is a expression of the form
      * "a in b M->N c", where M and N are multiplicities, or b or c are arrow-expressions with

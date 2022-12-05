@@ -142,4 +142,51 @@ public class JoinOptTranslatorTest {
         assertEquals(flag, translator.translate(ExprElementOf.make(new VarTuple(x), e.join(noop)), context));
     }
 
+    @Test
+    public void testTranslate_join_leftWithLet() {
+        // test [[x \in y . e]] := [[(v,x) \in e]] when y is mapped to v in a let mapping
+        Sig sigA = new Sig.PrimSig("A");
+        Sig sigB = new Sig.PrimSig("B");
+        when(mockSortPolicy.getSort(sigA)).thenReturn(testSort);
+        when(mockSortPolicy.getSort(sigB)).thenReturn(testSort);
+        Expr e = sigA.product(sigB);
+
+        ExprVar alloyV = ExprVar.make(null, "v");
+        ExprVar alloyY = ExprVar.make(null, "y");
+        AnnotatedVar v = Term.mkVar("v").of(testSort);
+        context.addVarMapping("v", v);
+        context.addLetMapping("y", alloyV);
+
+        AnnotatedVar x = Term.mkVar("x").of(testSort);
+        Var flag = Term.mkVar("flag");
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(new VarTuple(v, x), e))), any()))
+                .thenReturn(flag);
+
+        assertEquals(flag, translator.translate(ExprElementOf.make(new VarTuple(x), alloyY.join(e)), context));
+    }
+
+    @Test
+    public void testTranslate_join_rightWithLet() {
+        // test [[x \in y . e]] := [[(v,x) \in e]] when y is mapped to v in a let mapping
+        Sig sigA = new Sig.PrimSig("A");
+        Sig sigB = new Sig.PrimSig("B");
+        when(mockSortPolicy.getSort(sigA)).thenReturn(testSort);
+        when(mockSortPolicy.getSort(sigB)).thenReturn(testSort);
+        Expr e = sigA.product(sigB);
+
+        ExprVar alloyV = ExprVar.make(null, "v");
+        ExprVar alloyY = ExprVar.make(null, "y");
+        AnnotatedVar v = Term.mkVar("v").of(testSort);
+        context.addVarMapping("v", v);
+        context.addLetMapping("y", alloyV);
+
+        AnnotatedVar x = Term.mkVar("x").of(testSort);
+        Var flag = Term.mkVar("flag");
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(new VarTuple(x, v), e))), any()))
+                .thenReturn(flag);
+
+        //noinspection SuspiciousNameCombination
+        assertEquals(flag, translator.translate(ExprElementOf.make(new VarTuple(x), e.join(alloyY)), context));
+    }
+
 }
