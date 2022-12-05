@@ -127,8 +127,8 @@ abstract class SortPolicy {
     }
 
     /**
-     * For each position i in the arity of `expr` (i.e. 1<=i<=arity), find the single sig Si such that
-     * (x1,...,xn) \in expr implies xi \in Si, or null if no such sig exists.
+     * For each position i in the arity of `expr` (i.e. 1<=i<=arity), find the single sort Si such that
+     * (x1,...,xn) \in expr implies xi \in Si, or null if no such sort exists.
      * Null corresponds to INDEFINITE in the paper.
      */
     public final List<Sort> getMinimalExprSorts(Expr expr, String errorMessage, TranslationContext context) {
@@ -448,11 +448,6 @@ abstract class SortPolicy {
                 .map(this::getSort)
                 .collect(Collectors.toList()),
                 "Product types of '" + type + "' do not have same sort at index: " + idx);
-    }
-
-    /** Convenience overload: use an Expr instead. */
-    public final Sort getIndexSort(int idx, Expr expr) {
-        return getIndexSort(idx, expr.deNOP().type());
     }
 
     /** Check that all the exprs are formulas, and throw an error if not */

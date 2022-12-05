@@ -256,8 +256,10 @@ public class AlloyASTMatcher extends TypeSafeMatcher<Expr> {
             if (x instanceof Sig.PrimSig) {
                 Sig.PrimSig primX = (Sig.PrimSig) x;
                 Sig.PrimSig primY = (Sig.PrimSig) y;
-                // make sure the children are the same - assume we go through them in the same order
-                if (!areListsEquivalent(primX.children(), primY.children())) return false;
+                if (x != Sig.UNIV) { // Alloy chokes enumerating children of univ
+                    // make sure the children are the same - assume we go through them in the same order
+                    return areListsEquivalent(primX.children(), primY.children());
+                }
             } else {
                 Sig.SubsetSig subsetX = (Sig.SubsetSig) x;
                 Sig.SubsetSig subsetY = (Sig.SubsetSig) y;

@@ -30,7 +30,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -72,6 +71,9 @@ final class DefaultTranslator extends AbstractTranslator {
 
         // Make a new predicate for membership, inSig: S -> Bool where S is sig's corresponding sort
         Sort sigSort = context.sortPolicy.getSort(sig);
+        if (sigSort == null) {
+            throw new ErrorFatal("Internal Portus error: signature " + sig + " cannot be assigned a sort");
+        }
         String memPredName = context.nameGenerator.freshName("in" + sig.label);
         sigMemberPredicates.put(sig, var -> {
             // TODO: if sig is the entire sort, don't bother with the predicate and just return Top
@@ -160,6 +162,7 @@ final class DefaultTranslator extends AbstractTranslator {
         // || ... || x = xn)" (KT 4.3)
         List<AnnotatedVar> vars = new ArrayList<>(scope);
         Sort sigSort = context.sortPolicy.getSort(sig);
+        assert sigSort != null;
         for (int i = 0; i < scope; i++) {
             vars.add(AnnotatedVar.apply(Term.mkVar("x" + i), sigSort));
         }
@@ -194,6 +197,7 @@ final class DefaultTranslator extends AbstractTranslator {
         int numVars = scope + 1;
         List<AnnotatedVar> vars = new ArrayList<>(numVars);
         Sort sigSort = context.sortPolicy.getSort(sig);
+        assert sigSort != null;
         for (int i = 0; i < numVars; i++) {
             vars.add(AnnotatedVar.apply(Term.mkVar("x" + i), sigSort));
         }
@@ -387,11 +391,27 @@ final class DefaultTranslator extends AbstractTranslator {
         //   [[(y,x{m+1},...,xn) \in e2]] where arity(e1) = m+1 and arity(e2) = n-m+1 and m<n
         Var yVar = Term.mkVar(context.nameGenerator.freshName("y"));
 
-        // make sure that the sort is compatible between left and right
+        // What sort should y have?
+        // Both the rightmost index in the left expression and the leftmost index in the right expression should
+        // have compatible sorts: either both the same sort, or one should be indeterminate (null) according to
+        // getMinimalExprSorts to signify it's compatible with both. (If both are null, we can't determine a sort.)
         int partitionIdx = left.type().arity() - 1; // so that adding y gives the arity
-        Sort ySort = context.sortPolicy.getIndexSort(partitionIdx, left);
-        if (!Objects.equals(ySort, context.sortPolicy.getIndexSort(0, right))) {
+        String errorMsg = "Argument of join is ill-typed according to Portus sorts!";
+        Sort leftYSort = context.sortPolicy.getMinimalExprSorts(left, errorMsg, context).get(partitionIdx);
+        Sort rightYSort = context.sortPolicy.getMinimalExprSorts(right, errorMsg, context).get(0);
+        Sort ySort;
+        if (leftYSort == null) {
+            ySort = rightYSort;
+        } else if (rightYSort == null) {
+            ySort = leftYSort;
+        } else if (leftYSort != rightYSort) {
             throw new ErrorFatal("Joined column does not have consistent Fortress sort!");
+        } else {
+            ySort = leftYSort;
+        }
+        if (ySort == null) {
+            // technical restriction: we need a definite sort for the exists variable
+            throw new ErrorFatal("Joined column requires a definite Portus sort!");
         }
         AnnotatedVar y = yVar.of(ySort);
 

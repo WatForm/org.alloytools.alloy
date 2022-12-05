@@ -1045,6 +1045,28 @@ public class DefaultTranslatorTest {
     }
 
     @Test
+    public void testTranslate_join_oneIndeterminate() {
+        // test [[x \in univ . e]] := exists y: univ . [[y \in univ]] && [[(y, x) \in e]]
+        // where arity(e2) = 2, because univ has an indeterminate sort
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e = makeTestVarWithType("e", Type.make(sig).product(Type.make(sig)));
+        Var x = Term.mkVar("x"), y = Term.mkVar("y");
+
+        // mock out [[y \in e1]] and [[(y, x) \in e2]]
+        Var flagInE1 = makeFlagConstant("inE1"), flagInE2 = makeFlagConstant("inE2");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(y.of(univ), Sig.UNIV))), any()))
+                .thenReturn(flagInE1);
+        when(mockRoot.translate(argThat(isAlphaEquivalent(
+                ExprElementOf.make(new VarTuple(y.of(univ), x.of(univ)), e))), any()))
+                .thenReturn(flagInE2);
+
+        Term result = translator.translate(ExprElementOf.make(x.of(univ), Sig.UNIV.join(e)), context);
+        Term expected = Term.mkExists(y.of(univ), Term.mkAnd(flagInE1, flagInE2));
+        assertThat(result, isAlphaEquivalentTerm(expected));
+        assertContextEmpty();
+    }
+
+    @Test
     public void testTranslate_crossProduct_arity1x1() {
         // test [[(x1, x2) \in e1->e2]] := [[x1 \in e1]] && [[x2 \in e2]]
         // where arity(e1) = 1, arity(e2) = 1

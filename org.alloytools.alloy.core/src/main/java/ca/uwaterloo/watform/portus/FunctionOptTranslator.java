@@ -342,8 +342,12 @@ final class FunctionOptTranslator extends AbstractTranslator {
             Sig sig = (Sig) expr;
             if (sig.isOne != null) {
                 // use its first/only domain element as the term
-                int domainElementIdx = context.sortPolicy.getDomainElementRange(sig, context.scoper).a;
+                Pair<Integer, Integer> domElemRange = context.sortPolicy.getDomainElementRange(sig, context.scoper);
                 Sort sort = context.sortPolicy.getSort(sig);
+                if (domElemRange == null || sort == null) {
+                    return null; // some special sort of sig we don't want to deal with
+                }
+                int domainElementIdx = domElemRange.a;
                 Term domainElement = Term.mkDomainElement(domainElementIdx, sort);
                 return new Pair<>(domainElement, sort);
             }
