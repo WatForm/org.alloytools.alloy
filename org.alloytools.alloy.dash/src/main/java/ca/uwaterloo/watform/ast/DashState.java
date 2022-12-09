@@ -8,10 +8,10 @@ import edu.mit.csail.sdg.alloy4.Pos;
 
 public class DashState extends DashSuperState {
 	
-	private List<DashEnter>		enter      			= new ArrayList<DashEnter>();
-	private List<DashExit>  	exit       			= new ArrayList<DashExit>();
-	private List<DashTrans> 	modifiedTransitions = new ArrayList<DashTrans>(); // Transitions after they have been modified during the transformation to Core Dash
-	private Boolean         	isDefault;  		//Specifies whether this state is a default state
+	private final List<DashEnter>		enter      			= new ArrayList<DashEnter>();
+	private final List<DashExit>  	exit       			= new ArrayList<DashExit>();
+	private final List<DashTrans> 	modifiedTransitions = new ArrayList<DashTrans>(); // Transitions after they have been modified during the transformation to Core Dash
+	private final Boolean         	isDefault;  		//Specifies whether this state is a default state
 
 
     /*
@@ -45,21 +45,21 @@ public class DashState extends DashSuperState {
 
         this.isDefault = isDefault;
     }
-    
-    public DashState(DashState state) {
-        state.pos = this.pos; //This specifies the position of the state in the model (line and column information)     
-        state.name = this.name;
-        state.modifiedName = this.modifiedName;
-        state.parent = this.parent;            
-        state.states = this.states;
-        state.concStates = this.concStates;
-        state.enter = this.enter;
-        state.exit = this.exit;
-        state.transitions = this.transitions;
-        state.modifiedTransitions = this.modifiedTransitions;
-        state.isDefault = this.isDefault;
-    }
 
+	@Override
+	public List<DashConcState> getInnerConcStates() {
+		return concStates;
+	}
+
+	@Override
+	public List<DashState> getInnerORStates() {
+		return states;
+	}
+
+	@Override
+	public List<DashTrans> getTransitions() {
+		return transitions;
+	}
 
     public List<DashEnter> getEnters() {
     	return enter;

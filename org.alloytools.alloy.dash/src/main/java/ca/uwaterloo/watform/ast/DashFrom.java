@@ -12,9 +12,9 @@ public class DashFrom {
 
     public Pos          				pos;
     public List<String> 			 	fromExpr = new ArrayList<String>();
-    public List<DashConcState> 	fromExprs = new ArrayList<DashConcState>();
+    public List<DashConcState> 			fromExprs = new ArrayList<DashConcState>();
     public Boolean      				leavingMultipleStates = false;
-    public String      				stateBeingLeft;
+    public String      					stateBeingLeft;
     public DashConcState				concStateBeingExited;
     public Boolean      				fromAll;
 
@@ -46,5 +46,13 @@ public class DashFrom {
     
     public String getAlloyName() {
     	return fromExpr.get(0).replace('/', '_');
+    }
+    
+    public List<String> getAllOrigins() {
+    	return fromExpr;
+    }
+    
+    public boolean isTransitionToParentState() {
+    	return leavingMultipleStates;
     }
 }

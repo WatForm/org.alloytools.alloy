@@ -10,15 +10,9 @@ public abstract class DashSuperState extends DashSuperAST {
     protected List<DashState>          states       = new ArrayList<DashState>();
     protected List<DashTrans> 		   transitions  = new ArrayList<DashTrans>();    
     
-    public List<DashConcState> getInnerConcStates() {
-    	return concStates;
-    }
+    public abstract List<DashConcState> getInnerConcStates();
     
-    public List<DashState> getInnerORStates() {
-    	return states;
-    }
+    public abstract List<DashState> getInnerORStates();
     
-    public List<DashTrans> getTransitions() {
-    	return transitions;
-    }
+    public abstract List<DashTrans> getTransitions();
 }

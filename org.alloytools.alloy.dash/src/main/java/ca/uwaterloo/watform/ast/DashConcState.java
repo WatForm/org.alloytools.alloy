@@ -15,18 +15,18 @@ public class DashConcState extends DashSuperState {
     private DashState			    				parentState;
     private String                  				param          = new String();
     
-    private List<String>     	    				IEs   		   = new ArrayList<String>();
-    private List<DashBuffer>        				buffers        = new ArrayList<DashBuffer>();
-    private List<DashTemplateCall>  				templateCall   = new ArrayList<DashTemplateCall>();
-    private List<DashTransTemplate> 				templateDecl   = new ArrayList<DashTransTemplate>();
-    private List<DashEvent>         				events         = new ArrayList<DashEvent>();
-    private List<Decl>              				decls          = new ArrayList<Decl>();
-    private List<DashInit>          				init           = new ArrayList<DashInit>();
-    private List<DashInvariant>     				invariant      = new ArrayList<DashInvariant>();
-    private List<DashAction>        				action         = new ArrayList<DashAction>();
-    private List<DashCondition>     				condition      = new ArrayList<DashCondition>();
-    private List<DashTrans>     					allTransitions = new ArrayList<DashTrans>();
-    private Map<Integer, List<DashConcState>>     	allChildConcStates = new LinkedHashMap<Integer, List<DashConcState>>();
+    private List<String>     	    					IEs   		   = new ArrayList<String>();
+    private final List<DashBuffer>        				buffers        = new ArrayList<DashBuffer>();
+    private final List<DashTemplateCall>  				templateCall   = new ArrayList<DashTemplateCall>();
+    private final List<DashTransTemplate> 				templateDecl   = new ArrayList<DashTransTemplate>();
+    private final List<DashEvent>         				events         = new ArrayList<DashEvent>();
+    private final List<Decl>              				decls          = new ArrayList<Decl>();
+    private final List<DashInit>          				init           = new ArrayList<DashInit>();
+    private final List<DashInvariant>     				invariant      = new ArrayList<DashInvariant>();
+    private final List<DashAction>        				action         = new ArrayList<DashAction>();
+    private final List<DashCondition>     				condition      = new ArrayList<DashCondition>();
+    private final List<DashTrans>     					allTransitions = new ArrayList<DashTrans>();
+    private final Map<Integer, List<DashConcState>>     allChildConcStates = new LinkedHashMap<Integer, List<DashConcState>>();
 
 
     /*
@@ -74,26 +74,20 @@ public class DashConcState extends DashSuperState {
         
         this.IEs = new ArrayList<String>();
     }
+	
+	@Override
+	public List<DashConcState> getInnerConcStates() {
+		return concStates;
+	}
 
-	public DashConcState(DashConcState concState) {
-		this.name = concState.name;
-		this.modifiedName = concState.modifiedName;
-		this.parentConcState = concState.parentConcState;	
-		this.concStates = concState.concStates;		
-		this.states = concState.states;
-		this.param = concState.param;
-		this.transitions = concState.transitions;
-		this.allTransitions = concState.allTransitions;
-		this.templateCall = concState.templateCall;		
-		this.templateDecl = concState.templateDecl;
-		this.events = concState.events;
-		this.decls = concState.decls;
-		this.init = concState.init;		
-		this.invariant = concState.invariant;
-		this.action = concState.action;
-		this.condition = concState.condition;
-		this.buffers = concState.buffers;
-		this.IEs = concState.IEs;
+	@Override
+	public List<DashState> getInnerORStates() {
+		return states;
+	}
+
+	@Override
+	public List<DashTrans> getTransitions() {
+		return transitions;
 	}
 	
 	public DashState getParentORState() {
@@ -187,9 +181,9 @@ public class DashConcState extends DashSuperState {
 	
 	public DashConcState getTopParentRepConcState() {
 		List<DashConcState> parents = new ArrayList<DashConcState>();
-		DashConcState parent = new DashConcState(getParentConcState());
+		DashConcState parent = getParentConcState();
 		while (parent != null) {
-			parents.add(new DashConcState(parent));
+			parents.add(parent);
 			parent = parent.getParentConcState();
 		}
 		for (int i = parents.size() - 1; i >= 0; i--){

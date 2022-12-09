@@ -25,4 +25,8 @@ public class DashSend extends DashSuperAST {
     	this.param = (send.param == null) ? null : send.param;
     	this.name = send.name;
     }
+    
+    public Expr getEventsTriggered() {
+    	return param;
+    }
 }

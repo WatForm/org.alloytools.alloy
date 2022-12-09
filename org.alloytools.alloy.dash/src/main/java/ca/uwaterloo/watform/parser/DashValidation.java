@@ -779,7 +779,7 @@ public class DashValidation {
     	Map<String, String> eventNamesType = new LinkedHashMap<String, String>();
     	List<String> eventNames = new ArrayList<String>();
     	
-    	DashConcState currentConcState = new DashConcState(concState);
+    	DashConcState currentConcState = concState;
     	while (currentConcState.getParent() instanceof DashConcState) {
     		currentConcState = (DashConcState) currentConcState.getParentConcState();
     		events.addAll(getEvents(currentConcState));

@@ -1611,7 +1611,7 @@ public final class DashModule extends Browsable implements Module {
 				}
 			}
 			
-			DashConcState temp = new DashConcState(concState);
+			DashConcState temp = concState;
 			while (temp.getParentConcState() != null) {
 				if (temp.getParentConcState().isParameterized()) {
 	    			concState.getIdentifiers().add(temp.getParentConcState().getReplicatedIdentifier());
@@ -1645,7 +1645,7 @@ public final class DashModule extends Browsable implements Module {
 					eventCount++;
 			}
 			
-			DashConcState temp = new DashConcState(concState);
+			DashConcState temp = concState;
 			while (temp.getParentConcState() != null) {
 				if (temp.getParentConcState().isParameterized()) {
 						eventCount++;

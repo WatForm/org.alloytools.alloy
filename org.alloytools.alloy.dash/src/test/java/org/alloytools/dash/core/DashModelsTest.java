@@ -1,6 +1,10 @@
 package org.alloytools.dash.core;
 
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThrows;
+
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -23,7 +27,7 @@ import ca.uwaterloo.watform.parser.DashUtil;
 import ca.uwaterloo.watform.parser.DashValidation;
 
 public class DashModelsTest {
-
+	
     //Dash Parser Unit Tests
     @Test
     public void testStates() throws Exception {
@@ -32,15 +36,10 @@ public class DashModelsTest {
         DashModule module = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
         DashOptions.isElectrum = false;
 
-        if (module.states.get("concState_topStateA") == null)
-            throw new Exception("Every state has not been stored in the IDS");
-        if (module.states.get("concState_topStateA_innerState") == null)
-            throw new Exception("Every state has not been stored in the IDS");
-        if (module.states.get("concState_topStateB") == null)
-            throw new Exception("Every state has not been stored in the IDS");
-        if (!module.states.get("concState_topStateA").getInnerORStates().get(0).getRawName().equals("innerState"))
-            throw new Exception("Child state has not been stored in the IDS");
-
+        assertNotNull(module.states.get("concState_topStateA"));
+        assertNotNull(module.states.get("concState_topStateA_innerState"));
+        assertNotNull(module.states.get("concState_topStateB"));
+        assertEquals(module.states.get("concState_topStateA").getInnerORStates().get(0).getRawName(), "innerState");
         DashValidation.clearContainers();
     }
 

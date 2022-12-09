@@ -72,4 +72,12 @@ public class DashGoto {
     public String getAlloyName() {
     	return gotoExpr.get(0).replace('/', '_');
     }
+    
+    public List<String> getAllDestinations() {
+    	return gotoExpr;
+    }
+    
+    public boolean isEnteringDefaultState() {
+    	return enteringDefaultStates;
+    }
 }

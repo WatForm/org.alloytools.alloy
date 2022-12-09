@@ -16,4 +16,12 @@ public class DashDoExpr {
         this.pos = pos;
         this.expr = expr;
     }
+    
+    public Expr getExpr() {
+    	return expr;
+    }
+    
+    public List<Expr> getAllExpression() {
+    	return exprList;
+    }
 }

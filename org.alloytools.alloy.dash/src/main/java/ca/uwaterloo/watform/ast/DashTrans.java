@@ -63,4 +63,20 @@ public class DashTrans extends DashSuperAST {
     public void setOrigin(DashFrom fromExpr) {
     	this.fromExpr = fromExpr;
     }
+    
+    public DashGoto getDestination() {
+    	return gotoExpr;
+    }
+    
+    public DashDoExpr getActions() {
+    	return doExpr;
+    }
+    
+    public DashSend getEventTriggered() {
+    	return sendExpr;
+    }
+    
+    public DashOn getTriggerEvent() {
+    	return onExpr;
+    }
 }

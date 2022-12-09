@@ -2226,7 +2226,7 @@ public class CoreDashToAlloy {
     //Take an expression in a do statement and modify any variables present. Eg: active_players should become
     //s.Game_active_players (Given that active_players is declared under the Game concurrent state)
     private Expr modifyExprWithVar(Expr expr, DashConcState parent, DashModule module, Boolean isRef) {
-    	DashConcState concState = new DashConcState(parent);
+    	DashConcState concState = parent;
     	
         Expr expression = expr; 
         
