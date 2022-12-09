@@ -10,7 +10,10 @@ import edu.mit.csail.sdg.translator.A4Options;
 import edu.mit.csail.sdg.translator.AlloySolution;
 import edu.mit.csail.sdg.translator.CommandRunner;
 import edu.mit.csail.sdg.translator.ScopeComputer;
+import fortress.compiler.ConstantsMethodCompiler;
+import fortress.compiler.LogicCompiler;
 import fortress.interpretation.Interpretation;
+import fortress.modelfind.CompilationModelFinder;
 import fortress.modelfind.ErrorResult;
 import fortress.modelfind.FortressTHREE;
 import fortress.modelfind.ModelFinder;
@@ -116,7 +119,14 @@ public final class TranslateAlloyToFortress implements CommandRunner {
 
     // TODO: configure the model finder based on the FortressOptions
     private ModelFinder createModelFinder(SolverInterface solverInterface) {
-        return new FortressTHREE(solverInterface);
+        // For now we use ConstantsMethodCompiler as a good default.
+        return new CompilationModelFinder(solverInterface) {
+            @Override
+            public LogicCompiler createCompiler() {
+                // This is abstract (accidentally?) so we just make an anonymous inner class.
+                return new ConstantsMethodCompiler() {};
+            }
+        };
     }
 
     private void translateSigs(Iterable<Sig> sigs, Translator translator, TranslationContext context) {

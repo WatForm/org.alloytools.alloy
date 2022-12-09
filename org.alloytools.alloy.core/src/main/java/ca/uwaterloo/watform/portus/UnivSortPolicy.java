@@ -77,7 +77,6 @@ final class UnivSortPolicy extends SortPolicy {
     public Map<Sort, Scope> getSortToScopeMap(Set<Sort> unchangingSorts) {
         Map<Sort, Scope> map = new HashMap<>();
         map.put(univ, ExactScope.apply(univScope, unchangingSorts.contains(univ)));
-        // TODO - allow configuring modular vs unbounded ints?
         map.put(Sort.Int(), ExactScope.apply(bitwidth, unchangingSorts.contains(Sort.Int())));
         return map;
     }

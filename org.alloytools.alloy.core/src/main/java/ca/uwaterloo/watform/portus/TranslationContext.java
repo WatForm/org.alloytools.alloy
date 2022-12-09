@@ -291,6 +291,7 @@ final class TranslationContext {
     public void configureModelFinder(ModelFinder finder) {
         finder.setTheory(theory);
         sortPolicy.configureModelFinderScopes(finder, unchangingSorts);
+        // TODO - allow configuring modular vs unbounded ints?
     }
 
     /** Mark the sort as unchanging in the Fortress output. */
