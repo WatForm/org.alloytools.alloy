@@ -31,7 +31,7 @@ Checkout the project and type `./gradlew build`. You find the executable JAR in 
      java version "1.8.0_144"
      Java(TM) SE Runtime Environment (build 1.8.0_144-b01)
      Java HotSpot(TM) 64-Bit Server VM (build 25.144-b01, mixed model
-     $ git clone --recursive https://github.com/AlloyTools/org.alloytools.alloy.git
+     $ git clone --recursive https://github.com/WatForm/org.alloytools.alloy
      $ cd org.alloytools.alloy
      $ ./gradlew build
      $ java -jar org.alloytools.alloy.dist/target/org.alloytools.alloy.dist.jar
