@@ -35,6 +35,7 @@ import static edu.mit.csail.sdg.alloy4.A4Preferences.GenerateTraces;
 import static edu.mit.csail.sdg.alloy4.A4Preferences.ImplicitThis;
 import static edu.mit.csail.sdg.alloy4.A4Preferences.InferPartialInstance;
 import static edu.mit.csail.sdg.alloy4.A4Preferences.LAF;
+import static edu.mit.csail.sdg.alloy4.A4Preferences.LineNumbers;
 import static edu.mit.csail.sdg.alloy4.A4Preferences.Model0;
 import static edu.mit.csail.sdg.alloy4.A4Preferences.Model1;
 import static edu.mit.csail.sdg.alloy4.A4Preferences.Model2;
@@ -140,6 +141,7 @@ import ca.uwaterloo.watform.parser.DashValidation;
 import ca.uwaterloo.watform.transform.CoreDashToAlloy;
 import ca.uwaterloo.watform.transform.CoreDashToElectrum;
 import ca.uwaterloo.watform.transform.DashToCoreDash;
+import aQute.lib.io.IO;
 
 //import com.apple.eawt.Application;
 //import com.apple.eawt.ApplicationAdapter;
@@ -625,7 +627,7 @@ public final class SimpleGUI implements ComponentListener, Listener {
      * Find a temporary directory to store Alloy files; it's guaranteed to be a
      * canonical absolute path.
      */
-    private static synchronized String alloyHome(JFrame parent) {
+    public static synchronized String alloyHome(JFrame parent) {
         if (alloyHome != null)
             return alloyHome;
         String temp = System.getProperty("java.io.tmpdir");
@@ -654,7 +656,7 @@ public final class SimpleGUI implements ComponentListener, Listener {
      * Create an empty temporary directory for use, designate it "deleteOnExit",
      * then return it. It is guaranteed to be a canonical absolute path.
      */
-    private static String maketemp(JFrame parent) {
+    public static String maketemp(JFrame parent) {
         Random r = new Random(new Date().getTime());
         while (true) {
             int i = r.nextInt(1000000);
@@ -1586,6 +1588,7 @@ public final class SimpleGUI implements ComponentListener, Listener {
             else
                 addToMenu(optmenu, AntiAlias);
             addToMenu(optmenu, A4Preferences.LAF);
+            addToMenu(optmenu, LineNumbers);
 
             optmenu.addSeparator();
 
@@ -1648,6 +1651,14 @@ public final class SimpleGUI implements ComponentListener, Listener {
         status.setFont(new Font(f, Font.PLAIN, n));
         log.setFontSize(n);
         viz.doSetFontSize(n);
+        return null;
+    }
+
+    private Runner doOptRefreshLineNumbers() {
+        if ( wrap ) {
+            return wrapMe();
+        }
+        text.enableLineNumbers(LineNumbers.get());
         return null;
     }
 
@@ -2061,7 +2072,7 @@ public final class SimpleGUI implements ComponentListener, Listener {
     }
 
     /** Converts an A4Solution into a SimInstance object. */
-    private static SimInstance convert(Module root, A4Solution ans) throws Err {
+    public static SimInstance convert(Module root, A4Solution ans) throws Err {
         SimInstance ct = new SimInstance(root, ans.getBitwidth(), ans.getMaxSeq());
         for (Sig s : ans.getAllReachableSigs()) {
             if (!s.builtin)
@@ -2223,7 +2234,7 @@ public final class SimpleGUI implements ComponentListener, Listener {
      * The constructor; this method will be called by the AWT event thread, using
      * the "invokeLater" method.
      */
-    private SimpleGUI(final String[] args) {
+    SimpleGUI(final String[] args) {
 
         UIManager.put("ToolTip.font", new FontUIResource("Courier New", Font.PLAIN, 14));
 
@@ -2443,7 +2454,7 @@ public final class SimpleGUI implements ComponentListener, Listener {
         PreferencesDialog.logOnChange(log, A4Preferences.allUserPrefs().toArray(new Pref< ? >[0]));
 
         // Create the text area
-        text = new OurTabbedSyntaxWidget(fontName, fontSize, TabSize.get(), frame);
+        text = new OurTabbedSyntaxWidget(fontName, fontSize, TabSize.get(), LineNumbers.get(), frame);
         text.listeners.add(this);
         text.enableSyntax(!SyntaxDisabled.get());
 
@@ -2512,6 +2523,7 @@ public final class SimpleGUI implements ComponentListener, Listener {
             prefDialog.addChangeListener(wrapToChangeListener(doGenerateTraces()), GenerateTraces);
             prefDialog.addChangeListener(wrapToChangeListener(doOptSyntaxHighlighting()), SyntaxDisabled);
             prefDialog.addChangeListener(wrapToChangeListener(doLookAndFeel()), LAF);
+            prefDialog.addChangeListener(wrapToChangeListener(doOptRefreshLineNumbers()), LineNumbers);
         } finally {
             wrap = false;
         }
