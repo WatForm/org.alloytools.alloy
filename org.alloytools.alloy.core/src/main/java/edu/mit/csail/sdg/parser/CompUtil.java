@@ -498,8 +498,4 @@ public final class CompUtil {
         module.addDefaultCommand();
         return module;
     }
-
-    public static CompModule nullModule() {
-        return new CompModule(null, "", "");
-    }
 }

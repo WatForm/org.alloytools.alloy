@@ -78,7 +78,7 @@ public class MarkdownHandler {
                 while ((line = br.readLine()) != null) {
                     state = state.process(line, yaml, alloy);
                     if (state == null)
-                        return "";
+                        return content;
                 }
             }
             return alloy.toString();
