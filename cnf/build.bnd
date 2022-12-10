@@ -12,7 +12,6 @@ javac.source:           1.8
 javac.target:           1.8
 javac.compliance:       1.8
 javac.debug:            on
--sources                false
 
 Git-Descriptor:         	${system-allow-fail;git describe --dirty --always}
 Git-SHA:                	${system-allow-fail;git rev-list -1 HEAD}
@@ -28,7 +27,6 @@ Bundle-Version:         ${base.version}.${tstamp}
 # Remove -SNAPSHOT for release version
 -pom:                   version=${base.version}-SNAPSHOT
 -groupid:               org.alloytools
--includepackage         *;from:=classes
 
 
 #
@@ -63,4 +61,8 @@ usr = ${env;REPOSITORY_USERNAME;}
 -connection-settings: ${if;${pwd};server;-dummy};id=https://oss.sonatype.org;username=${usr};password=${pwd}, -bnd
 
 
--includepackage *;from:=classes
+# 
+# Install a copy in the local Maven repository (~/.m2/repository)
+#
+
+

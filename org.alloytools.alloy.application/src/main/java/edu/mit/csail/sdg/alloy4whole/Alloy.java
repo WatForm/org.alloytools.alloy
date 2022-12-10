@@ -1,4 +1,4 @@
-package org.alloytools.alloy.core.infra;
+package edu.mit.csail.sdg.alloy4whole;
 
 import java.io.File;
 import java.io.IOException;
@@ -8,16 +8,6 @@ import java.util.Enumeration;
 
 import aQute.lib.io.IO;
 
-/**
- * This class is the main class for the JAR. Its name is the name shown in the
- * GUI on MacOS, so do not change it.
- * <p>
- * This class is an entry point and should not be renamed. It should also _NOT_
- * touch any other classes. We're creating a special class loader to allow the
- * dynamic libraries to be found. If you link this class to any othe class
- * you're bound to create trouble.
- *
- */
 public class Alloy {
 
     static ClassLoader old = Alloy.class.getClassLoader();
@@ -64,8 +54,8 @@ public class Alloy {
     public static void main(String args[]) throws Exception {
         AlloyClassLoader l1 = new AlloyClassLoader();
 
-        Class< ? > dispatcher = l1.loadClass("org.alloytools.alloy.core.infra.AlloyDispatcher");
-        Method main = dispatcher.getMethod("main", String[].class);
+        Class< ? > simpleGui = l1.loadClass("edu.mit.csail.sdg.alloy4whole.SimpleGUI");
+        Method main = simpleGui.getMethod("main", String[].class);
         main.invoke(null, (Object) args);
     }
 }
