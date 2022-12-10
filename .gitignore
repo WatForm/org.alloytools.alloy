@@ -42,3 +42,5 @@ enroute.zip
 org.alloytools.alloy.dash/src/main/java/ca/uwaterloo/watform/parser/DashLexer.java
 org.alloytools.alloy.dash/src/main/java/ca/uwaterloo/watform/parser/DashParser.java
 org.alloytools.alloy.dash/src/main/java/ca/uwaterloo/watform/parser/DashSym.java
+
+languageServers-log/AlloyLanguageServer.log
