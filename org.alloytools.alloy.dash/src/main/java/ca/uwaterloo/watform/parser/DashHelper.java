@@ -40,7 +40,7 @@ public class DashHelper {
 	 * var: p -> expr
 	 */
 	public static Expr createParameterizedVar(String var, Expr expr, DashModule module) {
-		DashConcState concState = module.variable2ConcState.get(var);
+		DashConcState concState = module.getVariableConcState().get(var);
 		if (expr instanceof ExprUnary && concState.getIdentifiers().size() > 0) {
 			ExprUnary exprUnary = (ExprUnary) expr;	
 			int index = concState.getIdentifiers().size() - 1;
@@ -67,10 +67,10 @@ public class DashHelper {
 			}
 		}
 		return expr;
-	}
+	} 
 	
 	public static Expr createParameterizedElectrumVar(String var, Expr expr, DashModule module) {
-		DashConcState concState = module.variable2ConcState.get(var);
+		DashConcState concState = module.getVariableConcState().get(var);
 		if (expr instanceof ExprUnary && concState.getIdentifiers().size() > 1) {
 			ExprUnary exprUnary = (ExprUnary) expr;	
 			int index = concState.getIdentifiers().size() - 1;

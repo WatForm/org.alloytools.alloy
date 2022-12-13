@@ -28,7 +28,7 @@ public class CoreDashToAlloy {
 	boolean isCreatingInit;
 	boolean isCreatingInvariant;
 	boolean isCreatingExprQt;
-	
+	 
 	Map <Integer, List<DashTrans>> eventSize2Trans;
 	Map<String, DashConcState> changedLocalVars; // Variables changed only locally
 	List<String> changedRefVars; // Variables changed by reference in the transitions being checked
@@ -146,7 +146,7 @@ public class CoreDashToAlloy {
     /****************************************** CREATE TRANSITIONS (PRE, POST, SEMANTICS, ENABLEDAFTERSTEP) ***************************************/
     
     private void createTransitionsAST(DashModule module) {
-        for (DashTrans transition : module.transitions.values()) {
+        for (DashTrans transition : module.getTransitions().values()) {
             createPreConditionAST(transition, module);
             createPostConditionAST(transition, module);
             createTransCallAST(transition, module);
@@ -247,8 +247,8 @@ public class CoreDashToAlloy {
         }
 
         /* Creating the following expression: evnVar: mappings */
-        for (String variableName : module.envVariable2Expression.keySet()) {
-            b = module.envVariable2Expression.get(variableName);
+        for (String variableName : module.getEnvVarExpresssion().keySet()) {
+            b = module.getEnvVarExpresssion().get(variableName);
             a.add(ExprVar.make(null, variableName));
         	if (DashOptions.isElectrum) {
         		decls.add(new Decl(null, null, null, new Pos("var", 0, 0), a, b));
@@ -258,11 +258,11 @@ public class CoreDashToAlloy {
         	}
             //decls.add(new Decl(null, null, null, null, a, b));
             a.clear();
-        } 
- 
+        }  
+  
         /* Creating the following expression: variable: mappings (variable: param -> mapping if parameterized)*/
-        for (String variableName : module.variable2Expression.keySet()) {
-            b = module.variable2Expression.get(variableName);
+        for (String variableName : module.getVariableExpresssion().keySet()) {
+            b = module.getVariableExpresssion().get(variableName);
             b = DashHelper.createParameterizedVar(variableName, b, module);
             a.add(ExprVar.make(null, variableName));
         	if (DashOptions.isElectrum) {
@@ -349,10 +349,10 @@ public class CoreDashToAlloy {
         addSigAST(module, "EnvironmentEvent", ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "EventLabel"))), new ArrayList<Decl>(), new Pos("abstract", 0, 0), null, null, null, null);
         addSigAST(module, "InternalEvent", ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "EventLabel"))), new ArrayList<Decl>(), new Pos("abstract", 0, 0), null, null, null, null);
     	
-        for (String key : module.events.keySet()) {
-            if (module.events.get(key).getType().equals("env event"))
+        for (String key : module.getEvents().keySet()) {
+            if (module.getEvents().get(key).getType().equals("env event"))
             	addSigAST(module, key, ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "EnvironmentEvent"))), new ArrayList<Decl>(), null, null, new Pos("one", 0, 0), null, null);
-            if (module.events.get(key).getType().equals("event"))
+            if (module.getEvents().get(key).getType().equals("event"))
             	addSigAST(module, key, ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "InternalEvent"))), new ArrayList<Decl>(), null, null, new Pos("one", 0, 0), null, null);
         }
     }
@@ -362,11 +362,11 @@ public class CoreDashToAlloy {
 
     private void createTransitionSpaceAST(DashModule module) {
     	addSigAST(module, "TransitionLabel", null, null, new ArrayList<Decl>(), new Pos("abstract", 0, 0), null, null, null, null);
-        for (DashTrans transition : module.transitions.values()) {
+        for (DashTrans transition : module.getTransitions().values()) {
         	addSigAST(module, transition.getFullyQualName(), ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "TransitionLabel"))), new ArrayList<Decl>(), null, null, new Pos("one", 0, 0), null, null);
         }
     }
-    
+     
     /****************************************** PRE CONIDTION PREDICATE ***************************************/
 
     
@@ -426,7 +426,7 @@ public class CoreDashToAlloy {
         
         String onCommand = transition.getTriggerEvent() == null ? "" : transition.getTriggerEvent().getRawName().replace('/', '_');
         int iesInEvent = (transition.getTriggerEvent() != null) ? transition.getTriggerEvent().getParentConcState().getIdentifiers().size() : 0;
-        if (transition.getTriggerEvent() != null && transition.getTriggerEvent().getRawName() != null && module.isEnvEventModel && !module.hasHierarchy()) {
+        if (transition.getTriggerEvent() != null && transition.getTriggerEvent().getRawName() != null && module.hasEnvEvents() && !module.hasHierarchy()) {
         	Expr left = ExprVar.make(null, onCommand);
             Expr sEvents = DashHelper.sEvents(iesInEvent); // s.events
             sEvents = DashHelper.addParametersJoin(sEvents, iesInEvent); // p0.(s.events)
@@ -434,7 +434,7 @@ public class CoreDashToAlloy {
             binaryOn = DashHelper.createBinaryExpr(left, ExprBinary.Op.IN, mult(rightBinary)); //ExprBinary.Op.IN.make(null, null, left, mult(rightBinary)); //onExprName in (s.events & EnvironmentEvent)         
         }
         
-        if (transition.getTriggerEvent() != null && transition.getTriggerEvent().getRawName() != null && transition.getTriggerEvent().isInternal() && module.isEnvEventModel && module.hasHierarchy()) {
+        if (transition.getTriggerEvent() != null && transition.getTriggerEvent().getRawName() != null && transition.getTriggerEvent().isInternal() && module.hasEnvEvents() && module.hasHierarchy()) {
         	Expr sStableTrue = DashHelper.createBinaryExpr(DashHelper.sStable(), ExprBinary.Op.EQUALS, DashHelper.trueExpr()); //s.stable = True
         	//Expr notSStableTrue = DashHelper.createUnaryExpr(ExprUnary.Op.NOT, sStableTrue); // !(s.stable = True)
             Expr left = ExprVar.make(null, onCommand);
@@ -443,7 +443,7 @@ public class CoreDashToAlloy {
             Expr eventInSEvents = DashHelper.createBinaryExpr(left, ExprBinary.Op.IN, mult(sEvents));  //onExprName in (s.events)  
             binaryOn = eventInSEvents;//ExprBinary.Op.OR.make(null, null, notSStableTrue, eventInSEvents); // !(s.stable = True) or onExprName in (s.events)          
         }
-        else if (transition.getTriggerEvent() != null && transition.getTriggerEvent().getRawName() != null && module.isEnvEventModel && module.hasHierarchy()) {
+        else if (transition.getTriggerEvent() != null && transition.getTriggerEvent().getRawName() != null && module.hasEnvEvents() && module.hasHierarchy()) {
         	Expr sStableTrue = ExprBinary.Op.EQUALS.make(null, null, ExprBadJoin.make(null, null, ExprVar.make(null, "s"), ExprVar.make(null, "stable")), ExprVar.make(null, "True"));
             Expr left = ExprVar.make(null, onCommand);
             Expr sEvents = DashHelper.sEvents(iesInEvent); // s.events
@@ -1036,7 +1036,7 @@ public class CoreDashToAlloy {
            
             String onCommand = transition.getTriggerEvent() == null ? "" : transition.getTriggerEvent().getRawName().replace('/', '_');
             int totalIEsSizeSend = (transition.getTriggerEvent() == null) ? 0 : transition.getTriggerEvent().getParentConcState().getIdentifiers().size();
-            if (module.isEnvEventModel && transition.getTriggerEvent() != null && transition.getTriggerEvent().getRawName() != null) {
+            if (module.hasEnvEvents() && transition.getTriggerEvent() != null && transition.getTriggerEvent().getRawName() != null) {
                 Expr _sEvent = DashOptions.isElectrum ? DashHelper.sEvents(totalIEsSizeSend) : DashHelper._sEvents(totalIEsSizeSend);
                 Expr envEvent = DashHelper.envEvent();
                 envEvent = DashHelper.addParametersArrow(envEvent, totalIEsSizeSend);
@@ -1079,7 +1079,7 @@ public class CoreDashToAlloy {
     */
     void createSmallStepAST(DashModule module) {
         Expr expression = null;
-        for (DashTrans trans : module.transitions.values()) {
+        for (DashTrans trans : module.getTransitions().values()) {
         	int iesSize = trans.getParentConcState().getIdentifiers().size();
             List<Decl> decls = new ArrayList<Decl>();
             List<ExprVar> a = new ArrayList<ExprVar>();
@@ -1183,7 +1183,7 @@ public class CoreDashToAlloy {
         /* For models without any events */
         if (eventSize2Trans.size() == 0) {
         	Expr expr = null;
-        	for (DashTrans trans: module.transitions.values()) {
+        	for (DashTrans trans: module.getTransitions().values()) {
 	            List<Decl> decls = new ArrayList<Decl>();
 	            List<ExprVar> a = new ArrayList<ExprVar>();
 	            for (int i = 0; i < trans.getParentConcState().getIdentifiers().size(); i++) {
@@ -1246,7 +1246,7 @@ public class CoreDashToAlloy {
      */
     void createIsEnabledAST(DashModule module) {
         Expr expr = null;
-        for (DashTrans trans : module.transitions.values()) {
+        for (DashTrans trans : module.getTransitions().values()) {
             int totalIEsSize = trans.getParentConcState().getIdentifiers().size(); 
             List<Decl> decls = new ArrayList<Decl>();
             List<ExprVar> a = new ArrayList<ExprVar>();
@@ -1262,7 +1262,7 @@ public class CoreDashToAlloy {
         }
 
         //No need to add this predicate if there are no transitions in the model
-        if (module.transitions.keySet().size() > 0) {
+        if (module.getTransitions().keySet().size() > 0) {
             addPredicateAST(module, "isEnabled", "s", null, null, null, expr);
         }
     }
@@ -1372,7 +1372,7 @@ public class CoreDashToAlloy {
     		expression = DashHelper.createBinaryExpr(expression, ExprBinary.Op.AND, noSTaken);
         }
         
-        if (module.isEnvEventModel) {
+        if (module.hasEnvEvents()) {
             for (int key: module.getEventLevels()) {
                 Expr binary = DashHelper.createBinaryExpr(DashHelper.sEvents(key), ExprBinary.Op.INTERSECT, DashHelper.addIdentifiersArrow(DashHelper.intEvent(), key)); // s.events & InternalEvents
                 Expr unary = ExprUnary.Op.NO.make(null, binary); //no s.events & InternalEvent
@@ -1767,10 +1767,10 @@ public class CoreDashToAlloy {
     }
     
     /*************************************** KEEPING VARIABLES UNCHANGED ***************************************/
-  
+   
     //Find the variables that are unchanged during a transition
     Map<String, DashConcState> getUnchangedVars(List<Expr> exprList, DashModule module) {
-    	Map<String, DashConcState> unchangedVariables = new LinkedHashMap<String, DashConcState>(module.variable2ConcState);
+    	Map<String, DashConcState> unchangedVariables = new LinkedHashMap<String, DashConcState>(module.getVariableConcState());
       
         for (String var: changedVars.keySet()) {
         	if (unchangedVariables.keySet().contains(var))
@@ -2493,7 +2493,7 @@ public class CoreDashToAlloy {
         decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s, s_next: Snapshot
         
         Expr expression = null;
-        for (String transName: module.transitions.keySet())
+        for (String transName: module.getTransitions().keySet())
         {
         	Expr sJoinTrans = ExprBadJoin.make(null, null, s, ExprVar.make(null, transName)); //T[s] or s.T
         	Expr join = ExprBadJoin.make(null, null, sNext, sJoinTrans); // T[s, s_next] or s_next.s.T
@@ -2544,7 +2544,7 @@ public class CoreDashToAlloy {
     private List<String> getTransitions(DashModule module, DashConcState concState)
     {
     	List<String> transitions = new ArrayList<String>();
-    	for (DashTrans trans: module.transitions.values()) {
+    	for (DashTrans trans: module.getTransitions().values()) {
     		if (DashHelper.getParentConcState(trans.getParent()).getFullyQualName().equals(concState.getFullyQualName()))
     			transitions.add(trans.getFullyQualName());
     	}
@@ -2659,7 +2659,7 @@ public class CoreDashToAlloy {
     
     private Expr replaceWithActionExpr(Expr expr, DashConcState parent, DashModule module) {
         if(expr instanceof ExprVar) {
-            for (DashAction value : module.actions.values()) {
+            for (DashAction value : module.getActions().values()) {
                 if (expr.toString().equals(value.getRawName()))
                 	return getVarFromParentExpr(value.getAction(), parent, module);
             }
@@ -2681,7 +2681,7 @@ public class CoreDashToAlloy {
     
     private void createInvariantFact(DashModule module) {
     	isCreatingInvariant = true;
-    	for(DashInvariant invar: module.invariants.values()) {
+    	for(DashInvariant invar: module.getInvariants().values()) {
     		addInvariantFact(invar, module);
     	}
     	isCreatingInvariant = false;
@@ -2758,8 +2758,8 @@ public class CoreDashToAlloy {
 		scopes.add(transitionSigScope);
         
         int eventLabelScope = 0;
-        if(module.isEnvEventModel) {
-        	eventLabelScope = module.event2ConcState.size();
+        if(module.hasEnvEvents()) {
+        	eventLabelScope = module.getEventConcState().size();
         }
         
 		CommandScope number = new CommandScope(null            , Sig.NONE, true,          eventLabelScope, eventLabelScope,             1    );

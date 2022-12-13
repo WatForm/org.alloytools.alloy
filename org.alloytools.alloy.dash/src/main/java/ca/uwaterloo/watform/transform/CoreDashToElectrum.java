@@ -31,7 +31,7 @@ public class CoreDashToElectrum {
 	private List<String> changedRefVars; // Variables changed by reference in the transitions being checked
 	private Map<String, DashConcState> changedVars; // Keep a track of when a variable has been changed during a transition
 	private boolean refParamChanged;
-
+ 
 	private Map<String, Expr> paramBuffer;
 	private Map<String, Expr> paramBufferChanged ;
 	private Map<String, Expr> localBufferChanged ;
@@ -149,13 +149,13 @@ public class CoreDashToElectrum {
         
         addSigAST(module, "Identifiers", null, null, new ArrayList<Decl>(decls), null, null, null, null, null);
         decls.clear();
-        
+         
         for (DashConcState concState: module.getAllConcurrentStates().values()) {
         	if (concState.getIdentifiers().size() > 0) {
                 /* Creating the following expression: variable: mappings (variable: param -> mapping if parameterized)*/
-                for (String variableName : module.variable2Expression.keySet()) {
-                	if (!module.variable2ConcState.get(variableName).getFullyQualName().equals(concState.getFullyQualName())) continue;       		
-                    b = module.variable2Expression.get(variableName);
+                for (String variableName : module.getVariableExpresssion().keySet()) {
+                	if (!module.getVariableConcState().get(variableName).getFullyQualName().equals(concState.getFullyQualName())) continue;       		
+                    b = module.getVariableExpresssion().get(variableName);
                     b = DashHelper.createParameterizedElectrumVar(variableName, b, module);
                     a.add(ExprVar.make(null, variableName));
                 	decls.add(new Decl(null, null, null, new Pos("var", 0, 0), a, convertToExprUnary(b)));              
@@ -168,9 +168,9 @@ public class CoreDashToElectrum {
         
         // Creating the Variable signature and its relations
         decls.clear();
-        for (String variableName : module.variable2Expression.keySet()) {
-        	if (module.variable2ConcState.get(variableName).getIdentifiers().size() > 0) continue;       		
-            b = module.variable2Expression.get(variableName);
+        for (String variableName : module.getVariableExpresssion().keySet()) {
+        	if (module.getVariableConcState().get(variableName).getIdentifiers().size() > 0) continue;       		
+            b = module.getVariableExpresssion().get(variableName);
             b = DashHelper.createParameterizedVar(variableName, b, module);
             a.add(ExprVar.make(null, variableName));
         	decls.add(new Decl(null, null, null, new Pos("var", 0, 0), a, convertToExprUnary(b))); 
@@ -263,10 +263,10 @@ public class CoreDashToElectrum {
         addSigAST(module, "EnvironmentEvent", ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "EventLabel"))), new ArrayList<Decl>(), new Pos("abstract", 0, 0), null, null, null, null);
         addSigAST(module, "InternalEvent", ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "EventLabel"))), new ArrayList<Decl>(), new Pos("abstract", 0, 0), null, null, null, null);
     	
-        for (String key : module.events.keySet()) {
-            if (module.events.get(key).getType().equals("env event"))
+        for (String key : module.getEvents().keySet()) {
+            if (module.getEvents().get(key).getType().equals("env event"))
             	addSigAST(module, key, ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "EnvironmentEvent"))), new ArrayList<Decl>(), null, null, new Pos("one", 0, 0), null, null);
-            if (module.events.get(key).getType().equals("event"))
+            if (module.getEvents().get(key).getType().equals("event"))
             	addSigAST(module, key, ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "InternalEvent"))), new ArrayList<Decl>(), null, null, new Pos("one", 0, 0), null, null);
         }
     }
@@ -276,7 +276,7 @@ public class CoreDashToElectrum {
 
     private void createTransitionSpaceAST(DashModule module) {
     	addSigAST(module, "TransitionLabel", null, null, new ArrayList<Decl>(), new Pos("abstract", 0, 0), null, null, null, null);
-        for (DashTrans transition : module.transitions.values()) {
+        for (DashTrans transition : module.getTransitions().values()) {
         	addSigAST(module, transition.getFullyQualName(), ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "TransitionLabel"))), new ArrayList<Decl>(), null, null, new Pos("one", 0, 0), null, null);
         }
     }
@@ -284,7 +284,7 @@ public class CoreDashToElectrum {
     /****************************************** CREATE TRANSITIONS (PRE, POST, SEMANTICS, ENABLEDAFTERSTEP) ***************************************/
     
     private void createTransitionsAST(DashModule module) {
-        for (DashTrans transition : module.transitions.values()) {
+        for (DashTrans transition : module.getTransitions().values()) {
             createPreConditionAST(transition, module);
             createPostConditionAST(transition, module);
             createTransCallAST(transition, module);
@@ -350,7 +350,7 @@ public class CoreDashToElectrum {
         
         String onCommand = transition.getTriggerEvent() == null ? "" : transition.getTriggerEvent().getRawName().replace('/', '_');
         int iesInEvent = (transition.getTriggerEvent() != null) ? transition.getTriggerEvent().getParentConcState().getIdentifiers().size() : 0;
-        if (transition.getTriggerEvent() != null && transition.getTriggerEvent().getRawName() != null && module.isEnvEventModel && !module.hasHierarchy()) {
+        if (transition.getTriggerEvent() != null && transition.getTriggerEvent().getRawName() != null && module.hasEnvEvents() && !module.hasHierarchy()) {
         	Expr left = ExprVar.make(null, onCommand);
             Expr sEvents = DashHelper.events(iesInEvent); // s.events
             sEvents = DashHelper.addParametersJoin(sEvents, iesInEvent); // p0.(s.events)
@@ -358,7 +358,7 @@ public class CoreDashToElectrum {
             binaryOn = DashHelper.createBinaryExpr(left, ExprBinary.Op.IN, mult(rightBinary)); //ExprBinary.Op.IN.make(null, null, left, mult(rightBinary)); //onExprName in (events & EnvironmentEvent)         
         }
         
-        if (transition.getTriggerEvent() != null && transition.getTriggerEvent().getRawName() != null && transition.getTriggerEvent().isInternal() && module.isEnvEventModel && module.hasHierarchy()) {
+        if (transition.getTriggerEvent() != null && transition.getTriggerEvent().getRawName() != null && transition.getTriggerEvent().isInternal() && module.hasEnvEvents() && module.hasHierarchy()) {
         	Expr sStableTrue = DashHelper.createBinaryExpr(DashHelper.stable(), ExprBinary.Op.EQUALS, DashHelper.trueExpr()); // stable = True
         	Expr notSStableTrue = DashHelper.createUnaryExpr(ExprUnary.Op.NOT, sStableTrue); // !(s.stable = True)
             Expr left = ExprVar.make(null, onCommand);
@@ -367,7 +367,7 @@ public class CoreDashToElectrum {
             Expr eventInSEvents = DashHelper.createBinaryExpr(left, ExprBinary.Op.IN, mult(sEvents));  //onExprName in (s.events)  
             binaryOn = ExprBinary.Op.OR.make(null, null, notSStableTrue, eventInSEvents); // !(s.stable = True) or onExprName in (s.events)          
         }
-        else if (transition.getTriggerEvent() != null && transition.getTriggerEvent().getRawName() != null && module.isEnvEventModel && module.hasHierarchy()) {
+        else if (transition.getTriggerEvent() != null && transition.getTriggerEvent().getRawName() != null && module.hasEnvEvents() && module.hasHierarchy()) {
         	Expr sStableTrue = ExprBinary.Op.EQUALS.make(null, null, DashHelper.stable(), ExprVar.make(null, "True"));
             Expr left = ExprVar.make(null, onCommand);
             Expr sEvents = DashHelper.events(iesInEvent); // s.events
@@ -534,7 +534,7 @@ public class CoreDashToElectrum {
          * Creating the following expression: testIfNextStable[s, s_next, {none},
          * Mutex_Process1_wait] => { s_next.stable = True } else { s_next.stable = False }
          */
-        if (module.hasHierarchy() && !module.isEnvEventModel) {
+        if (module.hasHierarchy() && !module.hasEnvEvents()) {
         	Expr sNextStable =  DashHelper.stablePrimed();
         	Expr ifExpr = DashHelper.createBinaryExpr(sNextStable, ExprBinary.Op.EQUALS, DashHelper.trueExpr());
             Expr ElseExpr = DashHelper.createBinaryExpr(sNextStable, ExprBinary.Op.EQUALS, DashHelper.falseExpr());
@@ -565,7 +565,7 @@ public class CoreDashToElectrum {
          * { s_next.events & InternalEvent = {none}/sendExpr s_next.events & EnvironmentEvent = s.events
          * & EnvironmentEvent } else { s_next.events = s.events + {none}/sendExpr } }
          */ 
-        if (module.hasHierarchy() && module.isEnvEventModel) {
+        if (module.hasHierarchy() && module.hasEnvEvents()) {
         	String sendCommand = transition.getEventsTriggered() == null ? "" : transition.getEventsTriggered().getRawName().replace('/', '_');
         	int iesInEvent = transition.getEventsTriggered() != null ? transition.getEventsTriggered().getParentConcState().getIdentifiers().size() : 0;
         	Expr sNextStable = DashHelper.stablePrimed();
@@ -670,7 +670,7 @@ public class CoreDashToElectrum {
         
         /* Creating the following expression: no (s_next.events & InternalEvent) */
         Expr sendCommandExpr = null;
-        if (transition.getEventsTriggered() == null && module.isEnvEventModel && !module.hasHierarchy()) {
+        if (transition.getEventsTriggered() == null && module.hasEnvEvents() && !module.hasHierarchy()) {
             for (int key: module.getEventLevels()) { 
             	Expr sNextEvents =  DashHelper.eventsPrimed(key);
             	Expr sNextEnvAndIntEvn = DashHelper.createBinaryExpr(sNextEvents, ExprBinary.Op.INTERSECT, DashHelper.intEvent()); //s_next.events & InternalEvent
@@ -765,7 +765,7 @@ public class CoreDashToElectrum {
             Expr elseExprRight = null;
             Expr elseRightBinPlus = null;
             DashConcState transParent = getParentConcState(transition.getParent());
-            for (DashTrans trans : module.transitions.values()) {
+            for (DashTrans trans : module.getTransitions().values()) {
                 if (transParent.getIdentifiers().size() == 0 && getParentConcState(trans.getParent()).getFullyQualName().equals(transParent.getFullyQualName())) {
                 	String transitionName = trans.getFullyQualName();
                     if (elseRightBinPlus == null)
@@ -853,7 +853,7 @@ public class CoreDashToElectrum {
 
             Expr ifExprLeft = ExprVar.make(null, "t");
             Expr ifExprRight = null;
-            for (DashTrans trans : module.transitions.values()) {
+            for (DashTrans trans : module.getTransitions().values()) {
                 if (transitionParent.getIdentifiers().size() == 0 && getParentConcState(trans.getParent()).getFullyQualName().equals(transitionParent.getFullyQualName())) {
                     if (ifExprRight == null) 
                     	ifExprRight =  ExprVar.make(null, trans.getFullyQualName());
@@ -870,7 +870,7 @@ public class CoreDashToElectrum {
             Expr _sTaken = DashHelper.taken(0);
             Expr elseExprLeft = ExprBinary.Op.PLUS.make(null, null, _sTaken, ExprVar.make(null, "t")); //_s.taken + t
             Expr elseExprRight = null;
-            for (DashTrans trans : module.transitions.values()) {
+            for (DashTrans trans : module.getTransitions().values()) {
                 if (transitionParent.getIdentifiers().size() == 0 && getParentConcState(trans.getParentConcState()).getFullyQualName().equals(transitionParent.getFullyQualName())) {
                     if (elseExprRight == null) 
                         elseExprRight =  ExprVar.make(null, trans.getFullyQualName());
@@ -899,7 +899,7 @@ public class CoreDashToElectrum {
 
             String onCommand = transition.getTriggerEvent() == null ? "" : transition.getTriggerEvent().getRawName().replace('/', '_');
             int totalIEsSizeSend = (transition.getTriggerEvent() == null) ? 0 : transition.getTriggerEvent().getParentConcState().getIdentifiers().size();
-            if (module.isEnvEventModel && transition.getTriggerEvent() != null && transition.getTriggerEvent().getRawName() != null) {
+            if (module.hasEnvEvents() && transition.getTriggerEvent() != null && transition.getTriggerEvent().getRawName() != null) {
                 Expr _sEvent = DashHelper.events(totalIEsSizeSend);
                 Expr envEvent = DashHelper.envEvent();
                 envEvent = DashHelper.addParametersArrow(envEvent, totalIEsSizeSend);
@@ -928,7 +928,7 @@ public class CoreDashToElectrum {
     */
     void createSmallStepAST(DashModule module) {
         Expr expression = null;
-        for (DashTrans trans : module.transitions.values()) {
+        for (DashTrans trans : module.getTransitions().values()) {
         	int iesSize = trans.getParentConcState().getIdentifiers().size();
             List<Decl> decls = new ArrayList<Decl>();
             List<ExprVar> a = new ArrayList<ExprVar>();
@@ -992,7 +992,7 @@ public class CoreDashToElectrum {
         /* For models without any events */
         if (eventSize2Trans.size() == 0) {
         	Expr expr = null;
-        	for (DashTrans trans: module.transitions.values()) {
+        	for (DashTrans trans: module.getTransitions().values()) {
 	            List<Decl> decls = new ArrayList<Decl>();
 	            List<ExprVar> a = new ArrayList<ExprVar>();
 	            for (int i = 0; i < trans.getParentConcState().getIdentifiers().size(); i++) {
@@ -1053,7 +1053,7 @@ public class CoreDashToElectrum {
      */
     void createIsEnabledAST(DashModule module) {
         Expr expr = null;
-        for (DashTrans trans : module.transitions.values()) {
+        for (DashTrans trans : module.getTransitions().values()) {
             int totalIEsSize = trans.getParentConcState().getIdentifiers().size(); 
             List<Decl> decls = new ArrayList<Decl>();
             List<ExprVar> a = new ArrayList<ExprVar>();
@@ -1069,7 +1069,7 @@ public class CoreDashToElectrum {
         }
 
         //No need to add this predicate if there are no transitions in the model
-        if (module.transitions.keySet().size() > 0 && module.hasHierarchy()) {
+        if (module.getTransitions().keySet().size() > 0 && module.hasHierarchy()) {
             module.addFunc(null, null, "isEnabled", null, null, null, expr);
         }
     }
@@ -1169,7 +1169,7 @@ public class CoreDashToElectrum {
     		expression = DashHelper.createBinaryExpr(expression, ExprBinary.Op.AND, noSTaken);
         }
         
-        if (module.isEnvEventModel) {
+        if (module.hasEnvEvents()) {
             for (int key: module.getEventLevels()) {
                 Expr binary = DashHelper.createBinaryExpr(DashHelper.events(key), ExprBinary.Op.INTERSECT, DashHelper.addIdentifiersArrow(DashHelper.intEvent(), key)); // s.events & InternalEvents
                 Expr unary = ExprUnary.Op.NO.make(null, binary); //no s.events & InternalEvent
@@ -1314,7 +1314,7 @@ public class CoreDashToElectrum {
   
     //Find the variables that are unchanged during a transition
     Map<String, DashConcState> getUnchangedVars(List<Expr> exprList, DashModule module) {
-    	Map<String, DashConcState> unchangedVariables = new LinkedHashMap<String, DashConcState>(module.variable2ConcState);
+    	Map<String, DashConcState> unchangedVariables = new LinkedHashMap<String, DashConcState>(module.getVariableConcState());
       
         for (String var: changedVars.keySet()) {
         	if (unchangedVariables.keySet().contains(var))
@@ -1915,7 +1915,7 @@ public class CoreDashToElectrum {
         decls.add(new Decl(null, null, null, null, a, mult(snapshot))); //s, s_next: Snapshot
         
         Expr expression = null;
-        for (String transName: module.transitions.keySet())
+        for (String transName: module.getTransitions().keySet())
         {
         	Expr sJoinTrans = ExprBadJoin.make(null, null, s, ExprVar.make(null, transName)); //T[s] or s.T
         	Expr join = ExprBadJoin.make(null, null, sNext, sJoinTrans); // T[s, s_next] or s_next.s.T
@@ -1993,7 +1993,7 @@ public class CoreDashToElectrum {
     private List<String> getTransitions(DashModule module, DashConcState concState)
     {
     	List<String> transitions = new ArrayList<String>();
-    	for (DashTrans trans: module.transitions.values()) {
+    	for (DashTrans trans: module.getTransitions().values()) {
     		if (getParentConcState(trans.getParent()).getFullyQualName().equals(concState.getFullyQualName()))
     			transitions.add(trans.getFullyQualName());
     	}
@@ -2098,7 +2098,7 @@ public class CoreDashToElectrum {
     
     private Expr replaceWithActionExpr(Expr expr, DashConcState parent, DashModule module) {
         if(expr instanceof ExprVar) {
-            for (DashAction value : module.actions.values()) {
+            for (DashAction value : module.getActions().values()) {
                 if (expr.toString().equals(value.getRawName()))
                 	return getVarFromParentExpr(value.getAction() , parent, module);
             }
@@ -2119,7 +2119,7 @@ public class CoreDashToElectrum {
     /***************************** CREATING INVARIANT FACT *******************************/
     
     private void createInvariantFact(DashModule module) {
-    	for(DashInvariant invar: module.invariants.values()) {
+    	for(DashInvariant invar: module.getInvariants().values()) {
     		addInvariantFact(invar, module);
     	}
     }
@@ -2195,8 +2195,8 @@ public class CoreDashToElectrum {
 		scopes.add(transitionSigScope);
         
         int eventLabelScope = 0;
-        if(module.isEnvEventModel) {
-        	eventLabelScope = module.event2ConcState.size();
+        if(module.hasEnvEvents()) {
+        	eventLabelScope = module.getEventConcState().size();
         }
         
 		CommandScope number = new CommandScope(null            , Sig.NONE, true,          eventLabelScope, eventLabelScope,             1    );
@@ -2209,8 +2209,7 @@ public class CoreDashToElectrum {
 		
 		return command.check ? createCommand(false,ExprVar.make(null, "c"), null , ExprVar.make(null, command.label) ,null, scopes, null, module) : createCommand(false,ExprVar.make(null, "r"), null , ExprVar.make(null, command.label) ,null, scopes, null, module);
     }
-    
-    
+        
     //Taken from the Dash.cup file for adding in commands
     private Command createCommand(boolean follow, ExprVar o, ExprVar x, ExprVar n, Expr e, List<CommandScope> s, ExprConstant c, DashModule module) throws Err {
         int bitwidth=(-1), maxseq=(-1), overall=(-1), expects=(c==null ? -1 : c.num);

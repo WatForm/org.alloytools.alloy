@@ -482,53 +482,98 @@ public final class DashModule extends Browsable implements Module {
     /**
      * Each variable name is mapped to its respective expression
      */
-    public Map<String,Expr>              variable2Expression    = new LinkedHashMap<String,Expr>();
-    public Map<String,Expr>              envVariable2Expression = new LinkedHashMap<String,Expr>();
+    private Map<String,Expr>              variable2Expression    = new LinkedHashMap<String,Expr>();
+    private Map<String,Expr>               envVariable2Expression = new LinkedHashMap<String,Expr>();
+    
+    public Map<String,Expr>			getVariableExpresssion() {
+    	return variable2Expression;
+    }
+    
+    // POSSIBLE ISSUE WITH ELECTRUM
+    public Map<String,Expr>			getEnvVarExpresssion() {
+    	return envVariable2Expression;
+    }
     
     /**
      * Each variable name is mapped to the Concurrent State in which they are declared
      */
-    public Map<String,DashConcState>     variable2ConcState     = new LinkedHashMap<String,DashConcState>();
+    private Map<String,DashConcState>     variable2ConcState     = new LinkedHashMap<String,DashConcState>();
+    
+    public Map<String,DashConcState> 	  getVariableConcState() {
+    	return variable2ConcState;
+    }
     
     /**
      * Each event name is mapped to the Concurrent State in which they are declared
      */
-    public Map<String,DashConcState>     event2ConcState     = new LinkedHashMap<String,DashConcState>();
+    private Map<String,DashConcState>     event2ConcState     = new LinkedHashMap<String,DashConcState>();
 
+    public Map<String,DashConcState> 	  getEventConcState() {
+    	return event2ConcState;
+    }
+  
     /**
      * Each transition name is mapped to its respective Transiton AST
      */
-    public Map<String,DashTrans>         transitions            = new LinkedHashMap<String,DashTrans>();
+    private Map<String,DashTrans>         transitions            = new LinkedHashMap<String,DashTrans>();
+    
+    public Map<String,DashTrans> 		  getTransitions() {
+    	return transitions;
+    }
 
     /**
      * Each transition template name is mapped to its respective TransitonTemplate
      * AST
      */
-    public Map<String,DashTransTemplate> transitionTemplates    = new LinkedHashMap<String,DashTransTemplate>();
-
+    private Map<String,DashTransTemplate> transitionTemplates    = new LinkedHashMap<String,DashTransTemplate>();
+    
+    public Map<String,DashTransTemplate>  getTransTemplates() {
+    	return transitionTemplates;
+    }
+    
     /**
      * Each Event is mapped to its respective AST AST
      */
-    public Map<String,DashEvent>         events                 = new LinkedHashMap<String,DashEvent>();
+    private Map<String,DashEvent>         events                 = new LinkedHashMap<String,DashEvent>();
+    
+    public Map<String,DashEvent> 		 getEvents() {
+    	return events;
+    }
 
     /**
      * Each Action Template is mapped to its respective AST AST
      */
-    public Map<String,DashAction>        actions                = new LinkedHashMap<String,DashAction>();
+    private Map<String,DashAction>        actions                = new LinkedHashMap<String,DashAction>();
 
+    public Map<String,DashAction>		  getActions() {
+    	return actions;
+    }
+    
     /**
      * Each Condition Template is mapped to its respective AST AST
      */
-    public Map<String,DashCondition>     conditions             = new LinkedHashMap<String,DashCondition>();
+    private Map<String,DashCondition>     conditions             = new LinkedHashMap<String,DashCondition>();
 
+    public Map<String,DashCondition>	  getConditions() {
+    	return conditions;
+    }
+    
     /**
      * Each Invariant Template is mapped to its respective AST AST
      */
-    public Map<String,DashInvariant>     invariants             = new LinkedHashMap<String,DashInvariant>();
-
-    int                                  transitionCount        = 0;
+    private Map<String,DashInvariant>     invariants             = new LinkedHashMap<String,DashInvariant>();
     
-    public boolean                       isEnvEventModel        = false;
+    public Map<String,DashInvariant> 	  getInvariants() {
+    	return invariants;
+    }
+
+    private int                         transitionCount        = 0;
+    
+    public int 							numOfTransitions() {
+    	return transitionCount;
+    }
+    
+    private boolean                       isEnvEventModel        = false;
 
     Boolean                              doneParsing            = false;
     

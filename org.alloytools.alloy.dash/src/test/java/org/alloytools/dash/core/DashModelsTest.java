@@ -153,16 +153,16 @@ public class DashModelsTest {
         DashModule module = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
         DashModule coreDashModule = new DashToCoreDash().transformToCoreDash(module, "", "");
         DashOptions.isElectrum = false;
- 
-        if (!(coreDashModule.transitions.get("topConcStateA_A").getRawName().equals("A")))
+  
+        if (!(coreDashModule.getTransitions().get("topConcStateA_A").getRawName().equals("A")))
             throw new Exception("Transition not stored in the IDS");
-        if (!(coreDashModule.transitions.get("topConcStateA_B_B").getRawName().equals("B")))
+        if (!(coreDashModule.getTransitions().get("topConcStateA_B_B").getRawName().equals("B")))
             throw new Exception("Transition not stored in the IDS");
-        if (!(coreDashModule.transitions.get("topConcStateA_A").getDestination().getAllDestinations().get(0).equals("topConcStateA_B")))
-            throw new Exception("Transition goto not stored in the IDS" + " Expected: " + coreDashModule.transitions.get("topConcStateA_A").getDestination().getAllDestinations().get(0));
-        if (!(coreDashModule.transitions.get("topConcStateA_B_B").getTriggerEvent().getRawName().equals("topConcStateA_A")))
+        if (!(coreDashModule.getTransitions().get("topConcStateA_A").getDestination().getAllDestinations().get(0).equals("topConcStateA_B")))
+            throw new Exception("Transition goto not stored in the IDS" + " Expected: " + coreDashModule.getTransitions().get("topConcStateA_A").getDestination().getAllDestinations().get(0));
+        if (!(coreDashModule.getTransitions().get("topConcStateA_B_B").getTriggerEvent().getRawName().equals("topConcStateA_A")))
             throw new Exception("Transition event not stored in the IDS");
-
+ 
         DashValidation.clearContainers();
     }
 
@@ -196,7 +196,7 @@ public class DashModelsTest {
         DashOptions.isElectrum = false;
 
         List<DashTrans> transitions = new ArrayList<DashTrans>();
-        for (DashTrans trans : coreDashModule.transitions.values())
+        for (DashTrans trans : coreDashModule.getTransitions().values())
             transitions.add(trans);
 
         if (transitions.size() < 3)
@@ -223,7 +223,7 @@ public class DashModelsTest {
         DashOptions.isElectrum = false;
         
         List<DashTrans> transitions = new ArrayList<DashTrans>();
-        for (DashTrans trans : coreDashModule.transitions.values()) {
+        for (DashTrans trans : coreDashModule.getTransitions().values()) {
             transitions.add(trans);
         }
 
@@ -261,7 +261,7 @@ public class DashModelsTest {
         DashOptions.isElectrum = false;
         
         List<DashTrans> transitions = new ArrayList<DashTrans>();
-        for (DashTrans trans : coreDashModule.transitions.values()) {
+        for (DashTrans trans : coreDashModule.getTransitions().values()) {
             transitions.add(trans);
         }
 
@@ -304,7 +304,7 @@ public class DashModelsTest {
         DashOptions.isElectrum = false;
         
         List<DashTrans> transitions = new ArrayList<DashTrans>();
-        for (DashTrans trans : coreDashModule.transitions.values()) {
+        for (DashTrans trans : coreDashModule.getTransitions().values()) {
             transitions.add(trans);
         }
 
@@ -1293,15 +1293,15 @@ public class DashModelsTest {
         A4Reporter rep = new A4Reporter();
         alloyModule = DashModule.resolveAll(rep == null ? A4Reporter.NOP : rep, alloyModule);
         
-        if (alloyModule.events.size() != 2) {
+        if (alloyModule.getEvents().size() != 2) {
+        	throw new Exception("Nested Events not stored properly");
+        } 
+        
+        if (!alloyModule.getEvents().keySet().contains("R0_R1_S1_R2_E1")) {
         	throw new Exception("Nested Events not stored properly");
         }
         
-        if (!alloyModule.events.keySet().contains("R0_R1_S1_R2_E1")) {
-        	throw new Exception("Nested Events not stored properly");
-        }
-        
-        if (!alloyModule.events.keySet().contains("R0_R1_E0")) {
+        if (!alloyModule.getEvents().keySet().contains("R0_R1_E0")) {
         	throw new Exception("Nested Events not stored properly");
         }
         
