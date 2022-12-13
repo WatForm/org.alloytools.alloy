@@ -5,39 +5,83 @@ import java.util.List;
 import edu.mit.csail.sdg.alloy4.Pos;
 import edu.mit.csail.sdg.ast.Decl;
 
-public class DashTransTemplate {
+public class DashTransTemplate extends DashSuperAST {
+    private List<Decl>    decls;
 
-    public Pos           pos;
-    public String        name     = "";
-    public List<Decl>    decls;
-
-    public DashFrom      fromExpr = null;
-    public DashOn        onExpr   = null;
-    public DashWhenExpr  whenExpr = null;
-    public DashDoExpr    doExpr   = null;
-    public DashGoto      gotoExpr = null;
-    public DashSend      sendExpr = null;
+    private DashFrom      fromExpr;
+    private DashOn        onExpr;
+    private DashWhenExpr  whenExpr;
+    private DashDoExpr    doExpr;
+    private DashGoto      gotoExpr;
+    public DashSend      sendExpr;
 
     public DashConcState parent   = null;
 
     public DashTransTemplate(Pos pos, String name, List<Object> stateItems, List<Decl> decls) {
-        this.pos = pos;
-        this.name = name;
-        this.decls = decls;
+        super(pos, name);
+        this.setParameters(decls);
 
         for (Object item : stateItems) {
             if (item instanceof DashFrom)
-                fromExpr = (DashFrom) item;
+                setOrigin((DashFrom) item);
             if (item instanceof DashOn)
-                onExpr = (DashOn) item;
+                setTriggerEvent((DashOn) item);
             if (item instanceof DashDoExpr)
-                doExpr = (DashDoExpr) item;
+                setAction((DashDoExpr) item);
             if (item instanceof DashWhenExpr)
-                whenExpr = (DashWhenExpr) item;
+                setCondition((DashWhenExpr) item);
             if (item instanceof DashGoto)
-                gotoExpr = (DashGoto) item;
+                setDestination((DashGoto) item);
             if (item instanceof DashSend)
                 sendExpr = (DashSend) item;
         }
     }
+
+	public List<Decl> getParameters() {
+		return decls;
+	}
+
+	public void setParameters(List<Decl> decls) {
+		this.decls = decls;
+	}
+
+	public DashFrom getOrigin() {
+		return fromExpr;
+	}
+
+	public void setOrigin(DashFrom fromExpr) {
+		this.fromExpr = fromExpr;
+	}
+
+	public DashOn getTriggerEvent() {
+		return onExpr;
+	}
+
+	public void setTriggerEvent(DashOn onExpr) {
+		this.onExpr = onExpr;
+	}
+
+	public DashWhenExpr getCondition() {
+		return whenExpr;
+	}
+
+	public void setCondition(DashWhenExpr whenExpr) {
+		this.whenExpr = whenExpr;
+	}
+
+	public DashDoExpr getAction() {
+		return doExpr;
+	}
+
+	public void setAction(DashDoExpr doExpr) {
+		this.doExpr = doExpr;
+	}
+
+	public DashGoto getDestination() {
+		return gotoExpr;
+	}
+
+	public void setDestination(DashGoto gotoExpr) {
+		this.gotoExpr = gotoExpr;
+	}
 }

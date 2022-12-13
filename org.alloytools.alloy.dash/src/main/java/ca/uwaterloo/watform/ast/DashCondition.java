@@ -3,15 +3,11 @@ package ca.uwaterloo.watform.ast;
 import edu.mit.csail.sdg.alloy4.Pos;
 import edu.mit.csail.sdg.ast.Expr;
 
-public class DashCondition {
-
-    private Pos    pos;
-    private String name;
+public class DashCondition extends DashSuperAST {
     private Expr   expr;
 
     public DashCondition(Pos pos, String name, Expr expr) {
-        this.pos = pos;
-        this.name = name;
+        super(pos, name);
         this.expr = expr;
     }
     

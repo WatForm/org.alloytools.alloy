@@ -3,20 +3,24 @@ package ca.uwaterloo.watform.ast;
 import edu.mit.csail.sdg.alloy4.Pos;
 
 public class DashOn extends DashSuperAST {
-
-    public Pos    	     pos;
-    public Boolean 		 isInternal = false;
+    private Boolean 		 isInternal = false;
 
     public DashOn(Pos pos, String name, Boolean isInternal) {
-        this.pos = pos;
-        this.name = name;
-        this.isInternal = isInternal;
+        super(pos, name);
+        this.setIsInternal(isInternal);
     }
     
     public DashOn(DashOn on) {
-    	this.pos = on.pos;
+    	super(on.pos, on.name);
     	this.parentConcState = on.parentConcState;
-    	this.name = on.name;
-    	this.isInternal = on.isInternal;
+    	this.setIsInternal(on.isInternal());
     }
+
+	public Boolean isInternal() {
+		return isInternal;
+	}
+
+	public void setIsInternal(Boolean isInternal) {
+		this.isInternal = isInternal;
+	}
 }

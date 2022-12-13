@@ -5,13 +5,13 @@ import java.util.List;
 
 import edu.mit.csail.sdg.alloy4.ErrorSyntax;
 import edu.mit.csail.sdg.alloy4.Pos;
+import edu.mit.csail.sdg.ast.Decl;
 
 public class DashState extends DashSuperState {
-	
-	private final List<DashEnter>		enter      			= new ArrayList<DashEnter>();
-	private final List<DashExit>  	exit       			= new ArrayList<DashExit>();
-	private final List<DashTrans> 	modifiedTransitions = new ArrayList<DashTrans>(); // Transitions after they have been modified during the transformation to Core Dash
-	private final Boolean         	isDefault;  		//Specifies whether this state is a default state
+	private List<DashEnter>		enter;
+	private List<DashExit>  	exit;
+	private List<DashTrans> 	modifiedTransitions; // Transitions after they have been modified during the transformation to Core Dash
+	private final Boolean       isDefault;  		//Specifies whether this state is a default state
 
 
     /*
@@ -19,10 +19,8 @@ public class DashState extends DashSuperState {
      * state. items are the list of items that are inside the parsed state.
      */
     public DashState(Pos pos, String label, List<Object> stateItems, Boolean isDefault) {
-        this.pos = pos; //This specifies the position of the state in the model (line and column information)
-        this.name = label;
-        this.states = new ArrayList<DashState>();
-        this.transitions = new ArrayList<DashTrans>();
+    	super(pos, label);
+        this.initializeContainers();
         
         if (stateItems != null) {
             for (Object item : stateItems) {
@@ -34,6 +32,10 @@ public class DashState extends DashSuperState {
                     this.transitions.add((DashTrans) item);
                 if (item instanceof DashEnter) 
                     this.enter.add((DashEnter) item);
+                if (item instanceof Decl)
+                    decls.add((Decl) item);
+                if (item instanceof DashEvent)
+                    events.add((DashEvent) item);
                 if (item instanceof DashExit) 
                     this.exit.add((DashExit) item);
                 if (item instanceof DashEvent)
@@ -44,6 +46,12 @@ public class DashState extends DashSuperState {
         }
 
         this.isDefault = isDefault;
+    }
+    
+    private void initializeContainers() {
+    	enter      			= new ArrayList<DashEnter>();
+    	exit       			= new ArrayList<DashExit>();
+    	modifiedTransitions = new ArrayList<DashTrans>();
     }
 
 	@Override
@@ -59,6 +67,21 @@ public class DashState extends DashSuperState {
 	@Override
 	public List<DashTrans> getTransitions() {
 		return transitions;
+	}
+	
+	@Override
+	public List<DashBuffer> getBuffers(){
+		return buffers;
+	}
+	
+	@Override
+	public List<DashEvent> getEvents(){
+		return events;
+	}
+	
+	@Override
+	public List<Decl> getVariables(){
+		return decls;
 	}
 
     public List<DashEnter> getEnters() {

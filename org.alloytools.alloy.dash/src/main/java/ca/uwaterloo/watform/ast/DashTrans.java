@@ -6,54 +6,50 @@ import edu.mit.csail.sdg.alloy4.Pos;
 
 /* Stores information regarding a transition within a state/concState */
 public class DashTrans extends DashSuperAST {
-
-    private DashFrom         fromExpr      = null;
-    public DashOn            onExpr        = null;
-    public DashWhenExpr      whenExpr      = null;
-    public DashDoExpr        doExpr        = null;
-    public DashGoto          gotoExpr      = null;
-    public DashSend          sendExpr      = null;
-    public DashTransTemplate transTemplate = null;
-
+    private DashFrom          fromExpr;
+    private DashOn            onExpr;
+    private DashWhenExpr      whenExpr;
+    private DashDoExpr        doExpr;
+    private DashGoto          gotoExpr;
+    private DashSend          sendExpr;
+    private DashTransTemplate transTemplate;
 
     /*
      * TransItems is the list of items that is inside a transition. An example of an
      * items is do statement, goto statement, etc.
      */
     public DashTrans(Pos pos, String name, List<Object> transItems) {
-        this.name = name;
-        this.pos = pos;
+    	super(pos, name);
 
         for (Object item : transItems) {
             if (item instanceof DashFrom)
                 fromExpr = (DashFrom) item;
             if (item instanceof DashOn)
-                onExpr = (DashOn) item;
+                setTriggerEvent((DashOn) item);
             if (item instanceof DashWhenExpr)
-                whenExpr = (DashWhenExpr) item;
+                setCondition((DashWhenExpr) item);
             if (item instanceof DashDoExpr)
-                doExpr = (DashDoExpr) item;
+                setAction((DashDoExpr) item);
             if (item instanceof DashGoto)
-                gotoExpr = (DashGoto) item;
+                setDestination((DashGoto) item);
             if (item instanceof DashSend)
-                sendExpr = (DashSend) item;
+                setEventsTriggered((DashSend) item);
 
         }
     }
 
     public DashTrans(DashTrans trans) {
+    	super(trans.pos, trans.name);
         this.fromExpr = trans.fromExpr;
-        this.onExpr = trans.onExpr;
-        this.whenExpr = trans.whenExpr;
-        this.doExpr = trans.doExpr;
-        this.gotoExpr = trans.gotoExpr;
-        this.sendExpr = trans.sendExpr;
+        this.setTriggerEvent(trans.getTriggerEvent());
+        this.setCondition(trans.getCondition());
+        this.setAction(trans.getAction());
+        this.setDestination(trans.getDestination());
+        this.setEventsTriggered(trans.getEventsTriggered());
 
-        this.name = trans.name;
         this.modifiedName = trans.modifiedName;
         this.parent = trans.parent;
         this.parentConcState = trans.parentConcState;
-        this.pos = null;
     }
     
     public DashFrom getOrigin() {
@@ -69,14 +65,54 @@ public class DashTrans extends DashSuperAST {
     }
     
     public DashDoExpr getActions() {
-    	return doExpr;
+    	return getAction();
     }
     
     public DashSend getEventTriggered() {
-    	return sendExpr;
+    	return getEventsTriggered();
     }
     
     public DashOn getTriggerEvent() {
     	return onExpr;
     }
+
+	public void setTriggerEvent(DashOn onExpr) {
+		this.onExpr = onExpr;
+	}
+
+	public DashWhenExpr getCondition() {
+		return whenExpr;
+	}
+
+	public void setCondition(DashWhenExpr whenExpr) {
+		this.whenExpr = whenExpr;
+	}
+
+	public DashDoExpr getAction() {
+		return doExpr;
+	}
+
+	public void setAction(DashDoExpr doExpr) {
+		this.doExpr = doExpr;
+	}
+
+	public void setDestination(DashGoto gotoExpr) {
+		this.gotoExpr = gotoExpr;
+	}
+
+	public DashSend getEventsTriggered() {
+		return sendExpr;
+	}
+
+	public void setEventsTriggered(DashSend sendExpr) {
+		this.sendExpr = sendExpr;
+	}
+
+	public DashTransTemplate getTransTemplate() {
+		return transTemplate;
+	}
+
+	public void setTransTemplate(DashTransTemplate transTemplate) {
+		this.transTemplate = transTemplate;
+	}
 }

@@ -13,20 +13,15 @@ import edu.mit.csail.sdg.ast.ExprVar;
  * declared within a DASH model */
 public class DashConcState extends DashSuperState {
     private DashState			    				parentState;
-    private String                  				param          = new String();
-    
-    private List<String>     	    					IEs   		   = new ArrayList<String>();
-    private final List<DashBuffer>        				buffers        = new ArrayList<DashBuffer>();
-    private final List<DashTemplateCall>  				templateCall   = new ArrayList<DashTemplateCall>();
-    private final List<DashTransTemplate> 				templateDecl   = new ArrayList<DashTransTemplate>();
-    private final List<DashEvent>         				events         = new ArrayList<DashEvent>();
-    private final List<Decl>              				decls          = new ArrayList<Decl>();
-    private final List<DashInit>          				init           = new ArrayList<DashInit>();
-    private final List<DashInvariant>     				invariant      = new ArrayList<DashInvariant>();
-    private final List<DashAction>        				action         = new ArrayList<DashAction>();
-    private final List<DashCondition>     				condition      = new ArrayList<DashCondition>();
-    private final List<DashTrans>     					allTransitions = new ArrayList<DashTrans>();
-    private final Map<Integer, List<DashConcState>>     allChildConcStates = new LinkedHashMap<Integer, List<DashConcState>>();
+    private String                  				param;
+    private List<String>     	    				IEs;
+    private List<DashTemplateCall>  				templateCall;
+    private List<DashTransTemplate> 				templateDecl;
+    private List<DashInit>          				init;
+    private List<DashAction>        				action;
+    private List<DashCondition>     				condition;
+    private List<DashTrans>     					allTransitions;
+    private Map<Integer, List<DashConcState>>    	allChildConcStates;
 
 
     /*
@@ -35,9 +30,8 @@ public class DashConcState extends DashSuperState {
      * parsed conc state.
      */
     public DashConcState(Pos pos, String name, List<Object> concStateItems, ExprVar param) {
-        this.pos = pos;
-        this.name = name;
-
+        super(pos, name);
+        initializeContainers();
         //Iterate through each item in the conc state and add each item to
         //a respective list (A state item will be added to the list of states, etc)
         for (Object item : concStateItems) {
@@ -74,6 +68,18 @@ public class DashConcState extends DashSuperState {
         
         this.IEs = new ArrayList<String>();
     }
+    
+    private void initializeContainers() {
+        param          = new String();
+        IEs   		   = new ArrayList<String>();
+        templateCall   = new ArrayList<DashTemplateCall>();
+        templateDecl   = new ArrayList<DashTransTemplate>();
+        init           = new ArrayList<DashInit>();
+        action         = new ArrayList<DashAction>();
+        condition      = new ArrayList<DashCondition>();
+        allTransitions = new ArrayList<DashTrans>();
+        allChildConcStates = new LinkedHashMap<Integer, List<DashConcState>>();
+    }
 	
 	@Override
 	public List<DashConcState> getInnerConcStates() {
@@ -88,6 +94,21 @@ public class DashConcState extends DashSuperState {
 	@Override
 	public List<DashTrans> getTransitions() {
 		return transitions;
+	}
+	
+	@Override
+	public List<DashBuffer> getBuffers(){
+		return buffers;
+	}
+	
+	@Override
+	public List<DashEvent> getEvents(){
+		return events;
+	}
+	
+	@Override
+	public List<Decl> getVariables(){
+		return decls;
 	}
 	
 	public DashState getParentORState() {
@@ -130,18 +151,6 @@ public class DashConcState extends DashSuperState {
 		return allTransitions;
 	}
 	
-	public List<DashBuffer> getBuffers(){
-		return buffers;
-	}
-	
-	public List<DashEvent> getEvents(){
-		return events;
-	}
-	
-	public List<Decl> getVariables(){
-		return decls;
-	}
-	
 	public List<DashInit> getInitialConds(){
 		return init;
 	}
@@ -159,13 +168,7 @@ public class DashConcState extends DashSuperState {
 	
 	public void addInnerConcState(DashConcState concState) {
 		int identifiers = concState.getIdentifiers().size();
-		if(!(this.allChildConcStates).containsKey(identifiers)) {
-			this.allChildConcStates.put(identifiers, new ArrayList<DashConcState>());
-			this.allChildConcStates.get(identifiers).add(concState);
-		}
-		else {
-			this.allChildConcStates.get(identifiers).add(concState);
-		}
+		this.allChildConcStates.getOrDefault(identifiers, new ArrayList<DashConcState>()).add(concState);
 	}
 	
 	public void addSelfToInnerConcState() {

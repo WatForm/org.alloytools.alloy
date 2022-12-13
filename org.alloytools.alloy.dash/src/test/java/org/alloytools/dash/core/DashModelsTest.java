@@ -36,10 +36,10 @@ public class DashModelsTest {
         DashModule module = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
         DashOptions.isElectrum = false;
 
-        assertNotNull(module.states.get("concState_topStateA"));
-        assertNotNull(module.states.get("concState_topStateA_innerState"));
-        assertNotNull(module.states.get("concState_topStateB"));
-        assertEquals(module.states.get("concState_topStateA").getInnerORStates().get(0).getRawName(), "innerState");
+        assertNotNull(module.getORStates().get("concState_topStateA"));
+        assertNotNull(module.getORStates().get("concState_topStateA_innerState"));
+        assertNotNull(module.getORStates().get("concState_topStateB"));
+        assertEquals(module.getORStates().get("concState_topStateA").getInnerORStates().get(0).getRawName(), "innerState");
         DashValidation.clearContainers();
     }
 
@@ -52,20 +52,20 @@ public class DashModelsTest {
         DashModule coreDashModule = new DashToCoreDash().transformToCoreDash(module, "", "");
         DashOptions.isElectrum = false;
         
-        if (!(coreDashModule.concStates.get("topConcStateA").getRawName().equals("topConcStateA")))
+        if (!(coreDashModule.getAllConcurrentStates().get("topConcStateA").getRawName().equals("topConcStateA")))
             throw new Exception("Top level concurrent state not stored in the IDS");
-        if (!(coreDashModule.concStates.get("topConcStateA").getInnerConcStates().get(0).getRawName().equals("innerConcState")))
+        if (!(coreDashModule.getAllConcurrentStates().get("topConcStateA").getInnerConcStates().get(0).getRawName().equals("innerConcState")))
             throw new Exception("Child concurrent state not stored in the IDS");
-        if (!(coreDashModule.states.get("topConcStateA_innerConcState_A").getRawName().equals("A")))
+        if (!(coreDashModule.getORStates().get("topConcStateA_innerConcState_A").getRawName().equals("A")))
             throw new Exception("Inner OR state not stored in the IDS");
-        if (!(coreDashModule.concStates.get("topConcStateB").getRawName().equals("topConcStateB")))
+        if (!(coreDashModule.getAllConcurrentStates().get("topConcStateB").getRawName().equals("topConcStateB")))
             throw new Exception("Top level concurrent state not stored in the IDS");
 
         DashValidation.clearContainers();
     }
-    
+     
     @Test
-    public void testParamConcStates() throws Exception {
+    public void testParamConcStates() throws Exception { 
 
         String dashModel = "conc state topConcStateA [PID1] { default state A {} } conc state topConcStateB [PID2] { default state B{} }";
         DashOptions.outputDir = "test.dsh";
@@ -73,14 +73,14 @@ public class DashModelsTest {
         DashModule coreDashModule = new DashToCoreDash().transformToCoreDash(module, "", "");
         DashOptions.isElectrum = false;
         
-        if (!(coreDashModule.concStates.get("topConcStateA").getRawName().equals("topConcStateA")))
+        if (!(coreDashModule.getAllConcurrentStates().get("topConcStateA").getRawName().equals("topConcStateA")))
             throw new Exception("Top level concurrent state not stored in the IDS");
-        if (!(coreDashModule.concStates.get("topConcStateB").getRawName().equals("topConcStateB")))
+        if (!(coreDashModule.getAllConcurrentStates().get("topConcStateB").getRawName().equals("topConcStateB")))
             throw new Exception("Top level concurrent state not stored in the IDS");
         
-        if (!(coreDashModule.concStates.get("topConcStateA").getReplicatedIdentifier().equals("PID1")))
-            throw new Exception("Top level concurrent (topConcStateA) parameter not stored properly." + " Param: " + module.concStates.get("topConcStateA").getReplicatedIdentifier());
-        if (!(coreDashModule.concStates.get("topConcStateB").getReplicatedIdentifier().equals("PID2")))
+        if (!(coreDashModule.getAllConcurrentStates().get("topConcStateA").getReplicatedIdentifier().equals("PID1")))
+            throw new Exception("Top level concurrent (topConcStateA) parameter not stored properly." + " Param: " + module.getAllConcurrentStates().get("topConcStateA").getReplicatedIdentifier());
+        if (!(coreDashModule.getAllConcurrentStates().get("topConcStateB").getReplicatedIdentifier().equals("PID2")))
             throw new Exception("Top level concurrent (topConcStateB) parameter not stored properly.");
 
         DashValidation.clearContainers();
@@ -153,14 +153,14 @@ public class DashModelsTest {
         DashModule module = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
         DashModule coreDashModule = new DashToCoreDash().transformToCoreDash(module, "", "");
         DashOptions.isElectrum = false;
-
+ 
         if (!(coreDashModule.transitions.get("topConcStateA_A").getRawName().equals("A")))
             throw new Exception("Transition not stored in the IDS");
         if (!(coreDashModule.transitions.get("topConcStateA_B_B").getRawName().equals("B")))
             throw new Exception("Transition not stored in the IDS");
-        if (!(coreDashModule.transitions.get("topConcStateA_A").gotoExpr.gotoExpr.get(0).equals("topConcStateA_B")))
-            throw new Exception("Transition goto not stored in the IDS" + " Expected: " + coreDashModule.transitions.get("topConcStateA_A").gotoExpr.gotoExpr.get(0));
-        if (!(coreDashModule.transitions.get("topConcStateA_B_B").onExpr.getRawName().equals("topConcStateA_A")))
+        if (!(coreDashModule.transitions.get("topConcStateA_A").getDestination().getAllDestinations().get(0).equals("topConcStateA_B")))
+            throw new Exception("Transition goto not stored in the IDS" + " Expected: " + coreDashModule.transitions.get("topConcStateA_A").getDestination().getAllDestinations().get(0));
+        if (!(coreDashModule.transitions.get("topConcStateA_B_B").getTriggerEvent().getRawName().equals("topConcStateA_A")))
             throw new Exception("Transition event not stored in the IDS");
 
         DashValidation.clearContainers();
@@ -174,11 +174,11 @@ public class DashModelsTest {
         DashModule module = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
         DashOptions.isElectrum = false;
 
-        if (!module.variableNames.get("concState").get(0).equals("var_one"))
+        if (!module.getRawVarNames().get("concState").get(0).equals("var_one"))
             throw new Exception("Outer Conc State variable not stored properly.");
-        if (!module.variableNames.get("concState").get(1).equals("var_two"))
+        if (!module.getRawVarNames().get("concState").get(1).equals("var_two"))
             throw new Exception("Outer Conc State variable not stored properly.");
-        if (!module.variableNames.get("concState_innerConcState").get(0).equals("var_three"))
+        if (!module.getRawVarNames().get("concState_innerConcState").get(0).equals("var_three"))
             throw new Exception("Inner Conc State variable not stored properly.");
 
         DashValidation.clearContainers();
@@ -232,19 +232,19 @@ public class DashModelsTest {
         if (transitions.size() > 3)
             throw new Exception("More transitions than necessary has been stored.");
 
-        if (!transitions.get(0).getOrigin().fromExpr.get(0).equals("concState"))
+        if (!transitions.get(0).getOrigin().getAllOrigins().get(0).equals("concState"))
             throw new Exception("Transition From Expr not stored correctly.");
-        if (!transitions.get(0).gotoExpr.gotoExpr.get(0).equals("concState"))
+        if (!transitions.get(0).getDestination().getAllDestinations().get(0).equals("concState"))
             throw new Exception("Transition Goto Expr not stored correctly.");
 
-        if (!transitions.get(1).getOrigin().fromExpr.get(0).equals("concState"))
+        if (!transitions.get(1).getOrigin().getAllOrigins().get(0).equals("concState"))
             throw new Exception("Transition From Expr not stored correctly.");
-        if (!transitions.get(1).getOrigin().fromExpr.get(0).equals("concState"))
+        if (!transitions.get(1).getOrigin().getAllOrigins().get(0).equals("concState"))
             throw new Exception("Transition Goto Expr not stored correctly.");
 
-        if (!transitions.get(2).getOrigin().fromExpr.get(0).equals("concState/state_one"))
+        if (!transitions.get(2).getOrigin().getAllOrigins().get(0).equals("concState/state_one"))
             throw new Exception("Transition From Expr not stored correctly.");
-        if (!transitions.get(2).getOrigin().fromExpr.get(0).equals("concState/state_one"))
+        if (!transitions.get(2).getOrigin().getAllOrigins().get(0).equals("concState/state_one"))
             throw new Exception("Transition Goto Expr not stored correctly.");
 
 
@@ -265,30 +265,30 @@ public class DashModelsTest {
             transitions.add(trans);
         }
 
-        if (!transitions.get(0).getOrigin().fromExpr.get(0).equals("concState_state_one"))
+        if (!transitions.get(0).getOrigin().getAllOrigins().get(0).equals("concState_state_one"))
             throw new Exception("Transition From Expr not stored correctly.");
-        if (!transitions.get(0).onExpr.getRawName().equals("concState_event_one"))
+        if (!transitions.get(0).getTriggerEvent().getRawName().equals("concState_event_one"))
             throw new Exception("Transition On Expr not stored correctly.");
-        if (!transitions.get(0).doExpr.exprList.get(0).toString().equals("var_one' = var_one"))
+        if (!transitions.get(0).getAction().getAllExpression().get(0).toString().equals("var_one' = var_one"))
             throw new Exception("Transition do Expr not stored correctly.");
-        if (!transitions.get(0).whenExpr.exprList.get(0).toString().equals("var_one = none"))
-            throw new Exception("Transition when Expr not stored correctly. Expected is: var_one = none, Actual is: " + transitions.get(0).whenExpr.exprList.get(0).toString());
-        if (!transitions.get(0).gotoExpr.gotoExpr.get(0).equals("concState_state_two"))
+        if (!transitions.get(0).getCondition().getAllExpressions().get(0).toString().equals("var_one = none"))
+            throw new Exception("Transition when Expr not stored correctly. Expected is: var_one = none, Actual is: " + transitions.get(0).getCondition().getAllExpressions().get(0).toString());
+        if (!transitions.get(0).getDestination().getAllDestinations().get(0).equals("concState_state_two"))
             throw new Exception("Transition Goto Expr not stored correctly.");
-        if (!transitions.get(0).sendExpr.getRawName().equals("concState_event_one"))
+        if (!transitions.get(0).getEventsTriggered().getRawName().equals("concState_event_one"))
             throw new Exception("Transition Send Expr not stored correctly.");
 
-        if (!transitions.get(1).getOrigin().fromExpr.get(0).equals("concState_state_two"))
+        if (!transitions.get(1).getOrigin().getAllOrigins().get(0).equals("concState_state_two"))
             throw new Exception("Transition From Expr not stored correctly.");
-        if (!transitions.get(1).onExpr.getRawName().equals("concState_event_one"))
+        if (!transitions.get(1).getTriggerEvent().getRawName().equals("concState_event_one"))
             throw new Exception("Transition On Expr not stored correctly.");
-        if (!transitions.get(1).doExpr.exprList.get(0).toString().equals("var_one' = var_one"))
+        if (!transitions.get(1).getAction().getAllExpression().get(0).toString().equals("var_one' = var_one"))
             throw new Exception("Transition do Expr not stored correctly.");
-        if (!transitions.get(1).whenExpr.exprList.get(0).toString().equals("var_one = none"))
-            throw new Exception("Transition when Expr not stored correctly. Expected is: var_one = none, Actual is: " + transitions.get(1).whenExpr.exprList.get(0).toString());
-        if (!transitions.get(1).gotoExpr.gotoExpr.get(0).equals("concState_state_two"))
+        if (!transitions.get(1).getCondition().getAllExpressions().get(0).toString().equals("var_one = none"))
+            throw new Exception("Transition when Expr not stored correctly. Expected is: var_one = none, Actual is: " + transitions.get(1).getCondition().getAllExpressions().get(0).toString());
+        if (!transitions.get(1).getDestination().getAllDestinations().get(0).equals("concState_state_two"))
             throw new Exception("Transition Goto Expr not stored correctly.");
-        if (!transitions.get(1).sendExpr.getRawName().equals("concState_event_one"))
+        if (!transitions.get(1).getEventsTriggered().getRawName().equals("concState_event_one"))
             throw new Exception("Transition Send Expr not stored correctly.");
 
         DashValidation.clearContainers();
@@ -308,37 +308,36 @@ public class DashModelsTest {
             transitions.add(trans);
         }
 
-        if (!transitions.get(0).getOrigin().fromExpr.get(0).equals("concState_state_one"))
+        if (!transitions.get(0).getOrigin().getAllOrigins().get(0).equals("concState_state_one"))
             throw new Exception("Transition From Expr not stored correctly.");
-        if (!transitions.get(0).onExpr.getRawName().equals("concState_event_one"))
+        if (!transitions.get(0).getTriggerEvent().getRawName().equals("concState_event_one"))
             throw new Exception("Transition On Expr not stored correctly.");
-        if (!transitions.get(0).doExpr.exprList.get(0).toString().equals("var_one' = var_one"))
+        if (!transitions.get(0).getAction().getAllExpression().get(0).toString().equals("var_one' = var_one"))
             throw new Exception("Transition do Expr not stored correctly.");
-        if (!transitions.get(0).whenExpr.exprList.get(0).toString().equals("var_one = none"))
+        if (!transitions.get(0).getCondition().getAllExpressions().get(0).toString().equals("var_one = none"))
             throw new Exception("Transition when Expr not stored correctly.");
-        if (!transitions.get(0).gotoExpr.gotoExpr.get(0).equals("concState_state_one"))
+        if (!transitions.get(0).getDestination().getAllDestinations().get(0).equals("concState_state_one"))
             throw new Exception("Transition Goto Expr not stored correctly.");
-        if (!transitions.get(0).sendExpr.getRawName().equals("concState_event_one"))
+        if (!transitions.get(0).getEventsTriggered().getRawName().equals("concState_event_one"))
             throw new Exception("Transition Send Expr not stored correctly.");
 
-        if (!transitions.get(1).getOrigin().fromExpr.get(0).equals("concState_state_two"))
+        if (!transitions.get(1).getOrigin().getAllOrigins().get(0).equals("concState_state_two"))
             throw new Exception("Transition From Expr not stored correctly.");
-        if (!transitions.get(1).onExpr.getRawName().equals("concState_event_one"))
+        if (!transitions.get(1).getTriggerEvent().getRawName().equals("concState_event_one"))
             throw new Exception("Transition On Expr not stored correctly.");
-        if (!transitions.get(1).doExpr.exprList.get(0).toString().equals("var_one' = var_one"))
+        if (!transitions.get(1).getAction().getAllExpression().get(0).toString().equals("var_one' = var_one"))
             throw new Exception("Transition do Expr not stored correctly.");
-        if (!transitions.get(1).whenExpr.exprList.get(0).toString().equals("var_one = none"))
+        if (!transitions.get(1).getCondition().getAllExpressions().get(0).toString().equals("var_one = none"))
             throw new Exception("Transition when Expr not stored correctly.");
-        if (!transitions.get(1).gotoExpr.gotoExpr.get(0).equals("concState_state_one"))
+        if (!transitions.get(1).getDestination().getAllDestinations().get(0).equals("concState_state_one"))
             throw new Exception("Transition Goto Expr not stored correctly.");
-        if (!transitions.get(1).sendExpr.getRawName().equals("concState_event_one"))
+        if (!transitions.get(1).getEventsTriggered().getRawName().equals("concState_event_one"))
             throw new Exception("Transition Send Expr not stored correctly.");
 
         DashValidation.clearContainers();
     }
 
     //CoreDash to Alloy AST Unit Tests
-    
     @Test
     public void testPredicateNames() throws Exception {
 
@@ -646,14 +645,14 @@ public class DashModelsTest {
         DashModule module = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
         //DashModule coreDash = DashModule coreDashModule = new DashToCoreDash().transformToCoreDash(module, "", "");
         //DashModule alloy = new CoreDashToAlloy().convertToAlloyAST(coreDash);
-        
+              
         List<String> buffers = new ArrayList<String>();
         List<String> bufferElems = new ArrayList<String>();
         DashOptions.isElectrum = false;
         
-        for (String name : module.bufferNameToElem.keySet()) {
+        for (String name : module.getBufferElement().keySet()) {
         	buffers.add(name);
-        	bufferElems.add(module.bufferNameToElem.get(name));
+        	bufferElems.add(module.getBufferElement().get(name));
         }
          
         if (!(buffers.get(0).equals("Parent_Child1_buf1")))
@@ -667,7 +666,7 @@ public class DashModelsTest {
         
         
         DashValidation.clearContainers();
-    }
+    } 
     
     
     @Test
@@ -819,7 +818,6 @@ public class DashModelsTest {
     }
     
     // Unit Testing For The Dynamic Approach
-    
     @Test
     public void testRepStateNestedInRepState() throws Exception {
         String dashModel = "conc state R0 [IE0] {\n"
@@ -850,13 +848,13 @@ public class DashModelsTest {
         DashModule alloyModule = new CoreDashToAlloy().convertToAlloyAST(coreDashModule, "", "");
         DashOptions.isElectrum = false;
 
-        if (!alloyModule.concStateNames.contains("R0")) {
+        if (!alloyModule.getConcurrentStateNames().contains("R0")) {
         	throw new Exception("Replicated Concurrent State Not Stored Properly.");
         }
-        if (!alloyModule.concStateNames.contains("R0_R1")) {
+        if (!alloyModule.getConcurrentStateNames().contains("R0_R1")) {
         	throw new Exception("Replicated Concurrent State Not Stored Properly.");
         }
-        if (!alloyModule.concStateNames.contains("R0_R1_S1_R2")) {
+        if (!alloyModule.getConcurrentStateNames().contains("R0_R1_S1_R2")) {
         	throw new Exception("Replicated Concurrent State Not Stored Properly.");
         }
 
@@ -896,7 +894,7 @@ public class DashModelsTest {
         A4Reporter rep = new A4Reporter();
         alloyModule = DashModule.resolveAll(rep == null ? A4Reporter.NOP : rep, alloyModule);
         
-        if (alloyModule.confTuples.size() != 3) {
+        if (alloyModule.getConfLevels().size() != 3) {
         	throw new Exception("Configurations are not stored properly.");
         }
         
@@ -958,7 +956,7 @@ public class DashModelsTest {
         A4Reporter rep = new A4Reporter();
         alloyModule = DashModule.resolveAll(rep == null ? A4Reporter.NOP : rep, alloyModule);
         
-        if (alloyModule.confTuples.size() != 3) {
+        if (alloyModule.getConfLevels().size() != 3) {
         	throw new Exception("Configurations are not stored properly.");
         }
         

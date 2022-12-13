@@ -34,7 +34,7 @@ public class DashHelper {
 	public static Expr parameterize(String string) {
 		return createBinaryExpr(createExprVar("p"), ExprBinary.Op.JOIN ,createExprVar(DashHelper.toLowerCase(string)));
 	}
-	
+	 
 	/*
 	 * If a Snapshot variable (assume a variable: var) originates from a Parameterized Concurrent State (assume with a parameter called p), then we create the following:
 	 * var: p -> expr
@@ -165,7 +165,7 @@ public class DashHelper {
 	
 	public static Expr noTakenSemanticsConstraints(String type, int taken, DashModule module) {
 		Expr equals = null;
-		for (int key: module.confTuples) {
+		for (int key: module.getConfLevels()) {
 			if (key == taken) {
 				continue;
 			}
@@ -178,7 +178,7 @@ public class DashHelper {
 	
 	public static Expr constraintEquals(String type, int conf, DashModule module) {
 		Expr equals = null;
-		for (int key: module.confTuples) {
+		for (int key: module.getConfLevels()) {
 			if (key == conf) {
 				continue;
 			}
@@ -192,7 +192,7 @@ public class DashHelper {
 	
 	public static Expr constraintConf (int conf, DashModule module) {
 		Expr equals = null;
-		for (int key: module.confTuples) {
+		for (int key: module.getConfLevels()) {
 			if (key == conf) {
 				continue;
 			}
@@ -317,11 +317,11 @@ public class DashHelper {
 	public static Map<Integer, Expr> calculateConf2GotoExpr(DashTrans transition) {
 		Map<Integer, Expr> conf2GotoExpr = new LinkedHashMap<Integer, Expr>();
 		// For each Destination state
-    	for (String key: transition.gotoExpr.gotoExprs.keySet()) {
+    	for (String key: transition.getDestination().getDefaultStatesEntered().keySet()) {
     		// Create DestState expression
     		Expr destState = ExprVar.make(null, key);
     		// Get the parent concurrent state of the Destination state
-    		DashConcState destStateParent = transition.gotoExpr.gotoExprs.get(key);
+    		DashConcState destStateParent = transition.getDestination().getDefaultStatesEntered().get(key);
     		// Get the number of identifiers that maps to the state
     		int ieSize = destStateParent.getIdentifiers().size();
     		// Create the following (IE -> IE -> State)
@@ -351,9 +351,9 @@ public class DashHelper {
 	public static Map<Integer, Expr> calculateConf2FromExpr(DashTrans transition) {
 		Map<Integer, Expr> conf2FromExpr = new LinkedHashMap<Integer, Expr>();
 		// For each Source state
-    	for (DashConcState key: transition.getOrigin().fromExprs) {
+    	for (DashConcState key: transition.getOrigin().getConcStatesExited()) {
     		// Create SourceStste expression
-    		Expr parentStateExited = ExprVar.make(null, transition.getOrigin().stateBeingLeft);
+    		Expr parentStateExited = ExprVar.make(null, transition.getOrigin().getStateBeingLeft());
     		int ieSize = key.getIdentifiers().size();
     		// Create the following (IE -> IE -> State)
             for (int i = key.getIdentifiers().size() - 1; i >= 0; i--) {
@@ -371,7 +371,7 @@ public class DashHelper {
 	}
 	
     public static DashState getState(String stateName, DashModule module) {
-    	return module.states.get(stateName);
+    	return module.getORStates().get(stateName);
    }
 	
     /*************************** CREATING EXPRESSIONS ******************************/
@@ -731,19 +731,19 @@ public class DashHelper {
 
    public static Boolean checkInternalEvent(DashTrans trans, DashModule module)
    {
-       if (trans.onExpr == null)
+       if (trans.getTriggerEvent() == null)
            return false;
    	
-       String onCommand = trans.onExpr.getRawName();
+       String onCommand = trans.getTriggerEvent().getRawName();
 
        if (onCommand.contains("/")) 
            onCommand = onCommand.substring(onCommand.lastIndexOf('/') + 1);
 
-       for(DashConcState concState: module.concStates.values()) {
+       for(DashConcState concState: module.getAllConcurrentStates().values()) {
 		for(DashEvent event: concState.getEvents()) {
-			if(event.type.equals("event") && event.getRawName().equals(onCommand)) {
+			if(event.getType().equals("event") && event.getRawName().equals(onCommand)) {
 				return true;
-			}
+			} 
 		}
        }  
        return false;

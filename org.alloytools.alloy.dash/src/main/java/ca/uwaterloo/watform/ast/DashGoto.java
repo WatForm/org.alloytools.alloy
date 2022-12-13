@@ -10,19 +10,15 @@ import edu.mit.csail.sdg.alloy4.Pos;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprVar;
 
-public class DashGoto {
-
-    public Pos          			  pos;
-    public List<String> 			  gotoExpr = new ArrayList<String>();
-    public DashConcState 	  		  gotoConcState;
-    public Map<String, DashConcState> gotoExprs = new LinkedHashMap<String, DashConcState>();
-    public boolean 					  enteringDefaultStates = false;
-    public String       			  name;
-    public Expr       			  param;
+public class DashGoto extends DashSuperAST{
+    private List<String> 			    gotoExpr = new ArrayList<String>();
+    private Map<String, DashConcState>  gotoExprs = new LinkedHashMap<String, DashConcState>();
+    private boolean 					enteringDefaultStates = false;
+    private Expr       			 		param;
     
     public DashGoto(Pos pos, List<ExprVar> gotoExpr) {
-        this.pos = pos;
-
+        super(pos, null);
+        
         if (gotoExpr.size() > 0) {
             for (ExprVar var : gotoExpr) {
                 this.gotoExpr.add(var.toString());
@@ -31,13 +27,13 @@ public class DashGoto {
     }
     
     public DashGoto(DashGoto gotoCom) {
-    	this.pos = gotoCom.pos;
+    	super(gotoCom.pos, null);
     	this.gotoExpr = gotoCom.gotoExpr;
-    	this.gotoExprs = new LinkedHashMap<String, DashConcState>(gotoCom.gotoExprs);
-    	this.enteringDefaultStates = gotoCom.enteringDefaultStates;
+    	this.setDefaultStatesEntered(new LinkedHashMap<String, DashConcState>(gotoCom.getDefaultStatesEntered()));
+    	this.setEnteringDefaultStates(gotoCom.isEnteringDefaultStates());
     	this.name = gotoCom.name;
-    	this.param = gotoCom.param;
-    	this.gotoConcState = gotoCom.gotoConcState;
+    	this.setDestination(gotoCom.getDestination());
+    	this.parentConcState = gotoCom.parentConcState;
     }
 
     /*
@@ -45,27 +41,27 @@ public class DashGoto {
      * DashGoto Object
      */
     public DashGoto(Pos pos, List<String> gotoExpr, Expr param) {
-        this.pos = pos;
+    	super(pos, null);
         this.gotoExpr = new ArrayList<String>(gotoExpr);
-        this.param = param;
+        this.setDestination(param);
     }
     
     /*
      * Used by the Grammer file to create a parameterized Goto expression
      */
    public DashGoto(Pos pos, String gotoExpr, Expr param) {
-       this.pos = pos;
+	   super(pos, null);
        this.gotoExpr = new ArrayList<String>(Arrays.asList(gotoExpr));
-       this.param = param;
+       this.setDestination(param);
    }
     
     public DashGoto(List<String> gotoExpr) {
-        this.pos = null;
+    	super(null, null);
         this.gotoExpr = new ArrayList<String>(gotoExpr);
     }
 
     public DashGoto(String gotoExpr) {
-        this.pos = null;
+    	super(null, null);
         this.gotoExpr.add(gotoExpr);
     }
     
@@ -78,6 +74,30 @@ public class DashGoto {
     }
     
     public boolean isEnteringDefaultState() {
-    	return enteringDefaultStates;
+    	return isEnteringDefaultStates();
     }
+
+	public Map<String, DashConcState> getDefaultStatesEntered() {
+		return gotoExprs;
+	}
+
+	public void setDefaultStatesEntered (Map<String, DashConcState> gotoExprs) {
+		this.gotoExprs = gotoExprs;
+	}
+
+	public boolean isEnteringDefaultStates() {
+		return enteringDefaultStates;
+	}
+
+	public void setEnteringDefaultStates(boolean enteringDefaultStates) {
+		this.enteringDefaultStates = enteringDefaultStates;
+	}
+
+	public Expr getDestination() {
+		return param;
+	}
+
+	public void setDestination(Expr param) {
+		this.param = param;
+	}
 }

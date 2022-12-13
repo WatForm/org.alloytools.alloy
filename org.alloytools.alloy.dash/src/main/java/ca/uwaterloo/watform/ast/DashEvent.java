@@ -4,40 +4,64 @@ import edu.mit.csail.sdg.alloy4.Pos;
 import edu.mit.csail.sdg.ast.Decl;
 
 public class DashEvent extends DashSuperAST {
-
-    public Pos    pos;
-    public String parentName = "";
-    public String type       = "";
-    public Decl   decl;
-    public boolean isParameterized = false;
+    private String parentName = "";
+    private String type       = "";
+    private Decl   decl;
+    private boolean isParameterized = false;
 
     public DashEvent(Pos pos, String name, String type) {
-        this.pos = pos;
-        this.name = name;
-        this.type = type;
+        super(pos, name);
+        this.setType(type);
     }
     
     public DashEvent(Pos pos, Decl decl, String type) {
-        this.pos = pos;
-        this.decl = decl;
-        this.type = type;
+    	super(pos, null);
+        this.setDecl(decl);
+        this.setType(type);
     }
     
     public DashEvent(Pos pos, Decl decl, String type, boolean isParameterized) {
-        this.pos = pos;
-        this.decl = decl;
-        this.type = type;
+    	super(pos, null);
+        this.setDecl(decl);
+        this.setType(type);
         this.isParameterized = isParameterized;
     }
     
     public DashEvent(DashEvent event) {
-        this.pos = event.pos;
+    	super(null, event.name);
         this.parentName = event.parentName;
-        this.name = event.name;
         this.modifiedName = event.modifiedName;
-        this.type = event.type;
-        this.decl = event.decl;
+        this.setType(event.getType());
+        this.setDecl(event.getDecl());
         this.parentConcState = event.parentConcState;
-        this.isParameterized = event.isParameterized;
+        this.isParameterized = event.isParameterized();
     }
+    
+    public String getParentName() {
+    	return parentName;
+    }
+    
+    public void setParentName(String parentName) {
+    	this.parentName = parentName;
+    }
+
+	public String getType() {
+		return type;
+	}
+
+	public void setType(String type) {
+		this.type = type;
+	}
+
+	public Decl getDecl() {
+		return decl;
+	}
+
+	public void setDecl(Decl decl) {
+		this.decl = decl;
+	}
+
+	public boolean isParameterized() {
+		return isParameterized;
+	}
 }

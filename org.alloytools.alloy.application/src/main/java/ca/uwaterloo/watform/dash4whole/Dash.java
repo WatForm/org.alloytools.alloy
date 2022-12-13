@@ -22,7 +22,7 @@ public class Dash {
     public static void main(String args[]) throws Exception {
         System.out.println("Please specify the .dsh file path:");
         Scanner sc = new Scanner(System.in);
-        String actual = sc.next();
+        String actual = sc.nextLine();
 
         if (!actual.endsWith(".dsh")) {
             System.err.println("File not supported.\nExpected a Dash file with 'dsh' extension");
