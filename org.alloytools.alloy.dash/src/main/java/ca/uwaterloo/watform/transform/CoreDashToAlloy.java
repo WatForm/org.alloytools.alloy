@@ -1,11 +1,13 @@
 package ca.uwaterloo.watform.transform;
 
+import java.lang.ref.Reference;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 //Dash Imports
 import ca.uwaterloo.watform.ast.*;
@@ -1298,7 +1300,7 @@ public class CoreDashToAlloy {
         Expr stableEquals = DashHelper.createBinaryExpr(sNextStable, ExprBinary.Op.EQUALS, DashHelper.sStable());
         expr = (module.getAllConcurrentStates ().size() > 1) ? DashHelper.createBinaryExpr(expr, ExprBinary.Op.AND, stableEquals) : expr;
         
-        /* Conjunction of any env variables in the model */
+        /* Conjunction of any env variables in the model 
         for(String concStateName: module.getEnvironmentalVarNames().keySet()) {
         	for(String envVar: module.getEnvironmentalVarNames().get(concStateName)) {
         		Expr fullyQualName = DashHelper.createExprVar(concStateName + "_" + envVar);
@@ -1306,7 +1308,7 @@ public class CoreDashToAlloy {
         		Expr equals = ExprBinary.Op.EQUALS.make(null, null, sNextVar, DashHelper.sVar(fullyQualName));
         		expr = ExprBinary.Op.AND.make(null, null, expr, equals);
         	}
-        }
+        }*/
   
         for (String key : module.getRawVarNames().keySet()) {
             for (String var : module.getRawVarNames().get(key)) {
@@ -1384,8 +1386,6 @@ public class CoreDashToAlloy {
         	Expr sStableTrue = ExprBinary.Op.EQUALS.make(null, null, ExprBadJoin.make(null, null, s, stable), ExprVar.make(null, "True")); //s.stable = True
         	expression = ExprBinary.Op.AND.make(null, null, expression, sStableTrue);
         }
-        
-        System.out.println("Expression: " + expression);
  
         for (DashInit init : module.getInitConditions()) {
             for (Expr expr : init.getAllExpressions()) {
@@ -1518,7 +1518,6 @@ public class CoreDashToAlloy {
             a.add(ExprVar.make(null, arg3));
         if (arg4 != null)
             a.add(ExprVar.make(null, arg4));
-        //System.out.println("Creating PARAM: " + predName + " arg2: " + arg2 + " IsElec? " + DashOptions.isElectrum);
         
         
         if (a.size() > 0 && a.size() <= 2) //Cannot add declarations if the predicate for no arguments
@@ -2220,7 +2219,7 @@ public class CoreDashToAlloy {
     //Take an expression in a do statement and modify any variables present. Eg: active_players should become
     //s.Game_active_players (Given that active_players is declared under the Game concurrent state)
     private Expr modifyExprWithVar(Expr expr, DashConcState parent, DashModule module, Boolean isRef) {
-    	DashConcState concState = parent;
+    	DashConcState parentConcState = parent;
     	
         Expr expression = expr; 
         
@@ -2230,55 +2229,94 @@ public class CoreDashToAlloy {
         		ExprVar.make(null, "p0");
         }
     	
+        List<String> variablesInParent = module.getRawVarNames().getOrDefault(parentConcState.getFullyQualName(), new ArrayList<>());
+        List<String> envVariablesInParent = module.getEnvironmentalVarNames().getOrDefault(parentConcState.getFullyQualName(), new ArrayList<>());
+
         //If we make a reference to a conc state outside of the current conc state, find it and 
         //modify the value of the expression accordingly
-        //System.out.println("Expr: " + expr);
     	if(expr.toString().contains("/")) {
-    		DashConcState parentConcState = (parent.getParentConcState() == null) ? parent : parent.getParentConcState();
-    		concState = DashHelper.getConcStateReferred(expression, parentConcState);
-    		expression = ExprVar.make(null, expr.toString().substring(expr.toString().lastIndexOf("/") + 1));
-    		return modifyExprWithVar(expression, concState, module, true);
-    	} 
-    	
-        final List<String> variablesInParent = module.getRawVarNames().get(concState.getFullyQualName());
-        final List<String> envVariablesInParent = module.getEnvironmentalVarNames().get(concState.getFullyQualName());
+    		//DashConcState topLevelState = DashHelper.getTopLevelConcStates(concState);
+    		String expressionStr = expr.toString();
+    		Optional<DashSuperState> variableParent = DashHelper.findVariableParent(module, parent, expressionStr);
+    		if (variableParent.isPresent()) {
+    			// Get the AND state in which the variable is located (if it is located in an OR state, then we 
+    			// get the parent AND state of the OR state
+    			parentConcState = (variableParent.get() instanceof DashConcState) ? (DashConcState) variableParent.get() : variableParent.get().getParentConcState();
+    			// Get the name of the variable (ANDState/ORState/var) -> var
+    			String variable = expressionStr.substring(expressionStr.lastIndexOf('/') + 1);
+    			Expr exprVar = DashHelper.createExprVar(variable);
+    			variablesInParent = module.getRawVarNames().getOrDefault(parentConcState.getFullyQualName(), new ArrayList<>());
+    	        envVariablesInParent = module.getEnvironmentalVarNames().getOrDefault(parentConcState.getFullyQualName(), new ArrayList<>());
+    	        expression = modifyVar(module, expression, parentConcState, variableParent.get(), exprVar, variablesInParent, false, true);
+    	        expression = modifyVar(module, expression, parentConcState, variableParent.get(), exprVar, envVariablesInParent, false, true);
+    			return expression;
+    		} else {
+    	        expression = modifyVar(module, expression, parentConcState, parentConcState, expr, variablesInParent, false, true);
+    	        expression = modifyVar(module, expression, parentConcState, parentConcState, expr, envVariablesInParent, false, true);
+    			return expression;
+    		}
+    		/*
+    		// Breakdown expression until we reach an OR State or a Variable
+			while (true) {
+				String reference = expressionStr.substring(0, expressionStr.indexOf("/"));
+				Optional<DashSuperState> currentState = DashHelper.locateState(topLevelState, reference.toString());
+				// We have reached an OR-State or a variable
+				if (!currentState.isPresent()) {
+					return modifyVar(module, expression, concState, concState, expr, variablesInParent, false, true);
+				} else {
+					// We are at a concurrent state, breakdown expression
+					concState = currentState.get() instanceof DashConcState ? (DashConcState) currentState.get() : concState;
+					variablesInParent = module.getRawVarNames().get(concState.getFullyQualName());
+					expressionStr = expressionStr.substring(expressionStr.indexOf('/') + 1);
+					expr = DashHelper.createExprVar(expressionStr);
+					
+					if (expressionStr.indexOf("/") < 0) {
+						return modifyVar(module, expression, concState, currentState.get(), expr, variablesInParent, false, true);
+					}
+				}
+			}
+			*/
+    	}
         
         if (variablesInParent != null)
-            expression = modifyVar(module, expression, concState, expr, variablesInParent, false, isRef);
+            expression = modifyVar(module, expression, parentConcState, parentConcState, expr, variablesInParent, false, isRef);
         if (envVariablesInParent != null)
-            expression = modifyVar(module, expression, concState, expr, envVariablesInParent, true, isRef);
+            expression = modifyVar(module, expression, parentConcState, parentConcState, expr, envVariablesInParent, true, isRef);
         
-        for (DashConcState innerConcState: DashHelper.getNestedConcStates(concState)) {
+        for (DashConcState innerConcState: DashHelper.getNestedConcStates(parentConcState)) {
             if (module.getRawVarNames().get(innerConcState.getFullyQualName()) != null)
-                expression = modifyVar(module, expression, innerConcState, expr, module.getRawVarNames().get(innerConcState.getFullyQualName()), false, isRef);
+                expression = modifyVar(module, expression, innerConcState, innerConcState, expr, module.getRawVarNames().get(innerConcState.getFullyQualName()), false, isRef);
             if (module.getEnvironmentalVarNames().get(innerConcState.getFullyQualName()) != null)
-                expression = modifyVar(module, expression, innerConcState, expr, module.getEnvironmentalVarNames().get(innerConcState.getFullyQualName()), true, isRef);
+                expression = modifyVar(module, expression, innerConcState, innerConcState, expr, module.getEnvironmentalVarNames().get(innerConcState.getFullyQualName()), true, isRef);
         }
 
-        DashConcState outerConcState = concState.getParentConcState();
+        DashConcState outerConcState = DashHelper.getTopLevelConcStates(parentConcState);
         while (outerConcState != null) {
             if (module.getRawVarNames().get(outerConcState.getFullyQualName()) != null)
-                expression = modifyVar(module, expression, outerConcState, expr, module.getRawVarNames().get(outerConcState.getFullyQualName()), false, isRef);
+                expression = modifyVar(module, expression, outerConcState, outerConcState, expr, module.getRawVarNames().get(outerConcState.getFullyQualName()), false, isRef);
             if (module.getEnvironmentalVarNames().get(outerConcState.getFullyQualName()) != null)
-                expression = modifyVar(module, expression, outerConcState, expr, module.getEnvironmentalVarNames().get(outerConcState.getFullyQualName()), true, isRef);
+                expression = modifyVar(module, expression, outerConcState, outerConcState, expr, module.getEnvironmentalVarNames().get(outerConcState.getFullyQualName()), true, isRef);
             outerConcState = outerConcState.getParentConcState();
         }
         
-        expression = replaceWithActionExpr(expression, concState, module);
-        expression = replaceWithConditionExpr(expression, concState, module);
+        expression = replaceWithActionExpr(expression, parentConcState, module);
+        expression = replaceWithConditionExpr(expression, parentConcState, module);
         
         return expression;
     }
         
-    private Expr modifyVar(DashModule module, Expr expression, DashConcState parent, Expr expr, List<String> exprList, boolean isEnvVar, boolean isRef) {
-        for (String var : exprList) {
+    private Expr modifyVar(DashModule module, Expr expression, DashConcState parent, DashSuperState immediateParent, Expr expr, List<String> varsInParent, boolean isEnvVar, boolean isRef) {
+        for (String var : varsInParent) {
+        	var = var.replace('/', '_');
+        	expr = DashHelper.createExprVar(expr.toString().replace('/', '_'));
+        	expr = (immediateParent instanceof DashState) ? DashHelper.createExprVar(DashHelper.calculateStateNameWithoutConcState((DashState) immediateParent) + expr.toString()) : expr; 
         	String qualifiedVarName = parent.getFullyQualName() + '_' + var;
             if (expr.toString().equals(var + "'")) {
             	changedVars.put(qualifiedVarName, parent);
             	if (!isRef) {
             		changedLocalVars.put(qualifiedVarName, parent);
             		Expr variable = DashHelper.createExprVar(qualifiedVarName);
-            		Expr sNextVar = DashOptions.isElectrum ? DashHelper.sVarPrimed(variable) : DashHelper.createBinaryExpr(DashHelper.sNext(), ExprBinary.Op.JOIN, variable);
+            		Expr sNextVar = DashHelper.createBinaryExpr(DashHelper.sNext(), ExprBinary.Op.JOIN, variable);
             		sNextVar = DashHelper.addParametersJoin(sNextVar, parent.getIdentifiers().size());
             		return sNextVar;
             	}
@@ -2330,8 +2368,7 @@ public class CoreDashToAlloy {
     //(s_next.buffer_name).(s.buffer_name).add or (id.s_next.buffer_name).(id.s.buffer_name).add.since the call to add is: add[buffer, buffer', p]
     // This gets confusing!
     private void manageBufferCall(Expr left, Expr right, DashModule module, DashConcState parent) {
-    	//System.out.println("\nLeft: " + left + " Right: " + right);
-    	ExprBadJoin joinLeft = null;
+    	ExprBadJoin joinLeft = null; 
         if (left instanceof ExprBadJoin) {
         	 joinLeft = (ExprBadJoin) left;
         	 joinLeft = (ExprBadJoin) breakdownBufferCall(joinLeft, parent);
@@ -2353,7 +2390,7 @@ public class CoreDashToAlloy {
         			 if (module.getBuffers().get(joinLeftRight.right.toString()).isParameterized()) {
         				 paramBufferChanged.put(joinLeftRight.right.toString(), joinLeft.left);
         			 }
-        		 }
+        		 } 
         	 }
         	 // Handles cases in which a parametererized conc state makes the following call: (p.bufferName).remove [a buffer call with no parameters such as remove]
         	 if (bufferCommands.contains(right.toString()) && (joinLeft.right instanceof ExprBinary && joinLeft.left instanceof ExprVar)) {
@@ -2726,7 +2763,8 @@ public class CoreDashToAlloy {
     	for (CommandScope scope: command.scope) {
     		if (module.getRawBufferToIndexSig().containsKey(scope.sig.label)) {
 	        	CommandScope sigNum = new CommandScope(null            , Sig.NONE, scope.isExact,          scope.endingScope, scope.endingScope,             1    );
-	        	CommandScope sigScope = new CommandScope(null, new PrimSig(module.getRawBufferToIndexSig().get(scope.sig.label), AttrType.WHERE.make(new Pos(null, 0, 0))), sigNum.isExact, sigNum.startingScope, sigNum.endingScope, sigNum.increment);
+	        	CommandScope sigScope = new CommandScope(null, new PrimSig(module.getRawBufferToIndexSig().get(scope.sig.label), 
+	        			AttrType.WHERE.make(new Pos(null, 0, 0))), sigNum.isExact, sigNum.startingScope, sigNum.endingScope, sigNum.increment);
 	        	scopes.add(sigScope);
     		}
     		else if (module.getBufferElemToConcState().containsKey(scope.sig.label)){
@@ -2734,12 +2772,14 @@ public class CoreDashToAlloy {
     			totalParamScope += paramScope;
 
 	        	CommandScope sigNum = new CommandScope(null            , Sig.NONE, scope.isExact,          scope.endingScope, scope.endingScope,             1    );
-	        	CommandScope sigScope = new CommandScope(null, new PrimSig(scope.sig.label, AttrType.WHERE.make(new Pos(null, 0, 0))), sigNum.isExact, sigNum.startingScope, sigNum.endingScope, sigNum.increment);
+	        	CommandScope sigScope = new CommandScope(null, new PrimSig(scope.sig.label, 
+	        			AttrType.WHERE.make(new Pos(null, 0, 0))), sigNum.isExact, sigNum.startingScope, sigNum.endingScope, sigNum.increment);
 	        	scopes.add(sigScope);    			
     		} 
     		else {
 	        	CommandScope sigNum = new CommandScope(null            , Sig.NONE, scope.isExact,          scope.endingScope, scope.endingScope,             1    );
-	        	CommandScope sigScope = new CommandScope(null, new PrimSig(scope.sig.label, AttrType.WHERE.make(new Pos(null, 0, 0))), sigNum.isExact, sigNum.startingScope, sigNum.endingScope, sigNum.increment);
+	        	CommandScope sigScope = new CommandScope(null, new PrimSig(scope.sig.label, 
+	        			AttrType.WHERE.make(new Pos(null, 0, 0))), sigNum.isExact, sigNum.startingScope, sigNum.endingScope, sigNum.increment);
 	        	scopes.add(sigScope);  
     		}
     	}
@@ -2750,11 +2790,13 @@ public class CoreDashToAlloy {
 		}
 		
 		CommandScope stateNumber = new CommandScope(null            , Sig.NONE, true,          stateLabelScope, stateLabelScope,             1    );
-		CommandScope stateSigScope = new CommandScope(null, new PrimSig("StateLabel", AttrType.WHERE.make(new Pos(null, 0, 0))), stateNumber.isExact, stateNumber.startingScope, stateNumber.endingScope, stateNumber.increment);
+		CommandScope stateSigScope = new CommandScope(null, new PrimSig("StateLabel", 
+				AttrType.WHERE.make(new Pos(null, 0, 0))), stateNumber.isExact, stateNumber.startingScope, stateNumber.endingScope, stateNumber.increment);
 		scopes.add(stateSigScope);
 		
 		CommandScope transitionNumber = new CommandScope(null            , Sig.NONE, true,          transitionLabelScope, transitionLabelScope,             1    );
-		CommandScope transitionSigScope = new CommandScope(null, new PrimSig("TransitionLabel", AttrType.WHERE.make(new Pos(null, 0, 0))), transitionNumber.isExact, transitionNumber.startingScope, transitionNumber.endingScope, transitionNumber.increment);
+		CommandScope transitionSigScope = new CommandScope(null, new PrimSig("TransitionLabel", 
+				AttrType.WHERE.make(new Pos(null, 0, 0))), transitionNumber.isExact, transitionNumber.startingScope, transitionNumber.endingScope, transitionNumber.increment);
 		scopes.add(transitionSigScope);
         
         int eventLabelScope = 0;
@@ -2767,10 +2809,12 @@ public class CoreDashToAlloy {
 		scopes.add(sigScope);
 		
 		CommandScope identNumber = new CommandScope(null            , Sig.NONE, true,          totalParamScope, totalParamScope,             1    );
-		CommandScope identifiersScope = new CommandScope(null, new PrimSig("Identifiers", AttrType.WHERE.make(new Pos(null, 0, 0))), identNumber.isExact, identNumber.startingScope, identNumber.endingScope, identNumber.increment);
+		CommandScope identifiersScope = new CommandScope(null, new PrimSig("Identifiers", 
+				AttrType.WHERE.make(new Pos(null, 0, 0))), identNumber.isExact, identNumber.startingScope, identNumber.endingScope, identNumber.increment);
 		scopes.add(identifiersScope);
 		
-		return command.check ? createCommand(false,ExprVar.make(null, "c"), null , ExprVar.make(null, command.label) ,null, scopes, null, module) : createCommand(false,ExprVar.make(null, "r"), null , ExprVar.make(null, command.label) ,null, scopes, null, module);
+		return command.check ? createCommand(false,ExprVar.make(null, "c"), null , ExprVar.make(null, command.label) ,null, scopes, null, module) 
+				: createCommand(false,ExprVar.make(null, "r"), null , ExprVar.make(null, command.label) ,null, scopes, null, module);
     }
     
     

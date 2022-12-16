@@ -9,7 +9,7 @@ public abstract class DashSuperAST {
 	protected Pos                  pos;
 	protected String               name;
     protected String               modifiedName; 
-    protected Object          	   parent;
+    protected DashSuperState       parent;
     protected DashConcState		   parentConcState;
     
     public DashSuperAST(Pos pos, String name) {
@@ -49,7 +49,7 @@ public abstract class DashSuperAST {
     	return parent;
     }
     
-    public void setParent(Object actualParent) {
+    public void setParent(DashSuperState actualParent) {
     	this.parent = actualParent;
     }
 }

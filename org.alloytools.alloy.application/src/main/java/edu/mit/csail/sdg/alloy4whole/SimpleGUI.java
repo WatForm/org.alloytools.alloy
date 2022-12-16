@@ -1448,7 +1448,6 @@ public final class SimpleGUI implements ComponentListener, Listener {
                 dash = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, text.get().getText());
             }
             DashValidation.validateDashModel(dash);
-            //System.out.println("FileName: " + fileName.toString() + " Path: " + path.toString());
             DashModule coreDash = new DashToCoreDash().transformToCoreDash(dash, "", "");
             DashModule alloy = DashOptions.isElectrum ? new CoreDashToElectrum().convertToElectrumAST(coreDash, "", "") : new CoreDashToAlloy().convertToAlloyAST(coreDash, "", "");
             alloy = DashModule.resolveAll(A4Reporter.NOP, alloy);
@@ -1468,6 +1467,7 @@ public final class SimpleGUI implements ComponentListener, Listener {
             else
                 log.logRed(e.toString() + "\n\n");
         } catch (Throwable e) {
+            e.printStackTrace();
             log.logRed("Cannot translate the model.\n" + e.getMessage() + "\n\n");
             return null;
         }

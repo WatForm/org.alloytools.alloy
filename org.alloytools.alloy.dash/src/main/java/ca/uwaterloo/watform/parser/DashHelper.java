@@ -4,10 +4,13 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 import ca.uwaterloo.watform.ast.DashConcState;
 import ca.uwaterloo.watform.ast.DashEvent;
 import ca.uwaterloo.watform.ast.DashState;
+import ca.uwaterloo.watform.ast.DashSuperState;
 import ca.uwaterloo.watform.ast.DashTrans;
 import edu.mit.csail.sdg.alloy4.Err;
 import edu.mit.csail.sdg.ast.Decl;
@@ -231,6 +234,9 @@ public class DashHelper {
     	List<String> refNames = new ArrayList<String>();
     	while ((reference.indexOf("/") > -1)) {
     		String stateRef = reference.toString().substring(0, reference.toString().indexOf("/"));
+    		if (parent.getRawName() == stateRef) {
+    			return parent;
+    		}
     		refNames.add(stateRef);
     		reference = reference.substring(reference.indexOf("/") + 1);
     	}
@@ -749,7 +755,7 @@ public class DashHelper {
        return false;
    }
    
-   public static void getInnerStates(DashState state, List<DashState> states) {
+  public static void getInnerStates(DashState state, List<DashState> states) {
 		for(DashState innerState: state.getInnerORStates()) {	
 			states.add(innerState);
 			
@@ -757,6 +763,15 @@ public class DashHelper {
 				getInnerStates(innerState, states);
 		}
   }
+  
+  public static void getInnerANDStates(DashConcState state, List<DashConcState> states) {
+		for(DashConcState innerState: state.getInnerConcStates()) {	
+			states.add(innerState);
+			
+			if(innerState.getInnerConcStates().size() > 0)
+				getInnerANDStates(innerState, states);
+		}
+}
    
   public static DashConcState getParentConcState(Object item) { 	
        if (item instanceof DashState) {
@@ -780,6 +795,139 @@ public class DashHelper {
        return null;
    }
   
+  public static DashConcState getTopLevelConcStates(DashConcState concState) {
+	  if (concState == null) {
+		  return null;
+	  }
+	  if (concState.getParentConcState() != null) {
+		  return getTopLevelConcStates(concState.getParentConcState());
+	  }
+	  return concState;
+  }
+  
+  public static Optional<DashConcState> locateANDState(DashConcState concState, String name) {
+	  if (concState == null) {
+		  return Optional.empty();
+	  }
+	  if (concState.getRawName().equals(name)) {
+		  return Optional.ofNullable(concState);
+	  }
+	  List<DashConcState> allInnerConcStates = new ArrayList<>();
+	  getInnerANDStates(concState, allInnerConcStates);
+	  List<DashConcState> match = allInnerConcStates.stream().filter(x -> x.getRawName().equals(name)).collect(Collectors.toCollection(ArrayList::new));
+	  return match.size() == 0 ? Optional.empty() : Optional.ofNullable(match.get(0));
+  }
+  
+  /****************************** Locate a State within an AND-state ***********************************/
+  public static Optional<DashSuperState> locateState(DashConcState concState, String name) {
+	  if (concState == null) {
+		  return Optional.empty();
+	  }
+	  if (concState.getRawName().equals(name)) {
+		  return Optional.ofNullable(concState);
+	  }
+	  List<DashSuperState> match = new ArrayList<>();
+	  locateStateHelper(concState, name, match);
+	  return match.size() == 0 ? Optional.empty() : Optional.ofNullable(match.get(0));
+  }
+  
+  public static void locateStateHelper (DashSuperState state, String name, List<DashSuperState> match) {
+	  List<DashConcState> ANDMatches = state.getInnerConcStates().parallelStream().filter(x -> x.getRawName().equals(name)).collect(Collectors.toCollection(ArrayList::new));
+	  List<DashState> ORMatches = state.getInnerORStates().parallelStream().filter(x -> x.getRawName().equals(name)).collect(Collectors.toCollection(ArrayList::new));
+	  match.addAll(ANDMatches);
+	  match.addAll(ORMatches);
+	  state.getInnerConcStates().forEach((x) -> locateStateHelper(x, name, match));
+	  state.getInnerORStates().forEach((x) -> locateStateHelper(x, name, match));
+  }
+  
+  /*
+   * Locate the parent state of an item that is being referenced (state/myVar) -> state
+   */
+  public static void findItemParentLocally(DashSuperState state, final String reference, List<DashSuperState> match) {
+	  if (reference.indexOf('/') < 0) {
+		  return;
+	  }
+	  String stateName = reference.substring(0, reference.indexOf('/'));
+	  if (state.getRawName().equals(stateName)) {
+		  match.add(state);
+	  }
+	  state.getInnerConcStates().forEach((x) -> findItemParentLocally(x, reference, match));
+	  state.getInnerORStates().forEach((x) -> findItemParentLocally(x, reference, match));
+  }
+  
+  /* 
+   * Locate the parent state of an item that is being referenced (state/myVar) -> state 
+   * Start by checking if the variable is present inside the AND-state in which it was declared
+   * If not, perform a search of all AND-states to look for the variable
+   */
+  public static Optional<DashSuperState> findVariableParent (DashModule module, DashConcState parent, String reference) {
+	  if (reference == null || reference.indexOf('/') < 0) {
+		  return Optional.empty();
+	  }
+	  
+	  // Find the states that match name of the state we are looking for
+	  List<DashSuperState> match = new ArrayList<>();
+	  String stateName = reference.substring(0, reference.indexOf('/'));
+	  if (parent.getRawName().equals(stateName)) {
+		  match.add(parent);
+	  }
+	  findItemParentLocally(parent, reference, match);
+	  module.getTopLevelConcStates().values().forEach(x -> findItemParentLocally(x, reference, match));
+
+	  ArrayList<Optional<DashSuperState>> varMatches = new ArrayList<>();
+	  match.forEach(x -> varMatches.add(locateItem (module, reference.substring(reference.indexOf('/') + 1), x, true)));
+
+	  for (Optional<DashSuperState> state: varMatches) {
+		  if (state.isPresent()) {
+			  return state;
+		  }
+	  }
+	  
+	  return Optional.empty();
+  }
+  
+  /* 
+   * Locate either an OR state or a variable inside a State 
+   */
+  public static Optional<DashSuperState> locateItem (DashModule module, String reference, DashSuperState match, boolean lookingForVar) {
+	  if (reference.indexOf('/') < 0) {
+		  // We are looking for a variable
+		  if (lookingForVar) {
+			  DashConcState variableDeclaredIn = (match instanceof DashConcState) ? (DashConcState) match : match.getParentConcState();
+			  String variable = (match instanceof DashState) ? DashHelper.calculateStateNameWithoutConcState((DashState) match) + reference : reference;
+			  variable = (variable.contains("'")) ? variable.substring(0, variable.length() - 1) : variable;
+			  // The name of a variable inside an OR-state is: (ORStateName_varName)
+			  //variable = (match instanceof DashState) ? calculateStateNameWithoutConcState((DashState) match) + variable : variable;
+			  boolean foundMatch = (module.getRawVarNames().getOrDefault(variableDeclaredIn.getFullyQualName(), new ArrayList<>()).contains(variable))
+					  || (module.getEnvironmentalVarNames().getOrDefault(variableDeclaredIn.getFullyQualName(), new ArrayList<>()).contains(variable));
+			  return (foundMatch) ? Optional.ofNullable(match) : Optional.empty();
+		  } else {
+			  // We are looking for an OR state
+			  List<DashConcState> ANDMatches = match.getInnerConcStates().stream().filter(x -> x.getRawName().equals(reference)).collect(Collectors.toCollection(ArrayList::new));
+			  List<DashState> ORMatches = match.getInnerORStates().stream().filter(x -> x.getRawName().equals(reference)).collect(Collectors.toCollection(ArrayList::new));
+			  if (ANDMatches.size() > 0) {
+				  return Optional.ofNullable(ANDMatches.get(0));
+			  } else if (ORMatches.size() > 0) {
+				  return Optional.ofNullable(ORMatches.get(0));
+			  } else {
+				  return Optional.empty();
+			  }
+		  }
+	  }
+	  
+	  String stateName = reference.substring(0, reference.indexOf('/'));
+	  List<DashConcState> ANDMatches = match.getInnerConcStates().stream().filter(x -> x.getRawName().equals(stateName)).collect(Collectors.toCollection(ArrayList::new));
+	  List<DashState> ORMatches = match.getInnerORStates().stream().filter(x -> x.getRawName().equals(stateName)).collect(Collectors.toCollection(ArrayList::new));
+	  
+	  if (ANDMatches.size() > 0) {
+		  return locateItem(module, reference.substring(reference.indexOf('/') + 1), ANDMatches.get(0),lookingForVar);
+	  } else if (ORMatches.size() > 0) {
+		  return locateItem(module, reference.substring(reference.indexOf('/') + 1), ORMatches.get(0), lookingForVar);
+	  } else {
+		  return Optional.empty();
+	  }
+  }
+  
   /* Get all the transitions within a state */
   public static void getInnerTransitions(DashState state, List<DashTrans> transitions) {
   	for(DashTrans trans: state.getTransitions()) {
@@ -789,5 +937,15 @@ public class DashHelper {
   	for(DashState innerState: state.getInnerORStates()) {
   		getInnerTransitions(innerState, transitions);
   	}
+  }
+  
+  public static String calculateStateNameWithoutConcState(DashState state) {
+  	StringBuilder name = new StringBuilder();
+  	DashSuperState current = state;
+  	while (current != null && current instanceof DashState) {
+  		name.append(state.getRawName() + '_');
+  		current = (DashSuperState) state.getParent();
+  	}
+  	return name.toString();
   }
 }

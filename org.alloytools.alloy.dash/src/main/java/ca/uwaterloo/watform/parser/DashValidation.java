@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.alloy4.ErrorSyntax;
@@ -388,20 +389,38 @@ public class DashValidation {
     private static void checkIfVarValid(ExprVar var, DashConcState concState) {
         String variable = var.toString();
         
-        DashConcState parentConcState = (concState.getParentConcState() == null) ? concState : concState.getParentConcState();
+        DashConcState topLevelState = DashHelper.getTopLevelConcStates(concState);
+       
     	if(variable.contains("/")) {
-    		concState = DashHelper.getConcStateReferred(variable, parentConcState);
+    		while (variable.indexOf("/") > 0) {
+    			String reference = variable.substring(0, variable.indexOf("/"));
+    			if (!DashHelper.locateANDState(topLevelState, reference.toString()).isPresent()) {
+    				break;
+    			}
+    			Optional<DashConcState> refConcState = DashHelper.locateANDState(topLevelState, reference.toString());
+    			
+    			// We have reached an OR-State or a variable
+    			if (!refConcState.isPresent()) {
+    				return;
+    			} else {
+    				// We are at a concurrent state, breakdown expression
+    				concState = refConcState.get();
+    				if (variable.indexOf("/") < 0) {
+    					break;
+    				} else {
+    					variable = variable.substring(variable.indexOf("/") + 1);
+    				}
+    			}
+    		}
     	} 
-        if (variable.contains("/")) {
-        	variable = variable.substring(variable.lastIndexOf("/") + 1);
-        }
-        
+
         if (variable.contains("'")) {
             variable = variable.replace("'", "");
         }
-
-        if (!getAllUserVars(parentConcState.getFullyQualName(), concState.getFullyQualName(), concState).contains(variable)) {
-            throw new ErrorSyntax(var.pos, "Could not resolve reference to: " + variable);
+        
+        variable = variable.replace("/", "_");
+        if (!getAllUserVars(topLevelState.getFullyQualName(), concState.getFullyQualName(), concState).contains(variable)) {
+            //throw new ErrorSyntax(var.pos, "Could not resolve reference to: " + variable);
         }
     }
     

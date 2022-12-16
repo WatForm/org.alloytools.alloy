@@ -6,6 +6,7 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import ca.uwaterloo.watform.ast.DashAction;
 import ca.uwaterloo.watform.ast.DashConcState;
@@ -17,6 +18,7 @@ import ca.uwaterloo.watform.ast.DashGoto;
 import ca.uwaterloo.watform.ast.DashOn;
 import ca.uwaterloo.watform.ast.DashSend;
 import ca.uwaterloo.watform.ast.DashState;
+import ca.uwaterloo.watform.ast.DashSuperState;
 import ca.uwaterloo.watform.ast.DashTemplateCall;
 import ca.uwaterloo.watform.ast.DashTrans;
 import ca.uwaterloo.watform.ast.DashTransTemplate;
@@ -24,6 +26,7 @@ import ca.uwaterloo.watform.ast.DashWhenExpr;
 import ca.uwaterloo.watform.parser.DashHelper;
 import ca.uwaterloo.watform.parser.DashModule;
 import ca.uwaterloo.watform.parser.DashOptions;
+import edu.mit.csail.sdg.alloy4.ErrorSyntax;
 import edu.mit.csail.sdg.ast.Decl;
 
 
@@ -76,7 +79,22 @@ public class DashToCoreDash {
      * then that transition will need to transition to the default inner OR state */
      private void modifyGoToCommands(DashModule module) { 
         for (DashTrans trans : module.getTransitions().values()) {
-        	DashState destinationState = DashHelper.getState(trans.getDestination().getAllDestinations().get(0).replace("/", "_"), module);
+        	String destination = trans.getDestination().getAllDestinations().get(0);
+        	DashState destinationState = DashHelper.getState(destination, module);
+        	if (destinationState == null) {
+        		List<DashSuperState> match = new ArrayList<>();
+        		// Get the parent AND state of the OR state we want to visit
+        		DashHelper.findItemParentLocally(trans.getParentConcState(), destination, match);
+        		Optional<DashSuperState> destinationOR = Optional.empty();
+        		if (match.size() > 0) {
+        			String ref = destination.substring(destination.indexOf('/') + 1);
+        			// Locate the OR state being referenced
+        			destinationOR = DashHelper.locateItem(module, ref, match.get(0), false);
+        		}
+        			
+        		destinationState = (destinationOR.isPresent() && destinationOR.get() instanceof DashState) ? (DashState) destinationOR.get() : destinationState;
+        	}
+
         	String defaultInnerState = "";
         	/* destState is null if the destination state is a concurrent state (it has no OR states) */
         	if(destinationState != null && destinationState.getInnerConcStates().size() == 0) {

@@ -39,7 +39,7 @@ public class DashState extends DashSuperState {
                 if (item instanceof DashExit) 
                     this.exit.add((DashExit) item);
                 if (item instanceof DashEvent)
-                    throw new ErrorSyntax(((DashEvent) item).pos, "Cannot declare an event inside a state");
+                    this.events.add((DashEvent) item);
                 if (item instanceof DashExpr)
                     throw new ErrorSyntax(((DashExpr) item).pos, "Illegal declaration inside a state");
             }

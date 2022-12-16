@@ -137,9 +137,9 @@ public class DashModelsTest {
         String expectedOutput2 = "(one p | p.s_next . Parent_Child1_var1 = none)";
 
         if (!(funcs0.get(0).getBody().toString().contains(expectedOutput1)))
-            throw new Exception("Post-Conditions Not Stored Properly (1)." + " Expected: " + funcs0.get(0).getBody().toString());
+            throw new Exception("Post-Conditions Not Stored Properly (1)." + "Actual: " + funcs0.get(0).getBody().toString() + " Expected: " + expectedOutput1);
         if (!(funcs1.get(0).getBody().toString().contains(expectedOutput2)))
-            throw new Exception("Post-Conditions Not Stored Properly (2)." + " Expected: " + funcs1.get(0).getBody().toString());
+            throw new Exception("Post-Conditions Not Stored Properly (2)." + "Actual: " + funcs1.get(0).getBody().toString() + " Expected: " + expectedOutput2);
 
         DashValidation.clearContainers();
     }

@@ -374,9 +374,9 @@ public final class DashModule extends Browsable implements Module {
     /**
      * A list of the default states that are active initially
      */
-    private Map<Integer,List<DashState>>          initialDefaultStates                 = new LinkedHashMap<Integer,List<DashState>>();
+    private Map<Integer,List<DashState>>        initialDefaultStates                 = new LinkedHashMap<Integer,List<DashState>>();
     
-    public Map<Integer,List<DashState>> 		getInitDefaultStates() {
+    public Map<Integer,List<DashState>>			getInitDefaultStates() {
     	return initialDefaultStates;
     }
 
@@ -1692,7 +1692,6 @@ public final class DashModule extends Browsable implements Module {
         DashConcState topLevelConcState = new DashConcState(pos, name, stateItems, param);
         
         topLevelConcState.setFullyQualName(name); 
-
         topLevelConcStates.put(topLevelConcState.getFullyQualName(), topLevelConcState);
         concStates.put(topLevelConcState.getFullyQualName(), topLevelConcState);
         concStateNames.add(topLevelConcState.getFullyQualName());
@@ -1951,13 +1950,14 @@ public final class DashModule extends Browsable implements Module {
 	
 
     /* Store variables that have been declared in the concurrent state */
-    void readVariablesDeclared(Decl decl, DashConcState concState, Optional<DashState> state) {
+    private void readVariablesDeclared(Decl decl, DashConcState concState, Optional<DashState> state) {
         //Fetch the current list of variable names stored for the current conc state
         List<String> variables = variableNames.get(concState.getFullyQualName()) != null ? variableNames.get(concState.getFullyQualName()) : new ArrayList<String>();     
 
         /* Store the names of each variable inside decls in ConcState */
         for (Object name : decl.names) {
-            variables.add(name.toString());
+        	String varName = state.isPresent() ? DashHelper.calculateStateNameWithoutConcState(state.get()) + name.toString() : name.toString();
+            variables.add(varName);
             //Set variable name to as it would appear in the Alloy model and map it to its
             //respective expression i.e in_p: lone Patient, in_p is the var name, lone Patient is the expression
             String fullyQualVarName = !state.isPresent() ? concState.getFullyQualName() + "_" + name.toString() : 
@@ -1973,11 +1973,11 @@ public final class DashModule extends Browsable implements Module {
                 modifiedVarNames.add(fullyQualVarName);
             }
         }
-        variableNames.put(state.isPresent() ? state.get().getFullyQualName() : concState.getFullyQualName(), variables);
+        variableNames.put(concState.getFullyQualName(), variables);
     }
 
 
-    public void addInitCondition(DashInit init, DashConcState parent) {
+    private void addInitCondition(DashInit init, DashConcState parent) {
         init.setParentConcState(parent);
 
         /*

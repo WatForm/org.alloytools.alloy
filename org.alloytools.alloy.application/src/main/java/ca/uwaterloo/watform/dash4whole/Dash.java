@@ -7,6 +7,7 @@ import java.util.Scanner;
 import ca.uwaterloo.watform.parser.DashModule;
 import ca.uwaterloo.watform.parser.DashOptions;
 import ca.uwaterloo.watform.parser.DashUtil;
+import ca.uwaterloo.watform.parser.DashValidation;
 import ca.uwaterloo.watform.transform.CoreDashToAlloy;
 import ca.uwaterloo.watform.transform.CoreDashToElectrum;
 import ca.uwaterloo.watform.transform.DashToCoreDash;
@@ -28,6 +29,7 @@ public class Dash {
             System.err.println("File not supported.\nExpected a Dash file with 'dsh' extension");
             return;
         }
+
         DashOptions.generateSigAxioms = false;
         DashOptions.ctlModelChecking = false;
         DashOptions.generateTraces = true;
@@ -55,6 +57,7 @@ public class Dash {
             System.out.println("=========== Parsing+Typechecking " + fileName + " =============");
 
             DashModule dash = DashUtil.parseEverything_fromFileDash(rep, null, actual);
+            DashValidation.validateDashModel(dash);
             DashModule coreDash = new DashToCoreDash().transformToCoreDash(dash, fileName.toString(), "");
             DashModule alloy = DashOptions.isElectrum ? new CoreDashToElectrum().convertToElectrumAST(coreDash, "", "") : new CoreDashToAlloy().convertToAlloyAST(coreDash, "", "");
             alloy = DashModule.resolveAll(rep == null ? A4Reporter.NOP : rep, alloy);
