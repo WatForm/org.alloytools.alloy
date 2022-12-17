@@ -25,6 +25,16 @@ import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.ExprBinary.Op;
 
 public class DashHelper {
+	
+	public static enum ItemType {
+		ANDSTATE,
+		ORSTATE,
+		VAR,
+		EVENT,
+		TRANS,
+		INIT,
+		INVAR
+	}
 
 	public static String toLowerCase(String string) {
 		return Character.toLowerCase(string.charAt(0)) + string.substring(1);
@@ -819,7 +829,7 @@ public class DashHelper {
   }
   
   /****************************** Locate a State within an AND-state ***********************************/
-  public static Optional<DashSuperState> locateState(DashConcState concState, String name) {
+  public static Optional<DashSuperState> locateState (DashConcState concState, String name) {
 	  if (concState == null) {
 		  return Optional.empty();
 	  }
@@ -830,7 +840,7 @@ public class DashHelper {
 	  locateStateHelper(concState, name, match);
 	  return match.size() == 0 ? Optional.empty() : Optional.ofNullable(match.get(0));
   }
-  
+   
   public static void locateStateHelper (DashSuperState state, String name, List<DashSuperState> match) {
 	  List<DashConcState> ANDMatches = state.getInnerConcStates().parallelStream().filter(x -> x.getRawName().equals(name)).collect(Collectors.toCollection(ArrayList::new));
 	  List<DashState> ORMatches = state.getInnerORStates().parallelStream().filter(x -> x.getRawName().equals(name)).collect(Collectors.toCollection(ArrayList::new));
@@ -856,7 +866,8 @@ public class DashHelper {
   }
   
   /* 
-   * Locate the parent state of an item that is being referenced (state/myVar) -> state 
+   * Locate the parent state of an item that is being referenced (state/myVar) -> 
+   * (state = parent state), (myVar = item being referenced)
    * Start by checking if the variable is present inside the AND-state in which it was declared
    * If not, perform a search of all AND-states to look for the variable
    */
@@ -872,10 +883,11 @@ public class DashHelper {
 		  match.add(parent);
 	  }
 	  findItemParentLocally(parent, reference, match);
+	  // Search globally for the variable too
 	  module.getTopLevelConcStates().values().forEach(x -> findItemParentLocally(x, reference, match));
 
 	  ArrayList<Optional<DashSuperState>> varMatches = new ArrayList<>();
-	  match.forEach(x -> varMatches.add(locateItem (module, reference.substring(reference.indexOf('/') + 1), x, true)));
+	  match.forEach(x -> varMatches.add(locateItem (module, reference.substring(reference.indexOf('/') + 1), x, DashHelper.ItemType.VAR)));
 
 	  for (Optional<DashSuperState> state: varMatches) {
 		  if (state.isPresent()) {
@@ -886,13 +898,58 @@ public class DashHelper {
 	  return Optional.empty();
   }
   
+  public static Optional<DashSuperState> findEventParent (DashConcState parent, String reference) {
+	  if (reference == null) {
+		  return Optional.empty();
+	  }
+	  List<DashSuperState> match = new ArrayList<>();
+	  // Look at the parent state (and child states) of the event and see if it contains the event
+	  findEventParentHelper(parent, reference, match);
+	  // Look at the top level AND-state for the parent
+	  if (match.size() == 0) {
+		  findEventParentHelper(DashHelper.getTopLevelConcStates(parent), reference, match);
+	  }
+	  return match.size() > 0 ? Optional.ofNullable(match.get(0)) : Optional.empty();
+  }
+  
+  public static void findEventParentHelper (DashSuperState parent, String reference, List<DashSuperState> match) {
+	  if (reference == null || parent == null || match == null) {
+		  return;
+	  }
+	  if (parent.getEventNames().contains(reference)) {
+		  match.add(parent);
+	  }
+	  parent.getInnerConcStates().forEach(x -> findEventParentHelper(x, reference, match));
+	  parent.getInnerORStates().forEach(x -> findEventParentHelper(x, reference, match));
+  }
+  
   /* 
    * Locate either an OR state or a variable inside a State 
    */
-  public static Optional<DashSuperState> locateItem (DashModule module, String reference, DashSuperState match, boolean lookingForVar) {
+  public static Optional<DashSuperState> locateItem (DashModule module, String reference, DashSuperState match, DashHelper.ItemType itemType) {
 	  if (reference.indexOf('/') < 0) {
-		  // We are looking for a variable
-		  if (lookingForVar) {
+		  return locateItemHelper(module, reference, match, itemType);
+	  }
+	  
+	  String stateName = reference.substring(0, reference.indexOf('/'));
+	  List<DashConcState> ANDMatches = match.getInnerConcStates().stream().filter(x -> x.getRawName().equals(stateName)).collect(Collectors.toCollection(ArrayList::new));
+	  List<DashState> ORMatches = match.getInnerORStates().stream().filter(x -> x.getRawName().equals(stateName)).collect(Collectors.toCollection(ArrayList::new));
+	  
+	  if (ANDMatches.size() > 0) {
+		  return locateItem(module, reference.substring(reference.indexOf('/') + 1), ANDMatches.get(0),itemType);
+	  } else if (ORMatches.size() > 0) {
+		  return locateItem(module, reference.substring(reference.indexOf('/') + 1), ORMatches.get(0), itemType);
+	  } else {
+		  return Optional.empty();
+	  }
+  }
+  
+  /*
+   * Once we have broken down the reference to the last item, locate it and return its parent
+   */
+  public static Optional<DashSuperState> locateItemHelper (DashModule module, String reference, DashSuperState match, DashHelper.ItemType itemType) {
+	  switch (itemType) {
+		  case VAR : {
 			  DashConcState variableDeclaredIn = (match instanceof DashConcState) ? (DashConcState) match : match.getParentConcState();
 			  String variable = (match instanceof DashState) ? DashHelper.calculateStateNameWithoutConcState((DashState) match) + reference : reference;
 			  variable = (variable.contains("'")) ? variable.substring(0, variable.length() - 1) : variable;
@@ -901,8 +958,8 @@ public class DashHelper {
 			  boolean foundMatch = (module.getRawVarNames().getOrDefault(variableDeclaredIn.getFullyQualName(), new ArrayList<>()).contains(variable))
 					  || (module.getEnvironmentalVarNames().getOrDefault(variableDeclaredIn.getFullyQualName(), new ArrayList<>()).contains(variable));
 			  return (foundMatch) ? Optional.ofNullable(match) : Optional.empty();
-		  } else {
-			  // We are looking for an OR state
+		  }
+		  case ORSTATE : {
 			  List<DashConcState> ANDMatches = match.getInnerConcStates().stream().filter(x -> x.getRawName().equals(reference)).collect(Collectors.toCollection(ArrayList::new));
 			  List<DashState> ORMatches = match.getInnerORStates().stream().filter(x -> x.getRawName().equals(reference)).collect(Collectors.toCollection(ArrayList::new));
 			  if (ANDMatches.size() > 0) {
@@ -913,18 +970,18 @@ public class DashHelper {
 				  return Optional.empty();
 			  }
 		  }
-	  }
-	  
-	  String stateName = reference.substring(0, reference.indexOf('/'));
-	  List<DashConcState> ANDMatches = match.getInnerConcStates().stream().filter(x -> x.getRawName().equals(stateName)).collect(Collectors.toCollection(ArrayList::new));
-	  List<DashState> ORMatches = match.getInnerORStates().stream().filter(x -> x.getRawName().equals(stateName)).collect(Collectors.toCollection(ArrayList::new));
-	  
-	  if (ANDMatches.size() > 0) {
-		  return locateItem(module, reference.substring(reference.indexOf('/') + 1), ANDMatches.get(0),lookingForVar);
-	  } else if (ORMatches.size() > 0) {
-		  return locateItem(module, reference.substring(reference.indexOf('/') + 1), ORMatches.get(0), lookingForVar);
-	  } else {
-		  return Optional.empty();
+		  case EVENT: {
+			  List<DashConcState> ANDMatches = match.getInnerConcStates().stream().filter(x -> x.getEventNames().contains(reference)).collect(Collectors.toCollection(ArrayList::new));
+			  List<DashState> ORMatches = match.getInnerORStates().stream().filter(x -> x.getEventNames().contains(reference)).collect(Collectors.toCollection(ArrayList::new));
+			  if (ANDMatches.size() > 0) {
+				  return Optional.ofNullable(ANDMatches.get(0));
+			  } else if (ORMatches.size() > 0) {
+				  return Optional.ofNullable(ORMatches.get(0));
+			  } else {
+				  return Optional.empty();
+			  }
+		  }
+		  default: return Optional.empty();
 	  }
   }
   

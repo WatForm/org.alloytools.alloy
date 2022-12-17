@@ -11,14 +11,6 @@ public class DashCondition extends DashSuperAST {
         this.expr = expr;
     }
     
-    public Pos getPos () {
-    	return pos;
-    }
-    
-    public String getRawName() {
-    	return name;
-    }
-    
     public Expr getExpr() {
     	return expr;
     }

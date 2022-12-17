@@ -677,7 +677,7 @@ public class DashValidation {
         /* Stores the names for each condition template in the current conc state */
         for (DashCondition condition : dashModule.getAllConcurrentStates().get(concStateName).getConditions())
             funcNames.add(condition.getRawName());
-        
+
         /* Stores the names for each event in the current conc state */
         getEventNames(concStateName, dashModule);
 

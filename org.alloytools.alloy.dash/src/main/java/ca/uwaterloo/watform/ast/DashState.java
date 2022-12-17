@@ -3,6 +3,7 @@ package ca.uwaterloo.watform.ast;
 import java.util.ArrayList;
 import java.util.List;
 
+import ca.uwaterloo.watform.parser.DashHelper.ItemType;
 import edu.mit.csail.sdg.alloy4.ErrorSyntax;
 import edu.mit.csail.sdg.alloy4.Pos;
 import edu.mit.csail.sdg.ast.Decl;
@@ -36,10 +37,14 @@ public class DashState extends DashSuperState {
                     decls.add((Decl) item);
                 if (item instanceof DashEvent)
                     events.add((DashEvent) item);
+                if (item instanceof DashEvent)
+                    eventNames.add(((DashEvent) item).getRawName());
                 if (item instanceof DashExit) 
                     this.exit.add((DashExit) item);
                 if (item instanceof DashEvent)
                     this.events.add((DashEvent) item);
+                if (item instanceof DashInvariant)
+                    this.invariant.add((DashInvariant) item);
                 if (item instanceof DashExpr)
                     throw new ErrorSyntax(((DashExpr) item).pos, "Illegal declaration inside a state");
             }
@@ -49,59 +54,79 @@ public class DashState extends DashSuperState {
     }
     
     private void initializeContainers() {
-    	enter      			= new ArrayList<DashEnter>();
-    	exit       			= new ArrayList<DashExit>();
-    	modifiedTransitions = new ArrayList<DashTrans>();
+    	this.enter      			= new ArrayList<DashEnter>();
+    	this.exit       			= new ArrayList<DashExit>();
+    	this.modifiedTransitions    = new ArrayList<DashTrans>();
     }
 
 	@Override
 	public List<DashConcState> getInnerConcStates() {
-		return concStates;
+		return this.concStates;
 	}
 
 	@Override
 	public List<DashState> getInnerORStates() {
-		return states;
+		return this.states;
 	}
 
 	@Override
 	public List<DashTrans> getTransitions() {
-		return transitions;
+		return this.transitions;
 	}
 	
 	@Override
 	public List<DashBuffer> getBuffers(){
-		return buffers;
+		return this.buffers;
 	}
 	
 	@Override
 	public List<DashEvent> getEvents(){
-		return events;
+		return this.events;
+	}
+	
+	@Override
+	public List<String> getEventNames(){
+		return this.eventNames;
+	}
+	
+	@Override
+	public List<DashInvariant> getInvariants () {
+		return this.invariant;
 	}
 	
 	@Override
 	public List<Decl> getVariables(){
-		return decls;
+		return this.decls;
 	}
-
+	
+	@Override 
+	public ItemType getType() {
+		return ItemType.ORSTATE;
+	}
+	
+	@Override 
+	public DashConcState getANDState() {
+		return this.getParentConcState();
+	}
+	
     public List<DashEnter> getEnters() {
-    	return enter;
+    	return this.enter;
     }
     
     public List<DashExit> getExits() {
-    	return exit;
+    	return this.exit;
     }
     
     public List<DashTrans> getModifiedTransitions() {
-    	return modifiedTransitions;
+    	return this.modifiedTransitions;
     }
     
     public void addModifiedTransition(DashTrans trans) {
-    	modifiedTransitions.add(trans);
+    	this.modifiedTransitions.add(trans);
     }
     
     public boolean isDefault() {
-    	return isDefault;
+    	return this.isDefault;
     }
 
 }

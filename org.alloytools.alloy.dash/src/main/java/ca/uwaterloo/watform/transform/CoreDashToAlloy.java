@@ -2235,7 +2235,6 @@ public class CoreDashToAlloy {
         //If we make a reference to a conc state outside of the current conc state, find it and 
         //modify the value of the expression accordingly
     	if(expr.toString().contains("/")) {
-    		//DashConcState topLevelState = DashHelper.getTopLevelConcStates(concState);
     		String expressionStr = expr.toString();
     		Optional<DashSuperState> variableParent = DashHelper.findVariableParent(module, parent, expressionStr);
     		if (variableParent.isPresent()) {
@@ -2245,6 +2244,7 @@ public class CoreDashToAlloy {
     			// Get the name of the variable (ANDState/ORState/var) -> var
     			String variable = expressionStr.substring(expressionStr.lastIndexOf('/') + 1);
     			Expr exprVar = DashHelper.createExprVar(variable);
+    			// Get all the variables
     			variablesInParent = module.getRawVarNames().getOrDefault(parentConcState.getFullyQualName(), new ArrayList<>());
     	        envVariablesInParent = module.getEnvironmentalVarNames().getOrDefault(parentConcState.getFullyQualName(), new ArrayList<>());
     	        expression = modifyVar(module, expression, parentConcState, variableParent.get(), exprVar, variablesInParent, false, true);
@@ -2255,27 +2255,6 @@ public class CoreDashToAlloy {
     	        expression = modifyVar(module, expression, parentConcState, parentConcState, expr, envVariablesInParent, false, true);
     			return expression;
     		}
-    		/*
-    		// Breakdown expression until we reach an OR State or a Variable
-			while (true) {
-				String reference = expressionStr.substring(0, expressionStr.indexOf("/"));
-				Optional<DashSuperState> currentState = DashHelper.locateState(topLevelState, reference.toString());
-				// We have reached an OR-State or a variable
-				if (!currentState.isPresent()) {
-					return modifyVar(module, expression, concState, concState, expr, variablesInParent, false, true);
-				} else {
-					// We are at a concurrent state, breakdown expression
-					concState = currentState.get() instanceof DashConcState ? (DashConcState) currentState.get() : concState;
-					variablesInParent = module.getRawVarNames().get(concState.getFullyQualName());
-					expressionStr = expressionStr.substring(expressionStr.indexOf('/') + 1);
-					expr = DashHelper.createExprVar(expressionStr);
-					
-					if (expressionStr.indexOf("/") < 0) {
-						return modifyVar(module, expression, concState, currentState.get(), expr, variablesInParent, false, true);
-					}
-				}
-			}
-			*/
     	}
         
         if (variablesInParent != null)
@@ -2283,6 +2262,7 @@ public class CoreDashToAlloy {
         if (envVariablesInParent != null)
             expression = modifyVar(module, expression, parentConcState, parentConcState, expr, envVariablesInParent, true, isRef);
         
+        // Look for the variable in nested AND-states
         for (DashConcState innerConcState: DashHelper.getNestedConcStates(parentConcState)) {
             if (module.getRawVarNames().get(innerConcState.getFullyQualName()) != null)
                 expression = modifyVar(module, expression, innerConcState, innerConcState, expr, module.getRawVarNames().get(innerConcState.getFullyQualName()), false, isRef);
@@ -2290,6 +2270,7 @@ public class CoreDashToAlloy {
                 expression = modifyVar(module, expression, innerConcState, innerConcState, expr, module.getEnvironmentalVarNames().get(innerConcState.getFullyQualName()), true, isRef);
         }
 
+        // Look for the variable in parent AND-states
         DashConcState outerConcState = DashHelper.getTopLevelConcStates(parentConcState);
         while (outerConcState != null) {
             if (module.getRawVarNames().get(outerConcState.getFullyQualName()) != null)

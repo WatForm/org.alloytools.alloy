@@ -17,39 +17,39 @@ public abstract class DashSuperAST {
     	this.name = name;
     }
     
-    public Pos getPos() {
-    	return pos;
+    public final Pos getPos() {
+    	return this.pos;
     }
     
-    public String getRawName() {
-    	return name;
+    public final String getRawName() {
+    	return this.name;
     }
     
-    public String getFullyQualName() {
-    	return modifiedName;
+    public final String getFullyQualName() {
+    	return this.modifiedName;
     }
     
-    public DashConcState getParentConcState () {
-    	return parentConcState;
+    public final DashConcState getParentConcState () {
+    	return this.parentConcState;
     }
     
-    public void setFullyQualName(String modifiedName) {
+    public final void setFullyQualName(String modifiedName) {
     	this.modifiedName = modifiedName;
     }
     
-    public void setRawName(String name) {
+    public final void setRawName(String name) {
     	this.name = name;
     }
     
-    public void setParentConcState(DashConcState parentConcState) {
+    public final void setParentConcState(DashConcState parentConcState) {
     	this.parentConcState = parentConcState;
     }
     
-    public Object getParent() {
-    	return parent;
+    public final DashSuperState getParent() {
+    	return this.parent;
     }
     
-    public void setParent(DashSuperState actualParent) {
+    public final void setParent(DashSuperState actualParent) {
     	this.parent = actualParent;
     }
 }

@@ -300,9 +300,9 @@ public final class DashModule extends Browsable implements Module {
     /**
      * Each conc state name is mapped to its respective Conc State AST
      */
-    private Map<String,DashConcState>     concStates             = new LinkedHashMap<String,DashConcState>();
+    private Map<String,DashConcState>     			concStates             = new LinkedHashMap<String,DashConcState>();
     
-    public Map<String, DashConcState> getAllConcurrentStates () {
+    public Map<String, DashConcState> 				getAllConcurrentStates () {
     	return concStates;
     }
 
@@ -310,9 +310,9 @@ public final class DashModule extends Browsable implements Module {
      * Set to true if there is a child concurrent state inside a parent concurrent
      * state
      */
-    private boolean                       stateHierarchy         = false;
+    private boolean                       			stateHierarchy         = false;
     
-    public boolean hasHierarchy() {
+    public boolean 									hasHierarchy() {
 		return stateHierarchy;	
     }
 
@@ -320,63 +320,63 @@ public final class DashModule extends Browsable implements Module {
      * Each top level conc state name is mapped to its respective Conc State AST.
      * Useful for printing a CoreDash version of a Dash model
      */
-    private Map<String,DashConcState>     topLevelConcStates     = new LinkedHashMap<String,DashConcState>();
+    private Map<String,DashConcState>     			topLevelConcStates      = new LinkedHashMap<String,DashConcState>();
     
-    public Map<String,DashConcState> getTopLevelConcStates() {
+    public Map<String,DashConcState>				getTopLevelConcStates() {
     	return topLevelConcStates;
     }
      
     /**
      * For OR states at each level, add an integer to the list (0 -> conf: State, 1 -> conf -> State -> State, ..)
      */
-    private List<Integer>     confTuples     = new ArrayList <Integer>();
+    private List<Integer>    						 confTuples     		= new ArrayList <Integer>();
     
-    public List<Integer> getConfLevels() {
+    public List<Integer> 							 getConfLevels() {
     	return confTuples;
     }
     
     /**
      * For events at each level, add an integer to the list (0 -> events: Event, 1 -> events -> Event -> Event, ..)
      */
-    private List<Integer>     eventTuples     = new ArrayList <Integer>();
+    private List<Integer>     						eventTuples    			 = new ArrayList <Integer>();
     
-    public List<Integer> getEventLevels() {
+    public List<Integer>							 getEventLevels() {
     	return eventTuples;
     }
 
     /**
      * Stores the name for every concurrent state in the model
      */
-    private List<String>                  concStateNames         = new ArrayList<String>();
+    private List<String>                 			 concStateNames         = new ArrayList<String>();
     
-    public List<String>					  getConcurrentStateNames() {
+    public List<String>								 getConcurrentStateNames() {
     	return concStateNames;
     }
     
     /**
      * Stores the name for every Identifier signature in the model
-     */
-    private List<String>                  identifiers         = new ArrayList<String>();
+	     */
+	    private List<String>                  		 identifiers         	= new ArrayList<String>();
     
-    public List<String>					getIdentifierElements() {
+    public List<String>								 getIdentifierElements() {
     	return identifiers;
     }
 
     /**
      * Each state name is mapped to its respective State AST
      */
-    private Map<String,DashState>         states                 = new LinkedHashMap<String,DashState>();
+    private Map<String,DashState>         			states                	= new LinkedHashMap<String,DashState>();
     
-    public Map<String,DashState>		getORStates() {
+    public Map<String,DashState>					getORStates() {
     	return states;
     }
     
     /**
      * A list of the default states that are active initially
      */
-    private Map<Integer,List<DashState>>        initialDefaultStates                 = new LinkedHashMap<Integer,List<DashState>>();
+    private Map<Integer,List<DashState>>        	initialDefaultStates     = new LinkedHashMap<Integer,List<DashState>>();
     
-    public Map<Integer,List<DashState>>			getInitDefaultStates() {
+    public Map<Integer,List<DashState>>				getInitDefaultStates() {
     	return initialDefaultStates;
     }
 
@@ -384,27 +384,27 @@ public final class DashModule extends Browsable implements Module {
      * A list of the default states in the Dash Model. This will be used when
      * converting from Dash to Alloy
      */
-    private List<DashState>               defaultStates          = new ArrayList<DashState>();
+    private List<DashState>              			 defaultStates           = new ArrayList<DashState>();
     
-    public List<DashState>				 getDefaultStates() {
+    public List<DashState>				 			 getDefaultStates() {
     	return defaultStates;
     }
     
     /**
      * A list of the buffers in the Dash Model.
      */
-    private Map<String, DashConcState>               buffers          = new LinkedHashMap<String, DashConcState>();
+    private Map<String, DashConcState>               buffers          		= new LinkedHashMap<String, DashConcState>();
     
-    public Map<String, DashConcState>   			getBuffers() {
+    public Map<String, DashConcState>   			 getBuffers() {
     	return buffers;
     }
     
     /**
      * A list of the buffer params mapped to their respective conc state
     */
-    private Map<String, DashConcState>               bufferParamToConcState          = new LinkedHashMap<String, DashConcState>();
+    private Map<String, DashConcState>               bufferParamToConcState  = new LinkedHashMap<String, DashConcState>();
     
-    public Map<String, DashConcState>				getBufferElemToConcState() {
+    public Map<String, DashConcState>				 getBufferElemToConcState() {
     	return bufferParamToConcState;
     }
     
@@ -412,112 +412,112 @@ public final class DashModule extends Browsable implements Module {
      * The modified buffer names corresponding to their respective buffer element (if there are two buffers, messages and requests,
      * both of which have the same element, then the imported buffer should have the same alias
      */
-    private Map<String,String>               bufferNameToElem          = new LinkedHashMap<String,String>();
+    private Map<String,String>              		 bufferNameToElem       = new LinkedHashMap<String,String>();
     
-    public Map<String,String>  				getBufferElement() {
+    public Map<String,String>  						 getBufferElement() {
     	return bufferNameToElem;
     }
     
     /**
      * This is a mapping from a Buffer name to its respective Buffer Index Signature
      */
-    private Map<String,String>              bufferNameToIndex         = new LinkedHashMap<String,String>();
+    private Map<String,String>              		bufferNameToIndex       = new LinkedHashMap<String,String>();
     
-    public Map<String,String>  				getBufferIndexSig() {
-    	return bufferNameToIndex;
+    public Map<String,String>  						getBufferIndexSig() {
+    	return bufferNameToIndex;		
     }
     
     /**
      * This is a mapping from a Buffer name to its respective Buffer Index Signature
      */
-    private Map<String,String>               rawBufferNameToIndex         = new LinkedHashMap<String,String>();
+    private Map<String,String>               		rawBufferNameToIndex     = new LinkedHashMap<String,String>();
     
-    public Map<String,String> 				getRawBufferToIndexSig() {
+    public Map<String,String> 				 		getRawBufferToIndexSig() {
     	return rawBufferNameToIndex;
     }
     
     /**
      * This is a mapping from a buffer name to its respective alias
      */
-    private Map<String,String>               bufferNameToAlias         = new LinkedHashMap<String,String>();
+    private Map<String,String>               		bufferNameToAlias        = new LinkedHashMap<String,String>();
     
-    public Map<String, String>				 getBufferAlias() {
+    public Map<String, String>				 		getBufferAlias() {
     	return bufferNameToAlias;
     }
     
     /**
      * The number of unique buffers in the model
      */
-    private int                              bufferCount          = 0;
+    private int                              		bufferCount          = 0;
 
     /**
      * A list of the initial conditions in the Dash Model. This will be used when
      * converting from Dash to Alloy
      */
-    private List<DashInit>                initConditions         = new ArrayList<DashInit>();
+    private List<DashInit>                			initConditions           = new ArrayList<DashInit>();
     
-    public List<DashInit>				   getInitConditions() {
+    public List<DashInit>				  			getInitConditions() {
     	return initConditions;
     }
 
     /**
      * Each variable name is mapped to it the conc state inside which it is declared
      */
-    private Map<String,List<String>>     variableNames          = new LinkedHashMap<String,List<String>>();
-    private List<String>                  modifiedVarNames       = new ArrayList<String>();
-    private Map<String,List<String>>      envVariableNames       = new LinkedHashMap<String,List<String>>();
+    private Map<String,List<String>>      			variableNames           = new LinkedHashMap<String,List<String>>();
+    private List<String>                 			modifiedVarNames        = new ArrayList<String>();
+    private Map<String,List<String>>      			envVariableNames        = new LinkedHashMap<String,List<String>>();
     
-    public Map<String,List<String>> getRawVarNames() {
+    public Map<String,List<String>>		  			getRawVarNames() {
     	return variableNames;
     }
     
-    public List<String> 			getFullyQualVarNames() {
+    public List<String> 				  			getFullyQualVarNames() {
     	return modifiedVarNames;
     }
     
-    public Map<String,List<String>> getEnvironmentalVarNames() {
+    public Map<String,List<String>> 	  			getEnvironmentalVarNames() {
     	return envVariableNames;
     }
 
     /**
      * Each variable name is mapped to its respective expression
      */
-    private Map<String,Expr>              variable2Expression    = new LinkedHashMap<String,Expr>();
-    private Map<String,Expr>               envVariable2Expression = new LinkedHashMap<String,Expr>();
+    private Map<String,Expr>               			variable2Expression    = new LinkedHashMap<String,Expr>();
+    private Map<String,Expr>               			envVariable2Expression = new LinkedHashMap<String,Expr>();
     
-    public Map<String,Expr>			getVariableExpresssion() {
+    public Map<String,Expr>				   			getVariableExpresssion() {
     	return variable2Expression;
     }
     
     // POSSIBLE ISSUE WITH ELECTRUM
-    public Map<String,Expr>			getEnvVarExpresssion() {
+    public Map<String,Expr>							getEnvVarExpresssion() {
     	return envVariable2Expression;
     }
     
     /**
      * Each variable name is mapped to the Concurrent State in which they are declared
      */
-    private Map<String,DashConcState>     variable2ConcState     = new LinkedHashMap<String,DashConcState>();
+    private Map<String,DashConcState>     			variable2ConcState     = new LinkedHashMap<String,DashConcState>();
     
-    public Map<String,DashConcState> 	  getVariableConcState() {
+    public Map<String,DashConcState> 	  			getVariableConcState() {
     	return variable2ConcState;
     }
     
     /**
      * Each event name is mapped to the Concurrent State in which they are declared
      */
-    private Map<String,DashConcState>     event2ConcState     = new LinkedHashMap<String,DashConcState>();
+    private Map<String,DashConcState>     			event2ConcState        = new LinkedHashMap<String,DashConcState>();
 
-    public Map<String,DashConcState> 	  getEventConcState() {
+    public Map<String,DashConcState> 	  			getEventConcState() {
     	return event2ConcState;
     }
   
     /**
      * Each transition name is mapped to its respective Transiton AST
      */
-    private Map<String,DashTrans>         transitions            = new LinkedHashMap<String,DashTrans>();
+    private Map<String,DashTrans>         			transitions            = new LinkedHashMap<String,DashTrans>();
     
-    public Map<String,DashTrans> 		  getTransitions() {
+    public Map<String,DashTrans> 		  			getTransitions() {
     	return transitions;
     }
 
@@ -525,57 +525,57 @@ public final class DashModule extends Browsable implements Module {
      * Each transition template name is mapped to its respective TransitonTemplate
      * AST
      */
-    private Map<String,DashTransTemplate> transitionTemplates    = new LinkedHashMap<String,DashTransTemplate>();
+    private Map<String,DashTransTemplate> 			transitionTemplates    = new LinkedHashMap<String,DashTransTemplate>();
     
-    public Map<String,DashTransTemplate>  getTransTemplates() {
+    public Map<String,DashTransTemplate>  			getTransTemplates() {
     	return transitionTemplates;
     }
     
     /**
      * Each Event is mapped to its respective AST AST
      */
-    private Map<String,DashEvent>         events                 = new LinkedHashMap<String,DashEvent>();
+    private Map<String,DashEvent>         			events                 = new LinkedHashMap<String,DashEvent>();
     
-    public Map<String,DashEvent> 		 getEvents() {
+    public Map<String,DashEvent> 		  			getEvents() {
     	return events;
     }
 
     /**
      * Each Action Template is mapped to its respective AST AST
      */
-    private Map<String,DashAction>        actions                = new LinkedHashMap<String,DashAction>();
+    private Map<String,DashAction>        			actions                = new LinkedHashMap<String,DashAction>();
 
-    public Map<String,DashAction>		  getActions() {
+    public Map<String,DashAction>		  			getActions() {
     	return actions;
     }
     
     /**
      * Each Condition Template is mapped to its respective AST AST
      */
-    private Map<String,DashCondition>     conditions             = new LinkedHashMap<String,DashCondition>();
+    private Map<String,DashCondition>     			conditions             = new LinkedHashMap<String,DashCondition>();
 
-    public Map<String,DashCondition>	  getConditions() {
+    public Map<String,DashCondition>	  			getConditions() {
     	return conditions;
     }
     
     /**
      * Each Invariant Template is mapped to its respective AST AST
      */
-    private Map<String,DashInvariant>     invariants             = new LinkedHashMap<String,DashInvariant>();
+    private Map<String,DashInvariant>     			invariants             = new LinkedHashMap<String,DashInvariant>();
     
-    public Map<String,DashInvariant> 	  getInvariants() {
+    public Map<String,DashInvariant> 	  			getInvariants() {
     	return invariants;
     }
 
-    private int                         transitionCount        = 0;
+    private int                        	 			transitionCount        = 0;
     
-    public int 							numOfTransitions() {
+    public int 							  			numOfTransitions() {
     	return transitionCount;
     }
     
-    private boolean                       isEnvEventModel        = false;
-
-    Boolean                              doneParsing            = false;
+    private boolean                       			 isEnvEventModel        = false;
+ 
+    Boolean                               			 doneParsing            = false;
     
     /**
      * Used by the toString() function to print a Dash Module
@@ -2002,8 +2002,8 @@ public final class DashModule extends Browsable implements Module {
         initConditions.add(init);
     }
 
-    public void addInvariant(DashInvariant invariant, DashConcState parent) {
-        invariant.setParentConcState(parent);
+    public void addInvariant(DashInvariant invariant, DashSuperState parent) {
+        invariant.setParentConcState(parent.getANDState());
 
         /*
          * Breakdown the AND expression (if it is an AND expr) into a list of
@@ -2091,9 +2091,13 @@ public final class DashModule extends Browsable implements Module {
 	        readVariablesDeclared(decl, state.getParentConcState(), Optional.ofNullable(state));	
 	    }
 	    for (DashEvent event : state.getEvents()) {
-	        addEvent(state.getParentConcState(), Optional.ofNullable(state),event);
+	        addEvent(state.getParentConcState(), Optional.ofNullable(state), event);
+	    }
+	    for (DashInvariant invariant : state.getInvariants()) {
+	        addInvariant(invariant, state);	
 	    }
     }
+    
     
     /* Fetch all the transitions in the model */
     private void getAllTransitions() {
@@ -2124,12 +2128,15 @@ public final class DashModule extends Browsable implements Module {
 
    /*
     * This is called by the getAllTransitions function once it finds a transition
-    * inside an OR state
+    * inside a state
     */
-    private void addTrans(DashState parent, DashTrans transition) {
+    private void addTrans(DashSuperState parent, DashTrans transition) {
        String modifiedTransName = parent.getFullyQualName() + '_' + transition.getRawName();
        transition.setFullyQualName(modifiedTransName);
        transition.setParent(parent);
+	   int destinations = (transition.getDestination() != null) ? transition.getDestination().getAllDestinations().size() : 0;
+	   int origins = (transition.getOrigin() != null) ? transition.getOrigin().getAllOrigins().size() : 0;
+	   int transCount = 0;
 
        /*
         * If we have more than one from command (source), split up the transition such
@@ -2137,48 +2144,48 @@ public final class DashModule extends Browsable implements Module {
         */
        if (transition.getOrigin() != null && transition.getOrigin().getAllOrigins().size() > 0) {
            for (String fromExpr : transition.getOrigin().getAllOrigins()) {
-               if (transition.getRawName() == null)
+        	   String fullyQualTransName = (destinations > 1 || origins > 1) ? modifiedTransName + " _t_" + (transCount++) : modifiedTransName;
+               if (transition.getRawName() == null) {
                    modifiedTransName = parent.getFullyQualName() + "_t_" + (++transitionCount);
-               generateTransition(transition, fromExpr, modifiedTransName);
+               }
+               if (transition.getDestination() == null) {
+            	   generateTransition(transition, fromExpr, "", fullyQualTransName);
+               } else {
+	               for (String gotoExpr : transition.getDestination().getAllDestinations()) {
+	            	   fullyQualTransName = (destinations > 1 || origins > 1) ? modifiedTransName + " _t_" + (transCount++) : modifiedTransName;
+	            	   generateTransition(transition, fromExpr, gotoExpr, fullyQualTransName);
+	               }
+               }
            }
        } else {
-           if (transition.getRawName() == null)
+           if (transition.getRawName() == null) {
                modifiedTransName = parent.getFullyQualName() + "_t_" + (++transitionCount);
-           transition.setFullyQualName(modifiedTransName);
-           transition.setParentConcState(DashHelper.getParentConcState(parent));
-           transition.getParentConcState().addAllTransition(transition);
-           transitions.put(modifiedTransName, transition);
-       }
-   }
-   
-   /*
-    * This is called by the getAllTransitions function once it finds a transition
-    * inside an conc state
-    */
-    private void addTrans(DashConcState parent, DashTrans transition) {
-   	String modifiedTransName = parent.getFullyQualName() + '_' + transition.getRawName();
-       transition.setFullyQualName(modifiedTransName);
-       transition.setParent(parent);
-
-       /*
-        * If we have more than one from command (source), split up the transition such
-        * that each transition represents one from command.
-        */
-       if (transition.getOrigin() != null && transition.getOrigin().getAllOrigins().size() > 0) {
-           for (String fromExpr : transition.getOrigin().getAllOrigins()) {
-               if (transition.getRawName() == null)
-                   modifiedTransName = parent.getFullyQualName() + "_t_" + (++transitionCount);
-               generateTransition(transition, fromExpr, modifiedTransName);
            }
-       } else {
-           if (transition.getRawName() == null)
-               modifiedTransName = parent.getFullyQualName() + "_t_" + (++transitionCount);
-           transition.setFullyQualName(modifiedTransName);
-           transition.setParentConcState(parent);
-           transition.getParentConcState().addAllTransition(transition);
-           transitions.put(modifiedTransName, transition);
+           String fullyQualTransName = (destinations > 1 || origins > 1) ? modifiedTransName + " _t_" + (transCount++) : modifiedTransName;
+           if (transition.getDestination() == null) {
+        	   generateTransition(transition, "", "", fullyQualTransName);
+           } else {
+               for (String gotoExpr : transition.getDestination().getAllDestinations()) {
+            	   fullyQualTransName = (destinations > 1 || origins > 1) ? modifiedTransName + " _t_" + (transCount++) : modifiedTransName;
+            	   generateTransition(transition, "", gotoExpr, fullyQualTransName);
+               }
+           }
+           //transition.setFullyQualName(modifiedTransName);
+           //transition.setParentConcState(DashHelper.getParentConcState(parent));
+           //transition.getParentConcState().addAllTransition(transition);
+           //transitions.put(modifiedTransName, transition);
        }
    }
+    
+    private void generateTransition(DashTrans transition, String fromExpr, String gotoExpr, String modifiedName) {
+        DashTrans trans = new DashTrans(transition); // New transition representing one of the From commands
+        trans.setOrigin(fromExpr.isEmpty() ? null : new DashFrom(fromExpr, false)); // Add the from command to the new transition
+        trans.setDestination(gotoExpr.isEmpty() ? null : new DashGoto(gotoExpr)); // Add the from command to the new transition
+        trans.setFullyQualName(modifiedName);
+        trans.setParentConcState(DashHelper.getParentConcState(transition.getParent()));
+        trans.getParentConcState().addAllTransition(trans);
+        transitions.put(modifiedName, trans);
+    } 
 
    /*
     * This is called by the addConcState function once it finds a transition
@@ -2260,8 +2267,16 @@ public final class DashModule extends Browsable implements Module {
            }
        } //If we have more than one From command, create a new transition for each for command
        else if (transTemplate.getOrigin() != null && trans.getOrigin().getAllOrigins().size() > 0) {
-           for (String fromExpr : trans.getOrigin().getAllOrigins())
-               generateTransition(trans, fromExpr, parent.getFullyQualName() + "_" + templateCall.getRawName() + "__" + (++transitionCount));
+           for (String fromExpr : trans.getOrigin().getAllOrigins()) {
+        	   if (trans.getDestination() == null) {
+        		   generateTransition(trans, fromExpr, "", parent.getFullyQualName() + "_" + templateCall.getRawName() + "__" + (++transitionCount));
+        	   }
+        	   else {
+        		   for (String gotoExpr : trans.getDestination().getAllDestinations()) {
+                	   generateTransition(trans, fromExpr, gotoExpr, parent.getFullyQualName() + "_" + templateCall.getRawName() + "__" + (++transitionCount));
+                   }
+        	   }
+           }
        } else {
        	trans.setFullyQualName(parent.getFullyQualName() + "_" + templateCall.getRawName() + "__" + (++transitionCount));
            trans.setParentConcState(parent);
@@ -2269,22 +2284,11 @@ public final class DashModule extends Browsable implements Module {
            transitions.put(trans.getFullyQualName(), trans);
        }
    }
-    
-    private void generateTransition(DashTrans transition, String fromExpr, String modifiedName) {
-        DashTrans trans = new DashTrans(transition); // New transition representing one of the From commands
-        trans.setOrigin(new DashFrom(fromExpr, false)); // Add the from command to the new transition
-        trans.setFullyQualName(modifiedName);
-        trans.setParentConcState(DashHelper.getParentConcState(transition.getParent()));
-        trans.getParentConcState().addAllTransition(trans);
-        transitions.put(modifiedName, trans);
-    } 
-    
-   Boolean checkInternalEvent(DashTrans trans)
-    {
+
+    private Boolean checkInternalEvent(DashTrans trans) {
         if (trans.getTriggerEvent() == null) {
             return false;
         }
-    	
         String onCommand = trans.getTriggerEvent().getRawName();
 
         if (onCommand.contains("/")) 
@@ -2303,8 +2307,13 @@ public final class DashModule extends Browsable implements Module {
     public void addEvent(DashConcState parent, Optional<DashState> state,DashEvent event) {
         String modifiedName = state.isPresent() ? state.get().getFullyQualName() + "_" + event.getRawName() : parent.getFullyQualName() + "_" + event.getRawName();
         event.setFullyQualName(modifiedName);
-        event.setParentName(parent.getRawName());
+        event.setParentName(parent.getRawName());;
+        event.setParent(parent);
         event.setParentConcState(parent);
+        // The event is declared inside an OR-state
+        if (state.isPresent()) {
+        	event.setParent(state.get());
+        }
         event2ConcState.put(event.getFullyQualName(), parent);
         
         if (event.getType().equals("env event") || event.getType().equals("event")) {

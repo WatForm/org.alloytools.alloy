@@ -5,6 +5,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import ca.uwaterloo.watform.parser.DashHelper;
+import ca.uwaterloo.watform.parser.DashHelper.ItemType;
 import edu.mit.csail.sdg.alloy4.Pos;
 import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.ExprVar;
@@ -35,7 +37,7 @@ public class DashConcState extends DashSuperState {
         //Iterate through each item in the conc state and add each item to
         //a respective list (A state item will be added to the list of states, etc)
         for (Object item : concStateItems) {
-            if (item instanceof DashConcState)
+            if (item instanceof DashConcState) 
                 concStates.add((DashConcState) item);
             if (item instanceof DashState)
                 states.add((DashState) item);
@@ -45,6 +47,8 @@ public class DashConcState extends DashSuperState {
                 decls.add((Decl) item);
             if (item instanceof DashEvent)
                 events.add((DashEvent) item);
+            if (item instanceof DashEvent)
+                eventNames.add(((DashEvent) item).getRawName());
             if (item instanceof DashInit)
                 init.add((DashInit) item);
             if (item instanceof DashInvariant)
@@ -83,36 +87,56 @@ public class DashConcState extends DashSuperState {
 	
 	@Override
 	public List<DashConcState> getInnerConcStates() {
-		return concStates;
+		return this.concStates;
 	}
 
 	@Override
 	public List<DashState> getInnerORStates() {
-		return states;
+		return this.states;
 	}
 
 	@Override
 	public List<DashTrans> getTransitions() {
-		return transitions;
+		return this.transitions;
 	}
 	
 	@Override
 	public List<DashBuffer> getBuffers(){
-		return buffers;
+		return this.buffers;
 	}
 	
 	@Override
 	public List<DashEvent> getEvents(){
-		return events;
+		return this.events;
+	}
+	
+	@Override
+	public List<String> getEventNames(){
+		return this.eventNames;
+	}
+	
+	@Override
+	public List<DashInvariant> getInvariants () {
+		return this.invariant;
 	}
 	
 	@Override
 	public List<Decl> getVariables(){
-		return decls;
+		return this.decls;
+	}
+	
+	@Override 
+	public ItemType getType() {
+		return ItemType.ANDSTATE;
+	}
+	
+	@Override 
+	public DashConcState getANDState() {
+		return (DashConcState) this;
 	}
 	
 	public DashState getParentORState() {
-		return parentState;
+		return this.parentState;
 	}
 	
 	public void setParentORState(DashState parentState) {
@@ -124,46 +148,43 @@ public class DashConcState extends DashSuperState {
 	}
 	
 	public Map<Integer, List<DashConcState>> getAllChildConcStates() {
-		return allChildConcStates;
+		return this.allChildConcStates;
 	}
 	
 	public boolean isParameterized () {
-		return !param.isEmpty();
+		return !this.param.isEmpty();
 	}
 	
 	public String getReplicatedIdentifier() {
-		return param;
+		return this.param;
 	}
 	
 	public List<String> getIdentifiers() {
-		return IEs;
+		return this.IEs;
 	}
 	
 	public List<DashTemplateCall> getTemplateCalls(){
-		return templateCall;
+		return this.templateCall;
 	}
 	
 	public List<DashTransTemplate> getTemplateDeclarations(){
-		return templateDecl;
+		return this.templateDecl;
 	}
 	
 	public List<DashTrans> getAllTransitions (){
-		return allTransitions;
+		return this.allTransitions;
 	}
 	
 	public List<DashInit> getInitialConds(){
-		return init;
+		return this.init;
 	}
 	
-	public List<DashInvariant> getInvariants () {
-		return invariant;
-	}
 	public List<DashAction> getActions() {
-		return action;
+		return this.action;
 	}
 	
 	public List<DashCondition> getConditions() {
-		return condition;
+		return this.condition;
 	}
 	
 	public void addInnerConcState(DashConcState concState) {

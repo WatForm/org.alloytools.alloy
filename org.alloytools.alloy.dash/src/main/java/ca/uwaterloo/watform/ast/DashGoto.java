@@ -31,9 +31,9 @@ public class DashGoto extends DashSuperAST{
     	this.gotoExpr = gotoCom.gotoExpr;
     	this.setDefaultStatesEntered(new LinkedHashMap<String, DashConcState>(gotoCom.getDefaultStatesEntered()));
     	this.setEnteringDefaultStates(gotoCom.isEnteringDefaultStates());
-    	this.name = gotoCom.name;
+    	this.setRawName(gotoCom.name);
     	this.setDestination(gotoCom.getDestination());
-    	this.parentConcState = gotoCom.parentConcState;
+    	this.setParentConcState(gotoCom.parentConcState);
     }
 
     /*
