@@ -2238,7 +2238,6 @@ public class CoreDashToAlloy {
     	if(expr.toString().contains("/")) {
     		String expressionStr = expr.toString();
     		Optional<DashSuperState> variableParent = DashHelper.findVariableParent(module, parent, expressionStr);
-    		System.out.println("Immediate Parent: " + parent.getFullyQualName() + " Variable: " + expr.toString() + " " + variableParent.isPresent());
     		if (variableParent.isPresent()) {
     			// Get the AND state in which the variable is located (if it is located in an OR state, then we 
     			// get the parent AND state of the OR state

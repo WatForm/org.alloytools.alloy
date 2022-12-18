@@ -952,9 +952,9 @@ public class DashHelper {
 	  List<DashState> ORMatches = match.getInnerORStates().stream().filter(x -> x.getRawName().equals(reference)).collect(Collectors.toCollection(ArrayList::new));
 	  switch (itemType) {
 		  case VAR : {
-			  reference = (reference.contains("'")) ? reference.substring(0, reference.length() - 1) : reference;
-			  boolean foundMatch = (module.getRawVarNames().getOrDefault(match.getFullyQualName(), new ArrayList<>()).contains(reference))
-					  || (module.getEnvironmentalVarNames().getOrDefault(match.getFullyQualName(), new ArrayList<>()).contains(reference));
+			  String variable = (reference.contains("'")) ? reference.substring(0, reference.length() - 1) : reference;
+			  boolean foundMatch = (module.getRawVarNames().getOrDefault(match.getFullyQualName(), new ArrayList<>()).contains(variable))
+					  || (module.getEnvironmentalVarNames().getOrDefault(match.getFullyQualName(), new ArrayList<>()).contains(variable));
 			  return (foundMatch) ? Optional.ofNullable(match) : Optional.empty();
 		  }
 		  case ORSTATE : {
