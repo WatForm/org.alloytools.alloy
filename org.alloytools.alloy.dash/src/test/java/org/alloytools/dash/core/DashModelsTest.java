@@ -252,7 +252,21 @@ public class DashModelsTest {
     @Test
     public void testTransitionAllCommands() throws Exception {
 
-        String dashModel = "conc state concState { var_one: none event event_one {} default state state_one {} state state_two {} trans {from state_one, state_two on event_one when var_one = none do var_one' = var_one goto state_two send event_one }}";
+        String dashModel = 
+        		"conc state concState { "
+	        		+ "var_one: none event "
+	        		+ "event_one {} "
+	        		+ "default state state_one {} "
+	        		+ "state state_two {} "
+	        		+ "trans {"
+	        			+ "from state_one, state_two "
+	        			+ "on event_one "
+	        			+ "when var_one = none "
+	        			+ "do var_one' = var_one "
+	        			+ "goto state_two "
+	        			+ "send event_one "
+	        		+ "}"
+        		+ "}";
         DashOptions.outputDir = "test.dsh";
         DashModule module = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
         DashModule coreDashModule = new DashToCoreDash().transformToCoreDash(module, "", "");
@@ -263,33 +277,19 @@ public class DashModelsTest {
             transitions.add(trans);
         }
 
-        if (!transitions.get(0).getOrigin().getAllOrigins().get(0).equals("concState_state_one"))
-            throw new Exception("Transition From Expr not stored correctly.");
-        if (!transitions.get(0).getTriggerEvent().getRawName().equals("concState_event_one"))
-            throw new Exception("Transition On Expr not stored correctly.");
-        if (!transitions.get(0).getAction().getAllExpression().get(0).toString().equals("var_one' = var_one"))
-            throw new Exception("Transition do Expr not stored correctly.");
-        if (!transitions.get(0).getCondition().getAllExpressions().get(0).toString().equals("var_one = none"))
-            throw new Exception("Transition when Expr not stored correctly. Expected is: var_one = none, Actual is: " + transitions.get(0).getCondition().getAllExpressions().get(0).toString());
-        if (!transitions.get(0).getDestination().getAllDestinations().get(0).equals("concState_state_two"))
-            throw new Exception("Transition Goto Expr not stored correctly.");
-        if (!transitions.get(0).getEventsTriggered().getRawName().equals("concState_event_one"))
-            throw new Exception("Transition Send Expr not stored correctly.");
+        assertEquals(transitions.get(0).getOrigin().getAllOrigins().get(0), "concState_state_one");
+        assertEquals(transitions.get(0).getTriggerEvent().getRawName(), "concState_event_one");
+        assertEquals(transitions.get(0).getAction().getAllExpression().get(0).toString(), "var_one' = var_one");
+        assertEquals(transitions.get(0).getCondition().getAllExpressions().get(0).toString(), "var_one = none");
+        assertEquals(transitions.get(0).getDestination().getAllDestinations().get(0), "concState_state_two");
+        assertEquals(transitions.get(0).getEventsTriggered().getRawName(), "concState_event_one");
 
-        if (!transitions.get(1).getOrigin().getAllOrigins().get(0).equals("concState_state_two"))
-            throw new Exception("Transition From Expr not stored correctly.");
-        if (!transitions.get(1).getTriggerEvent().getRawName().equals("concState_event_one"))
-            throw new Exception("Transition On Expr not stored correctly.");
-        if (!transitions.get(1).getAction().getAllExpression().get(0).toString().equals("var_one' = var_one"))
-            throw new Exception("Transition do Expr not stored correctly.");
-        if (!transitions.get(1).getCondition().getAllExpressions().get(0).toString().equals("var_one = none"))
-            throw new Exception("Transition when Expr not stored correctly. Expected is: var_one = none, Actual is: " + transitions.get(1).getCondition().getAllExpressions().get(0).toString());
-        if (!transitions.get(1).getDestination().getAllDestinations().get(0).equals("concState_state_two"))
-            throw new Exception("Transition Goto Expr not stored correctly.");
-        if (!transitions.get(1).getEventsTriggered().getRawName().equals("concState_event_one"))
-            throw new Exception("Transition Send Expr not stored correctly.");
-
-        DashValidation.clearContainers();
+        assertEquals(transitions.get(1).getOrigin().getAllOrigins().get(0), "concState_state_two");
+        assertEquals(transitions.get(1).getTriggerEvent().getRawName(), "concState_event_one");
+        assertEquals(transitions.get(1).getAction().getAllExpression().get(0).toString(), "var_one' = var_one");
+        assertEquals(transitions.get(1).getCondition().getAllExpressions().get(0).toString(), "var_one = none");
+        assertEquals(transitions.get(1).getDestination().getAllDestinations().get(0), "concState_state_two");
+        assertEquals(transitions.get(1).getEventsTriggered().getRawName(), "concState_event_one");
     }
 
     @Test
@@ -305,34 +305,20 @@ public class DashModelsTest {
         for (DashTrans trans : coreDashModule.getTransitions().values()) {
             transitions.add(trans);
         }
+        
+        assertEquals(transitions.get(0).getOrigin().getAllOrigins().get(0), "concState_state_one");
+        assertEquals(transitions.get(0).getTriggerEvent().getRawName(), "concState_event_one");
+        assertEquals(transitions.get(0).getAction().getAllExpression().get(0).toString(), "var_one' = var_one");
+        assertEquals(transitions.get(0).getCondition().getAllExpressions().get(0).toString(), "var_one = none");
+        assertEquals(transitions.get(0).getDestination().getAllDestinations().get(0), "concState_state_one");
+        assertEquals(transitions.get(0).getEventsTriggered().getRawName(), "concState_event_one");
 
-        if (!transitions.get(0).getOrigin().getAllOrigins().get(0).equals("concState_state_one"))
-            throw new Exception("Transition From Expr not stored correctly.");
-        if (!transitions.get(0).getTriggerEvent().getRawName().equals("concState_event_one"))
-            throw new Exception("Transition On Expr not stored correctly.");
-        if (!transitions.get(0).getAction().getAllExpression().get(0).toString().equals("var_one' = var_one"))
-            throw new Exception("Transition do Expr not stored correctly.");
-        if (!transitions.get(0).getCondition().getAllExpressions().get(0).toString().equals("var_one = none"))
-            throw new Exception("Transition when Expr not stored correctly.");
-        if (!transitions.get(0).getDestination().getAllDestinations().get(0).equals("concState_state_one"))
-            throw new Exception("Transition Goto Expr not stored correctly.");
-        if (!transitions.get(0).getEventsTriggered().getRawName().equals("concState_event_one"))
-            throw new Exception("Transition Send Expr not stored correctly.");
-
-        if (!transitions.get(1).getOrigin().getAllOrigins().get(0).equals("concState_state_two"))
-            throw new Exception("Transition From Expr not stored correctly.");
-        if (!transitions.get(1).getTriggerEvent().getRawName().equals("concState_event_one"))
-            throw new Exception("Transition On Expr not stored correctly.");
-        if (!transitions.get(1).getAction().getAllExpression().get(0).toString().equals("var_one' = var_one"))
-            throw new Exception("Transition do Expr not stored correctly.");
-        if (!transitions.get(1).getCondition().getAllExpressions().get(0).toString().equals("var_one = none"))
-            throw new Exception("Transition when Expr not stored correctly.");
-        if (!transitions.get(1).getDestination().getAllDestinations().get(0).equals("concState_state_one"))
-            throw new Exception("Transition Goto Expr not stored correctly.");
-        if (!transitions.get(1).getEventsTriggered().getRawName().equals("concState_event_one"))
-            throw new Exception("Transition Send Expr not stored correctly.");
-
-        DashValidation.clearContainers();
+        assertEquals(transitions.get(1).getOrigin().getAllOrigins().get(0), "concState_state_two");
+        assertEquals(transitions.get(1).getTriggerEvent().getRawName(), "concState_event_one");
+        assertEquals(transitions.get(1).getAction().getAllExpression().get(0).toString(), "var_one' = var_one");
+        assertEquals(transitions.get(1).getCondition().getAllExpressions().get(0).toString(), "var_one = none");
+        assertEquals(transitions.get(1).getDestination().getAllDestinations().get(0), "concState_state_one");
+        assertEquals(transitions.get(1).getEventsTriggered().getRawName(), "concState_event_one");
     }
 
     //CoreDash to Alloy AST Unit Tests
@@ -347,31 +333,19 @@ public class DashModelsTest {
         DashValidation.validateDashModel(module);
         new CoreDashToAlloy().convertToAlloyAST(module, "", "");
         DashOptions.isElectrum = false;
+        
+        assertTrue(coreDashModule.funcs.keySet().contains("pre_topConcStateA_A"));
+        assertTrue(coreDashModule.funcs.keySet().contains("pos_topConcStateA_A"));
+        assertTrue(coreDashModule.funcs.keySet().contains("topConcStateA_A"));
+        assertTrue(coreDashModule.funcs.keySet().contains("semantics_topConcStateA_A"));
 
-        if (!(coreDashModule.funcs.keySet().contains("pre_topConcStateA_A")))
-            throw new Exception("Pre-Condition Predicate Not Stored Correctly.");
-        if (!(coreDashModule.funcs.keySet().contains("pos_topConcStateA_A")))
-            throw new Exception("Post-Condition Predicate Not Stored Correctly.");
-        if (!(coreDashModule.funcs.keySet().contains("topConcStateA_A")))
-            throw new Exception("Trans Name Predicate Not Stored Correctly.");
-        if (!(coreDashModule.funcs.keySet().contains("semantics_topConcStateA_A")))
-            throw new Exception("Semantics Predicate Not Stored Correctly.");
-
-        if (!(coreDashModule.funcs.keySet().contains("pre_topConcStateA_B_B")))
-            throw new Exception("Pre-Condition Predicate Not Stored Correctly.");
-        if (!(coreDashModule.funcs.keySet().contains("pos_topConcStateA_B_B")))
-            throw new Exception("Post-Condition Predicate Not Stored Correctly.");
-        if (!(coreDashModule.funcs.keySet().contains("topConcStateA_B_B")))
-            throw new Exception("Trans Name Predicate Not Stored Correctly.");
-        if (!(coreDashModule.funcs.keySet().contains("semantics_topConcStateA_B_B")))
-            throw new Exception("Semantics Predicate Not Stored Correctly.");
-
-        if (!(coreDashModule.funcs.keySet().contains("init")))
-            throw new Exception("Init Predicate Not Stored Correctly.");
-        if (!(coreDashModule.funcs.keySet().contains("small_step")))
-            throw new Exception("small_step Name Predicate Not Stored Correctly.");
-
-        DashValidation.clearContainers();
+        assertTrue(coreDashModule.funcs.keySet().contains("pre_topConcStateA_B_B"));
+        assertTrue(coreDashModule.funcs.keySet().contains("pos_topConcStateA_B_B"));
+        assertTrue(coreDashModule.funcs.keySet().contains("topConcStateA_B_B"));
+        assertTrue(coreDashModule.funcs.keySet().contains("semantics_topConcStateA_B_B"));
+        
+        assertTrue(coreDashModule.funcs.keySet().contains("init"));
+        assertTrue(coreDashModule.funcs.keySet().contains("small_step"));
     }
 
     @Test
@@ -385,22 +359,13 @@ public class DashModelsTest {
         new CoreDashToAlloy().convertToAlloyAST(module, "", "");
         DashOptions.isElectrum = false;
 
-        if (!(coreDashModule.sigs.keySet().contains("Snapshot")))
-            throw new Exception("Signature Name Not Stored Correctly.");
-        if (!(coreDashModule.sigs.keySet().contains("SystemState")))
-            throw new Exception("Signature Name Not Stored Correctly.");
-        if (!(coreDashModule.sigs.keySet().contains("topConcStateA")))
-            throw new Exception("Signature Name Not Stored Correctly.");
-        if (!(coreDashModule.sigs.keySet().contains("topConcStateA_B")))
-            throw new Exception("Signature Name Not Stored Correctly.");
-        if (!(coreDashModule.sigs.keySet().contains("topConcStateA_envA")))
-            throw new Exception("Signature Name Not Stored Correctly.");
-        if (!(coreDashModule.sigs.keySet().contains("topConcStateA_A")))
-            throw new Exception("Signature Name Not Stored Correctly.");
-        if (!(coreDashModule.sigs.keySet().contains("topConcStateA_B_B")))
-            throw new Exception("Signature Name Not Stored Correctly.");
-
-        DashValidation.clearContainers();
+        assertTrue(coreDashModule.sigs.keySet().contains("Snapshot"));
+        assertTrue(coreDashModule.sigs.keySet().contains("SystemState"));
+        assertTrue(coreDashModule.sigs.keySet().contains("topConcStateA"));
+        assertTrue(coreDashModule.sigs.keySet().contains("topConcStateA_B"));
+        assertTrue(coreDashModule.sigs.keySet().contains("topConcStateA_envA"));
+        assertTrue(coreDashModule.sigs.keySet().contains("topConcStateA_A"));
+        assertTrue(coreDashModule.sigs.keySet().contains("topConcStateA_B_B"));
     }
 
     @Test
@@ -423,10 +388,7 @@ public class DashModelsTest {
 
         String expectedOutput = "AND[concState_stateA in s.conf0, concState_envA in s.events0 & EnvironmentEvent, s . concState_var_one = none]";
 
-        if (!expectedOutput.equals(funcs.get(0).getBody().toString()))
-            throw new Exception("Pre-Conditions Not Stored Properly." + " Actual: " + funcs.get(0).getBody().toString());
-
-        DashValidation.clearContainers();
+        assertEquals(funcs.get(0).getBody().toString(), expectedOutput);
     }
 
     @Test
@@ -446,14 +408,9 @@ public class DashModelsTest {
             if (name.equals("pos_concState_A"))
                 funcs = coreDashModule.funcs.get(name);
         }
-
         String expectedOutput = "AND[s_next.conf0 = s.conf0 - concState_stateA + concState_stateA, s_next.concState_var_one = s.concState_var_one, no s_next.events0 & InternalEvent]";
 
-        if (!expectedOutput.equals(funcs.get(0).getBody().toString())) {
-            throw new Exception("Post-Conditions Not Stored Properly. Expected: " + expectedOutput + " Actual: " + funcs.get(0).getBody().toString());
-        }
-
-        DashValidation.clearContainers();
+        assertEquals(funcs.get(0).getBody().toString(), expectedOutput);
     }
     
     
@@ -474,14 +431,9 @@ public class DashModelsTest {
             if (name.equals("pos_concState_inner_A"))
                 funcs = coreDashModule.funcs.get(name);
         }
-
         String expectedOutput = "AND[s_next.conf0 = s.conf0 - concState_inner_stateA + concState_inner_stateA, s_next.concState_var_one = s.concState_var_one, (none.concState_inner_A.s_next.s.testIfNextStable0 => AND[s_next.stable = True, (s.stable = True => s_next.events0 & InternalEvent = none else s_next.events0 & InternalEvent = s.events0 & InternalEvent)] else AND[s_next.stable = False, (s.stable = True => AND[s_next.events0 & InternalEvent = none, s_next.events0 & EnvironmentEvent = s.events0 & EnvironmentEvent] else s_next.events0 = s.events0)])]";
-        
-        if (!expectedOutput.equals(funcs.get(0).getBody().toString())) {
-            throw new Exception("Post-Conditions Not Stored Properly. Expected: " + expectedOutput + " Actual: " + funcs.get(0).getBody().toString());
-        }
 
-        DashValidation.clearContainers();
+        assertEquals(funcs.get(0).getBody().toString(), expectedOutput);
     }
     
     //@Test
@@ -531,17 +483,12 @@ public class DashModelsTest {
                 funcs0 = coreDashModule.funcs.get(name);
             if (name.equals("pos_Parent_Child2_S0_T0"))
                 funcs1 = coreDashModule.funcs.get(name);
-        }
-         
+        }   
         String expectedOutput1 = "(all quant | quant . s_next.Parent_Child2_var2 = quant . s.Parent_Child2_var2)]), (all quant | quant.s_next.Parent_Child1_var1 = quant.s.Parent_Child1_var1)";
         String expectedOutput2 = "(all quant | quant . s_next.Parent_Child1_var1 = quant . s.Parent_Child1_var1)]), (all quant | quant.s_next.Parent_Child2_var2 = quant.s.Parent_Child2_var2)";
 
-        if (!(funcs0.get(0).getBody().toString().contains(expectedOutput1)))
-            throw new Exception("Post-Conditions Not Stored Properly (1)." + " Expected: " + funcs0.get(0).getBody().toString());
-        if (!(funcs1.get(0).getBody().toString().contains(expectedOutput2)))
-            throw new Exception("Post-Conditions Not Stored Properly (2)." + " Expected: " + funcs1.get(0).getBody().toString());
-
-        DashValidation.clearContainers();
+        assertEquals(funcs0.get(0).getBody().toString(), expectedOutput1);
+        assertEquals(funcs1.get(0).getBody().toString(), expectedOutput2);
     }
     
     //@Test
@@ -593,16 +540,11 @@ public class DashModelsTest {
             if (name.equals("pos_Parent_Child2_S0_T0"))
                 funcs1 = coreDashModule.funcs.get(name);
         }
-         
         String expectedOutput1 = "p.p.s_next.Parent_Child1_buf1.p.s . Parent_Child1_buf1.add, (one p | AND[p.p.s_next.Parent_Child2_buf2.p.s.Parent_Child2_buf2.add, (all quant | quant . s_next.Parent_Child2_buf2 = quant . s.Parent_Child2_buf2)]), (all quant | quant.s_next.Parent_Child1_buf1 = quant.s.Parent_Child1_buf1)";
         String expectedOutput2 = "p.p.s_next.Parent_Child2_buf2.p.s . Parent_Child2_buf2.add, (one p | AND[p.p.s_next.Parent_Child1_buf1.p.s.Parent_Child1_buf1.add, (all quant | quant . s_next.Parent_Child1_buf1 = quant . s.Parent_Child1_buf1)]), (all quant | quant.s_next.Parent_Child2_buf2 = quant.s.Parent_Child2_buf2)";
 
-        if (!(funcs0.get(0).getBody().toString().contains(expectedOutput1)))
-            throw new Exception("Post-Conditions Not Stored Properly (1)." + " Expected: " + funcs0.get(0).getBody().toString());
-        if (!(funcs1.get(0).getBody().toString().contains(expectedOutput2)))
-            throw new Exception("Post-Conditions Not Stored Properly (2)." + " Expected: " + funcs1.get(0).getBody().toString());
-
-        DashValidation.clearContainers();
+        assertEquals(funcs0.get(0).getBody().toString(), expectedOutput1);
+        assertEquals(funcs1.get(0).getBody().toString(), expectedOutput2);
     }
     
     @Test
@@ -652,18 +594,11 @@ public class DashModelsTest {
         	buffers.add(name);
         	bufferElems.add(module.getBufferElement().get(name));
         }
-         
-        if (!(buffers.get(0).equals("Parent_Child1_buf1")))
-            throw new Exception("Buffer Not Stored Properly." + " Expected: " + buffers.get(0));
-        if (!(buffers.get(1).equals("Parent_Child2_buf2")))
-            throw new Exception("Buffer Not Stored Properly." + " Expected: " + buffers.get(0));
-        if (!(bufferElems.get(0).equals("PID1")))
-            throw new Exception("Buffer Element Not Stored Properly." + " Expected: " + buffers.get(0));
-        if (!(bufferElems.get(1).equals("PID2")))
-            throw new Exception("Buffer Element Not Stored Properly." + " Expected: " + buffers.get(0));
-        
-        
-        DashValidation.clearContainers();
+
+        assertEquals(buffers.get(0), "Parent_Child1_buf1");
+        assertEquals(buffers.get(1).toString(), "Parent_Child2_buf2");
+        assertEquals(bufferElems.get(0), "PID1");
+        assertEquals(bufferElems.get(1).toString(), "PID2");
     } 
     
     
@@ -684,13 +619,9 @@ public class DashModelsTest {
             if (name.equals("enabledAfterStep_concState_inner_A"))
                 funcs = coreDashModule.funcs.get(name);
         }
-
         String expectedOutput = "AND[concState_inner_stateA in s.conf0, s . concState_var_one = none, (_s.stable = True => AND[no t & concState_inner_A + concState_inner_B, concState_envA in _s.events0 & EnvironmentEvent + genEvents] else AND[no _s.taken0 + t & concState_inner_A + concState_inner_B, concState_envA in _s.events0 + genEvents])]";
-        
-        if (!expectedOutput.equals(funcs.get(0).getBody().toString()))
-            throw new Exception("Enabled After Not Stored Properly." + " Expected: " + funcs.get(0).getBody().toString());
 
-        DashValidation.clearContainers();
+        assertEquals(funcs.get(0).getBody().toString(), expectedOutput);
     }
     
     @Test
@@ -713,10 +644,7 @@ public class DashModelsTest {
 
         String expectedOutput = "AND[! genEvents.t.s_next.s.enabledAfterStep_concState_inner_A, ! genEvents.t.s_next.s.enabledAfterStep_concState_inner_B]";
 
-        if (!expectedOutput.equals(funcs.get(0).getBody().toString()))
-            throw new Exception("TestIfNext After Not Stored Properly.");
-
-        DashValidation.clearContainers();
+        assertEquals(funcs.get(0).getBody().toString(), expectedOutput);
     }
 
     @Test
@@ -736,13 +664,9 @@ public class DashModelsTest {
             if (name.equals("semantics_concState_A"))
                 funcs = coreDashModule.funcs.get(name);
         }
-
         String expectedOutput = "s_next.taken0 = concState_A";
 
-        if (!expectedOutput.equals(funcs.get(0).getBody().toString()))
-            throw new Exception("Semantics Not Stored Properly.");
-
-        DashValidation.clearContainers();
+        assertEquals(funcs.get(0).getBody().toString(), expectedOutput);
     }
 
     @Test
@@ -762,13 +686,9 @@ public class DashModelsTest {
             if (name.equals("init"))
                 funcs = coreDashModule.funcs.get(name);
         }
-
         String expectedOutput = "AND[s.conf0 = concState_stateA, no s.taken0, no s.events0 & InternalEvent]";
 
-        if (!expectedOutput.equals(funcs.get(0).getBody().toString()))
-            throw new Exception("Init Not Stored Properly.");
-
-        DashValidation.clearContainers();
+        assertEquals(funcs.get(0).getBody().toString(), expectedOutput);
     }
 
 
@@ -784,13 +704,9 @@ public class DashModelsTest {
         DashValidation.validateDashModel(module);
         new CoreDashToAlloy().convertToAlloyAST(module, "", "");
         DashOptions.isElectrum = false;
-
         String expectedOutput = "AND[snapshot/first.init, (all s | ! s in snapshot/last => s . next.s.small_step), (all s | AND[! s in snapshot/last, ! s . next.s.small_step] => s . next.s.equals)]";
 
-        if (!expectedOutput.equals(coreDashModule.facts.get(0).b.toString()))
-            throw new Exception("Fact Not Stored Properly." + " Actual: " + coreDashModule.facts.get(0).b.toString());
-
-        DashValidation.clearContainers();
+        assertEquals(coreDashModule.facts.get(0).b.toString(), expectedOutput);
     }
     
     @Test
@@ -806,13 +722,9 @@ public class DashModelsTest {
         DashValidation.validateDashModel(module);
         new CoreDashToAlloy().convertToAlloyAST(module, "", "");
         DashOptions.isElectrum = false;
-
         String expectedOutput = "AND[(all s | s in ks_s0 <=> s.init), (all s,s_next | s -> s_next in ks_sigma <=> s_next.s.small_step)]";
-        
-        if (!expectedOutput.equals(coreDashModule.facts.get(2).b.toString()))
-        	throw new Exception("Fact Not Stored Properly." + " Actual: " + coreDashModule.facts.get(2).b.toString());
 
-        DashValidation.clearContainers();
+        assertEquals(coreDashModule.facts.get(2).b.toString(), expectedOutput);
     }
     
     // Unit Testing For The Dynamic Approach
@@ -846,17 +758,9 @@ public class DashModelsTest {
         DashModule alloyModule = new CoreDashToAlloy().convertToAlloyAST(coreDashModule, "", "");
         DashOptions.isElectrum = false;
 
-        if (!alloyModule.getConcurrentStateNames().contains("R0")) {
-        	throw new Exception("Replicated Concurrent State Not Stored Properly.");
-        }
-        if (!alloyModule.getConcurrentStateNames().contains("R0_R1")) {
-        	throw new Exception("Replicated Concurrent State Not Stored Properly.");
-        }
-        if (!alloyModule.getConcurrentStateNames().contains("R0_R1_S1_R2")) {
-        	throw new Exception("Replicated Concurrent State Not Stored Properly.");
-        }
-
-        DashValidation.clearContainers();
+        assertTrue(alloyModule.getConcurrentStateNames().contains("R0"));
+        assertTrue(alloyModule.getConcurrentStateNames().contains("R0_R1"));
+        assertTrue(alloyModule.getConcurrentStateNames().contains("R0_R1_S1_R2"));
     }
     
     // Check if we have the conf1, conf2 and conf3 relations
@@ -908,17 +812,9 @@ public class DashModelsTest {
         	rels.add(f.get().toString());
         }
         
-        if (!rels.contains("field (this/Snapshot <: conf1)")) {
-        	throw new Exception("conf1 is missing from the Snapshot relation.");
-        }
-        if (!rels.contains("field (this/Snapshot <: conf2)")) {
-        	throw new Exception("conf2 is missing from the Snapshot relation.");
-        }
-        if (!rels.contains("field (this/Snapshot <: conf3)")) {
-        	throw new Exception("conf3 is missing from the Snapshot relation.");
-        }
-
-        DashValidation.clearContainers();
+        assertTrue(rels.contains("field (this/Snapshot <: conf1)"));
+        assertTrue(rels.contains("field (this/Snapshot <: conf2)"));
+        assertTrue(rels.contains("field (this/Snapshot <: conf3)"));
     }
     
     // Check if conf1 maps to Identifier -> Statelabel, conf2 to Identifier -> Identifier -> StateLabel and so on.
@@ -983,7 +879,13 @@ public class DashModelsTest {
         	}
         }
         
-        DashValidation.clearContainers();
+        assertTrue(snapshot.getFieldDecls().get(0).get().toString().contains("field (this/Snapshot <: conf1)"));
+        assertTrue(snapshot.getFieldDecls().get(1).get().toString().contains("field (this/Snapshot <: conf2)"));
+        assertTrue(snapshot.getFieldDecls().get(2).get().toString().contains("field (this/Snapshot <: conf3)"));
+        
+        assertEquals(snapshot.getFieldDecls().get(0).expr.toString(), ("this/Identifiers -> this/StateLabel"));
+        assertEquals(snapshot.getFieldDecls().get(1).expr.toString(), ("this/Identifiers -> this/Identifiers -> this/StateLabel"));
+        assertEquals(snapshot.getFieldDecls().get(2).expr.toString(), ("this/Identifiers -> this/Identifiers -> this/Identifiers -> this/StateLabel"));
     }
     
     // Check if we have the taken1, taken2 and taken3 relations
@@ -1031,17 +933,9 @@ public class DashModelsTest {
         	rels.add(f.get().toString());
         }
         
-        if (!rels.contains("field (this/Snapshot <: taken1)")) {
-        	throw new Exception("conf1 is missing from the Snapshot relation.");
-        }
-        if (!rels.contains("field (this/Snapshot <: taken2)")) {
-        	throw new Exception("conf2 is missing from the Snapshot relation.");
-        }
-        if (!rels.contains("field (this/Snapshot <: taken3)")) {
-        	throw new Exception("conf3 is missing from the Snapshot relation.");
-        }
-
-        DashValidation.clearContainers();
+        assertTrue(rels.contains("field (this/Snapshot <: taken1)"));
+        assertTrue(rels.contains("field (this/Snapshot <: taken2)"));
+        assertTrue(rels.contains("field (this/Snapshot <: taken3)"));
     }
     
     // Check if conf1 maps to Identifier -> TransitionLabel, conf2 to Identifier -> Identifier -> TransitionLabel and so on.
@@ -1102,7 +996,13 @@ public class DashModelsTest {
         	}
         }
         
-        DashValidation.clearContainers();
+        assertTrue(snapshot.getFieldDecls().get(3).get().toString().contains("field (this/Snapshot <: taken1)"));
+        assertTrue(snapshot.getFieldDecls().get(4).get().toString().contains("field (this/Snapshot <: taken2)"));
+        assertTrue(snapshot.getFieldDecls().get(5).get().toString().contains("field (this/Snapshot <: taken3)"));
+        
+        assertEquals(snapshot.getFieldDecls().get(3).expr.toString(), ("this/Identifiers -> this/TransitionLabel"));
+        assertEquals(snapshot.getFieldDecls().get(4).expr.toString(), ("this/Identifiers -> this/Identifiers -> this/TransitionLabel"));
+        assertEquals(snapshot.getFieldDecls().get(5).expr.toString(), ("this/Identifiers -> this/Identifiers -> this/Identifiers -> this/TransitionLabel"));
     }
     
     @Test
@@ -1149,9 +1049,7 @@ public class DashModelsTest {
         	throw new Exception("The conf relation is not updated properly in the post condition.");
         }
         
-        //this/R0_R1_S1_R2_S0 in p2 . p1 . p0 . s . (this/Snapshot <: conf3)
-        
-        DashValidation.clearContainers();
+        assertTrue(f.toString().contains(expectedConf));
     }
     
     @Test
@@ -1194,11 +1092,7 @@ public class DashModelsTest {
         Expr f = alloyModule.funcs.get("pre_R0_R1_S1_R2_T1").get(0).getBody();
         
         String expectedConf = "this/R0_R1_S1_R2_S0 in p2 . p1 . p0 . s . (this/Snapshot <: conf3)";
-        if (!f.toString().contains(expectedConf)) {
-        	throw new Exception("The conf relation is not updated properly in the pre condition.");
-        }
-        
-        DashValidation.clearContainers();
+        assertTrue(f.toString().contains(expectedConf));
     }
     
     @Test
@@ -1241,11 +1135,7 @@ public class DashModelsTest {
         Expr f = alloyModule.funcs.get("semantics_R0_R1_S1_R2_T1").get(0).getBody();
         
         String expectedSemantics = "(s . (this/Snapshot <: stable) = boolean/True => AND[s_next . (this/Snapshot <: taken3) = p0 -> p1 -> p2 -> this/R0_R1_S1_R2_T1, no s_next . (this/Snapshot <: taken1), no s_next . (this/Snapshot <: taken2)] else AND[s_next . (this/Snapshot <: taken3) = s . (this/Snapshot <: taken3) + p0 -> p1 -> p2 -> this/R0_R1_S1_R2_T1, s_next . (this/Snapshot <: taken1) = s . (this/Snapshot <: taken1), s_next . (this/Snapshot <: taken2) = s . (this/Snapshot <: taken2), no p2 . p1 . p0 . s . (this/Snapshot <: taken3)])";
-        if (!f.toString().contains(expectedSemantics)) {
-        	throw new Exception("The conf relation is not updated properly in the pre condition." + f);
-        }
-        
-        DashValidation.clearContainers();
+        assertTrue(f.toString().contains(expectedSemantics));
     }
     
     @Test
@@ -1291,19 +1181,9 @@ public class DashModelsTest {
         A4Reporter rep = new A4Reporter();
         alloyModule = DashModule.resolveAll(rep == null ? A4Reporter.NOP : rep, alloyModule);
         
-        if (alloyModule.getEvents().size() != 2) {
-        	throw new Exception("Nested Events not stored properly");
-        } 
-        
-        if (!alloyModule.getEvents().keySet().contains("R0_R1_S1_R2_E1")) {
-        	throw new Exception("Nested Events not stored properly");
-        }
-        
-        if (!alloyModule.getEvents().keySet().contains("R0_R1_E0")) {
-        	throw new Exception("Nested Events not stored properly");
-        }
-        
-        DashValidation.clearContainers();
+        assertEquals(alloyModule.getEvents().size(), 2);
+        assertTrue(alloyModule.getEvents().keySet().contains("R0_R1_S1_R2_E1"));
+        assertTrue(alloyModule.getEvents().keySet().contains("R0_R1_E0"));
     }
     
     // Check if we have the event1, event2 and event3 relations
@@ -1362,14 +1242,8 @@ public class DashModelsTest {
         	rels.add(f.get().toString());
         }
         
-        if (!rels.contains("field (this/Snapshot <: events2)")) {
-        	throw new Exception("event2 is missing from the Snapshot relation.");
-        }
-        if (!rels.contains("field (this/Snapshot <: events3)")) {
-        	throw new Exception("event3 is missing from the Snapshot relation.");
-        }
-
-        DashValidation.clearContainers();
+        assertTrue(rels.contains("field (this/Snapshot <: events2)"));
+        assertTrue(rels.contains("field (this/Snapshot <: events3)"));
     }
     
     // Check if event1 maps to Identifier -> EventLabel, event2 to Identifier -> Identifier -> EventLabel and so on.
@@ -1436,7 +1310,10 @@ public class DashModelsTest {
         	}
         }
         
-        DashValidation.clearContainers();
+        assertEquals(snapshot.getFieldDecls().get(6).get().toString(), ("field (this/Snapshot <: events2)"));
+        assertEquals(snapshot.getFieldDecls().get(7).get().toString(), ("field (this/Snapshot <: events3)"));
+        assertEquals(snapshot.getFieldDecls().get(6).expr.toString(), ("this/Identifiers -> this/Identifiers -> this/EventLabel"));
+        assertEquals(snapshot.getFieldDecls().get(7).expr.toString(), ("this/Identifiers -> this/Identifiers -> this/Identifiers -> this/EventLabel"));
     }
     
     @Test
@@ -1485,11 +1362,8 @@ public class DashModelsTest {
         Expr f = alloyModule.funcs.get("pre_R0_R1_S1_R2_T1").get(0).getBody();
         
         String expectedConf = "this/R0_R1_S1_R2_E1 in p2 . p1 . p0 . s . (this/Snapshot <: events3)";
-        if (!f.toString().contains(expectedConf)) {
-        	throw new Exception("The event relation is not checked properly in the pre condition." + f);
-        }
-        
-        DashValidation.clearContainers();
+
+        assertTrue(f.toString().contains(expectedConf));
     }
     
     @Test
@@ -1543,10 +1417,6 @@ public class DashModelsTest {
         		+ "AND[s_next . (this/Snapshot <: events2) & this/Identifiers -> this/Identifiers -> this/InternalEvent = none -> none -> none + s . (this/Snapshot <: events2) & this/Identifiers -> this/Identifiers -> this/InternalEvent, s_next . (this/Snapshot <: events3) & this/Identifiers -> this/Identifiers -> this/Identifiers -> this/InternalEvent = p0 -> p1 -> p2 -> this/R0_R1_S1_R2_E1 + s . (this/Snapshot <: events3) & this/Identifiers -> this/Identifiers -> this/Identifiers -> this/InternalEvent])] else "
         		+ "AND[s_next . (this/Snapshot <: stable) = boolean/False, (s . (this/Snapshot <: stable) = boolean/True => "
         		+ "AND[s_next . (this/Snapshot <: events2) & this/Identifiers -> this/Identifiers -> this/InternalEvent = none -> none -> none, s_next . (this/Snapshot <: events2) & this/Identifiers -> this/Identifiers -> this/EnvironmentEvent = s . (this/Snapshot <: events2) & this/Identifiers -> this/Identifiers -> this/EnvironmentEvent, s_next . (this/Snapshot <: events3) & this/Identifiers -> this/Identifiers -> this/Identifiers -> this/InternalEvent = p0 -> p1 -> p2 -> this/R0_R1_S1_R2_E1, s_next . (this/Snapshot <: events3) & this/Identifiers -> this/Identifiers -> this/Identifiers -> this/EnvironmentEvent = s . (this/Snapshot <: events3) & this/Identifiers -> this/Identifiers -> this/Identifiers -> this/EnvironmentEvent] else AND[s_next . (this/Snapshot <: events2) = s . (this/Snapshot <: events2) + none -> none -> none, s_next . (this/Snapshot <: events3) = s . (this/Snapshot <: events3) + p0 -> p1 -> p2 -> this/R0_R1_S1_R2_E1])]), p0 -> p1 -> p2 -> this/R0_R1_S1_R2_E1 in s_next . (this/Snapshot <: events3";
-        if (!f.toString().contains(expectedCall)) {
-        	throw new Exception("The event post condition is not handled correctly." + f);
-        }
-        
-        DashValidation.clearContainers();
+        assertTrue(f.toString().contains(expectedCall));
     }
 }
