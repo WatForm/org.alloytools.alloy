@@ -898,6 +898,13 @@ public class DashHelper {
 	  return Optional.empty();
   }
   
+  public static List<String> getVariables (DashModule module, DashSuperState state) {
+	  List<String> vars = module.getRawVarNames().getOrDefault(state.getFullyQualName(), new ArrayList<>());
+	  List<String> envVars = module.getEnvironmentalVarNames().getOrDefault(state.getFullyQualName(), new ArrayList<>());
+	  vars.addAll(envVars);
+	  return vars;
+  }
+  
   public static Optional<DashSuperState> findEventParent (DashConcState parent, String reference) {
 	  if (reference == null) {
 		  return Optional.empty();
