@@ -3,17 +3,15 @@ package org.alloytools.dash.core;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.Optional;
 
 import org.junit.Test;
-
 import edu.mit.csail.sdg.alloy4.A4Reporter;
-import ca.uwaterloo.watform.ast.DashConcState;
+import ca.uwaterloo.watform.ast.DashState;
 import ca.uwaterloo.watform.ast.DashTrans;
 import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
@@ -27,7 +25,6 @@ import ca.uwaterloo.watform.parser.DashUtil;
 import ca.uwaterloo.watform.parser.DashValidation;
 
 public class DashModelsTest {
-	
     //Dash Parser Unit Tests
     @Test
     public void testStates() throws Exception {
@@ -40,7 +37,6 @@ public class DashModelsTest {
         assertNotNull(module.getORStates().get("concState_topStateA_innerState"));
         assertNotNull(module.getORStates().get("concState_topStateB"));
         assertEquals(module.getORStates().get("concState_topStateA").getInnerORStates().get(0).getRawName(), "innerState");
-        DashValidation.clearContainers();
     }
 
     @Test
@@ -51,17 +47,11 @@ public class DashModelsTest {
         DashModule module = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
         DashModule coreDashModule = new DashToCoreDash().transformToCoreDash(module, "", "");
         DashOptions.isElectrum = false;
-        
-        if (!(coreDashModule.getAllConcurrentStates().get("topConcStateA").getRawName().equals("topConcStateA")))
-            throw new Exception("Top level concurrent state not stored in the IDS");
-        if (!(coreDashModule.getAllConcurrentStates().get("topConcStateA").getInnerConcStates().get(0).getRawName().equals("innerConcState")))
-            throw new Exception("Child concurrent state not stored in the IDS");
-        if (!(coreDashModule.getORStates().get("topConcStateA_innerConcState_A").getRawName().equals("A")))
-            throw new Exception("Inner OR state not stored in the IDS");
-        if (!(coreDashModule.getAllConcurrentStates().get("topConcStateB").getRawName().equals("topConcStateB")))
-            throw new Exception("Top level concurrent state not stored in the IDS");
-
-        DashValidation.clearContainers();
+  
+        assertEquals(coreDashModule.getAllConcurrentStates().get("topConcStateA").getRawName(), "topConcStateA");
+        assertEquals(coreDashModule.getAllConcurrentStates().get("topConcStateA").getInnerConcStates().get(0).getRawName(), "innerConcState");
+        assertEquals(coreDashModule.getORStates().get("topConcStateA_innerConcState_A").getRawName(), "A");
+        assertEquals(coreDashModule.getAllConcurrentStates().get("topConcStateB").getRawName(), "topConcStateB");
     }
      
     @Test
@@ -73,17 +63,10 @@ public class DashModelsTest {
         DashModule coreDashModule = new DashToCoreDash().transformToCoreDash(module, "", "");
         DashOptions.isElectrum = false;
         
-        if (!(coreDashModule.getAllConcurrentStates().get("topConcStateA").getRawName().equals("topConcStateA")))
-            throw new Exception("Top level concurrent state not stored in the IDS");
-        if (!(coreDashModule.getAllConcurrentStates().get("topConcStateB").getRawName().equals("topConcStateB")))
-            throw new Exception("Top level concurrent state not stored in the IDS");
-        
-        if (!(coreDashModule.getAllConcurrentStates().get("topConcStateA").getReplicatedIdentifier().equals("PID1")))
-            throw new Exception("Top level concurrent (topConcStateA) parameter not stored properly." + " Param: " + module.getAllConcurrentStates().get("topConcStateA").getReplicatedIdentifier());
-        if (!(coreDashModule.getAllConcurrentStates().get("topConcStateB").getReplicatedIdentifier().equals("PID2")))
-            throw new Exception("Top level concurrent (topConcStateB) parameter not stored properly.");
-
-        DashValidation.clearContainers();
+        assertEquals(coreDashModule.getAllConcurrentStates().get("topConcStateA").getRawName(), "topConcStateA");
+        assertEquals(coreDashModule.getAllConcurrentStates().get("topConcStateB").getRawName(), "topConcStateB");
+        assertEquals(coreDashModule.getAllConcurrentStates().get("topConcStateA").getReplicatedIdentifier(), "PID1");
+        assertEquals(coreDashModule.getAllConcurrentStates().get("topConcStateB").getReplicatedIdentifier(), "PID2");
     }
 
     @Test
@@ -136,12 +119,8 @@ public class DashModelsTest {
         String expectedOutput1 = "(one p | p.s_next . Parent_Child2_var2 = none)";
         String expectedOutput2 = "(one p | p.s_next . Parent_Child1_var1 = none)";
 
-        if (!(funcs0.get(0).getBody().toString().contains(expectedOutput1)))
-            throw new Exception("Post-Conditions Not Stored Properly (1)." + "Actual: " + funcs0.get(0).getBody().toString() + " Expected: " + expectedOutput1);
-        if (!(funcs1.get(0).getBody().toString().contains(expectedOutput2)))
-            throw new Exception("Post-Conditions Not Stored Properly (2)." + "Actual: " + funcs1.get(0).getBody().toString() + " Expected: " + expectedOutput2);
-
-        DashValidation.clearContainers();
+        assertTrue(funcs0.get(0).getBody().toString().contains(expectedOutput1));
+        assertTrue(funcs1.get(0).getBody().toString().contains(expectedOutput2));
     }
     
    
@@ -154,16 +133,10 @@ public class DashModelsTest {
         DashModule coreDashModule = new DashToCoreDash().transformToCoreDash(module, "", "");
         DashOptions.isElectrum = false;
   
-        if (!(coreDashModule.getTransitions().get("topConcStateA_A").getRawName().equals("A")))
-            throw new Exception("Transition not stored in the IDS");
-        if (!(coreDashModule.getTransitions().get("topConcStateA_B_B").getRawName().equals("B")))
-            throw new Exception("Transition not stored in the IDS");
-        if (!(coreDashModule.getTransitions().get("topConcStateA_A").getDestination().getAllDestinations().get(0).equals("topConcStateA_B")))
-            throw new Exception("Transition goto not stored in the IDS" + " Expected: " + coreDashModule.getTransitions().get("topConcStateA_A").getDestination().getAllDestinations().get(0));
-        if (!(coreDashModule.getTransitions().get("topConcStateA_B_B").getTriggerEvent().getRawName().equals("topConcStateA_A")))
-            throw new Exception("Transition event not stored in the IDS");
- 
-        DashValidation.clearContainers();
+        assertEquals(coreDashModule.getTransitions().get("topConcStateA_A").getRawName(), "A");
+        assertEquals(coreDashModule.getTransitions().get("topConcStateA_B_B").getRawName(), "B");
+        assertEquals(coreDashModule.getTransitions().get("topConcStateA_A").getDestination().getAllDestinations().get(0), "topConcStateA_B");
+        assertEquals(coreDashModule.getTransitions().get("topConcStateA_B_B").getTriggerEvent().getRawName(), "topConcStateA_A");
     }
 
     @Test
@@ -174,14 +147,58 @@ public class DashModelsTest {
         DashModule module = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
         DashOptions.isElectrum = false;
 
-        if (!module.getRawVarNames().get("concState").get(0).equals("var_one"))
-            throw new Exception("Outer Conc State variable not stored properly.");
-        if (!module.getRawVarNames().get("concState").get(1).equals("var_two"))
-            throw new Exception("Outer Conc State variable not stored properly.");
-        if (!module.getRawVarNames().get("concState_innerConcState").get(0).equals("var_three"))
-            throw new Exception("Inner Conc State variable not stored properly.");
+        assertEquals(module.getRawVarNames().get("concState").get(0), "var_one");
+        assertEquals(module.getRawVarNames().get("concState").get(1), "var_two");
+        assertEquals(module.getRawVarNames().get("concState_innerConcState").get(0), "var_three");
+    }
+    
+    @Test
+    public void testORStateVarNames() throws Exception {
 
-        DashValidation.clearContainers();
+        String dashModel = "conc state concState { "
+        		+ "default state innerORState0 {var_one: none->none} "
+        		+ "state innerORState1 {"
+        		+ "	var_one: none->none "
+        		+ "	var_two: none->none"
+        		+ "	state innerORState2 {"
+        		+ "	var_one: none->none"
+        		+ "	}"
+        		+ "}"
+        		+ "}";
+        DashOptions.outputDir = "test.dsh";
+        DashModule module = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
+        DashOptions.isElectrum = false;
+
+        assertEquals(module.getRawVarNames().get("concState_innerORState0").get(0), "var_one");
+        assertEquals(module.getRawVarNames().get("concState_innerORState1").get(0), "var_one");
+        assertEquals(module.getRawVarNames().get("concState_innerORState1").get(1), "var_two");
+        assertEquals(module.getRawVarNames().get("concState_innerORState1_innerORState2").get(0), "var_one");
+    }
+    
+    @Test
+    public void testEventNames() throws Exception {
+
+        String dashModel = "conc state concState { "
+        		+ "default state innerORState0 {event e0 {}} "
+        		+ "state innerORState1 {"
+        		+ "	event e0 {}"
+        		+ "	event e1 {}"
+        		+ "	state innerORState2 {"
+        		+ "	event e0 {}"
+        		+ "	}"
+        		+ "}"
+        		+ "}";
+        DashOptions.outputDir = "test.dsh";
+        DashModule module = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
+        DashOptions.isElectrum = false;
+
+        Optional<DashState> innerORState0 = module.getAllConcurrentStates().get("concState").getInnerORStates().stream().filter(x -> x.getRawName().equals("innerORState0")).findFirst();
+        Optional<DashState> innerORState1 = module.getAllConcurrentStates().get("concState").getInnerORStates().stream().filter(x -> x.getRawName().equals("innerORState1")).findFirst();
+        Optional<DashState> innerORState2 = innerORState1.get().getInnerORStates().stream().filter(x -> x.getRawName().equals("innerORState2")).findFirst();
+        assertEquals("e0", innerORState0.get().getEventNames().get(0));
+        assertEquals("e0", innerORState1.get().getEventNames().get(0));
+        assertEquals("e1", innerORState1.get().getEventNames().get(1));
+        assertEquals("e0", innerORState2.get().getEventNames().get(0));
     }
 
 
@@ -199,18 +216,10 @@ public class DashModelsTest {
         for (DashTrans trans : coreDashModule.getTransitions().values())
             transitions.add(trans);
 
-        if (transitions.size() < 3)
-            throw new Exception("Every transition has not been stored." + " Count: " + transitions.size());
-        if (transitions.size() > 3)
-            throw new Exception("More transitions than necessary has been stored.");
-        if (!transitions.get(0).getFullyQualName().equals("concState_t_1"))
-            throw new Exception("Transition Name not stored correctly.");
-        if (!transitions.get(1).getFullyQualName().equals("concState_trans_two"))
-            throw new Exception("Transition Name not stored correctly.");
-        if (!transitions.get(2).getFullyQualName().equals("concState_state_one_t_2"))
-            throw new Exception("Transition Name not stored correctly.");
-
-        DashValidation.clearContainers();
+        assertEquals(transitions.size(), 3);
+        assertEquals(transitions.get(0).getFullyQualName(), "concState_t_1");
+        assertEquals(transitions.get(1).getFullyQualName(), "concState_trans_two");
+        assertEquals(transitions.get(2).getFullyQualName(), "concState_state_one_t_2");
     }
 
     @Test
@@ -226,29 +235,18 @@ public class DashModelsTest {
         for (DashTrans trans : coreDashModule.getTransitions().values()) {
             transitions.add(trans);
         }
+        
+        assertEquals(transitions.size(), 3);
+        
+        assertEquals(transitions.get(0).getOrigin().getAllOrigins().get(0), "concState");
+        assertEquals(transitions.get(0).getDestination().getAllDestinations().get(0), "concState");
+        
+        assertEquals(transitions.get(1).getOrigin().getAllOrigins().get(0), "concState");
+        assertEquals(transitions.get(1).getOrigin().getAllOrigins().get(0), "concState");
+        
+        assertEquals(transitions.get(2).getOrigin().getAllOrigins().get(0), "concState/state_one");
+        assertEquals(transitions.get(2).getOrigin().getAllOrigins().get(0), "concState/state_one");
 
-        if (transitions.size() < 3)
-            throw new Exception("Every transition has not been stored.");
-        if (transitions.size() > 3)
-            throw new Exception("More transitions than necessary has been stored.");
-
-        if (!transitions.get(0).getOrigin().getAllOrigins().get(0).equals("concState"))
-            throw new Exception("Transition From Expr not stored correctly.");
-        if (!transitions.get(0).getDestination().getAllDestinations().get(0).equals("concState"))
-            throw new Exception("Transition Goto Expr not stored correctly.");
-
-        if (!transitions.get(1).getOrigin().getAllOrigins().get(0).equals("concState"))
-            throw new Exception("Transition From Expr not stored correctly.");
-        if (!transitions.get(1).getOrigin().getAllOrigins().get(0).equals("concState"))
-            throw new Exception("Transition Goto Expr not stored correctly.");
-
-        if (!transitions.get(2).getOrigin().getAllOrigins().get(0).equals("concState/state_one"))
-            throw new Exception("Transition From Expr not stored correctly.");
-        if (!transitions.get(2).getOrigin().getAllOrigins().get(0).equals("concState/state_one"))
-            throw new Exception("Transition Goto Expr not stored correctly.");
-
-
-        DashValidation.clearContainers();
     }
 
     @Test

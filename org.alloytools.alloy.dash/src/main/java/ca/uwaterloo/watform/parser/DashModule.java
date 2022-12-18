@@ -506,10 +506,10 @@ public final class DashModule extends Browsable implements Module {
     /**
      * Each event name is mapped to the Concurrent State in which they are declared
      */
-    private Map<String,DashConcState>     			event2ConcState        = new LinkedHashMap<>();
+    private Map<String,DashSuperState>     			event2State        = new LinkedHashMap<>();
 
-    public Map<String,DashConcState> 	  			getEventConcState() {
-    	return event2ConcState;
+    public Map<String, DashSuperState> 	  			getEventConcState() {
+    	return event2State;
     }
   
     /**
@@ -1195,7 +1195,7 @@ public final class DashModule extends Browsable implements Module {
             variable2Expression    = new LinkedHashMap<String,Expr>();
             envVariable2Expression = new LinkedHashMap<String,Expr>();
             variable2State     = new LinkedHashMap<String,DashSuperState>();
-            event2ConcState     = new LinkedHashMap<String,DashConcState>();
+            event2State     = new LinkedHashMap<String,DashSuperState>();
             transitions            = new LinkedHashMap<String,DashTrans>();
             transitionTemplates    = new LinkedHashMap<String,DashTransTemplate>();
             events                 = new LinkedHashMap<String,DashEvent>();
@@ -1255,7 +1255,7 @@ public final class DashModule extends Browsable implements Module {
             variable2Expression    = world.variable2Expression;
             envVariable2Expression = world.envVariable2Expression;
             variable2State     	   = world.variable2State;
-            event2ConcState        = world.event2ConcState;
+            event2State        = world.event2State;
             transitions            = world.transitions;
             transitionTemplates    = world.transitionTemplates;
             events                 = world.events;
@@ -1711,7 +1711,7 @@ public final class DashModule extends Browsable implements Module {
             if (item instanceof DashTransTemplate)
                 addTransTemplate(topLevelConcState, (DashTransTemplate) item);
             if (item instanceof DashEvent)
-                addEvent(topLevelConcState, Optional.empty(),(DashEvent) item);
+                addEvent(topLevelConcState,(DashEvent) item);
             if (item instanceof DashInit)
                 addInitCondition((DashInit) item, topLevelConcState);
             if (item instanceof DashAction)
@@ -1871,7 +1871,7 @@ public final class DashModule extends Browsable implements Module {
 	    for (DashState state : concState.getInnerORStates())	 
 	        addState(concState, state);	
 	    for (DashEvent event : concState.getEvents())	
-	        addEvent(concState, Optional.empty(), event);	
+	        addEvent(concState, event);	
 	    for (DashInit init : concState.getInitialConds())	
 	        addInitCondition(init, concState);	
 	    for (DashAction action : concState.getActions())	
@@ -1904,7 +1904,7 @@ public final class DashModule extends Browsable implements Module {
 	    for (DashState state : concState.getInnerORStates())	 
 	        addState(concState, state);	
 	    for (DashEvent event : concState.getEvents())	
-	        addEvent(concState, Optional.empty(), event);	
+	        addEvent(concState, event);	
 	    for (DashInit init : concState.getInitialConds())	
 	        addInitCondition(init, concState);	
 	    for (DashAction action : concState.getActions())	
@@ -1964,7 +1964,7 @@ public final class DashModule extends Browsable implements Module {
 	        readVariablesDeclared(decl, state);	
 	    }
 	    for (DashEvent event : state.getEvents()) {
-	        addEvent(state.getParentConcState(), Optional.ofNullable(state), event);
+	        addEvent(state, event);
 	    }
 	    for (DashInvariant invariant : state.getInvariants()) {
 	        addInvariant(invariant, state);	
@@ -1996,17 +1996,14 @@ public final class DashModule extends Browsable implements Module {
         variableNames.put(state.getFullyQualName(), variables);
     }
 
-    public void addEvent(DashConcState parent, Optional<DashState> state,DashEvent event) {
-        String modifiedName = state.isPresent() ? state.get().getFullyQualName() + "_" + event.getRawName() : parent.getFullyQualName() + "_" + event.getRawName();
+    public void addEvent(DashSuperState parent, DashEvent event) {
+        String modifiedName = parent.getFullyQualName() + "_" + event.getRawName();
         event.setFullyQualName(modifiedName);
-        event.setParentName(parent.getRawName());;
+        event.setParentName(parent.getRawName());
         event.setParent(parent);
-        event.setParentConcState(parent);
+        event.setParentConcState(parent.getANDState());
         // The event is declared inside an OR-state
-        if (state.isPresent()) {
-        	event.setParent(state.get());
-        }
-        event2ConcState.put(event.getFullyQualName(), parent);
+        event2State.put(event.getFullyQualName(), parent);
         
         if (event.getType().equals("env event") || event.getType().equals("event")) {
         	isEnvEventModel = true;
@@ -2319,7 +2316,7 @@ public final class DashModule extends Browsable implements Module {
     }
 
     /* Store event variables that have been declared in the concurrent state */
-    void readEnvVariablesDeclared(Decl decl, DashConcState concState) {
+    void readEnvVariablesDeclared(Decl decl, DashSuperState concState) {
         List<String> variables = new ArrayList<String>();
 
         //Fetch the current list of variable names stored for the current conc state

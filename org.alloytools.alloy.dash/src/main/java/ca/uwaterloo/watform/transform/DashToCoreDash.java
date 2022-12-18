@@ -135,24 +135,15 @@ public class DashToCoreDash {
         	if (fromParent.getFullyQualName().equals(gotoParent.getFullyQualName())) {
         		continue; 
         	}
-        	Object immediateFromParent = getImmediateParent(fromState);
+        	DashSuperState immediateFromParent = fromState.getParent();
         	while (immediateFromParent != null) {
-        		Object lookAhead = getImmediateParent(immediateFromParent);
-        		if (lookAhead instanceof DashConcState) {
-        			DashConcState concStateParent = (DashConcState) lookAhead;
-        			if (concStateParent.getFullyQualName().equals(gotoParent.getFullyQualName())) {
-        				trans.getOrigin().setLeavingMultipleStates(true);
-        				break;
-        			}
-        		}
-        		if (lookAhead instanceof DashState) {
-        			DashState stateParent = (DashState) lookAhead;
-        			if (stateParent.getFullyQualName().equals(gotoParent.getFullyQualName())) {
-        				trans.getOrigin().setLeavingMultipleStates(true);
-        				break;
-        			}
-        		}
-        		immediateFromParent = getImmediateParent(immediateFromParent);
+        		DashSuperState lookAhead = immediateFromParent.getParent();
+    			DashSuperState stateParent = lookAhead;
+    			if (stateParent.getFullyQualName().equals(gotoParent.getFullyQualName())) {
+    				trans.getOrigin().setLeavingMultipleStates(true);
+    				break;
+    			}
+        		immediateFromParent = immediateFromParent.getParent();
         	}
         	
         	if (trans.getOrigin().isTransitionToParentState()) {
@@ -165,7 +156,7 @@ public class DashToCoreDash {
         }
     }
     
-     List<DashConcState> getAllConcStates (final DashState state) {
+     List<DashConcState> getAllConcStates (final DashSuperState state) {
     	List<DashConcState> concStatesLeft = new ArrayList<DashConcState>();
     	for (DashState innerORState: state.getInnerORStates()) {
     		concStatesLeft.addAll(getAllConcStates(innerORState));
@@ -177,29 +168,6 @@ public class DashToCoreDash {
     	return concStatesLeft;
     }
     
-     List<DashConcState> getAllConcStates (final DashConcState concState) {
-    	List<DashConcState> concStatesLeft = new ArrayList<DashConcState>();
-    	
-    	for (DashState innerORState: concState.getInnerORStates()) {
-    		concStatesLeft.addAll(getAllConcStates(innerORState));
-    	}
-    	for (DashConcState innerANDState: concState.getInnerConcStates()) {
-    		concStatesLeft.addAll(getAllConcStates(innerANDState));
-    	}
-    	concStatesLeft.addAll(concState.getInnerConcStates());
-    	return concStatesLeft;
-    }
-    
-     Object getImmediateParent(Object state) {
-    	if (state instanceof DashConcState) {
-    		return ((DashConcState) state).getParent();
-    	}
-    	if (state instanceof DashState) {
-    		return ((DashState) state).getParent();
-    	}
-    	return null;
-    }
-     
     //Check to see if a state that we are transitioning to has an inner default state,
     //if it does, then the transition will need to transition to that state instead
      String getDefaultState(final DashState state) { 
@@ -209,7 +177,7 @@ public class DashToCoreDash {
     	}
 
         return state.getFullyQualName();
-    }
+    } 
     
     //Check to see if a state that we are transitioning to has an inner default state,
     //if it does, then the transition will need to transition to that state instead

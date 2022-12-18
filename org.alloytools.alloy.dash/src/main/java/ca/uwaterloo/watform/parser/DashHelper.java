@@ -924,7 +924,7 @@ public class DashHelper {
   }
   
   /* 
-   * Locate either an OR state or a variable inside a State 
+   * Locate an item that is being referenced 
    */
   public static Optional<DashSuperState> locateItem (DashModule module, String reference, DashSuperState match, DashHelper.ItemType itemType) {
 	  if (reference.indexOf('/') < 0) {
