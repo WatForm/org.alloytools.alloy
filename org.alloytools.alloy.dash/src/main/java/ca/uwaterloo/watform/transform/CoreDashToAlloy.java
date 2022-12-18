@@ -602,7 +602,7 @@ public class CoreDashToAlloy {
             expression =  DashHelper.createBinaryExpr(expression, ExprBinary.Op.AND, exprWithFullyQualNames);
             
             //These are the variables that have not been changed in the post-cond and they need to retain their values in the next snapshot
-            Map<String, DashConcState> unchangedVars = new LinkedHashMap<String, DashConcState>(getUnchangedVars(transition.getActions().getAllExpression(), module));
+            Map<String, DashSuperState> unchangedVars = new LinkedHashMap<String, DashSuperState>(getUnchangedVars(transition.getActions().getAllExpression(), module));
             
             for (String var: changedLocalVars.keySet()) {
             	// We do not constrain a var if it has been changed using a reference, otherwise we constrain it if it only has been changed locally
@@ -618,7 +618,7 @@ public class CoreDashToAlloy {
         /* Creating the following expression(s): s_next.variable = s.variable */
         if (transition.getActions() == null) {
             //These are the variables that have not been changed in the post-cond and they need to retain their values in the next snapshot
-            Map<String, DashConcState> unchangedVars = new LinkedHashMap<String, DashConcState>(getUnchangedVars(null, module));
+            Map<String, DashSuperState> unchangedVars = new LinkedHashMap<>(getUnchangedVars(null, module));
             for (String var : unchangedVars.keySet()) {
                 expression = DashHelper.createBinaryExpr(expression, ExprBinary.Op.AND, createUnchangedVariableAST(var, unchangedVars.get(var), parent));
             }
@@ -1768,12 +1768,13 @@ public class CoreDashToAlloy {
     /*************************************** KEEPING VARIABLES UNCHANGED ***************************************/
    
     //Find the variables that are unchanged during a transition
-    Map<String, DashConcState> getUnchangedVars(List<Expr> exprList, DashModule module) {
-    	Map<String, DashConcState> unchangedVariables = new LinkedHashMap<String, DashConcState>(module.getVariableConcState());
+    Map<String, DashSuperState> getUnchangedVars(List<Expr> exprList, DashModule module) {
+    	Map<String, DashSuperState> unchangedVariables = new LinkedHashMap<>(module.getVariableConcState());
       
         for (String var: changedVars.keySet()) {
-        	if (unchangedVariables.keySet().contains(var))
+        	if (unchangedVariables.keySet().contains(var)) {
         		unchangedVariables.remove(var);
+        	}
         }
         
         return unchangedVariables;
@@ -1855,7 +1856,7 @@ public class CoreDashToAlloy {
      * If a varibale belongs to a parameterized Conc State and is not a varibale in the Conc State taking the transition, we create the following:
      * all p: param | p.s_next.var = p.s.var
      */
-    private Expr createUnchangedVariableAST(String var, DashConcState varConcState, DashConcState transConcState) {
+    private Expr createUnchangedVariableAST(String var, DashSuperState varConcState, DashConcState transConcState) {
         //Expr binaryLeft = ExprBadJoin.make(null, null, ExprVar.make(null, "s_next"), ExprVar.make(null, var)); //s_next.variableParent_varName
     	Expr binaryLeft = DashOptions.isElectrum ? DashHelper.sVarPrimed(var) : DashHelper.createExprBadJoin(DashHelper.sNext(), DashHelper.createExprVar(var));
         Expr binaryRight = ExprBadJoin.make(null, null, ExprVar.make(null, "s"), ExprVar.make(null, var)); //s_next.variableParent_varName
@@ -2237,18 +2238,20 @@ public class CoreDashToAlloy {
     	if(expr.toString().contains("/")) {
     		String expressionStr = expr.toString();
     		Optional<DashSuperState> variableParent = DashHelper.findVariableParent(module, parent, expressionStr);
+    		System.out.println("Immediate Parent: " + parent.getFullyQualName() + " Variable: " + expr.toString() + " " + variableParent.isPresent());
     		if (variableParent.isPresent()) {
     			// Get the AND state in which the variable is located (if it is located in an OR state, then we 
     			// get the parent AND state of the OR state
-    			parentConcState = (variableParent.get() instanceof DashConcState) ? (DashConcState) variableParent.get() : variableParent.get().getParentConcState();
+    			DashSuperState immediateParent = variableParent.get();
     			// Get the name of the variable (ANDState/ORState/var) -> var
     			String variable = expressionStr.substring(expressionStr.lastIndexOf('/') + 1);
     			Expr exprVar = DashHelper.createExprVar(variable);
     			// Get all the variables
-    			variablesInParent = module.getRawVarNames().getOrDefault(parentConcState.getFullyQualName(), new ArrayList<>());
-    	        envVariablesInParent = module.getEnvironmentalVarNames().getOrDefault(parentConcState.getFullyQualName(), new ArrayList<>());
-    	        expression = modifyVar(module, expression, parentConcState, variableParent.get(), exprVar, variablesInParent, false, true);
-    	        expression = modifyVar(module, expression, parentConcState, variableParent.get(), exprVar, envVariablesInParent, false, true);
+    			variablesInParent = module.getRawVarNames().getOrDefault(immediateParent.getFullyQualName(), new ArrayList<>());
+    	        envVariablesInParent = module.getEnvironmentalVarNames().getOrDefault(immediateParent.getFullyQualName(), new ArrayList<>());
+    	        System.out.println("Immediate Parent: " + immediateParent.getFullyQualName() + " Variable: " + variable);
+    	        expression = modifyVar(module, expression, immediateParent.getANDState(), variableParent.get(), exprVar, variablesInParent, false, true);
+    	        expression = modifyVar(module, expression, immediateParent.getANDState(), variableParent.get(), exprVar, envVariablesInParent, false, true);
     			return expression;
     		} else {
     	        expression = modifyVar(module, expression, parentConcState, parentConcState, expr, variablesInParent, false, true);
@@ -2290,8 +2293,7 @@ public class CoreDashToAlloy {
         for (String var : varsInParent) {
         	var = var.replace('/', '_');
         	expr = DashHelper.createExprVar(expr.toString().replace('/', '_'));
-        	expr = (immediateParent instanceof DashState) ? DashHelper.createExprVar(DashHelper.calculateStateNameWithoutConcState((DashState) immediateParent) + expr.toString()) : expr; 
-        	String qualifiedVarName = parent.getFullyQualName() + '_' + var;
+        	String qualifiedVarName = immediateParent.getFullyQualName() + '_' + var;
             if (expr.toString().equals(var + "'")) {
             	changedVars.put(qualifiedVarName, parent);
             	if (!isRef) {

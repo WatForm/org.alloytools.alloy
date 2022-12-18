@@ -495,18 +495,18 @@ public final class DashModule extends Browsable implements Module {
     }
     
     /**
-     * Each variable name is mapped to the Concurrent State in which they are declared
+     * Each variable name is mapped to the State in which they are declared
      */
-    private Map<String,DashConcState>     			variable2ConcState     = new LinkedHashMap<String,DashConcState>();
+    private Map<String,DashSuperState>     			variable2State     = new LinkedHashMap<>();
     
-    public Map<String,DashConcState> 	  			getVariableConcState() {
-    	return variable2ConcState;
+    public Map<String,DashSuperState> 	  			getVariableConcState() {
+    	return variable2State;
     }
     
     /**
      * Each event name is mapped to the Concurrent State in which they are declared
      */
-    private Map<String,DashConcState>     			event2ConcState        = new LinkedHashMap<String,DashConcState>();
+    private Map<String,DashConcState>     			event2ConcState        = new LinkedHashMap<>();
 
     public Map<String,DashConcState> 	  			getEventConcState() {
     	return event2ConcState;
@@ -515,7 +515,7 @@ public final class DashModule extends Browsable implements Module {
     /**
      * Each transition name is mapped to its respective Transiton AST
      */
-    private Map<String,DashTrans>         			transitions            = new LinkedHashMap<String,DashTrans>();
+    private Map<String,DashTrans>         			transitions            = new LinkedHashMap<>();
     
     public Map<String,DashTrans> 		  			getTransitions() {
     	return transitions;
@@ -525,7 +525,7 @@ public final class DashModule extends Browsable implements Module {
      * Each transition template name is mapped to its respective TransitonTemplate
      * AST
      */
-    private Map<String,DashTransTemplate> 			transitionTemplates    = new LinkedHashMap<String,DashTransTemplate>();
+    private Map<String,DashTransTemplate> 			transitionTemplates    = new LinkedHashMap<>();
     
     public Map<String,DashTransTemplate>  			getTransTemplates() {
     	return transitionTemplates;
@@ -534,7 +534,7 @@ public final class DashModule extends Browsable implements Module {
     /**
      * Each Event is mapped to its respective AST AST
      */
-    private Map<String,DashEvent>         			events                 = new LinkedHashMap<String,DashEvent>();
+    private Map<String,DashEvent>         			events                 = new LinkedHashMap<>();
     
     public Map<String,DashEvent> 		  			getEvents() {
     	return events;
@@ -543,7 +543,7 @@ public final class DashModule extends Browsable implements Module {
     /**
      * Each Action Template is mapped to its respective AST AST
      */
-    private Map<String,DashAction>        			actions                = new LinkedHashMap<String,DashAction>();
+    private Map<String,DashAction>        			actions                = new LinkedHashMap<>();
 
     public Map<String,DashAction>		  			getActions() {
     	return actions;
@@ -552,7 +552,7 @@ public final class DashModule extends Browsable implements Module {
     /**
      * Each Condition Template is mapped to its respective AST AST
      */
-    private Map<String,DashCondition>     			conditions             = new LinkedHashMap<String,DashCondition>();
+    private Map<String,DashCondition>     			conditions             = new LinkedHashMap<>();
 
     public Map<String,DashCondition>	  			getConditions() {
     	return conditions;
@@ -561,7 +561,7 @@ public final class DashModule extends Browsable implements Module {
     /**
      * Each Invariant Template is mapped to its respective AST AST
      */
-    private Map<String,DashInvariant>     			invariants             = new LinkedHashMap<String,DashInvariant>();
+    private Map<String,DashInvariant>     			invariants             = new LinkedHashMap<>();
     
     public Map<String,DashInvariant> 	  			getInvariants() {
     	return invariants;
@@ -1194,7 +1194,7 @@ public final class DashModule extends Browsable implements Module {
             envVariableNames       = new LinkedHashMap<String,List<String>>();
             variable2Expression    = new LinkedHashMap<String,Expr>();
             envVariable2Expression = new LinkedHashMap<String,Expr>();
-            variable2ConcState     = new LinkedHashMap<String,DashConcState>();
+            variable2State     = new LinkedHashMap<String,DashSuperState>();
             event2ConcState     = new LinkedHashMap<String,DashConcState>();
             transitions            = new LinkedHashMap<String,DashTrans>();
             transitionTemplates    = new LinkedHashMap<String,DashTransTemplate>();
@@ -1247,15 +1247,15 @@ public final class DashModule extends Browsable implements Module {
             bufferNameToIndex         = world.bufferNameToIndex;
             rawBufferNameToIndex         = world.rawBufferNameToIndex;
             bufferNameToAlias         = world.bufferNameToAlias;
-            bufferCount          = world.bufferCount;
+            bufferCount            = world.bufferCount;
             initConditions         = world.initConditions;
             variableNames          = world.variableNames;
             modifiedVarNames       = world.modifiedVarNames;
             envVariableNames       = world.envVariableNames;
             variable2Expression    = world.variable2Expression;
             envVariable2Expression = world.envVariable2Expression;
-            variable2ConcState     = world.variable2ConcState;
-            event2ConcState     = world.event2ConcState;
+            variable2State     	   = world.variable2State;
+            event2ConcState        = world.event2ConcState;
             transitions            = world.transitions;
             transitionTemplates    = world.transitionTemplates;
             events                 = world.events;
@@ -1723,7 +1723,7 @@ public final class DashModule extends Browsable implements Module {
             if (item instanceof DashBuffer)
                 addBuffer((DashBuffer) item, topLevelConcState);
             if (item instanceof Decl)
-                readVariablesDeclared((Decl) item, topLevelConcState, Optional.empty());
+                readVariablesDeclared((Decl) item, topLevelConcState);
         }
         
         calculateConfRelations();
@@ -1883,7 +1883,7 @@ public final class DashModule extends Browsable implements Module {
         for (DashBuffer buffer : concState.getBuffers())
             addBuffer((DashBuffer) buffer, concState);
 	    for (Decl decl : concState.getVariables())	
-	        readVariablesDeclared(decl, concState, Optional.empty());	
+	        readVariablesDeclared(decl, concState);	
 	}
 	
 	public void addConcState(DashState parent, DashConcState concState) {	
@@ -1916,7 +1916,7 @@ public final class DashModule extends Browsable implements Module {
         for (DashBuffer buffer : concState.getBuffers())
             addBuffer((DashBuffer) buffer, concState);
 	    for (Decl decl : concState.getVariables())	
-	        readVariablesDeclared(decl, concState, Optional.empty());	
+	        readVariablesDeclared(decl, concState);	
 	}
 	
 	private void addInnerConcStates(DashConcState concState) {
@@ -1927,6 +1927,97 @@ public final class DashModule extends Browsable implements Module {
 		}
 	}
 	
+    /*
+     * This is called by the addTopLevelConcState/addConcState function once it
+     * finds a state inside a conc state/OR state
+     */
+    public void addState(DashSuperState parent, DashState state) {
+        String modifiedStateName = "";
+
+        if (parent instanceof DashConcState) {
+            modifiedStateName = ((DashConcState) parent).getFullyQualName() + '_' + state.getRawName();
+            state.setFullyQualName(modifiedStateName);
+            state.setParent(parent);
+            state.setParentConcState((DashConcState) parent);
+        } else if (parent instanceof DashState) {
+            modifiedStateName = ((DashState) parent).getFullyQualName() + '_' + state.getRawName();
+            state.setFullyQualName(modifiedStateName);
+            state.setParent(parent);
+        }
+
+        if (state.isDefault()) {
+            defaultStates.add(state);
+        }
+
+        states.put(modifiedStateName, state);
+
+        for (DashState innerState : state.getInnerORStates()) {
+            addState(state, innerState);
+        }
+        for (DashConcState innerState : state.getInnerConcStates()) {
+            addConcState(state, innerState);
+        }
+        for (DashBuffer buffer : state.getBuffers()) {
+            addBuffer((DashBuffer) buffer, state.getParentConcState());
+        }
+	    for (Decl decl : state.getVariables()) {
+	        readVariablesDeclared(decl, state);	
+	    }
+	    for (DashEvent event : state.getEvents()) {
+	        addEvent(state.getParentConcState(), Optional.ofNullable(state), event);
+	    }
+	    for (DashInvariant invariant : state.getInvariants()) {
+	        addInvariant(invariant, state);	
+	    }
+    }
+    
+    /* Store variables that have been declared in the concurrent state */
+    private void readVariablesDeclared(Decl decl, DashSuperState state) {
+        //Fetch the current list of variable names stored for the current conc state
+        List<String> variables = variableNames.get(state.getFullyQualName()) != null ? variableNames.get(state.getFullyQualName()) : new ArrayList<String>();     
+
+        /* Store the names of each variable inside decls in ConcState */
+        for (Object name : decl.names) {
+        	String varName = name.toString();
+            variables.add(varName);
+            //Set variable name to as it would appear in the Alloy model and map it to its
+            //respective expression i.e in_p: lone Patient, in_p is the var name, lone Patient is the expression
+            String fullyQualVarName = state.getFullyQualName() + "_" + name.toString();
+            variable2Expression.put(fullyQualVarName, decl.expr);
+            variable2State.put(fullyQualVarName, state);
+        }
+
+        for (String var : variables) {
+            if (!modifiedVarNames.contains(state.getFullyQualName() + "_" + var)) {
+            	String fullyQualVarName = state.getFullyQualName() + "_" + var;
+                modifiedVarNames.add(fullyQualVarName);
+            }
+        }
+        variableNames.put(state.getFullyQualName(), variables);
+    }
+
+    public void addEvent(DashConcState parent, Optional<DashState> state,DashEvent event) {
+        String modifiedName = state.isPresent() ? state.get().getFullyQualName() + "_" + event.getRawName() : parent.getFullyQualName() + "_" + event.getRawName();
+        event.setFullyQualName(modifiedName);
+        event.setParentName(parent.getRawName());;
+        event.setParent(parent);
+        event.setParentConcState(parent);
+        // The event is declared inside an OR-state
+        if (state.isPresent()) {
+        	event.setParent(state.get());
+        }
+        event2ConcState.put(event.getFullyQualName(), parent);
+        
+        if (event.getType().equals("env event") || event.getType().equals("event")) {
+        	isEnvEventModel = true;
+        } else if (event.getType().equals("env")) {
+            isEnvEventModel = false;
+            readEnvVariablesDeclared(event.getDecl(), parent);
+        }
+
+        events.put(modifiedName, event);
+    }
+    
 	public void addBuffer(DashBuffer buffer, DashConcState concState) {
         //Fetch the current list of variable names stored for the current conc state
         List<String> variables = variableNames.get(concState.getFullyQualName()) != null ? variableNames.get(concState.getFullyQualName()) : new ArrayList<String>();      
@@ -1945,36 +2036,8 @@ public final class DashModule extends Browsable implements Module {
 		variables.add(buffer.getRawName());
         modifiedVarNames.add(concState.getFullyQualName() + "_" + buffer.getRawName());
         variableNames.put(concState.getFullyQualName(), variables);			
-        variable2ConcState.put(concState.getFullyQualName() + "_" + buffer.getRawName().toString(), concState);
+        variable2State.put(concState.getFullyQualName() + "_" + buffer.getRawName().toString(), concState);
 	}
-	
-
-    /* Store variables that have been declared in the concurrent state */
-    private void readVariablesDeclared(Decl decl, DashConcState concState, Optional<DashState> state) {
-        //Fetch the current list of variable names stored for the current conc state
-        List<String> variables = variableNames.get(concState.getFullyQualName()) != null ? variableNames.get(concState.getFullyQualName()) : new ArrayList<String>();     
-
-        /* Store the names of each variable inside decls in ConcState */
-        for (Object name : decl.names) {
-        	String varName = state.isPresent() ? DashHelper.calculateStateNameWithoutConcState(state.get()) + name.toString() : name.toString();
-            variables.add(varName);
-            //Set variable name to as it would appear in the Alloy model and map it to its
-            //respective expression i.e in_p: lone Patient, in_p is the var name, lone Patient is the expression
-            String fullyQualVarName = !state.isPresent() ? concState.getFullyQualName() + "_" + name.toString() : 
-            	state.get().getFullyQualName() + "_" + name.toString();
-            variable2Expression.put(fullyQualVarName, decl.expr);
-            variable2ConcState.put(fullyQualVarName, concState);
-        }
-
-        for (String var : variables) {
-            if (!modifiedVarNames.contains(concState.getFullyQualName() + "_" + var)) {
-            	String fullyQualVarName = !state.isPresent() ? concState.getFullyQualName() + "_" + var : 
-                	state.get().getFullyQualName() + "_" + var;
-                modifiedVarNames.add(fullyQualVarName);
-            }
-        }
-        variableNames.put(concState.getFullyQualName(), variables);
-    }
 
 
     private void addInitCondition(DashInit init, DashConcState parent) {
@@ -2016,7 +2079,6 @@ public final class DashModule extends Browsable implements Module {
                     ExprList exprList = (ExprList) parentExprUnary.sub;
                     for (Expr expression : exprList.args) {
                         invariant.getAllExpressions().add(expression);
-
                     }
                 } else
                     invariant.getAllExpressions().add(parentExprUnary.sub);
@@ -2052,50 +2114,6 @@ public final class DashModule extends Browsable implements Module {
         }
 
         actions.put(action.getRawName(), action);
-    }
-
-    /*
-     * This is called by the addTopLevelConcState/addConcState function once it
-     * finds a state inside a conc state/OR state
-     */
-    public void addState(DashSuperState parent, DashState state) {
-        String modifiedStateName = "";
-
-        if (parent instanceof DashConcState) {
-            modifiedStateName = ((DashConcState) parent).getFullyQualName() + '_' + state.getRawName();
-            state.setFullyQualName(modifiedStateName);
-            state.setParent(parent);
-            state.setParentConcState((DashConcState) parent);
-        } else if (parent instanceof DashState) {
-            modifiedStateName = ((DashState) parent).getFullyQualName() + '_' + state.getRawName();
-            state.setFullyQualName(modifiedStateName);
-            state.setParent(parent);
-        }
-
-        if (state.isDefault()) {
-            defaultStates.add(state);
-        }
-
-        states.put(modifiedStateName, state);
-
-        for (DashState innerState : state.getInnerORStates()) {
-            addState(state, innerState);
-        }
-        for (DashConcState innerState : state.getInnerConcStates()) {
-            addConcState(state, innerState);
-        }
-        for (DashBuffer buffer : state.getBuffers()) {
-            addBuffer((DashBuffer) buffer, state.getParentConcState());
-        }
-	    for (Decl decl : state.getVariables()) {
-	        readVariablesDeclared(decl, state.getParentConcState(), Optional.ofNullable(state));	
-	    }
-	    for (DashEvent event : state.getEvents()) {
-	        addEvent(state.getParentConcState(), Optional.ofNullable(state), event);
-	    }
-	    for (DashInvariant invariant : state.getInvariants()) {
-	        addInvariant(invariant, state);	
-	    }
     }
     
     
@@ -2146,7 +2164,7 @@ public final class DashModule extends Browsable implements Module {
            for (String fromExpr : transition.getOrigin().getAllOrigins()) {
         	   String fullyQualTransName = (destinations > 1 || origins > 1) ? modifiedTransName + " _t_" + (transCount++) : modifiedTransName;
                if (transition.getRawName() == null) {
-                   modifiedTransName = parent.getFullyQualName() + "_t_" + (++transitionCount);
+            	   fullyQualTransName = parent.getFullyQualName() + "_t_" + (++transitionCount);
                }
                if (transition.getDestination() == null) {
             	   generateTransition(transition, fromExpr, "", fullyQualTransName);
@@ -2170,10 +2188,6 @@ public final class DashModule extends Browsable implements Module {
             	   generateTransition(transition, "", gotoExpr, fullyQualTransName);
                }
            }
-           //transition.setFullyQualName(modifiedTransName);
-           //transition.setParentConcState(DashHelper.getParentConcState(parent));
-           //transition.getParentConcState().addAllTransition(transition);
-           //transitions.put(modifiedTransName, transition);
        }
    }
     
@@ -2302,28 +2316,6 @@ public final class DashModule extends Browsable implements Module {
         	}
         }  
         return false;
-    }
-
-    public void addEvent(DashConcState parent, Optional<DashState> state,DashEvent event) {
-        String modifiedName = state.isPresent() ? state.get().getFullyQualName() + "_" + event.getRawName() : parent.getFullyQualName() + "_" + event.getRawName();
-        event.setFullyQualName(modifiedName);
-        event.setParentName(parent.getRawName());;
-        event.setParent(parent);
-        event.setParentConcState(parent);
-        // The event is declared inside an OR-state
-        if (state.isPresent()) {
-        	event.setParent(state.get());
-        }
-        event2ConcState.put(event.getFullyQualName(), parent);
-        
-        if (event.getType().equals("env event") || event.getType().equals("event")) {
-        	isEnvEventModel = true;
-        } else if (event.getType().equals("env")) {
-            isEnvEventModel = false;
-            readEnvVariablesDeclared(event.getDecl(), parent);
-        }
-
-        events.put(modifiedName, event);
     }
 
     /* Store event variables that have been declared in the concurrent state */

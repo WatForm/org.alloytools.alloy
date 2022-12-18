@@ -169,7 +169,7 @@ public class CoreDashToElectrum {
         // Creating the Variable signature and its relations
         decls.clear();
         for (String variableName : module.getVariableExpresssion().keySet()) {
-        	if (module.getVariableConcState().get(variableName).getIdentifiers().size() > 0) continue;       		
+        	if (module.getVariableConcState().get(variableName).getANDState().getIdentifiers().size() > 0) continue;       		
             b = module.getVariableExpresssion().get(variableName);
             b = DashHelper.createParameterizedVar(variableName, b, module);
             a.add(ExprVar.make(null, variableName));
@@ -506,7 +506,7 @@ public class CoreDashToElectrum {
             Expr modifiedExpr = getVarFromParentExpr(transition.getAction().getExpr(), getParentConcState(transition.getParent()), module);                 
             expression =  DashHelper.createBinaryExpr(expression, ExprBinary.Op.AND, modifiedExpr); // ExprBinary.Op.AND.make(null, null, expression, modifiedExpr);
             //These are the variables that have not been changed in the post-cond and they need to retain their values in the next snapshot
-            Map<String, DashConcState> unchangedVars = new LinkedHashMap<String, DashConcState>(getUnchangedVars(transition.getAction().getAllExpression(), module));
+            Map<String, DashSuperState> unchangedVars = new LinkedHashMap<>(getUnchangedVars(transition.getAction().getAllExpression(), module));
             for (String var: changedLocalVars.keySet()) {
             	// We dont constrain a var if it has been changed using a reference, otherwise we constrain it if it only has been changed locally
             	expression = (changedRefVars.contains(var) || (changedLocalVars.get(var).getIdentifiers().size() == 0) ) ? expression : 
@@ -522,7 +522,7 @@ public class CoreDashToElectrum {
          * Keeping variables unchanged */
         if (transition.getAction() == null) {
             //These are the variables that have not been changed in the post-cond and they need to retain their values in the next snapshot
-            Map<String, DashConcState> unchangedVars = new LinkedHashMap<String, DashConcState>(getUnchangedVars(null, module));
+            Map<String, DashSuperState> unchangedVars = new LinkedHashMap<>(getUnchangedVars(null, module));
             for (String var : unchangedVars.keySet()) {
                 expression = DashHelper.createBinaryExpr(expression, ExprBinary.Op.AND, createUnchangedVariableAST(var, unchangedVars.get(var), parent));
             }
@@ -1313,8 +1313,8 @@ public class CoreDashToElectrum {
     /*************************************** KEEPING VARIABLES UNCHANGED ***************************************/
   
     //Find the variables that are unchanged during a transition
-    Map<String, DashConcState> getUnchangedVars(List<Expr> exprList, DashModule module) {
-    	Map<String, DashConcState> unchangedVariables = new LinkedHashMap<String, DashConcState>(module.getVariableConcState());
+    Map<String, DashSuperState> getUnchangedVars(List<Expr> exprList, DashModule module) {
+    	Map<String, DashSuperState> unchangedVariables = new LinkedHashMap<>(module.getVariableConcState());
       
         for (String var: changedVars.keySet()) {
         	if (unchangedVariables.keySet().contains(var))
@@ -1360,7 +1360,7 @@ public class CoreDashToElectrum {
      * If a varibale belongs to a parameterized Conc State and is not a varibale in the Conc State taking the transition, we create the following:
      * all p: param | p.s_next.var = p.s.var
      */
-    private Expr createUnchangedVariableAST(String var, DashConcState varConcState, DashConcState transConcState) {
+    private Expr createUnchangedVariableAST(String var, DashSuperState varConcState, DashConcState transConcState) {
         //Expr binaryLeft = ExprBadJoin.make(null, null, ExprVar.make(null, "s_next"), ExprVar.make(null, var)); //s_next.variableParent_varName
     	Expr binaryLeft = DashHelper.varPrimed(var);
         Expr binaryRight = DashHelper.createExprVar(var); //s_next.variableParent_varName

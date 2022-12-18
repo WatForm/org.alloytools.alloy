@@ -64,7 +64,7 @@ public class DashToCoreDash {
      private void modifyTransitionParent(final DashModule module) {
         for (DashTrans trans : module.getTransitions().values()) {
         	DashState sourceState = DashHelper.getState(trans.getOrigin().getAllOrigins().get(0).replace("/", "_"), module); 	
-        	if(sourceState != null) {
+        	if (sourceState != null) {
         		trans.setParent(sourceState);
         		
         		for(DashState state: module.getORStates().values()) {
