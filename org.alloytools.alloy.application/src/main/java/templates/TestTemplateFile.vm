@@ -187,7 +187,7 @@ class Signature(metaclass = MetaSignature):
         return False
 
     def __repr__(self):
-        return f"{self.sigName} - {self.name} : {self.elements}" if self.elements else f"{self.sigName} - {self.name} : Empty"
+        return f"{self.__class__.__name__} - {self.name} : {self.elements}" if self.elements else f"{self.__class__.__name__} - {self.name} : Empty"
 
     # override "in" operator, e.g.,: other in self
     def __contains__(self, other):
@@ -216,7 +216,6 @@ class Relation:
 class ${sig.Name}(Signature):
     # Signature (static) information
     sig_objects = {${sig.getObjectNames()}}
-    sigName = "${sig.Name}"
 
 
 #end
