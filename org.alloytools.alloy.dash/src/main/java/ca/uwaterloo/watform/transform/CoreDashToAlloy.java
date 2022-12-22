@@ -1,9 +1,7 @@
 package ca.uwaterloo.watform.transform;
 
-import java.lang.ref.Reference;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -126,18 +124,18 @@ public class CoreDashToAlloy {
     /**************************** CREATING ALL SIGNATURES *****************************/
     
     private void createrBufIdxSig (DashModule module) {
-    	for (String bufIdx: module.getBufferIndexSig().values()) {
+    	module.getBufferIndexSig().values().forEach(bufIdx -> {
     		addSigAST(module, bufIdx, null, null, null, null, null, null, null, null);
-    	}
+    	});
     }
 
     private void createParamSigAST(DashModule module) {
         addSigAST(module, "Identifiers", null, null, null, null, null, null, null, null);
-        for (DashConcState concState: module.getAllConcurrentStates().values()) {
-        	if (concState.isParameterized()) {
-                addSigAST(module, concState.getReplicatedIdentifier(), ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "Identifiers"))), null, null, null, null, null, null);
+        module.getAllConcurrentStates().values().forEach(x -> {
+        	if (x.isParameterized()) {
+        		addSigAST(module, x.getReplicatedIdentifier(), ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "Identifiers"))), null, null, null, null, null, null);
         	}
-        }
+        });
     }
 
     /* Used by other functions to help create signature ASTs */
@@ -198,7 +196,6 @@ public class CoreDashToAlloy {
         	else {
         		decls.add(new Decl(null, null, null, null, a, b));
         	}
-            //decls.add(new Decl(null, null, null, null, a, b));
             a.clear();
         }
 
@@ -216,7 +213,6 @@ public class CoreDashToAlloy {
         	else {
         		decls.add(new Decl(null, null, null, null, a, b));
         	}
-            //decls.add(new Decl(null, null, null, null, a, b));
             a.clear();
         }
         
@@ -231,7 +227,6 @@ public class CoreDashToAlloy {
         	else {
         		decls.add(new Decl(null, null, null, null, a, mult(b)));
         	}
-            //decls.add(new Decl(null, null, null, null, a, mult(b)));
             a.clear();
         }
         
@@ -244,7 +239,6 @@ public class CoreDashToAlloy {
         	else {
         		decls.add(new Decl(null, null, null, null, a, mult(b)));
         	}
-            //decls.add(new Decl(null, null, null, null, a, mult(b))); //next_step: Snapshot -> Snapshot
             a.clear();
         }
 
@@ -258,7 +252,6 @@ public class CoreDashToAlloy {
         	else {
         		decls.add(new Decl(null, null, null, null, a, b));
         	}
-            //decls.add(new Decl(null, null, null, null, a, b));
             a.clear();
         }  
   
@@ -272,8 +265,7 @@ public class CoreDashToAlloy {
         	}
         	else {
         		decls.add(new Decl(null, null, null, null, a, convertToExprUnary(b)));
-        	}
-            //decls.add(new Decl(null, null, null, null, a, convertToExprUnary(b)));      
+        	}    
             a.clear();
         }
         
@@ -292,56 +284,58 @@ public class CoreDashToAlloy {
     	addSigAST(module, "StateLabel", null, null, new ArrayList<Decl>(), new Pos("abstract", 0, 0), null, null, null, null);
         addSigAST(module, "SystemState", ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "StateLabel"))), new ArrayList<Decl>(), new Pos("abstract", 0, 0), null, null, null, null);
 
-        for (DashConcState concState : module.getTopLevelConcStates().values()) {
-        	if(concState.getInnerConcStates().size() > 0)
-        		addSigAST(module, concState.getFullyQualName(), ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "SystemState"))), new ArrayList<Decl>(), new Pos("abstract", 0, 0), null, null, null, null);
-        	else if(concState.getInnerORStates().size() > 0)
-        		addSigAST(module, concState.getFullyQualName(), ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "SystemState"))), new ArrayList<Decl>(), new Pos("abstract", 0, 0), null, null, null, null);
-        	else
-        		addSigAST(module, concState.getFullyQualName(), ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "SystemState"))), new ArrayList<Decl>(), null, null,  new Pos("one", 0, 0), null, null);
-        	
-            createStateAST(concState, module);
-        }
+        module.getTopLevelConcStates().values().forEach(ANDState -> {
+        	if(ANDState.getInnerConcStates().size() > 0) {
+        		addSigAST(module, ANDState.getFullyQualName(), ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "SystemState"))), new ArrayList<Decl>(), new Pos("abstract", 0, 0), null, null, null, null);
+        	}
+        	else if(ANDState.getInnerORStates().size() > 0) {
+        		addSigAST(module, ANDState.getFullyQualName(), ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "SystemState"))), new ArrayList<Decl>(), new Pos("abstract", 0, 0), null, null, null, null);
+        	}
+        	else {
+        		addSigAST(module, ANDState.getFullyQualName(), ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "SystemState"))), new ArrayList<Decl>(), null, null,  new Pos("one", 0, 0), null, null);
+        	}
+            createStateAST(ANDState, module);
+        });
     }
 
     private void createStateAST(DashConcState concState, DashModule module) {
-        for (DashState state : concState.getInnerORStates()) {
-        	if(state.getInnerORStates().size() == 0 && state.getInnerConcStates().size() == 0) {
-        		addSigAST(module, state.getFullyQualName(), ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, concState.getFullyQualName()))), new ArrayList<Decl>(), null, null, new Pos("one", 0, 0), null, null);
-        		createChildStateAST(state, module);
+    	concState.getInnerORStates().forEach(ORState -> {
+        	if(ORState.getInnerORStates().size() == 0 && ORState.getInnerConcStates().size() == 0) {
+        		addSigAST(module, ORState.getFullyQualName(), ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, concState.getFullyQualName()))), new ArrayList<Decl>(), null, null, new Pos("one", 0, 0), null, null);
+        		createChildStateAST(ORState, module);
         	}
         	else {
-        		addSigAST(module, state.getFullyQualName(), ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, concState.getFullyQualName()))), new ArrayList<Decl>(), new Pos("abstract", 0, 0), null, null, null, null);
-        		createChildStateAST(state, module);
+        		addSigAST(module, ORState.getFullyQualName(), ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, concState.getFullyQualName()))), new ArrayList<Decl>(), new Pos("abstract", 0, 0), null, null, null, null);
+        		createChildStateAST(ORState, module);
         	}
-        }
+    	});
 
-        for (DashConcState innerConcState : concState.getInnerConcStates()) {
-            addSigAST(module, innerConcState.getFullyQualName(), ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, concState.getFullyQualName()))), new ArrayList<Decl>(), new Pos("abstract", 0, 0), null, null, null, null);
-            createStateAST(innerConcState, module);
-        }
+    	concState.getInnerConcStates().forEach(innerState -> {
+            addSigAST(module, innerState.getFullyQualName(), ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, concState.getFullyQualName()))), new ArrayList<Decl>(), new Pos("abstract", 0, 0), null, null, null, null);
+            createStateAST(innerState, module);
+    	});
     }
     
     private void createChildStateAST(DashState state, DashModule module) {
-        for(DashState innerState: state.getInnerORStates()) {
-        	if(innerState.getInnerORStates().size() == 0 && innerState.getInnerConcStates().size() == 0) {
+    	state.getInnerORStates().forEach(innerState -> {
+    		if(innerState.getInnerORStates().size() == 0 && innerState.getInnerConcStates().size() == 0) {
         		addSigAST(module, innerState.getFullyQualName(), ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, state.getFullyQualName()))), new ArrayList<Decl>(), null, null, new Pos("one", 0, 0), null, null);
         	}
         	else {
         		addSigAST(module, innerState.getFullyQualName(), ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, state.getFullyQualName()))), new ArrayList<Decl>(), new Pos("abstract", 0, 0), null, null, null, null);
         		createChildStateAST(innerState, module);
         	}
-        }
-        
-        for (DashConcState concState: state.getInnerConcStates()) {
-        	if (concState.getInnerORStates().size() > 0) {
-        		addSigAST(module, concState.getFullyQualName(), ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, state.getFullyQualName()))), new ArrayList<Decl>(), new Pos("abstract", 0, 0), null, null, null, null);
+    	});
+
+    	state.getInnerConcStates().forEach(innerState -> {
+        	if (innerState.getInnerORStates().size() > 0) {
+        		addSigAST(module, innerState.getFullyQualName(), ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, state.getFullyQualName()))), new ArrayList<Decl>(), new Pos("abstract", 0, 0), null, null, null, null);
         	}
         	else {
-        		addSigAST(module, concState.getFullyQualName(), ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, state.getFullyQualName()))), new ArrayList<Decl>(), new Pos("one", 0, 0), null, null, null, null);
+        		addSigAST(module, innerState.getFullyQualName(), ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, state.getFullyQualName()))), new ArrayList<Decl>(), new Pos("one", 0, 0), null, null, null, null);
         	}
-        	createStateAST(concState, module);
-        }
+        	createStateAST(innerState, module);
+    	});
     }
     
     /****************************************** EVENT SPACE ***************************************/
@@ -351,12 +345,14 @@ public class CoreDashToAlloy {
         addSigAST(module, "EnvironmentEvent", ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "EventLabel"))), new ArrayList<Decl>(), new Pos("abstract", 0, 0), null, null, null, null);
         addSigAST(module, "InternalEvent", ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "EventLabel"))), new ArrayList<Decl>(), new Pos("abstract", 0, 0), null, null, null, null);
     	
-        for (String key : module.getEvents().keySet()) {
-            if (module.getEvents().get(key).getType().equals("env event"))
+        module.getEvents().keySet().forEach(key -> {
+            if (module.getEvents().get(key).getType().equals("env event")) {
             	addSigAST(module, key, ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "EnvironmentEvent"))), new ArrayList<Decl>(), null, null, new Pos("one", 0, 0), null, null);
-            if (module.getEvents().get(key).getType().equals("event"))
+            }
+            if (module.getEvents().get(key).getType().equals("event")) {
             	addSigAST(module, key, ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "InternalEvent"))), new ArrayList<Decl>(), null, null, new Pos("one", 0, 0), null, null);
-        }
+            }
+        });
     }
     
     /****************************************** TRANSITION SPACE ***************************************/
@@ -364,9 +360,9 @@ public class CoreDashToAlloy {
 
     private void createTransitionSpaceAST(DashModule module) {
     	addSigAST(module, "TransitionLabel", null, null, new ArrayList<Decl>(), new Pos("abstract", 0, 0), null, null, null, null);
-        for (DashTrans transition : module.getTransitions().values()) {
-        	addSigAST(module, transition.getFullyQualName(), ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "TransitionLabel"))), new ArrayList<Decl>(), null, null, new Pos("one", 0, 0), null, null);
-        }
+    	 module.getTransitions().values().forEach(t -> {
+    		 addSigAST(module, t.getFullyQualName(), ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "TransitionLabel"))), new ArrayList<Decl>(), null, null, new Pos("one", 0, 0), null, null);
+    	 });
     }
      
     /****************************************** PRE CONIDTION PREDICATE ***************************************/

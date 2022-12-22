@@ -14,7 +14,6 @@ public class DashState extends DashSuperState {
 	private List<DashTrans> 	modifiedTransitions; // Transitions after they have been modified during the transformation to Core Dash
 	private final Boolean       isDefault;  		//Specifies whether this state is a default state
 
-
     /*
      * This constructor is called by DashParser.java when it completes parsing a
      * state. items are the list of items that are inside the parsed state.

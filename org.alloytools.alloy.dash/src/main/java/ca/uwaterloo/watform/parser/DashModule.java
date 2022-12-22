@@ -1943,6 +1943,7 @@ public final class DashModule extends Browsable implements Module {
             modifiedStateName = ((DashState) parent).getFullyQualName() + '_' + state.getRawName();
             state.setFullyQualName(modifiedStateName);
             state.setParent(parent);
+            state.setParentConcState(DashHelper.getParentConcState(state));
         }
 
         if (state.isDefault()) {
@@ -2002,6 +2003,8 @@ public final class DashModule extends Browsable implements Module {
         event.setParentName(parent.getRawName());
         event.setParent(parent);
         event.setParentConcState(parent.getANDState());
+        parent.getEventNames().add(event.getRawName());
+        
         // The event is declared inside an OR-state
         event2State.put(event.getFullyQualName(), parent);
         

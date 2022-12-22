@@ -604,7 +604,22 @@ public class DashModelsTest {
     
     @Test
     public void testEnabledAfterNextStep() throws Exception {
-        String dashModel = "conc state concState { var_one: one EventLabel event envA {} conc state inner{ default state stateA{} trans A {from stateA on envA when var_one = none}  trans B {from stateA on envA do var_one' = none} } }";
+        String dashModel = "conc state concState { "
+        		+ "var_one: one EventLabel "
+        		+ "event envA {} "
+        		+ "conc state inner { "
+	        		+ "		default state stateA{} "
+	        		+ "		trans A {"
+	        		+ "			from stateA "
+	        		+ "			on envA when var_one = none"
+	        		+ "		}"
+	        		+ "		trans B {"
+	        		+ "			from stateA "
+	        		+ "			on envA "
+	        		+ "			do var_one' = none"
+	        		+ "		} "
+	        		+ "} "
+        		+ "}";
         DashOptions.outputDir = "test.dsh";
 
         DashModule module = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);

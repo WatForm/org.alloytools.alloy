@@ -805,14 +805,20 @@ public class DashHelper {
        return null;
    }
   
-  public static DashConcState getTopLevelConcStates(DashConcState concState) {
-	  if (concState == null) {
+  public static DashConcState getTopLevelConcStates(DashSuperState state) {
+	  if (state == null) {
 		  return null;
 	  }
-	  if (concState.getParentConcState() != null) {
-		  return getTopLevelConcStates(concState.getParentConcState());
+	  
+	  if (state.getParent() != null) {
+		  return getTopLevelConcStates(state.getParent());
+	  } else {  	
+		  if (state instanceof DashConcState)
+			  return (DashConcState) state;
+		  else {
+			  return state.getANDState();
+		  }
 	  }
-	  return concState;
   }
   
   public static Optional<DashConcState> locateANDState(DashConcState concState, String name) {
@@ -905,7 +911,7 @@ public class DashHelper {
 	  return vars;
   }
   
-  public static Optional<DashSuperState> findEventParent (DashConcState parent, String reference) {
+  public static Optional<DashSuperState> findEventParent (DashSuperState parent, String reference) {
 	  if (reference == null) {
 		  return Optional.empty();
 	  }
@@ -916,6 +922,7 @@ public class DashHelper {
 	  if (match.size() == 0) {
 		  findEventParentHelper(DashHelper.getTopLevelConcStates(parent), reference, match);
 	  }
+	  
 	  return match.size() > 0 ? Optional.ofNullable(match.get(0)) : Optional.empty();
   }
   
@@ -923,6 +930,7 @@ public class DashHelper {
 	  if (reference == null || parent == null || match == null) {
 		  return;
 	  }
+
 	  if (parent.getEventNames().contains(reference)) {
 		  match.add(parent);
 	  }

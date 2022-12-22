@@ -310,23 +310,33 @@ public class DashToCoreDash {
 
         DashOn on = new DashOn(trans.getTriggerEvent());
         String onCommand = trans.getTriggerEvent().getRawName();
-
-        if (onCommand.contains("/")) {
-            onCommand = onCommand.substring(onCommand.indexOf('/') + 1);
-        }
-
-        for(DashConcState concState: module.getAllConcurrentStates().values()) {
-        	for(DashEvent event: concState.getEvents()) {
-        		if(event.getRawName().equals(onCommand)) {
-        			on.setParentConcState(concState);
-        			onCommand = (concState.getFullyQualName() + "_" + onCommand);
-        		}
+        
+        
+    	List<DashSuperState> match = new ArrayList<>();
+    	Optional<DashSuperState> actualParent = Optional.empty();
+        if (onCommand != null && onCommand.contains("/")) {
+        	DashHelper.findItemParentLocally(trans.getParentConcState(), onCommand, match);
+        	if (match.size() > 0) {
+        		on.setParent(match.get(0));
+        		on.setParentConcState(match.get(0).getANDState());
+        		on.setRawName(match.get(0).getFullyQualName() + '_' + onCommand.substring(onCommand.lastIndexOf('/') + 1)); 	
+        	} else {
+        		throw new ErrorSyntax("Could not resolve reference to: " + onCommand);
         	}
+        } else {
+        	actualParent = DashHelper.findEventParent(trans.getParentConcState(), onCommand);
+        	if (!actualParent.isPresent()) {
+        		actualParent = DashHelper.findEventParent(DashHelper.getTopLevelConcStates(trans.getParentConcState()), onCommand);
+        	}
+        	if (!actualParent.isPresent()) {
+        		throw new ErrorSyntax("Could not resolve reference to: " + onCommand);
+        	}
+        	
+        	on.setRawName(actualParent.get().getFullyQualName() + '_' + onCommand);
+        	on.setParentConcState(actualParent.get().getANDState());
         }
 
-        DashConcState onParent = on.getParentConcState() == null? trans.getParentConcState() : on.getParentConcState();
-        on.setRawName(onCommand);
-        on.setIsInternal(DashHelper.checkInternalEvent(trans, module));
+        on.setIsInternal(DashHelper.checkInternalEvent(trans, module));      
         return on;
     }
 
@@ -350,7 +360,10 @@ public class DashToCoreDash {
         		throw new ErrorSyntax("Could not resolve reference to: " + sendCommand);
         	}
         } else {
-        	DashHelper.findEventParent(trans.getParentConcState(), sendCommand);
+        	actualParent = DashHelper.findEventParent(trans.getParentConcState(), sendCommand);
+        	if (!actualParent.isPresent()) {
+        		actualParent = DashHelper.findEventParent(DashHelper.getTopLevelConcStates(trans.getParentConcState()), sendCommand);
+        	}
         	actualParent = (match.size() > 0) ? Optional.ofNullable(match.get(0)) : Optional.empty();
         	send.setRawName((match.size() > 0) ? match.get(0).getFullyQualName() + '_' + sendCommand : trans.getParent().getFullyQualName() + '_' + sendCommand);
             send.setParentConcState(actualParent.isPresent() ? actualParent.get().getANDState() : trans.getParentConcState());
