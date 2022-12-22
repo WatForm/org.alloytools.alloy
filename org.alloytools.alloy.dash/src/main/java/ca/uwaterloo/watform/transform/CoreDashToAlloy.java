@@ -1304,8 +1304,9 @@ public class CoreDashToAlloy {
         		Expr equals = ExprBinary.Op.EQUALS.make(null, null, sNextVar, DashHelper.sVar(fullyQualName));
         		expr = ExprBinary.Op.AND.make(null, null, expr, equals);
         	}
-        }*/
-  
+        }
+        */
+        
         for (String key : module.getRawVarNames().keySet()) {
             for (String var : module.getRawVarNames().get(key)) {
             	Expr fullyQualVarName = DashHelper.createExprVar(key + "_" + var);
@@ -2381,7 +2382,6 @@ public class CoreDashToAlloy {
         if (foundBuffer && joinLeft != null) {
         	changedVars.put(joinLeft.right.toString(), parent);
         }
-        //System.out.println("Found? " + foundBuffer);
     }
     
     Expr breakdownBufferCall (ExprBadJoin joinLeft, DashConcState parent) {

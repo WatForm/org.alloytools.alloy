@@ -1975,7 +1975,7 @@ public final class DashModule extends Browsable implements Module {
     /* Store variables that have been declared in the concurrent state */
     private void readVariablesDeclared(Decl decl, DashSuperState state) {
         //Fetch the current list of variable names stored for the current conc state
-        List<String> variables = variableNames.get(state.getFullyQualName()) != null ? variableNames.get(state.getFullyQualName()) : new ArrayList<String>();     
+        List<String> variables = new ArrayList<String>(variableNames.getOrDefault(state.getFullyQualName(), new ArrayList<String>()));
 
         /* Store the names of each variable inside decls in ConcState */
         for (Object name : decl.names) {
@@ -1995,6 +1995,26 @@ public final class DashModule extends Browsable implements Module {
             }
         }
         variableNames.put(state.getFullyQualName(), variables);
+    }
+    
+    /* Store event variables that have been declared in the concurrent state */
+    void readEnvVariablesDeclared(Decl decl, DashSuperState concState) {
+        List<String> variables = new ArrayList<String>();
+
+        //Fetch the current list of variable names stored for the current conc state
+        if (envVariableNames.get(concState.getFullyQualName()) != null) {
+            variables = envVariableNames.get(concState.getFullyQualName());
+        }
+
+        /* Store the names of each variable inside decls in ConcState */
+        for (Object name : decl.names) {
+            variables.add(name.toString());
+            //Set variable name to as it would appear in the Alloy model and map it to its
+            //respective expression i.e in_p: lone Patient, in_p is the var name, lone Patient is the expression
+            envVariable2Expression.put(concState.getFullyQualName() + "_" + name.toString(), decl.expr);
+        }
+
+        envVariableNames.put(concState.getFullyQualName(), variables);
     }
 
     public void addEvent(DashSuperState parent, DashEvent event) {
@@ -2316,25 +2336,6 @@ public final class DashModule extends Browsable implements Module {
         	}
         }  
         return false;
-    }
-
-    /* Store event variables that have been declared in the concurrent state */
-    void readEnvVariablesDeclared(Decl decl, DashSuperState concState) {
-        List<String> variables = new ArrayList<String>();
-
-        //Fetch the current list of variable names stored for the current conc state
-        if (envVariableNames.get(concState.getFullyQualName()) != null)
-            variables = envVariableNames.get(concState.getFullyQualName());
-
-        /* Store the names of each variable inside decls in ConcState */
-        for (Object name : decl.names) {
-            variables.add(name.toString());
-            //Set variable name to as it would appear in the Alloy model and map it to its
-            //respective expression i.e in_p: lone Patient, in_p is the var name, lone Patient is the expression
-            envVariable2Expression.put(concState.getFullyQualName() + "_" + name.toString(), decl.expr);
-        }
-
-        envVariableNames.put(concState.getFullyQualName(), variables);
     }
     
     public Map<String, List<String>> getEventVarNames() {

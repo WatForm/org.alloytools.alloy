@@ -905,8 +905,8 @@ public class DashHelper {
   }
   
   public static List<String> getVariables (DashModule module, DashSuperState state) {
-	  List<String> vars = module.getRawVarNames().getOrDefault(state.getFullyQualName(), new ArrayList<>());
-	  List<String> envVars = module.getEnvironmentalVarNames().getOrDefault(state.getFullyQualName(), new ArrayList<>());
+	  List<String> vars = new ArrayList<String>(module.getRawVarNames().getOrDefault(state.getFullyQualName(), new ArrayList<>()));
+	  List<String> envVars = new ArrayList<String>(module.getEnvironmentalVarNames().getOrDefault(state.getFullyQualName(), new ArrayList<>()));
 	  vars.addAll(envVars);
 	  return vars;
   }

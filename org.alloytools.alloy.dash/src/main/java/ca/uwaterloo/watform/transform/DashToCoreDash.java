@@ -311,7 +311,6 @@ public class DashToCoreDash {
         DashOn on = new DashOn(trans.getTriggerEvent());
         String onCommand = trans.getTriggerEvent().getRawName();
         
-        
     	List<DashSuperState> match = new ArrayList<>();
     	Optional<DashSuperState> actualParent = Optional.empty();
         if (onCommand != null && onCommand.contains("/")) {
@@ -335,7 +334,6 @@ public class DashToCoreDash {
         	on.setRawName(actualParent.get().getFullyQualName() + '_' + onCommand);
         	on.setParentConcState(actualParent.get().getANDState());
         }
-
         on.setIsInternal(DashHelper.checkInternalEvent(trans, module));      
         return on;
     }
@@ -364,13 +362,15 @@ public class DashToCoreDash {
         	if (!actualParent.isPresent()) {
         		actualParent = DashHelper.findEventParent(DashHelper.getTopLevelConcStates(trans.getParentConcState()), sendCommand);
         	}
+        	if (!actualParent.isPresent()) {
+        		throw new ErrorSyntax("Could not resolve reference to: " + sendCommand);
+        	}
         	actualParent = (match.size() > 0) ? Optional.ofNullable(match.get(0)) : Optional.empty();
         	send.setRawName((match.size() > 0) ? match.get(0).getFullyQualName() + '_' + sendCommand : trans.getParent().getFullyQualName() + '_' + sendCommand);
             send.setParentConcState(actualParent.isPresent() ? actualParent.get().getANDState() : trans.getParentConcState());
         }
-;
         return send;
-    }   
+    }
     
      Boolean checkForEvent(final DashConcState concState, final String eventName) {
     	for (DashEvent event: concState.getEvents()) {
