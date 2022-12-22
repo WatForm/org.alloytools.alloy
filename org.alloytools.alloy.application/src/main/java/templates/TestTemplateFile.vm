@@ -1,10 +1,11 @@
 from __future__ import annotations
+from abc import ABC
 from operator import methodcaller
 from typing import List
+
+import itertools
 import logging
 import random
-from abc import ABC
-
 
 # ===== logging =====
 
@@ -70,7 +71,7 @@ class State(ABC):
         elif(self._conc_states):
             for s in self._conc_states:
                 s.handleEvent()
-     
+
     def printStates(self):
         if(self._active_state):
             print(type(self._active_state).__name__ + "\n")
@@ -96,6 +97,8 @@ class MetaSignature(type):
                 self._set = initvalue._set
             elif isinstance(initvalue, set):
                 self._set = initvalue
+            elif isinstance(initvalue, list):
+                self._set = set(initvalue)
             elif isinstance(initvalue, MetaSignature):
                 self._set = initvalue.objects()
             elif isinstance(initvalue, Signature):
@@ -106,8 +109,10 @@ class MetaSignature(type):
                 self._set = {initvalue}
             else:
                 print("Exception, unsupported type in MetaSignature::Set: %s", type(initvalue))
+
         def __iter__(self):
             return iter(self._set)
+
         def __repr__(self):
             return str(self._set)
 
@@ -143,7 +148,7 @@ class MetaSignature(type):
 
     # all objects in this Signature
     def objects(cls) -> set:
-        return cls.sig_objects
+        return cls.atoms
 
     # the scope of this Signature
     def scope(cls) -> int:
@@ -180,7 +185,7 @@ class Signature(metaclass = MetaSignature):
         return True
 
     # returns true if successfully set the new set of elements for this state variable
-    def set_passed(self, new_elements) -> bool:
+    def update_elements(self, new_elements) -> bool:
         if(self.is_valid(new_elements)):
             self.elements = new_elements
             return True
@@ -202,12 +207,9 @@ class Signature(metaclass = MetaSignature):
         return MetaSignature.Set(self.elements) - MetaSignature.Set(other)
 
 class Relation:
-    types = []
-    tuples = []
-
     @classmethod
     def possible_tuples(cls):
-        domain_elements = [type.sig_objects for type in cls.types]
+        domain_elements = [type.objects() for type in cls.types]
         return [tup for tup in itertools.product(*domain_elements)]
 
 # --- Signatures ---
@@ -215,7 +217,7 @@ class Relation:
 #foreach($sig in $signatures)
 class ${sig.Name}(Signature):
     # Signature (static) information
-    sig_objects = {${sig.getObjectNames()}}
+    atoms = {${sig.getObjectNames()}}
 
 
 #end
@@ -225,7 +227,7 @@ class ${sig.Name}(Signature):
 #foreach($relation in $relations)
 class ${relation.Name}(Relation):
     types = ${relation.Types}
-    tuples = []
+
 
 #end
 #end
