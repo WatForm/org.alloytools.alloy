@@ -40,3 +40,5 @@ enroute.zip
 
 # Java version from jenv <http://jenv.be>
 .java-version
+
+languageServers-log/AlloyLanguageServer.log
