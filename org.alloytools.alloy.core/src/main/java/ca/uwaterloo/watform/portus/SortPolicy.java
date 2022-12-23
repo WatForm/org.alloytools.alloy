@@ -130,26 +130,40 @@ abstract class SortPolicy {
      * For each position i in the arity of `expr` (i.e. 1<=i<=arity), find the single sort Si such that
      * (x1,...,xn) \in expr implies xi \in Si, or null if no such sort exists.
      * Null corresponds to INDEFINITE in the paper.
+     * Returns null for the whole list if the sorts are incompatible.
      */
+    public final List<Sort> getMinimalExprSorts(Expr expr, TranslationContext context) {
+        try {
+            return expr.accept(new SortVisitor(context));
+        } catch (SortVisitor.IncompatibleSortsException e) {
+            return null;
+        }
+    }
+
+    /** Convenience overload: throw with errorMessage if the sorts are incompatible. */
     public final List<Sort> getMinimalExprSorts(Expr expr, String errorMessage, TranslationContext context) {
-        return expr.accept(new SortVisitor(errorMessage, context));
+        List<Sort> result = getMinimalExprSorts(expr, context);
+        if (result == null) {
+            throw new ErrorFatal(errorMessage);
+        }
+        return result;
     }
 
     private final class SortVisitor extends FortressVisitReturn<List<Sort>> {
 
-        private final String errorMessage;
+        // Thrown on failure, because exceptions-as-flow-control is the most convenient here (unfortunately)
+        private final class IncompatibleSortsException extends RuntimeException {}
 
         // A copy of the context so we can keep track of which variables have which sorts
         private final TranslationContext context;
 
-        public SortVisitor(String errorMessage, TranslationContext context) {
-            this.errorMessage = errorMessage;
+        public SortVisitor(TranslationContext context) {
             this.context = new TranslationContext(context);
         }
 
         private List<Sort> merge(List<Sort> a, List<Sort> b, BiFunction<Sort, Sort, Sort> merger) {
             if (a.size() != b.size()) {
-                throw new ErrorFatal(errorMessage);
+                throw new IncompatibleSortsException();
             }
             List<Sort> merged = new ArrayList<>();
             for (int i = 0; i < a.size(); i++) {
@@ -174,7 +188,7 @@ abstract class SortPolicy {
                 return a;
             } else if (!a.equals(b)) {
                 // Incompatible sorts, can't merge!
-                throw new ErrorFatal(errorMessage);
+                throw new IncompatibleSortsException();
             } else {
                 // They're the same, pick one
                 return a;
@@ -186,7 +200,7 @@ abstract class SortPolicy {
                 return null;
             } else if (!a.equals(b)) {
                 // Incompatible sorts!
-                throw new ErrorFatal(errorMessage);
+                throw new IncompatibleSortsException();
             } else {
                 // They're the same
                 return a;

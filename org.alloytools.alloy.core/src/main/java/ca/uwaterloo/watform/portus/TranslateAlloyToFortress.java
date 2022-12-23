@@ -10,20 +10,17 @@ import edu.mit.csail.sdg.translator.A4Options;
 import edu.mit.csail.sdg.translator.AlloySolution;
 import edu.mit.csail.sdg.translator.CommandRunner;
 import edu.mit.csail.sdg.translator.ScopeComputer;
-import fortress.compiler.ConstantsMethodCompiler;
+import fortress.compiler.DatatypeMethodWithRangeCompiler;
 import fortress.compiler.LogicCompiler;
 import fortress.interpretation.Interpretation;
 import fortress.modelfind.CompilationModelFinder;
 import fortress.modelfind.ErrorResult;
-import fortress.modelfind.FortressTHREE;
 import fortress.modelfind.ModelFinder;
 import fortress.modelfind.ModelFinderResult;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
 import fortress.msfol.Theory;
 import fortress.operations.SmtlibConverter;
-import fortress.problemstate.ProblemState;
-import fortress.problemstate.Scope;
 import fortress.solverinterface.SolverInterface;
 import fortress.solverinterface.Z3CliInterface$;
 import fortress.solverinterface.solver;
@@ -124,7 +121,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
             @Override
             public LogicCompiler createCompiler() {
                 // This is abstract (accidentally?) so we just make an anonymous inner class.
-                return new ConstantsMethodCompiler() {};
+                return new DatatypeMethodWithRangeCompiler() {};
             }
         };
     }
@@ -217,15 +214,20 @@ public final class TranslateAlloyToFortress implements CommandRunner {
             ModelFinder finder = createModelFinder(() -> new solver() {
                 @Override
                 public void setTheory(Theory theory) {
-                    // In order to dump the scope info as well, we need to create a problem state from the theory
-                    // and scopes and dump that.
-                    ProblemState problemState = ProblemState.apply(theory,
-                            PortusUtil.<Sort, Scope>toScalaMap(context.getSortToScopeMap()));
                     try {
-                        writer.write(Dump.problemStateToSmtlib(problemState));
+                        writer.write(Dump.theoryToSmtlib(theory)); // for now don't include scopes - was breaking
                     } catch (IOException e) {
                         throw new UncheckedIOException(e);
                     }
+//                    // In order to dump the scope info as well, we need to create a problem state from the theory
+//                    // and scopes and dump that.
+//                    ProblemState problemState = ProblemState.apply(theory,
+//                            PortusUtil.<Sort, Scope>toScalaMap(context.getSortToScopeMap()));
+//                    try {
+//                        writer.write(Dump.problemStateToSmtlib(problemState));
+//                    } catch (IOException e) {
+//                        throw new UncheckedIOException(e);
+//                    }
                 }
 
                 @Override
