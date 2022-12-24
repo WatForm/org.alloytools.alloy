@@ -77,9 +77,10 @@ public class CoreDashToAlloy {
         createEventSpaceAST(alloyModule);
         createTransitionSpaceAST(alloyModule);
         
-        createStableAST(alloyModule);
-        
+        createStableAST(alloyModule);        
         createTransitionsAST(alloyModule);
+        createEnterPredAST(alloyModule);
+        createExitPredAST(alloyModule);
         
         createInitAST(alloyModule);
         if(module.getAllConcurrentStates().size() > 1) {
@@ -714,7 +715,7 @@ public class CoreDashToAlloy {
             	for(String envVar: module.getEventVarNames().get(concStateName)) {
             		Expr leftJoin = DashHelper.createExprBadJoin(DashHelper.sNext(), DashHelper.createExprVar(concStateName + "_" + envVar)); //s_next.envVar
             		Expr rightJoin = DashHelper.createExprBadJoin(DashHelper.s(), DashHelper.createExprVar(concStateName + "_" + envVar)); // s.envVar
-            		Expr equals = DashHelper.createExprBadJoin(leftJoin, rightJoin); // s_next.envVar = s.envVar
+            		Expr equals = DashHelper.createBinaryExpr(leftJoin, ExprBinary.Op.EQUALS, rightJoin); // s_next.envVar = s.envVar
             		elseLowerExpr = DashHelper.createBinaryExpr(elseLowerExpr, ExprBinary.Op.AND, equals);
             	}
             }
@@ -775,7 +776,7 @@ public class CoreDashToAlloy {
         	if(destinationState.getEnters().size() > 0) {
         		expression = DashHelper.createBinaryExpr(expression, ExprBinary.Op.AND, enterCall);
         	}
-        } 
+        }
         
         DashState sourceState = getParentSourceState(transition, module);
         expression = createExitAST(expression, sourceState, transition);        
@@ -1147,7 +1148,8 @@ public class CoreDashToAlloy {
 			            	ssPrimeGenEventT = ExprBadJoin.make(null, null, ExprVar.make(null, "p" + i), ssPrimeGenEventT);
 			            }
 			            
-			            Expr quant = (trans.getParentConcState().getIdentifiers().size() == 0) ? DashHelper.createUnaryExpr(ExprUnary.Op.NOT, ssPrimeGenEventT) : ExprQt.Op.NO.make(null, null, decls, ssPrimeGenEventT);
+			            Expr quant = (trans.getParentConcState().getIdentifiers().size() == 0) ? DashHelper.createUnaryExpr(ExprUnary.Op.NOT, ssPrimeGenEventT) 
+			            		: ExprQt.Op.NO.make(null, null, decls, ssPrimeGenEventT);
 			            expr = (expr == null) ? quant : DashHelper.createBinaryExpr(expr, ExprBinary.Op.AND, quant) ; // no p: param | enabledAfterStep_transName[s, s_next, t, genEvents, p]\n
 		        	}
 	        	}
@@ -1274,17 +1276,6 @@ public class CoreDashToAlloy {
         Expr sNextStable = DashOptions.isElectrum ? DashHelper.sStablePrimed() : DashHelper.sNextStable();
         Expr stableEquals = DashHelper.createBinaryExpr(sNextStable, ExprBinary.Op.EQUALS, DashHelper.sStable());
         expr = (module.getAllConcurrentStates ().size() > 1) ? DashHelper.createBinaryExpr(expr, ExprBinary.Op.AND, stableEquals) : expr;
-        
-        /* Conjunction of any env variables in the model 
-        for(String concStateName: module.getEnvironmentalVarNames().keySet()) {
-        	for(String envVar: module.getEnvironmentalVarNames().get(concStateName)) {
-        		Expr fullyQualName = DashHelper.createExprVar(concStateName + "_" + envVar);
-        		Expr sNextVar = DashOptions.isElectrum ? DashHelper.sVarPrimed(fullyQualName) : DashHelper.sNextVar(fullyQualName);
-        		Expr equals = ExprBinary.Op.EQUALS.make(null, null, sNextVar, DashHelper.sVar(fullyQualName));
-        		expr = ExprBinary.Op.AND.make(null, null, expr, equals);
-        	}
-        }
-        */
         
         for (String key : module.getRawVarNames().keySet()) {
             for (String var : module.getRawVarNames().get(key)) {
@@ -2607,7 +2598,7 @@ public class CoreDashToAlloy {
     private Expr createExitAST(Expr expression, DashState sourceState, DashTrans transition) {
         if(transition.getOrigin().getAllOrigins().size() > 0 && sourceState != null) {        	
         	Expr fromExpr = ExprVar.make(null, sourceState.getFullyQualName());
-        	Expr sConf = ExprBadJoin.make(null, null, ExprVar.make(null, "s"), ExprVar.make(null, "conf")); //s.conf
+        	Expr sConf = ExprBadJoin.make(null, null, ExprVar.make(null, "s"), ExprVar.make(null, "conf0")); //s.conf
         	Expr in = ExprBinary.Op.IN.make(null, null, fromExpr, sConf); //source in s.conf
         	Expr some = ExprUnary.Op.SOME.make(null, ExprBinary.Op.INTERSECT.make(null, null, fromExpr, sConf)); //source & s.conf
         	Expr exitCall = ExprBadJoin.make(null, null, ExprVar.make(null, "s_next"), ExprVar.make(null, "exit_" + fromExpr.toString()));

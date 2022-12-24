@@ -365,10 +365,11 @@ public class DashToCoreDash {
         	if (!actualParent.isPresent()) {
         		throw new ErrorSyntax("Could not resolve reference to: " + sendCommand);
         	}
-        	actualParent = (match.size() > 0) ? Optional.ofNullable(match.get(0)) : Optional.empty();
-        	send.setRawName((match.size() > 0) ? match.get(0).getFullyQualName() + '_' + sendCommand : trans.getParent().getFullyQualName() + '_' + sendCommand);
-            send.setParentConcState(actualParent.isPresent() ? actualParent.get().getANDState() : trans.getParentConcState());
+        	
+        	send.setRawName(actualParent.get().getFullyQualName() + '_' + sendCommand);
+            send.setParentConcState(actualParent.get().getANDState());
         }
+        
         return send;
     }
     
