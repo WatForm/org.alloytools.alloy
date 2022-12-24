@@ -47,7 +47,17 @@ public class DashHelper {
 	public static Expr parameterize(String string) {
 		return createBinaryExpr(createExprVar("p"), ExprBinary.Op.JOIN ,createExprVar(DashHelper.toLowerCase(string)));
 	}
-	 
+	
+	private static boolean varFound;
+	
+	public static boolean varFound() {
+		return varFound;
+	}
+	
+	public static void setVarFound(boolean found) {
+		varFound = found;
+	}
+		 
 	/*
 	 * If a Snapshot variable (assume a variable: var) originates from a Parameterized Concurrent State (assume with a parameter called p), then we create the following:
 	 * var: p -> expr
@@ -483,6 +493,10 @@ public class DashHelper {
         	return (ExprBinary) ExprBinary.Op.SINCE.make(null, null, left, right);
         if(op == Op.TRIGGERED)
         	return (ExprBinary) ExprBinary.Op.TRIGGERED.make(null, null, left, right);
+        if(op == Op.ISSEQ_ARROW_LONE)
+        	return ExprBinary.Op.ISSEQ_ARROW_LONE.make(null, null, left, right);
+        if(op == Op.ONE_ARROW_ONE) 
+            return ExprBinary.Op.ONE_ARROW_ONE.make(null, null, left, right);
         
         return null;
     }

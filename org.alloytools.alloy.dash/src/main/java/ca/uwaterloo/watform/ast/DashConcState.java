@@ -20,8 +20,6 @@ public class DashConcState extends DashSuperState {
     private List<DashTemplateCall>  				templateCall;
     private List<DashTransTemplate> 				templateDecl;
     private List<DashInit>          				init;
-    private List<DashAction>        				action;
-    private List<DashCondition>     				condition;
     private List<DashTrans>     					allTransitions;
     private Map<Integer, List<DashConcState>>    	allChildConcStates;
 
@@ -79,8 +77,6 @@ public class DashConcState extends DashSuperState {
         templateCall   = new ArrayList<DashTemplateCall>();
         templateDecl   = new ArrayList<DashTransTemplate>();
         init           = new ArrayList<DashInit>();
-        action         = new ArrayList<DashAction>();
-        condition      = new ArrayList<DashCondition>();
         allTransitions = new ArrayList<DashTrans>();
         allChildConcStates = new LinkedHashMap<Integer, List<DashConcState>>();
     }
@@ -113,6 +109,16 @@ public class DashConcState extends DashSuperState {
 	@Override
 	public List<String> getEventNames(){
 		return this.eventNames;
+	}
+	
+	@Override
+	public List<DashAction> getActions() {
+		return this.action;
+	}
+	
+	@Override
+	public List<DashCondition> getConditions() {
+		return this.condition;
 	}
 	
 	@Override
@@ -177,14 +183,6 @@ public class DashConcState extends DashSuperState {
 	
 	public List<DashInit> getInitialConds(){
 		return this.init;
-	}
-	
-	public List<DashAction> getActions() {
-		return this.action;
-	}
-	
-	public List<DashCondition> getConditions() {
-		return this.condition;
 	}
 	
 	public void addInnerConcState(DashConcState concState) {

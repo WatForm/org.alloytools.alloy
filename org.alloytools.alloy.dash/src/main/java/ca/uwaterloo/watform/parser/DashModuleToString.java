@@ -234,7 +234,7 @@ public class DashModuleToString {
 
 	private static void printExprBinary(ExprBinary expr, DataLayouter<NoExceptions> out) {
 		if (expr.op == ExprBinary.Op.ISSEQ_ARROW_LONE)
-			out.print("seq ");
+			out.print("seq ").print(expr.right.toString());
 		else if (expr.op == ExprBinary.Op.JOIN)
 			printExprBinaryJoin(expr, out);
 		else if (expr.op == ExprBinary.Op.IMPLIES) {
@@ -271,15 +271,25 @@ public class DashModuleToString {
 	}
 	
 	private static void printExprBinaryJoin(ExprBinary expr, DataLayouter<NoExceptions> out) {
-		printExpr(expr.left, out);
+		// The Alloy resolve dot joins (this) to a variable reference in a variable. We should not bring the ("this")
+		boolean variableReference = expr.left.toString().equals("this");
+
 		if (expr.right.toString().charAt(0) == '(') {
-			out.print(expr.op);
+			if (!variableReference) {
+				printExpr(expr.left, out);
+				out.print(expr.op);
+			}
 			printExpr(expr.right, out);
 		}
 		else {
-			out.print(expr.op).print(' ').print('(');
+			if (!variableReference) {
+				printExpr(expr.left, out);
+				out.print(expr.op).print(' ').print('(');
+			}
 			printExpr(expr.right, out);
-			out.print(")");
+			if (!variableReference) {
+				out.print(")");
+			}
 		}
 	}
 

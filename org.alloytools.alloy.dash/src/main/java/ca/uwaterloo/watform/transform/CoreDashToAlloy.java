@@ -28,6 +28,7 @@ public class CoreDashToAlloy {
 	boolean isCreatingInit;
 	boolean isCreatingInvariant;
 	boolean isCreatingExprQt;
+	boolean isCreatingSnapshot;
 	 
 	Map <Integer, List<DashTrans>> eventSize2Trans;
 	Map<String, DashConcState> changedLocalVars; // Variables changed only locally
@@ -207,12 +208,7 @@ public class CoreDashToAlloy {
         		b = ExprBinary.Op.ARROW.make(null, null, ExprVar.make(null, "Identifiers"), b);
         	}
         	a.add(ExprVar.make(null, "events" + tupleSize));
-        	if (DashOptions.isElectrum) {
-        		decls.add(new Decl(null, null, null, new Pos("var", 0, 0), a, b));
-        	}
-        	else {
-        		decls.add(new Decl(null, null, null, null, a, b));
-        	}
+        	decls.add(new Decl(null, null, null, null, a, b));
             a.clear();
         }
         
@@ -221,24 +217,14 @@ public class CoreDashToAlloy {
         if (module.hasHierarchy()) {
             b = ExprUnary.Op.ONE.make(null, ExprVar.make(null, "Bool"));
             a.add(ExprVar.make(null, "stable"));
-        	if (DashOptions.isElectrum) {
-        		decls.add(new Decl(null, null, null, new Pos("var", 0, 0), a, mult(b)));
-        	}
-        	else {
-        		decls.add(new Decl(null, null, null, null, a, mult(b)));
-        	}
+        	decls.add(new Decl(null, null, null, null, a, mult(b)));
             a.clear();
         }
         
         if ((!DashOptions.ctlModelChecking && !DashOptions.generateTraces) && DashOptions.generateSigAxioms) {
             b = ExprBinary.Op.ARROW.make(null, null, ExprVar.make(null, "Snapshot"), ExprVar.make(null, "Snapshot"));
             a.add(ExprVar.make(null, "next_step"));
-        	if (DashOptions.isElectrum) {
-        		decls.add(new Decl(null, null, null, new Pos("var", 0, 0), a, mult(b)));
-        	}
-        	else {
-        		decls.add(new Decl(null, null, null, null, a, mult(b)));
-        	}
+        	decls.add(new Decl(null, null, null, null, a, mult(b)));
             a.clear();
         }
 
@@ -246,26 +232,19 @@ public class CoreDashToAlloy {
         for (String variableName : module.getEnvVarExpresssion().keySet()) {
             b = module.getEnvVarExpresssion().get(variableName);
             a.add(ExprVar.make(null, variableName));
-        	if (DashOptions.isElectrum) {
-        		decls.add(new Decl(null, null, null, new Pos("var", 0, 0), a, b));
-        	}
-        	else {
-        		decls.add(new Decl(null, null, null, null, a, b));
-        	}
+        	decls.add(new Decl(null, null, null, null, a, b));
             a.clear();
         }  
   
         /* Creating the following expression: variable: mappings (variable: param -> mapping if parameterized)*/
         for (String variableName : module.getVariableExpresssion().keySet()) {
             b = module.getVariableExpresssion().get(variableName);
+            isCreatingSnapshot = true;
+            b = getVarFromParentExpr(b, module.getVariableConcState().get(variableName).getANDState(), module);
+            isCreatingSnapshot = false;
             b = DashHelper.createParameterizedVar(variableName, b, module);
             a.add(ExprVar.make(null, variableName));
-        	if (DashOptions.isElectrum) {
-        		decls.add(new Decl(null, null, null, new Pos("var", 0, 0), a, convertToExprUnary(b)));
-        	}
-        	else {
-        		decls.add(new Decl(null, null, null, null, a, convertToExprUnary(b)));
-        	}    
+        	decls.add(new Decl(null, null, null, null, a, b));
             a.clear();
         }
         
@@ -1864,33 +1843,27 @@ public class CoreDashToAlloy {
     
     /****************************** Retrieving Variables in Expressions *****************************/
     
-    private Expr getVarFromParentExpr(Object parentExpr, DashConcState parent, DashModule module) {    	
+    private Expr getVarFromParentExpr(Expr parentExpr, DashConcState parent, DashModule module) {
         if (parentExpr instanceof ExprBinary) {
             ExprBinary exprBinary = (ExprBinary) parentExpr;
             return getVarFromBinary(exprBinary, parent, module);
         }
-
         if (parentExpr instanceof ExprUnary) {
             ExprUnary unary = (ExprUnary) parentExpr;
             return getVarFromUnary(unary, parent, module, false);
         }
-        
         if (parentExpr instanceof ExprBadJoin) {
         	return getVarFromBadJoin((ExprBadJoin) parentExpr, parent, module);
         }
-
         if (parentExpr instanceof ExprQt) {
             return getVarFromExprQt((ExprQt) parentExpr, parent, module, new ArrayList<Decl>(), false);
         }
-
         if (parentExpr instanceof ExprVar) {
         	return modifyExprWithVar((ExprVar) parentExpr, parent, module, false);
         }
-        
         if (parentExpr instanceof ExprList) {
         	return getVarFromExprList((ExprList) parentExpr, parent, module, false);
         }
-        
         if (parentExpr instanceof ExprConstant) {
         	return (Expr) parentExpr;
         }
@@ -1955,7 +1928,7 @@ public class CoreDashToAlloy {
         if (binary.right instanceof ExprQt) {
         	right = getVarFromExprQt((ExprQt) binary.right, parent, module, new ArrayList<Decl>(), false);
         }
-        
+
         return DashHelper.createBinaryExpr(left, binary.op, right);
     }
     
@@ -2247,19 +2220,19 @@ public class CoreDashToAlloy {
     		}
     	}
         
-
         expression = modifyVar(module, expression, parentConcState, parentConcState, expr, DashHelper.getVariables(module, parentConcState), false, isRef);
         // Look for the variable in nested AND-states
         for (DashConcState innerConcState: DashHelper.getNestedConcStates(parentConcState)) {
         	expression = modifyVar(module, expression, innerConcState, innerConcState, expr, DashHelper.getVariables(module, innerConcState), false, isRef);
         }
+
         // Look for the variable in parent AND-states
         DashConcState outerConcState = DashHelper.getTopLevelConcStates(parentConcState);
         while (outerConcState != null) {
         	expression = modifyVar(module, expression, outerConcState, outerConcState, expr, DashHelper.getVariables(module, outerConcState), false, isRef);
             outerConcState = outerConcState.getParentConcState();
         }
-        
+
         expression = replaceWithActionExpr(expression, parentConcState, module);
         expression = replaceWithConditionExpr(expression, parentConcState, module);
         
@@ -2290,6 +2263,10 @@ public class CoreDashToAlloy {
             	}
             }
             else if (expr.toString().equals(var)) {
+            	DashHelper.setVarFound(true);
+            	if (isCreatingSnapshot) {
+            		return DashHelper.createExprVar(qualifiedVarName);
+            	}
             	if (isCreatingEnabledAfterPred && isEnvVar) {
             		return DashHelper.createExprBadJoin(DashHelper._s(), qualifiedVarName);
             	}
@@ -2687,6 +2664,7 @@ public class CoreDashToAlloy {
     private void addInvariantFact(DashInvariant invar, DashModule module) {
     	Expr expression = null;
 
+    	DashHelper.setVarFound(false);
     	for(Expr expr: invar.getAllExpressions()) {
     		if (expression == null)
     			expression = getVarFromParentExpr(expr, DashHelper.getParentConcState(invar.getParentConcState()), module);
@@ -2694,15 +2672,18 @@ public class CoreDashToAlloy {
     			expression = ExprBinary.Op.AND.make(null, null, getVarFromParentExpr(expr, DashHelper.getParentConcState(invar.getParentConcState()), module), expression);
         }
 
-        List<Decl> decls = new ArrayList<Decl>();
-        List<ExprVar> a = new ArrayList<ExprVar>();
-        Expr snapshot =  ExprVar.make(null, "Snapshot");
-        a.add(ExprVar.make(null, "s"));
-        decls.add(new Decl(null, null, null, null, a, mult(snapshot)));
+    	Expr quantifiedExpr = null;
+    	if (DashHelper.varFound()) {
+	        List<Decl> decls = new ArrayList<Decl>();
+	        List<ExprVar> a = new ArrayList<ExprVar>();
+	        Expr snapshot =  ExprVar.make(null, "Snapshot");
+	        a.add(ExprVar.make(null, "s"));
+	        decls.add(new Decl(null, null, null, null, a, mult(snapshot)));
+	    	quantifiedExpr = ExprQt.Op.ALL.make(null, null, decls, expression);
+	    	DashHelper.setVarFound(false);
+    	}
 
-    	Expr quantifiedExpr = ExprQt.Op.ALL.make(null, null, decls, expression);
-
-    	module.addFact(null, invar.getRawName(), quantifiedExpr);
+    	module.addFact(null, invar.getRawName(), (quantifiedExpr != null) ? quantifiedExpr : expression);
     }
     
     /*************************** COMMAND FUNCIONS ******************************/

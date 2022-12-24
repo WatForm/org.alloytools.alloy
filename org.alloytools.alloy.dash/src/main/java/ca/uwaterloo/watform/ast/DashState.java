@@ -98,14 +98,14 @@ public class DashState extends DashSuperState {
 		return this.decls;
 	}
 	
-	@Override 
-	public ItemType getType() {
-		return ItemType.ORSTATE;
+	@Override
+	public List<DashAction> getActions() {
+		return this.action;
 	}
 	
-	@Override 
-	public DashConcState getANDState() {
-		return this.getParentConcState();
+	@Override
+	public List<DashCondition> getConditions() {
+		return this.condition;
 	}
 	
     public List<DashEnter> getEnters() {
@@ -127,5 +127,16 @@ public class DashState extends DashSuperState {
     public boolean isDefault() {
     	return this.isDefault;
     }
+
+	@Override
+	public ItemType getType() {
+		return ItemType.ORSTATE;
+	}
+
+	@Override
+	public DashConcState getANDState() {
+		// TODO Auto-generated method stub
+		return null;
+	}
 
 }

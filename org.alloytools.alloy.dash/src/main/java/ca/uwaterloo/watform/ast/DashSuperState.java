@@ -3,7 +3,6 @@ package ca.uwaterloo.watform.ast;
 import java.util.ArrayList;
 import java.util.List;
 
-import ca.uwaterloo.watform.parser.DashHelper;
 import ca.uwaterloo.watform.parser.DashHelper.ItemType;
 import edu.mit.csail.sdg.alloy4.Pos;
 import edu.mit.csail.sdg.ast.Decl;
@@ -17,6 +16,8 @@ public abstract class DashSuperState extends DashSuperAST {
     protected List<DashTrans> 		  	transitions;
     protected List<Decl>          		decls;
     protected List<DashEvent>    		events;
+    protected List<DashAction>        	action;
+    protected List<DashCondition>     	condition;
     protected List<DashBuffer>    		buffers;
     protected List<DashInvariant>     	invariant;  
     protected List<String>				eventNames;
@@ -32,6 +33,8 @@ public abstract class DashSuperState extends DashSuperAST {
         transitions    = new ArrayList<DashTrans>();
         decls          = new ArrayList<Decl>();
         events         = new ArrayList<DashEvent>();
+        action         = new ArrayList<DashAction>();
+        condition      = new ArrayList<DashCondition>();
         buffers        = new ArrayList<DashBuffer>();
         invariant      = new ArrayList<DashInvariant>();
         eventNames	   = new ArrayList<String>();
@@ -44,6 +47,8 @@ public abstract class DashSuperState extends DashSuperAST {
     public abstract List<DashEvent>	 	getEvents();
     public abstract List<String>	 	getEventNames();
     public abstract List<Decl> 		  	getVariables();
+	public abstract List<DashAction> 	getActions();
+	public abstract List<DashCondition> getConditions();
 	public abstract List<DashInvariant> getInvariants ();
     
     public abstract ItemType getType();

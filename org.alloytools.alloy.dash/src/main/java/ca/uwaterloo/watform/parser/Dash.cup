@@ -1317,7 +1317,7 @@ RelOp ::= LONE_ARROW_ONE:o  {: RESULT=new Pair<Pos,ExprBinary.Op>(o, ExprBinary.
 RelOp ::= LONE_ARROW_LONE:o {: RESULT=new Pair<Pos,ExprBinary.Op>(o, ExprBinary.Op.LONE_ARROW_LONE); :};
 
 RelationExprA ::= DomainExprA:a                         {: RESULT=a;                          :};
-RelationExprA ::= DomainExprB:a RelOp:o Bind:b          {: RESULT=o.b.make(o.a, null, a, b);  :};
+RelationExprA ::= DomainExprB:a RelOp:o Bind:b          {: System.out.println("Here0"); RESULT=o.b.make(o.a, null, a, b);  :};
 RelationExprB ::= DomainExprB:a                         {: RESULT=a;                          :};
 RelationExprB ::= DomainExprB:a RelOp:o RelationExprB:b {: RESULT=o.b.make(o.a, null, a, b);  :};
 
