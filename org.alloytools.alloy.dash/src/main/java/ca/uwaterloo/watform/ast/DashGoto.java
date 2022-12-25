@@ -13,6 +13,7 @@ import edu.mit.csail.sdg.ast.ExprVar;
 public class DashGoto extends DashSuperAST{
     private List<String> 			    gotoExpr = new ArrayList<String>();
     private Map<String, DashConcState>  gotoExprs = new LinkedHashMap<String, DashConcState>();
+    private List<DashState>				allStatesEntered = new ArrayList<DashState>();
     private boolean 					enteringDefaultStates = false;
     private Expr       			 		param;
     
@@ -31,6 +32,7 @@ public class DashGoto extends DashSuperAST{
     	this.gotoExpr = gotoCom.gotoExpr;
     	this.setDefaultStatesEntered(new LinkedHashMap<String, DashConcState>(gotoCom.getDefaultStatesEntered()));
     	this.setEnteringDefaultStates(gotoCom.isEnteringDefaultStates());
+    	this.setAllStatesEntered(new ArrayList<DashState>(gotoCom.getAllStatesEntered()));
     	this.setRawName(gotoCom.name);
     	this.setDestination(gotoCom.getDestination());
     	this.setParentConcState(gotoCom.parentConcState);
@@ -46,6 +48,13 @@ public class DashGoto extends DashSuperAST{
         this.setDestination(param);
     }
     
+    public DashGoto(Pos pos, List<String> gotoExpr, Expr param, List<DashState> statesEntered) {
+    	super(pos, null);
+        this.gotoExpr = new ArrayList<String>(gotoExpr);
+        this.setDestination(param);
+        this.allStatesEntered = new ArrayList<DashState> (statesEntered);
+    }
+    
     /*
      * Used by the Grammer file to create a parameterized Goto expression
      */
@@ -58,6 +67,12 @@ public class DashGoto extends DashSuperAST{
     public DashGoto(List<String> gotoExpr) {
     	super(null, null);
         this.gotoExpr = new ArrayList<String>(gotoExpr);
+    }
+    
+    public DashGoto(List<String> gotoExpr, List<DashState> statesEntered) {
+    	super(null, null);
+        this.gotoExpr = new ArrayList<String>(gotoExpr);
+        this.allStatesEntered = new ArrayList<DashState> (statesEntered);
     }
 
     public DashGoto(String gotoExpr) {
@@ -99,5 +114,13 @@ public class DashGoto extends DashSuperAST{
 
 	public void setDestination(Expr param) {
 		this.param = param;
+	}
+
+	public List<DashState> getAllStatesEntered() {
+		return allStatesEntered;
+	}
+
+	public void setAllStatesEntered(List<DashState> allStatesEntered) {
+		this.allStatesEntered = allStatesEntered;
 	}
 }

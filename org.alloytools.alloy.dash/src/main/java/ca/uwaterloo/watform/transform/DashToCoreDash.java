@@ -97,18 +97,18 @@ public class DashToCoreDash {
         		destinationState = (destinationOR.isPresent() && destinationOR.get() instanceof DashState) ? (DashState) destinationOR.get() : destinationState;
         	}
 
-        	String defaultInnerState = "";
+        	String defaultInnerState;
         	/* destState is null if the destination state is a concurrent state (it has no OR states) */
         	if(destinationState != null && destinationState.getInnerConcStates().size() == 0) {
-        		defaultInnerState = getDefaultState(destinationState);
+        		defaultInnerState = getDefaultState(destinationState, trans.getDestination().getAllStatesEntered());
         		trans.getDestination().setParentConcState(DashHelper.getParentConcState(destinationState));
-        		trans.setDestination(trans.getDestination().getDestination() == null ? new DashGoto(new ArrayList<String>(Arrays.asList(defaultInnerState))) 
-        				: new DashGoto(null, new ArrayList<String>(Arrays.asList(defaultInnerState)), trans.getDestination().getDestination()));
-        	}
+        		trans.setDestination(trans.getDestination().getDestination() == null ? new DashGoto(new ArrayList<String>(Arrays.asList(defaultInnerState)), trans.getDestination().getAllStatesEntered()) 
+        				: new DashGoto(null, new ArrayList<String>(Arrays.asList(defaultInnerState)), trans.getDestination().getDestination(), trans.getDestination().getAllStatesEntered()));
+        	} 
         	else if (destinationState != null && destinationState.getInnerConcStates().size() > 0) {
         		Map<String, DashConcState> defaultStates = new LinkedHashMap<String, DashConcState>();
         		for (DashConcState innerConcState: destinationState.getInnerConcStates()) {
-        			Map<String, DashConcState> defaultState = new LinkedHashMap<String, DashConcState>(getDefaultStates(innerConcState, module, new LinkedHashMap<String, DashConcState>()));
+        			Map<String, DashConcState> defaultState = new LinkedHashMap<String, DashConcState>(getDefaultStates(innerConcState, module, new LinkedHashMap<String, DashConcState>(), trans.getDestination().getAllStatesEntered()));
         			for (String key: defaultState.keySet()) {
         				defaultStates.put(key, defaultState.get(key));
         			}
@@ -170,10 +170,12 @@ public class DashToCoreDash {
     
     //Check to see if a state that we are transitioning to has an inner default state,
     //if it does, then the transition will need to transition to that state instead
-     String getDefaultState(final DashState state) { 
+     String getDefaultState(final DashState state, List<DashState> statesEntered) { 
     	for(DashState innerState: state.getInnerORStates()) {
-    		if(innerState.isDefault())
-    			return getDefaultState(innerState);
+    		if(innerState.isDefault()) {
+    			statesEntered.add(state);
+    			return getDefaultState(innerState, statesEntered);
+    		}
     	}
 
         return state.getFullyQualName();
@@ -181,10 +183,10 @@ public class DashToCoreDash {
     
     //Check to see if a state that we are transitioning to has an inner default state,
     //if it does, then the transition will need to transition to that state instead
-     String getDefaultState(final DashConcState state) { 
+     String getDefaultState(final DashConcState state, List<DashState> statesEntered) { 
     	for(DashState innerState: state.getInnerORStates()) {
     		if(innerState.isDefault())
-    			return getDefaultState(innerState);
+    			return getDefaultState(innerState, statesEntered);
     	}
 
         return state.getFullyQualName();
@@ -193,13 +195,13 @@ public class DashToCoreDash {
     /* Check to see if a state that we are transitioning to has an inner default state,
     	if it does, then the transition will need to transition to that state instead
     */
-     Map<String, DashConcState> getDefaultStates(final DashConcState concState, final DashModule module) {
+     Map<String, DashConcState> getDefaultStates(final DashConcState concState, final DashModule module, List<DashState> statesEntered) {
     	Map<String, DashConcState> defaultStates = new LinkedHashMap<String, DashConcState>();
     	for (DashConcState innerConcState: concState.getInnerConcStates()) {
     		while (innerConcState.getInnerConcStates().size() > 0) {
     			innerConcState = innerConcState.getParentConcState();
     		}
-    		DashState defaultState = DashHelper.getState(getDefaultState(innerConcState), module);
+    		DashState defaultState = DashHelper.getState(getDefaultState(innerConcState, statesEntered), module);
     		if ((defaultState != null) && (defaultState.getInnerConcStates().size() == 0)) {
     			defaultStates.put(defaultState.getFullyQualName(), innerConcState);
     		}
@@ -209,7 +211,7 @@ public class DashToCoreDash {
     			defaultStates.put(innerState.getFullyQualName(), concState);
     		}
     		else if (innerState.isDefault() && innerState.getInnerORStates().size() > 0) {
-    			defaultStates.put(getDefaultState(innerState), concState);
+    			defaultStates.put(getDefaultState(innerState, statesEntered), concState);
     		}
     	}
 
@@ -218,9 +220,9 @@ public class DashToCoreDash {
     
     //Check to see if a state that we are transitioning to has an inner default state,
     //if it does, then the transition will need to transition to that state instead
-     Map<String, DashConcState> getDefaultStates(final DashConcState concState, final DashModule module, final Map<String, DashConcState> defaultStates) {
+     Map<String, DashConcState> getDefaultStates(final DashConcState concState, final DashModule module, final Map<String, DashConcState> defaultStates, List<DashState> statesEntered) {
     	for (DashConcState innerConcState: concState.getInnerConcStates()) {
-    		getDefaultStates(innerConcState, module, defaultStates);
+    		getDefaultStates(innerConcState, module, defaultStates, statesEntered);
     	}
     	for (DashState state: concState.getInnerORStates()) {
     		if (state.isDefault()) {
@@ -228,11 +230,11 @@ public class DashToCoreDash {
 	    			defaultStates.put(state.getFullyQualName(), concState);
     			}
     			else if (state.getInnerConcStates().size() == 0 && state.getInnerORStates().size() > 0) {
-    				defaultStates.put(getDefaultState(state), concState);
+    				defaultStates.put(getDefaultState(state, statesEntered), concState);
     			}
     			
     			for (DashConcState innerConcState: state.getInnerConcStates()) {
-    				getDefaultStates(innerConcState, module, defaultStates);
+    				getDefaultStates(innerConcState, module, defaultStates, statesEntered);
     			}
     		}
     	}

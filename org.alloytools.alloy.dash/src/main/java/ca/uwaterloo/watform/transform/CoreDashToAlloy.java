@@ -515,22 +515,22 @@ public class CoreDashToAlloy {
         	// Stores the destination state
         	String gotoExprStr = transition.getDestination().getAlloyName();         
         	// Stores the origin state
-          String fromExprStr = (DashHelper.getState(transition.getOrigin().getAlloyName(), module) != null) ? 
+        	String fromExprStr = (DashHelper.getState(transition.getOrigin().getAlloyName(), module) != null) ? 
             		DashHelper.getState(transition.getOrigin().getAlloyName(), module).getFullyQualName() : transition.getOrigin().getAlloyName();
            
-    	Expr fromExpr = DashHelper.createExprVar(fromExprStr); // Origin State
-    	Expr gotoExpr = DashHelper.createExprVar(gotoExprStr); // Destination State
-    	gotoExpr = DashHelper.addParametersArrow(gotoExpr, totalIEsInTree); // ie -> State
-    	fromExpr = DashHelper.addParametersArrow(fromExpr, totalIEsInTree); // ie -> State
-            
-    	// Stores the origin and destination states for this transition (mapping from level to state)
-        	Map<Integer, Expr> conf2GotoExpr = new LinkedHashMap<Integer, Expr>();
-        	Map<Integer, Expr> conf2FromExpr = new LinkedHashMap<Integer, Expr>();
-        	
-    	/* If we are transitioning into a state with concurrent states */
-    	if (transition.getDestination().getAllDestinations() != null && transition.getDestination().getAllDestinations().size() > 0) {
-    		conf2GotoExpr = new LinkedHashMap<Integer, Expr>(DashHelper.calculateConf2GotoExpr(transition));
-    	}
+	    	Expr fromExpr = DashHelper.createExprVar(fromExprStr); // Origin State
+	    	Expr gotoExpr = DashHelper.createExprVar(gotoExprStr); // Destination State
+	    	gotoExpr = DashHelper.addParametersArrow(gotoExpr, totalIEsInTree); // ie -> State
+	    	fromExpr = DashHelper.addParametersArrow(fromExpr, totalIEsInTree); // ie -> State
+	            
+	    	// Stores the origin and destination states for this transition (mapping from level to state)
+	        Map<Integer, Expr> conf2GotoExpr = new LinkedHashMap<Integer, Expr>();
+	        Map<Integer, Expr> conf2FromExpr = new LinkedHashMap<Integer, Expr>();
+	        	
+	    	/* If we are transitioning into a state with concurrent states */
+	    	if (transition.getDestination().getAllDestinations() != null && transition.getDestination().getAllDestinations().size() > 0) {
+	    		conf2GotoExpr = new LinkedHashMap<Integer, Expr>(DashHelper.calculateConf2GotoExpr(transition));
+	    	}
             
             /* If we are transitioning out of a concurrent state */
             if (transition.getOrigin().getAllOrigins() != null && transition.getOrigin().getAllOrigins().size() > 0) {
@@ -767,16 +767,29 @@ public class CoreDashToAlloy {
             expression = DashHelper.createBinaryExpr(expression, ExprBinary.Op.AND, sendComExpr);
         }
            
+        if (transition.getFullyQualName().equals("FlightModes_LATERAL_HDG_Select")) {
+        	System.out.println("In the transition");
+        }
+        
         /* For managing Enter/Exit commands */        
         DashState destinationState = getState(transition.getDestination().getAllDestinations().get(0).replace('/', '_'), module);
         if(transition.getDestination().getAllDestinations().size() > 0 && destinationState != null) {        	
         	Expr gotoExpr = DashHelper.createExprVar(transition.getDestination().getAllDestinations().get(0).replace('/', '_'));
-        	Expr enterCall = DashHelper.createExprBadJoin(DashHelper.sNext(), DashHelper.createExprVar( "enter_" + gotoExpr.toString()));
+        	Expr enterCall = DashHelper.createExprBadJoin(DashHelper.sNext(), DashHelper.createExprVar("enter_" + gotoExpr.toString()));
         	
         	if(destinationState.getEnters().size() > 0) {
         		expression = DashHelper.createBinaryExpr(expression, ExprBinary.Op.AND, enterCall);
         	}
+        	
+        	for (DashState stateEntered: transition.getDestination().getAllStatesEntered()) { 
+        		if (stateEntered.getEnters().size() > 0) {
+	            	gotoExpr = DashHelper.createExprVar(stateEntered.getFullyQualName().replace('/', '_'));
+	            	enterCall = DashHelper.createExprBadJoin(DashHelper.sNext(), DashHelper.createExprVar("enter_" + gotoExpr.toString()));
+	            	expression = DashHelper.createBinaryExpr(expression, ExprBinary.Op.AND, enterCall);
+        		}
+        	}
         }
+
         
         DashState sourceState = getParentSourceState(transition, module);
         expression = createExitAST(expression, sourceState, transition);        
