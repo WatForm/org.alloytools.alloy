@@ -133,10 +133,8 @@ public class CoreDashToAlloy {
 
     private void createParamSigAST(DashModule module) {
         addSigAST(module, "Identifiers", null, null, null, null, null, null, null, null);
-        module.getAllConcurrentStates().values().forEach(x -> {
-        	if (x.isParameterized()) {
-        		addSigAST(module, x.getReplicatedIdentifier(), ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "Identifiers"))), null, null, null, null, null, null);
-        	}
+        module.getAllConcurrentStates().values().stream().filter(x -> x.isParameterized()).forEach(ANDState -> {
+        	addSigAST(module, ANDState.getReplicatedIdentifier(), ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "Identifiers"))), null, null, null, null, null, null);
         });
     }
 
@@ -175,12 +173,7 @@ public class CoreDashToAlloy {
         		b = DashHelper.createBinaryExpr(ExprVar.make(null, "Identifiers"), ExprBinary.Op.ARROW, b);
         	}
         	a.add(ExprVar.make(null, "conf" + tupleSize));
-        	if (DashOptions.isElectrum) {
-        		decls.add(new Decl(null, null, null, new Pos("var", 0, 0), a, b));
-        	}
-        	else {
-        		decls.add(new Decl(null, null, null, null, a, b));
-        	}
+        	decls.add(new Decl(null, null, null, null, a, b));
             a.clear();
         }  
         
@@ -279,17 +272,19 @@ public class CoreDashToAlloy {
     }
 
     private void createStateAST(DashConcState concState, DashModule module) {
-    	concState.getInnerORStates().forEach(ORState -> {
-        	if(ORState.getInnerORStates().size() == 0 && ORState.getInnerConcStates().size() == 0) {
-        		addSigAST(module, ORState.getFullyQualName(), ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, concState.getFullyQualName()))), new ArrayList<Decl>(), null, null, new Pos("one", 0, 0), null, null);
-        		createChildStateAST(ORState, module);
-        	}
-        	else {
-        		addSigAST(module, ORState.getFullyQualName(), ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, concState.getFullyQualName()))), new ArrayList<Decl>(), new Pos("abstract", 0, 0), null, null, null, null);
-        		createChildStateAST(ORState, module);
-        	}
+    	// Consider BASIC States (i.e. there are no AND or OR-States declared inside the state)
+    	concState.getInnerORStates().parallelStream().filter(x -> (x.getInnerORStates().size() + x.getInnerConcStates().size()) == 0).forEach(ORState -> {
+    		addSigAST(module, ORState.getFullyQualName(), ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, concState.getFullyQualName()))), new ArrayList<Decl>(), null, null, new Pos("one", 0, 0), null, null);
+    		createChildStateAST(ORState, module);
     	});
 
+    	// Consider OR-States
+    	concState.getInnerORStates().parallelStream().filter(x -> (x.getInnerORStates().size() + x.getInnerConcStates().size()) > 0).forEach(ORState -> {
+    		addSigAST(module, ORState.getFullyQualName(), ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, concState.getFullyQualName()))), new ArrayList<Decl>(), null, null, new Pos("one", 0, 0), null, null);
+    		createChildStateAST(ORState, module);
+    	});
+
+    	// Consider AND-States
     	concState.getInnerConcStates().forEach(innerState -> {
             addSigAST(module, innerState.getFullyQualName(), ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, concState.getFullyQualName()))), new ArrayList<Decl>(), new Pos("abstract", 0, 0), null, null, null, null);
             createStateAST(innerState, module);
@@ -297,24 +292,27 @@ public class CoreDashToAlloy {
     }
     
     private void createChildStateAST(DashState state, DashModule module) {
-    	state.getInnerORStates().forEach(innerState -> {
-    		if(innerState.getInnerORStates().size() == 0 && innerState.getInnerConcStates().size() == 0) {
-        		addSigAST(module, innerState.getFullyQualName(), ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, state.getFullyQualName()))), new ArrayList<Decl>(), null, null, new Pos("one", 0, 0), null, null);
-        	}
-        	else {
-        		addSigAST(module, innerState.getFullyQualName(), ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, state.getFullyQualName()))), new ArrayList<Decl>(), new Pos("abstract", 0, 0), null, null, null, null);
-        		createChildStateAST(innerState, module);
-        	}
+    	// Nested Basic States
+    	state.getInnerORStates().parallelStream().filter(x -> (x.getInnerORStates().size() + x.getInnerConcStates().size()) == 0).forEach(innerState -> {
+    		addSigAST(module, innerState.getFullyQualName(), ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, state.getFullyQualName()))), new ArrayList<Decl>(), null, null, new Pos("one", 0, 0), null, null);
+    	});
+    	
+    	// Nested OR-States
+    	state.getInnerORStates().parallelStream().filter(x -> (x.getInnerORStates().size() + x.getInnerConcStates().size()) > 0).forEach(innerState -> {
+    		addSigAST(module, innerState.getFullyQualName(), ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, state.getFullyQualName()))), new ArrayList<Decl>(), new Pos("abstract", 0, 0), null, null, null, null);
+    		createChildStateAST(innerState, module);
+    	});
+    	
+    	// Nested AND-state with no OR-states
+    	state.getInnerConcStates().parallelStream().filter(x -> x.getInnerORStates().size() == 0).forEach(innerState -> {
+    		addSigAST(module, innerState.getFullyQualName(), ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, state.getFullyQualName()))), new ArrayList<Decl>(), new Pos("one", 0, 0), null, null, null, null);
+    		createStateAST(innerState, module);
     	});
 
-    	state.getInnerConcStates().forEach(innerState -> {
-        	if (innerState.getInnerORStates().size() > 0) {
-        		addSigAST(module, innerState.getFullyQualName(), ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, state.getFullyQualName()))), new ArrayList<Decl>(), new Pos("abstract", 0, 0), null, null, null, null);
-        	}
-        	else {
-        		addSigAST(module, innerState.getFullyQualName(), ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, state.getFullyQualName()))), new ArrayList<Decl>(), new Pos("one", 0, 0), null, null, null, null);
-        	}
-        	createStateAST(innerState, module);
+    	// Nested AND-state with one or more OR-States
+    	state.getInnerConcStates().parallelStream().filter(x -> x.getInnerORStates().size() > 0).forEach(innerState -> {
+    		addSigAST(module, innerState.getFullyQualName(), ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, state.getFullyQualName()))), new ArrayList<Decl>(), new Pos("abstract", 0, 0), null, null, null, null);
+    		createStateAST(innerState, module);
     	});
     }
     
@@ -340,9 +338,9 @@ public class CoreDashToAlloy {
 
     private void createTransitionSpaceAST(DashModule module) {
     	addSigAST(module, "TransitionLabel", null, null, new ArrayList<Decl>(), new Pos("abstract", 0, 0), null, null, null, null);
-    	 module.getTransitions().values().forEach(t -> {
-    		 addSigAST(module, t.getFullyQualName(), ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "TransitionLabel"))), new ArrayList<Decl>(), null, null, new Pos("one", 0, 0), null, null);
-    	 });
+    	module.getTransitions().values().forEach(t -> {
+    		addSigAST(module, t.getFullyQualName(), ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "TransitionLabel"))), new ArrayList<Decl>(), null, null, new Pos("one", 0, 0), null, null);
+    	});
     }
      
     /****************************************** PRE CONIDTION PREDICATE ***************************************/
@@ -368,8 +366,9 @@ public class CoreDashToAlloy {
         isCreatingPreCond = true;
         Expr binaryFrom = null;
 		int totalIEsInTree = transition.getParentConcState().getIdentifiers().size();
+		
         /* Creating the following expression: sourceState in s.conf */
-        if (transition.getOrigin().getAllOrigins().size() > 0) {       
+        if (transition.hasOriginState()) {       
             Expr left = null;
         	for(DashState state: module.getORStates().values()){
     			String fromState = transition.getOrigin().getAllOrigins().get(0).replace('/', '_');
@@ -413,8 +412,6 @@ public class CoreDashToAlloy {
         }
         
         if (transition.getTriggerEvent() != null && transition.getTriggerEvent().getRawName() != null && transition.getTriggerEvent().isInternal() && module.hasEnvEvents() && module.hasHierarchy()) {
-        	Expr sStableTrue = DashHelper.createBinaryExpr(DashHelper.sStable(), ExprBinary.Op.EQUALS, DashHelper.trueExpr()); //s.stable = True
-        	//Expr notSStableTrue = DashHelper.createUnaryExpr(ExprUnary.Op.NOT, sStableTrue); // !(s.stable = True)
             Expr left = ExprVar.make(null, onCommand);
             Expr sEvents = DashHelper.sEvents(iesInEvent); // s.events
             sEvents = DashHelper.addParametersJoin(sEvents, iesInEvent);
@@ -765,11 +762,7 @@ public class CoreDashToAlloy {
 
         if (sendComExpr != null) {
             expression = DashHelper.createBinaryExpr(expression, ExprBinary.Op.AND, sendComExpr);
-        }
-           
-        if (transition.getFullyQualName().equals("FlightModes_LATERAL_HDG_Select")) {
-        	System.out.println("In the transition");
-        }
+        }    
         
         /* For managing Enter/Exit commands */        
         DashState destinationState = getState(transition.getDestination().getAllDestinations().get(0).replace('/', '_'), module);
@@ -2488,16 +2481,6 @@ public class CoreDashToAlloy {
     
     /*************************** HELPER FUNCTIONS ******************************/
     /*
-     * Convert ExprVar expression to ExprUnary
-     */
-    private Expr convertToExprUnary(Expr b) {
-    	if (b instanceof ExprVar) {
-    		return ExprUnary.Op.SETOF.make(null, b);
-    	}
-    	return b;
-    }
-    
-    /*
      * Taken from the Dash.cup file. It is used for handling difficult parsing
      * ambiguities with Alloy expressions
      */
@@ -2548,16 +2531,6 @@ public class CoreDashToAlloy {
     		}
     	}
     	return i;
-    }
-    
-    /* Get all the events declared within a concurrent state */
-    private List<String> getEvents(DashConcState concState)
-    {
-    	List<String> events = new ArrayList<String>();
-    	for (DashEvent event: concState.getEvents()) {
-    		events.add(event.getRawName());
-    	}
-    	return events;
     }
     
     private List<DashState> getInnerStates (DashState state)
@@ -2767,9 +2740,6 @@ public class CoreDashToAlloy {
     private Command createCommand(boolean follow, ExprVar o, ExprVar x, ExprVar n, Expr e, List<CommandScope> s, ExprConstant c, DashModule module) throws Err {
         int bitwidth=(-1), maxseq=(-1), overall=(-1), expects=(c==null ? -1 : c.num);
         int maxtime = (-1), mintime = (-1);
-        Pos p;
-		if(e != null)
-        	p = o.pos.merge(n!=null ? n.span() : e.span());
         for(int i=s.size()-1; i>=0; i--) {
           Sig j=s.get(i).sig;  int k=s.get(i).startingScope;
           //p=p.merge(j.pos);

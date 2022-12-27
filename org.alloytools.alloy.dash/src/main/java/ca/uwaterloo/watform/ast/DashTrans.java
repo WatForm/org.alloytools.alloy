@@ -115,4 +115,12 @@ public class DashTrans extends DashSuperAST {
 	public void setTransTemplate(DashTransTemplate transTemplate) {
 		this.transTemplate = transTemplate;
 	}
+	
+	public boolean hasOriginState() {
+		return this.getOrigin().getAllOrigins().size() > 0;
+	}
+	
+	public boolean hasDestinationState() {
+		return this.getDestination().getAllDestinations().size() > 0;
+	}
 }

@@ -320,6 +320,27 @@ public class DashModelsTest {
         assertEquals(transitions.get(1).getDestination().getAllDestinations().get(0), "concState_state_one");
         assertEquals(transitions.get(1).getEventsTriggered().getRawName(), "concState_event_one");
     }
+    
+    @Test
+    public void testTransitionToNestedDefaultState() throws Exception {
+
+        String dashModel = "conc state ANDState {\n"
+        		+ "	state ORState {\n"
+        		+ "		default state NestedDefaultState {}	\n"
+        		+ "	}\n"
+        		+ "	default state Default {}\n"
+        		+ "	trans transition {\n"
+        		+ "		goto ORState\n"
+        		+ "	}\n"
+        		+ "}";
+        DashOptions.outputDir = "test.dsh";
+        DashModule module = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
+        DashModule coreDashModule = new DashToCoreDash().transformToCoreDash(module, "", "");
+        DashOptions.isElectrum = false;
+        
+        assertTrue(coreDashModule.getInitDefaultStates().values().stream().anyMatch(x -> x.get(0).getFullyQualName().equals("ANDState_Default")));
+        assertTrue(coreDashModule.getTransitions().get("ANDState_transition").getDestination().getAllDestinations().get(0).equals("ANDState_ORState_NestedDefaultState"));
+    }
 
     //CoreDash to Alloy AST Unit Tests
     @Test
@@ -705,6 +726,30 @@ public class DashModelsTest {
 
         assertEquals(funcs.get(0).getBody().toString(), expectedOutput);
     }
+    
+    @Test
+    public void testNestedDefaultState() throws Exception {
+        String dashModel = "conc state ANDState {"
+        		+ "	default state ORState {"
+        		+ "		trans A {"
+        		+ "			goto Dummy"
+        		+ "		}"
+        		+ "		default state Default {}"
+        		+ "		state Dummy {}"
+        		+ "	}"
+        		+ "	state Dummy {}"
+        		+ "}";
+        DashOptions.outputDir = "test.dsh";
+
+        DashModule module = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
+        DashModule coreDashModule = new DashToCoreDash().transformToCoreDash(module, "", "");
+        DashValidation.validateDashModel(module);
+        new CoreDashToAlloy().convertToAlloyAST(module, "", "");
+        DashOptions.isElectrum = false;
+
+        assertTrue(coreDashModule.getInitDefaultStates().values().stream().anyMatch(x -> x.get(0).getFullyQualName().equals("ANDState_ORState_Default")));
+    }
+
 
 
     @Test
