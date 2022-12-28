@@ -230,6 +230,26 @@ public class DashModelsTest {
     }
     
     @Test
+    public void testVarReferenceInVar() throws Exception {
+
+        String dashModel = "conc state concState { "
+        		+ "default state innerORState0 {var_one: none->none} "
+        		+ "state innerORState1 {"
+        		+ "	var_one: none->none "
+        		+ "	var_two: var_one one->one var_one"
+        		+ "	state innerORState2 {"
+        		+ "	var_one: none->none"
+        		+ "	}"
+        		+ "}"
+        		+ "}";
+        DashOptions.outputDir = "test.dsh";
+        DashModule module = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
+        DashOptions.isElectrum = false;
+        
+        assertTrue(module.getORStates().get("concState_innerORState1").getVariableNames().contains("var_two"));
+    }
+    
+    @Test
     public void testORStateVarNames() throws Exception {
 
         String dashModel = "conc state concState { "

@@ -52,16 +52,16 @@ public class CoreDashToAlloy {
 	//DashTrans currentTrans;
 	
 	public CoreDashToAlloy () {
-		eventSize2Trans = new LinkedHashMap<Integer, List<DashTrans>>();
+		eventSize2Trans = new LinkedHashMap<>();
 		changedLocalVars = new LinkedHashMap<>();
-		changedRefVars = new ArrayList<String>();
+		changedRefVars = new ArrayList<>();
 		changedVars = new LinkedHashMap<>();
-		paramBuffer = new LinkedHashMap<String, Expr>();
-		paramBufferChanged = new LinkedHashMap<String, Expr>();
-		localBufferChanged = new LinkedHashMap<String, Expr>();
+		paramBuffer = new LinkedHashMap<>();
+		paramBufferChanged = new LinkedHashMap<>();
+		localBufferChanged = new LinkedHashMap<>();
 		bufferCommands = Arrays.asList(new String[]{"addFirst", "add", "remove", "removeFirst"});
 		bufferFuncCommands = Arrays.asList(new String[]{"firstElem"});
-		universalQuantBuffers = new LinkedHashMap<String, Expr>();
+		universalQuantBuffers = new LinkedHashMap<>();
 	}
 
     public DashModule convertToAlloyAST(DashModule module, String fileName, String path) {	
