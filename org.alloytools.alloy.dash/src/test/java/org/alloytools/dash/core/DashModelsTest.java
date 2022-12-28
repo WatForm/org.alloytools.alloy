@@ -5,6 +5,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -125,9 +126,83 @@ public class DashModelsTest {
         assertTrue(funcs1.get(0).getBody().toString().contains(expectedOutput2));
     }
     
+    @Test
+    public void testRawVariableNames() throws IOException {
+    	String dashModel = "conc state ANDState {\n"
+    			+ "	Variable: set Int\n"
+    			+ "	default state Default {\n"
+    			+ "		ORVariable: set Int\n"
+    			+ "		conc state InnerANDOne {\n"
+    			+ "			InnerANDVariableOne: set Int\n"
+    			+ "			default state InnerDefaultOne {"
+    			+ "				InnerORVariable: set Int"
+    			+ "			}\n"
+    			+ "		}\n"
+    			+ "		conc state InnerANDTwo {\n"
+    			+ "			InnerANDVariableTwo: set Int\n"
+    			+ "			default state InnerDefaultTwo {\n"
+    			+ "				trans InnerTransTwo {\n"
+    			+ "					do ANDVariable = {none}\n"
+    			+ "				}\n"
+    			+ "			}\n"
+    			+ "		}	\n"
+    			+ "	}\n"
+    			+ "	state External {}\n"
+    			+ "}\n"
+    			+ "";
+        DashOptions.outputDir = "test.dsh";
+        DashModule module = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
+        DashModule coreDashModule = new DashToCoreDash().transformToCoreDash(module, "", "");
+        new CoreDashToAlloy().convertToAlloyAST(coreDashModule, "", "");
+        DashOptions.isElectrum = false;
+       
+        assertTrue(coreDashModule.getAllConcurrentStates().get("ANDState").getVariableNames().contains("Variable"));
+        assertTrue(coreDashModule.getORStates().get("ANDState_Default").getVariableNames().contains("ORVariable"));
+        assertTrue(coreDashModule.getAllConcurrentStates().get("ANDState_Default_InnerANDOne").getVariableNames().contains("InnerANDVariableOne"));
+        assertTrue(coreDashModule.getAllConcurrentStates().get("ANDState_Default_InnerANDTwo").getVariableNames().contains("InnerANDVariableTwo"));
+        assertTrue(coreDashModule.getORStates().get("ANDState_Default_InnerANDOne_InnerDefaultOne").getVariableNames().contains("InnerORVariable"));
+    }
+    
+    @Test
+    public void testFullyQualVariableNames() throws IOException {
+    	String dashModel = "conc state ANDState {\n"
+    			+ "	Variable: set Int\n"
+    			+ "	default state Default {\n"
+    			+ "		ORVariable: set Int\n"
+    			+ "		conc state InnerANDOne {\n"
+    			+ "			InnerANDVariableOne: set Int\n"
+    			+ "			default state InnerDefaultOne {"
+    			+ "				InnerORVariable: set Int"
+    			+ "			}\n"
+    			+ "		}\n"
+    			+ "		conc state InnerANDTwo {\n"
+    			+ "			InnerANDVariableTwo: set Int\n"
+    			+ "			default state InnerDefaultTwo {\n"
+    			+ "				trans InnerTransTwo {\n"
+    			+ "					do ANDVariable = {none}\n"
+    			+ "				}\n"
+    			+ "			}\n"
+    			+ "		}	\n"
+    			+ "	}\n"
+    			+ "	state External {}\n"
+    			+ "}\n"
+    			+ "";
+        DashOptions.outputDir = "test.dsh";
+        DashModule module = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
+        DashModule coreDashModule = new DashToCoreDash().transformToCoreDash(module, "", "");
+        new CoreDashToAlloy().convertToAlloyAST(coreDashModule, "", "");
+        DashOptions.isElectrum = false;
+       
+        assertTrue(coreDashModule.getVariableExpresssion().containsKey("ANDState_Variable"));
+        assertTrue(coreDashModule.getVariableExpresssion().containsKey("ANDState_Default_ORVariable"));
+        assertTrue(coreDashModule.getVariableExpresssion().containsKey("ANDState_Default_InnerANDOne_InnerANDVariableOne"));
+        assertTrue(coreDashModule.getVariableExpresssion().containsKey("ANDState_Default_InnerANDTwo_InnerANDVariableTwo"));
+        assertTrue(coreDashModule.getVariableExpresssion().containsKey("ANDState_Default_InnerANDOne_InnerDefaultOne_InnerORVariable"));
+    }
+    
    
     @Test
-    public void testTransitions() throws Exception {
+    public void testTransitions() throws IOException {
 
         String dashModel = "conc state topConcStateA { event A{} trans A {on A goto B} default state B {trans B {on A}} }";
         DashOptions.outputDir = "test.dsh";
@@ -142,7 +217,7 @@ public class DashModelsTest {
     }
 
     @Test
-    public void testVarNames() throws Exception {
+    public void testVarNames() {
 
         String dashModel = "conc state concState { var_one: none->none var_two: none->none conc state innerConcState {var_three: none->none} }";
         DashOptions.outputDir = "test.dsh";
