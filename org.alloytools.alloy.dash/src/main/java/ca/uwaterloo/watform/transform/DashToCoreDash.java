@@ -449,7 +449,7 @@ public class DashToCoreDash {
     				return state;
     		}
     		
-    		parent = DashHelper.getParentConcState(parent);
+    		parent = parent.getParentConcState();
     	}
     	
     	return null;

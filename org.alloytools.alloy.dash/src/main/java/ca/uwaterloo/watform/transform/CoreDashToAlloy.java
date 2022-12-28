@@ -528,12 +528,12 @@ public class CoreDashToAlloy {
 	    	if (transition.getDestination().getAllDestinations() != null && transition.getDestination().getAllDestinations().size() > 0) {
 	    		conf2GotoExpr = new LinkedHashMap<Integer, Expr>(DashHelper.calculateConf2GotoExpr(transition));
 	    	}
-            
+
             /* If we are transitioning out of a concurrent state */
             if (transition.getOrigin().getAllOrigins() != null && transition.getOrigin().getAllOrigins().size() > 0) {
             	conf2FromExpr = new LinkedHashMap<Integer, Expr>(DashHelper.calculateConf2FromExpr(transition));
             }
-            
+                        
             /* 
              * Creating the following expression: 
              * s_next.conf(i) = s.conf(i) + (p0 -> State) + ....
@@ -1135,7 +1135,6 @@ public class CoreDashToAlloy {
     	if (eventSize2Trans.size() != 0) {
 	        for (int key : eventSize2Trans.keySet()) {
 	        	Expr expr = null;
-	        	//System.out.println("Checking: " + key + " Contains?: " + eventSize2Trans.containsKey(key));
 	        	if (eventSize2Trans.containsKey(key)) {
 		        	for (DashTrans trans: eventSize2Trans.get(key)) {
 			            List<Decl> decls = new ArrayList<Decl>();

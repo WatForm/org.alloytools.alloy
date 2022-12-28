@@ -40,7 +40,7 @@ public class DashTrans extends DashSuperAST {
 
     public DashTrans(DashTrans trans) {
     	super(trans.pos, trans.name);
-        this.fromExpr = trans.fromExpr;
+        this.setOrigin(trans.fromExpr);
         this.setTriggerEvent(trans.getTriggerEvent());
         this.setCondition(trans.getCondition());
         this.setAction(trans.getAction());
@@ -53,7 +53,7 @@ public class DashTrans extends DashSuperAST {
     }
     
     public DashFrom getOrigin() {
-    	return fromExpr;
+    	return this.fromExpr;
     }
     
     public void setOrigin(DashFrom fromExpr) {
@@ -61,7 +61,7 @@ public class DashTrans extends DashSuperAST {
     }
     
     public DashGoto getDestination() {
-    	return gotoExpr;
+    	return this.gotoExpr;
     }
     
     public DashDoExpr getActions() {

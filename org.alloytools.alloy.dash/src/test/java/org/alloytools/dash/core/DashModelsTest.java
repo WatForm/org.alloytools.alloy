@@ -6,6 +6,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Optional;
 
@@ -18,6 +19,7 @@ import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.Func;
 import edu.mit.csail.sdg.ast.Sig;
 import ca.uwaterloo.watform.transform.CoreDashToAlloy;
+import ca.uwaterloo.watform.parser.DashHelper;
 import ca.uwaterloo.watform.parser.DashModule;
 import ca.uwaterloo.watform.parser.DashOptions;
 import ca.uwaterloo.watform.transform.DashToCoreDash;
@@ -341,6 +343,48 @@ public class DashModelsTest {
         assertTrue(coreDashModule.getInitDefaultStates().values().stream().anyMatch(x -> x.get(0).getFullyQualName().equals("ANDState_Default")));
         assertTrue(coreDashModule.getTransitions().get("ANDState_transition").getDestination().getAllDestinations().get(0).equals("ANDState_ORState_NestedDefaultState"));
     }
+    
+    @Test
+    public void testTransitionToFromNestedANDState() throws Exception {
+
+        String dashModel = "conc state ANDState {\n"
+        		+ "	default state Default {\n"
+        		+ "		conc state InnerANDOne {\n"
+        		+ "			default state InnerDefaultOne {}\n"
+        		+ "		}\n"
+        		+ "		conc state InnerANDTwo {\n"
+        		+ "			default state InnerDefaultTwo {}\n"
+        		+ "			trans InnerTransTwo {\n"
+        		+ "				from InnerDefaultTwo\n"
+        		+ "				goto External\n"
+        		+ "			}\n"
+        		+ "		}	\n"
+        		+ "	}\n"
+        		+ "	state External {}\n"
+        		+ "	trans transition {\n"
+        		+ "		from External\n"
+        		+ "		goto Default\n"
+        		+ "	}\n"
+        		+ "}\n"
+        		+ "";
+        DashOptions.outputDir = "test.dsh";
+        DashModule module = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
+        DashModule coreDashModule = new DashToCoreDash().transformToCoreDash(module, "", "");
+        DashOptions.isElectrum = false;
+        
+        assertEquals(coreDashModule.getInitDefaultStates().get(0).get(0).getFullyQualName(), "ANDState_Default_InnerANDOne_InnerDefaultOne");
+        assertEquals(coreDashModule.getInitDefaultStates().get(0).get(1).getFullyQualName(), "ANDState_Default_InnerANDTwo_InnerDefaultTwo");
+
+        assertEquals(coreDashModule.getTransitions().get("ANDState_transition").getDestination().getAllDestinations().get(0), "ANDState_Default");
+        assertEquals(coreDashModule.getTransitions().get("ANDState_transition").getOrigin().getAllOrigins().get(0), "ANDState_External");
+        
+        assertTrue(coreDashModule.getTransitions().containsKey("ANDState_Default_InnerANDTwo_InnerTransTwo"));
+        assertTrue(coreDashModule.getTransitions().get("ANDState_Default_InnerANDTwo_InnerTransTwo").getOrigin().isTransitionToParentState());
+        
+        assertEquals(coreDashModule.getTransitions().get("ANDState_Default_InnerANDTwo_InnerTransTwo").getDestination().getAllDestinations().get(0), "ANDState_External");
+        assertEquals(new LinkedHashMap<Integer, Expr>(DashHelper.calculateConf2FromExpr(coreDashModule.getTransitions().get("ANDState_Default_InnerANDTwo_InnerTransTwo"))).get(0).toString(),
+        		"ANDState_Default");
+    }
 
     //CoreDash to Alloy AST Unit Tests
     @Test
@@ -604,8 +648,6 @@ public class DashModelsTest {
         
         DashOptions.outputDir = "test.dsh";
         DashModule module = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
-        //DashModule coreDash = DashModule coreDashModule = new DashToCoreDash().transformToCoreDash(module, "", "");
-        //DashModule alloy = new CoreDashToAlloy().convertToAlloyAST(coreDash);
               
         List<String> buffers = new ArrayList<String>();
         List<String> bufferElems = new ArrayList<String>();
