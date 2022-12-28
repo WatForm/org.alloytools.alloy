@@ -452,7 +452,6 @@ public class DashModelsTest {
         }
 
         String expectedOutput = "AND[concState_stateA in s.conf0, concState_envA in s.events0 & EnvironmentEvent, s . concState_var_one = none]";
-
         assertEquals(funcs.get(0).getBody().toString(), expectedOutput);
     }
 

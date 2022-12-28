@@ -90,10 +90,22 @@ public class DashConcState extends DashSuperState {
 	public List<DashState> getInnerORStates() {
 		return this.states;
 	}
+	
+	@Override
+	public List<DashSuperState> getInnerStatesDeepCopy() {
+		List<DashSuperState> states = new ArrayList<DashSuperState>(this.concStates);
+		states.addAll(new ArrayList<DashSuperState>(this.states));
+		return states;
+	}
 
 	@Override
 	public List<DashTrans> getTransitions() {
 		return this.transitions;
+	}
+	
+	@Override
+	public List<String> getVariableNames(){
+		return this.variables;
 	}
 	
 	@Override

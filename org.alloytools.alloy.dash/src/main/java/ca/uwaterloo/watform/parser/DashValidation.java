@@ -389,7 +389,7 @@ public class DashValidation {
     private static void checkIfVarValid(ExprVar var, DashConcState concState) {
         String variable = var.toString();
         
-        DashConcState topLevelState = DashHelper.getTopLevelConcStates(concState);
+        DashConcState topLevelState = DashHelper.getTopLevelConcState(concState);
        
     	if(variable.contains("/")) {
     		while (variable.indexOf("/") > 0) {

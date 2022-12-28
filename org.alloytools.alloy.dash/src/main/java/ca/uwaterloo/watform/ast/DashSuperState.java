@@ -15,6 +15,7 @@ public abstract class DashSuperState extends DashSuperAST {
     protected List<DashState>          	states;
     protected List<DashTrans> 		  	transitions;
     protected List<Decl>          		decls;
+    protected List<String>          	variables;
     protected List<DashEvent>    		events;
     protected List<DashAction>        	action;
     protected List<DashCondition>     	condition;
@@ -28,25 +29,28 @@ public abstract class DashSuperState extends DashSuperAST {
 	}
     
     private void initializeContainers() {
-    	concStates     = new ArrayList<DashConcState>();
-        states         = new ArrayList<DashState>();
-        transitions    = new ArrayList<DashTrans>();
-        decls          = new ArrayList<Decl>();
-        events         = new ArrayList<DashEvent>();
-        action         = new ArrayList<DashAction>();
-        condition      = new ArrayList<DashCondition>();
-        buffers        = new ArrayList<DashBuffer>();
-        invariant      = new ArrayList<DashInvariant>();
-        eventNames	   = new ArrayList<String>();
+    	concStates     = new ArrayList<>();
+        states         = new ArrayList<>();
+        transitions    = new ArrayList<>();
+        decls          = new ArrayList<>();
+        variables 	   = new ArrayList<>();
+        events         = new ArrayList<>();
+        action         = new ArrayList<>();
+        condition      = new ArrayList<>();
+        buffers        = new ArrayList<>();
+        invariant      = new ArrayList<>();
+        eventNames	   = new ArrayList<>();
     }
     
     public abstract List<DashConcState>	getInnerConcStates();
     public abstract List<DashState>	  	getInnerORStates();
+    public abstract List<DashSuperState>getInnerStatesDeepCopy();
     public abstract List<DashTrans> 	getTransitions();
     public abstract List<DashBuffer>	getBuffers();
     public abstract List<DashEvent>	 	getEvents();
     public abstract List<String>	 	getEventNames();
     public abstract List<Decl> 		  	getVariables();
+    public abstract List<String> 		getVariableNames();
 	public abstract List<DashAction> 	getActions();
 	public abstract List<DashCondition> getConditions();
 	public abstract List<DashInvariant> getInvariants ();

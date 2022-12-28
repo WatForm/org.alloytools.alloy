@@ -67,6 +67,13 @@ public class DashState extends DashSuperState {
 	public List<DashState> getInnerORStates() {
 		return this.states;
 	}
+	
+	@Override
+	public List<DashSuperState> getInnerStatesDeepCopy() {
+		List<DashSuperState> states = new ArrayList<DashSuperState>(this.concStates);
+		states.addAll(new ArrayList<DashSuperState>(this.states));
+		return states;
+	}
 
 	@Override
 	public List<DashTrans> getTransitions() {
@@ -76,6 +83,11 @@ public class DashState extends DashSuperState {
 	@Override
 	public List<DashBuffer> getBuffers(){
 		return this.buffers;
+	}
+
+	@Override
+	public List<String> getVariableNames(){
+		return this.variables;
 	}
 	
 	@Override
@@ -135,8 +147,7 @@ public class DashState extends DashSuperState {
 
 	@Override
 	public DashConcState getANDState() {
-		// TODO Auto-generated method stub
-		return null;
+		return this.getParentConcState();
 	}
 
 }

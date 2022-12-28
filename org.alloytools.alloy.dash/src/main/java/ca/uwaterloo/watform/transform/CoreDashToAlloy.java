@@ -31,9 +31,9 @@ public class CoreDashToAlloy {
 	boolean isCreatingSnapshot;
 	 
 	Map <Integer, List<DashTrans>> eventSize2Trans;
-	Map<String, DashConcState> changedLocalVars; // Variables changed only locally
+	Map<String, DashSuperState> changedLocalVars; // Variables changed only locally
 	List<String> changedRefVars; // Variables changed by reference in the transitions being checked
-	Map<String, DashConcState> changedVars; // Keep a track of when a variable has been changed during a transition
+	Map<String, DashSuperState> changedVars; // Keep a track of when a variable has been changed during a transition
 	boolean changingVar;
 	boolean refParamChanged;
 
@@ -48,11 +48,14 @@ public class CoreDashToAlloy {
 	boolean foundBuffer;
 	boolean legalConstraint ;
 	
+	// ONLY FOR DEBUGGING
+	//DashTrans currentTrans;
+	
 	public CoreDashToAlloy () {
 		eventSize2Trans = new LinkedHashMap<Integer, List<DashTrans>>();
-		changedLocalVars = new LinkedHashMap<String, DashConcState>();
+		changedLocalVars = new LinkedHashMap<>();
 		changedRefVars = new ArrayList<String>();
-		changedVars = new LinkedHashMap<String, DashConcState>();
+		changedVars = new LinkedHashMap<>();
 		paramBuffer = new LinkedHashMap<String, Expr>();
 		paramBufferChanged = new LinkedHashMap<String, Expr>();
 		localBufferChanged = new LinkedHashMap<String, Expr>();
@@ -579,7 +582,7 @@ public class CoreDashToAlloy {
             
             for (String var: changedLocalVars.keySet()) {
             	// We do not constrain a var if it has been changed using a reference, otherwise we constrain it if it only has been changed locally
-            	expression = (changedRefVars.contains(var) || (changedLocalVars.get(var).getIdentifiers().size() == 0) ) ? 
+            	expression = (changedRefVars.contains(var) || (changedLocalVars.get(var).getANDState().getIdentifiers().size() == 0) ) ? 
             			expression : DashHelper.createBinaryExpr(expression, ExprBinary.Op.AND, constrainLocallyChangedVars(var, changedLocalVars.get(var)));
             }
             for (String var : unchangedVars.keySet()) {
@@ -1756,11 +1759,11 @@ public class CoreDashToAlloy {
      * If a parameterized process has constrained its variable using Binary Equals, we need to ensure that the other processes do not
      * change that variable. Assuming that process p has changed its var, we write all quant: param | !(p in quant) => quant.s_next.var = quant.s.var 
      */
-    private Expr constrainLocallyChangedVars (String var, DashConcState varParent) {
+    private Expr constrainLocallyChangedVars (String var, DashSuperState varParent) {
         List<Decl> decls = new ArrayList<Decl>();
         List<ExprVar> a = new ArrayList<ExprVar>();
-        for (int i = 0; i < varParent.getIdentifiers().size() ; i++) {
-        	Expr param = ExprVar.make(null, varParent.getIdentifiers().get(i));
+        for (int i = 0; i < varParent.getANDState().getIdentifiers().size() ; i++) {
+        	Expr param = ExprVar.make(null, varParent.getANDState().getIdentifiers().get(i));
         	param = (i == 0) ? DashHelper.createBinaryExpr(param, ExprBinary.Op.MINUS, DashHelper.createExprVar("p" + i)) : param;
             a.add(ExprVar.make(null, "ie" + i));
             decls.add(new Decl(null, null, null, null, a, mult(param))); //p: param
@@ -1769,25 +1772,25 @@ public class CoreDashToAlloy {
         
         //Expr binaryLeft = ExprBadJoin.make(null, null, ExprVar.make(null, "s_next"), ExprVar.make(null, var)); 
         Expr binaryLeft = DashOptions.isElectrum ? DashHelper.sVarPrimed(var) : DashHelper.createExprBadJoin(DashHelper.sNext(), DashHelper.createExprVar(var));
-        for (int i = 0; i < varParent.getIdentifiers().size(); i++) {
+        for (int i = 0; i < varParent.getANDState().getIdentifiers().size(); i++) {
         	binaryLeft = ExprBadJoin.make(null, null, ExprVar.make(null, "ie" + i), binaryLeft); 
         }
         Expr binaryRight = ExprBadJoin.make(null, null, ExprVar.make(null, "s"), ExprVar.make(null, var)); //quant.(s_next).var
-        for (int i = 0; i < varParent.getIdentifiers().size(); i++) {
+        for (int i = 0; i < varParent.getANDState().getIdentifiers().size(); i++) {
         	binaryRight = ExprBadJoin.make(null, null, ExprVar.make(null, "ie" + i), binaryRight); 
         }
         Expr binaryEquals = ExprBinary.Op.EQUALS.make(null, null, binaryLeft, binaryRight);
         
-        if (varParent.getIdentifiers().size() > 1) {
-        	List<String> identifiers = new ArrayList<String>(varParent.getIdentifiers());
+        if (varParent.getANDState().getIdentifiers().size() > 1) {
+        	List<String> identifiers = new ArrayList<String>(varParent.getANDState().getIdentifiers());
         	identifiers.remove(0);
         	binaryEquals = constrainLocallyChangedNestedVar(binaryEquals, var, varParent, identifiers);
         }
         
-        return (varParent.getIdentifiers().size() == 0) ? binaryEquals : ExprQt.Op.ALL.make(null, null, decls, binaryEquals);
+        return (varParent.getANDState().getIdentifiers().size() == 0) ? binaryEquals : ExprQt.Op.ALL.make(null, null, decls, binaryEquals);
     }
     
-    private Expr constrainLocallyChangedNestedVar(Expr equals, String var, DashConcState parent, List<String> identifiers) {
+    private Expr constrainLocallyChangedNestedVar(Expr equals, String var, DashSuperState parent, List<String> identifiers) {
         List<Decl> decls = new ArrayList<Decl>();
         List<ExprVar> a = new ArrayList<ExprVar>();
         for (int i = 0; i < identifiers.size() ; i++) {
@@ -1800,12 +1803,12 @@ public class CoreDashToAlloy {
       
         //Expr binaryLeft = ExprBadJoin.make(null, null, ExprVar.make(null, "s_next"), ExprVar.make(null, var)); 
         Expr binaryLeft = DashOptions.isElectrum ? DashHelper.sVarPrimed(var) : DashHelper.createExprBadJoin(DashHelper.sNext(), DashHelper.createExprVar(var));
-        binaryLeft = DashHelper.addParametersJoin(binaryLeft, parent.getIdentifiers().size() - identifiers.size());
+        binaryLeft = DashHelper.addParametersJoin(binaryLeft, parent.getANDState().getIdentifiers().size() - identifiers.size());
         for (int i = 0; i < identifiers.size(); i++) {
         	binaryLeft = ExprBadJoin.make(null, null, ExprVar.make(null, "ie" + i), binaryLeft); 
         }
         Expr binaryRight = ExprBadJoin.make(null, null, ExprVar.make(null, "s"), ExprVar.make(null, var)); //quant.(s_next).var
-        binaryRight = DashHelper.addParametersJoin(binaryRight, parent.getIdentifiers().size() - identifiers.size());
+        binaryRight = DashHelper.addParametersJoin(binaryRight, parent.getANDState().getIdentifiers().size() - identifiers.size());
         for (int i = 0; i < identifiers.size(); i++) {
         	binaryRight = ExprBadJoin.make(null, null, ExprVar.make(null, "ie" + i), binaryRight); 
         }
@@ -2199,7 +2202,7 @@ public class CoreDashToAlloy {
         //modify the value of the expression accordingly
     	if(expr.toString().contains("/")) {
     		String expressionStr = expr.toString();
-    		Optional<DashSuperState> variableParent = DashHelper.findVariableParent(module, parent, expressionStr);
+    		Optional<DashSuperState> variableParent = DashHelper.findVariableParentByReference(module, parent, expressionStr);
     		if (variableParent.isPresent()) {
     			// Get the AND state in which the variable is located (if it is located in an OR state, then we 
     			// get the parent AND state of the OR state
@@ -2208,26 +2211,33 @@ public class CoreDashToAlloy {
     			String variable = expressionStr.substring(expressionStr.lastIndexOf('/') + 1);
     			Expr exprVar = DashHelper.createExprVar(variable);
     			// Get all the variables
-    	        expression = modifyVar(module, expression, immediateParent.getANDState(), variableParent.get(), exprVar, DashHelper.getVariables(module, immediateParent), false, true);
-    			return expression;
-    		} else {
-    	        expression = modifyVar(module, expression, parentConcState, parentConcState, expr, DashHelper.getVariables(module, parentConcState), false, true);
-    			return expression;
+    	        expression = modifyVar(module, expression, immediateParent, exprVar, false, true);
+    			return expression; 
     		}
-    	}
-        
-        expression = modifyVar(module, expression, parentConcState, parentConcState, expr, DashHelper.getVariables(module, parentConcState), false, isRef);
+    	} 
+    	
+    	// Check whether the expression variable is a variable declared in an AND-or OR-state
+    	Optional<DashSuperState> variableParent = DashHelper.findVariableParent(module, parentConcState, expression.toString());
+    	if (variableParent.isPresent()) {
+    		expression = modifyVar(module, expression, variableParent.get(), expression, false, false);
+    	} 
+
+        //for (DashSuperState state: DashHelper.getNestedStates(DashHelper.getTopLevelConcStates(parentConcState))) {
+        //	expression = modifyVar(module, expression, state.getANDState(), state, expr, DashHelper.getVariables(module, state), false, isRef);
+        //}
+    	/*
         // Look for the variable in nested AND-states
         for (DashConcState innerConcState: DashHelper.getNestedConcStates(parentConcState)) {
-        	expression = modifyVar(module, expression, innerConcState, innerConcState, expr, DashHelper.getVariables(module, innerConcState), false, isRef);
+        	expression = modifyVar(module, expression, innerConcState, expr, false, isRef);
         }
 
         // Look for the variable in parent AND-states
-        DashConcState outerConcState = DashHelper.getTopLevelConcStates(parentConcState);
+        DashConcState outerConcState = DashHelper.getTopLevelConcState(parentConcState);
         while (outerConcState != null) {
-        	expression = modifyVar(module, expression, outerConcState, outerConcState, expr, DashHelper.getVariables(module, outerConcState), false, isRef);
+        	expression = modifyVar(module, expression, outerConcState, expr, DashHelper.getVariables(module, outerConcState), false, isRef);
             outerConcState = outerConcState.getParentConcState();
         }
+        */
 
         expression = replaceWithActionExpr(expression, parentConcState, module);
         expression = replaceWithConditionExpr(expression, parentConcState, module);
@@ -2235,26 +2245,26 @@ public class CoreDashToAlloy {
         return expression;
     }
         
-    private Expr modifyVar(DashModule module, Expr expression, DashConcState parent, DashSuperState immediateParent, Expr expr, List<String> varsInParent, boolean isEnvVar, boolean isRef) {
+    private Expr modifyVar(DashModule module, Expr expression, DashSuperState parent, Expr expr, boolean isEnvVar, boolean isRef) {
     	// Check if the var expression is a variable that has been declared in an AND- or OR-state
-        for (String var : varsInParent) {
+        for (String var : parent.getVariableNames()) {
         	var = var.replace('/', '_');
         	expr = DashHelper.createExprVar(expr.toString().replace('/', '_'));
-        	String qualifiedVarName = immediateParent.getFullyQualName() + '_' + var;
+        	String qualifiedVarName = parent.getFullyQualName() + '_' + var;
             if (expr.toString().equals(var + "'")) {
             	changedVars.put(qualifiedVarName, parent);
             	if (!isRef) {
             		changedLocalVars.put(qualifiedVarName, parent);
             		Expr variable = DashHelper.createExprVar(qualifiedVarName);
             		Expr sNextVar = DashHelper.createBinaryExpr(DashHelper.sNext(), ExprBinary.Op.JOIN, variable);
-            		sNextVar = DashHelper.addParametersJoin(sNextVar, parent.getIdentifiers().size());
+            		sNextVar = DashHelper.addParametersJoin(sNextVar, parent.getANDState().getIdentifiers().size());
             		return sNextVar;
             	}
             	else {
             		changedRefVars.add(qualifiedVarName);
             		Expr variable = DashHelper.createExprVar(qualifiedVarName);         	
             		Expr sNextVar = DashOptions.isElectrum ? DashHelper.sVarPrimed(variable) : DashHelper.createBinaryExpr(DashHelper.sNext(), ExprBinary.Op.JOIN, variable);
-            		sNextVar = parent.getIdentifiers() != null ? DashHelper.addParametersJoin(sNextVar, parent.getIdentifiers().size() - 1) : sNextVar; // For nested replicated components within replicated components
+            		sNextVar = parent.getANDState().getIdentifiers() != null ? DashHelper.addParametersJoin(sNextVar, parent.getANDState().getIdentifiers().size() - 1) : sNextVar; // For nested replicated components within replicated components
             		return sNextVar;
             	}
             }
@@ -2269,25 +2279,25 @@ public class CoreDashToAlloy {
             	else if (isCreatingEnabledAfterPred && DashOptions.isElectrum && !isRef) {
         			Expr variable = DashHelper.createExprVar(qualifiedVarName);
         			Expr sVarPrimed = DashHelper.sVarPrimed(variable);
-        			sVarPrimed = DashHelper.addParametersJoin(sVarPrimed, parent.getIdentifiers().size());
+        			sVarPrimed = DashHelper.addParametersJoin(sVarPrimed, parent.getANDState().getIdentifiers().size());
         			return sVarPrimed;
             	}
              	else {
-            		if (!isRef && (isCreatingInit) && (!isCreatingExprQt) && parent.getIdentifiers().size() > 0) {
+            		if (!isRef && (isCreatingInit) && (!isCreatingExprQt) && parent.getANDState().getIdentifiers().size() > 0) {
             			Expr variable = DashHelper.createExprVar(qualifiedVarName);
 	                	Expr sVar =  DashHelper.createBinaryExpr(DashHelper.s(), ExprBinary.Op.JOIN, variable);
-	                	Expr idSVar = DashHelper.createBinaryExpr(DashHelper.createExprVar("p" + module.getIdentifierElements().indexOf(parent.getReplicatedIdentifier())), ExprBinary.Op.JOIN, sVar); //DashHelper.addParametersJoin(sVar, parent.getIdentifiers().size());;
+	                	Expr idSVar = DashHelper.createBinaryExpr(DashHelper.createExprVar("p" + module.getIdentifierElements().indexOf(parent.getANDState().getReplicatedIdentifier())), ExprBinary.Op.JOIN, sVar); //DashHelper.addParametersJoin(sVar, parent.getIdentifiers().size());;
 	                	return idSVar;
             		}
             		else if (!isRef && !(isCreatingInit && isCreatingExprQt)) { // No need to DotJoin the "p0" expr if it is a reference to another parameterized concurrent state
             			Expr variable = DashHelper.createExprVar(qualifiedVarName);
 	                	Expr sVar =  DashHelper.createBinaryExpr(DashHelper.s(), ExprBinary.Op.JOIN, variable);
-	                	sVar= DashHelper.addParametersJoin(sVar, parent.getIdentifiers().size());
+	                	sVar= DashHelper.addParametersJoin(sVar, parent.getANDState().getIdentifiers().size());
 	                	return sVar;
                 	}
                 	else {
                 		Expr sVar = DashHelper.createExprBadJoin(DashHelper.s(), DashHelper.createExprVar(qualifiedVarName));
-                		Expr p0SVar = parent.getIdentifiers() != null ? DashHelper.addParametersJoin(sVar, parent.getIdentifiers().size() - 1) : sVar; // For nested replicated components within replicated components
+                		Expr p0SVar = parent.getANDState().getIdentifiers() != null ? DashHelper.addParametersJoin(sVar, parent.getANDState().getIdentifiers().size() - 1) : sVar; // For nested replicated components within replicated components
                 		return p0SVar;
                 	}
             	}

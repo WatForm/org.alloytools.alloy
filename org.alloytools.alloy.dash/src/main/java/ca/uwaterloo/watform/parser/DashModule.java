@@ -1981,6 +1981,7 @@ public final class DashModule extends Browsable implements Module {
         for (Object name : decl.names) {
         	String varName = name.toString();
             variables.add(varName);
+            state.getVariableNames().add(varName);
             //Set variable name to as it would appear in the Alloy model and map it to its
             //respective expression i.e in_p: lone Patient, in_p is the var name, lone Patient is the expression
             String fullyQualVarName = state.getFullyQualName() + "_" + name.toString();
@@ -1998,23 +1999,24 @@ public final class DashModule extends Browsable implements Module {
     }
     
     /* Store event variables that have been declared in the concurrent state */
-    void readEnvVariablesDeclared(Decl decl, DashSuperState concState) {
+    void readEnvVariablesDeclared(Decl decl, DashSuperState state) {
         List<String> variables = new ArrayList<String>();
 
         //Fetch the current list of variable names stored for the current conc state
-        if (envVariableNames.get(concState.getFullyQualName()) != null) {
-            variables = envVariableNames.get(concState.getFullyQualName());
+        if (envVariableNames.get(state.getFullyQualName()) != null) {
+            variables = envVariableNames.get(state.getFullyQualName());
         }
 
         /* Store the names of each variable inside decls in ConcState */
         for (Object name : decl.names) {
             variables.add(name.toString());
+            state.getVariableNames().add(name.toString());
             //Set variable name to as it would appear in the Alloy model and map it to its
             //respective expression i.e in_p: lone Patient, in_p is the var name, lone Patient is the expression
-            envVariable2Expression.put(concState.getFullyQualName() + "_" + name.toString(), decl.expr);
+            envVariable2Expression.put(state.getFullyQualName() + "_" + name.toString(), decl.expr);
         }
 
-        envVariableNames.put(concState.getFullyQualName(), variables);
+        envVariableNames.put(state.getFullyQualName(), variables);
     }
 
     public void addEvent(DashSuperState parent, DashEvent event) {

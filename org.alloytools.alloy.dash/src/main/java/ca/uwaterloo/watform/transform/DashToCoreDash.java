@@ -327,7 +327,7 @@ public class DashToCoreDash {
         } else {
         	actualParent = DashHelper.findEventParent(trans.getParentConcState(), onCommand);
         	if (!actualParent.isPresent()) {
-        		actualParent = DashHelper.findEventParent(DashHelper.getTopLevelConcStates(trans.getParentConcState()), onCommand);
+        		actualParent = DashHelper.findEventParent(DashHelper.getTopLevelConcState(trans.getParentConcState()), onCommand);
         	}
         	if (!actualParent.isPresent()) {
         		throw new ErrorSyntax("Could not resolve reference to: " + onCommand);
@@ -362,7 +362,7 @@ public class DashToCoreDash {
         } else {
         	actualParent = DashHelper.findEventParent(trans.getParentConcState(), sendCommand);
         	if (!actualParent.isPresent()) {
-        		actualParent = DashHelper.findEventParent(DashHelper.getTopLevelConcStates(trans.getParentConcState()), sendCommand);
+        		actualParent = DashHelper.findEventParent(DashHelper.getTopLevelConcState(trans.getParentConcState()), sendCommand);
         	}
         	if (!actualParent.isPresent()) {
         		throw new ErrorSyntax("Could not resolve reference to: " + sendCommand);

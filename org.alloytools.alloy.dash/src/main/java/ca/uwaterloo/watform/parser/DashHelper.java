@@ -44,6 +44,10 @@ public class DashHelper {
 		return Character.toUpperCase(string.charAt(0)) + string.substring(1);
 	}
 	
+	public static String cleanVariable(String variable) {
+		return variable.endsWith("'") ? variable.substring(0, variable.length() - 1) : variable;
+	}
+	
 	public static Expr parameterize(String string) {
 		return createBinaryExpr(createExprVar("p"), ExprBinary.Op.JOIN ,createExprVar(DashHelper.toLowerCase(string)));
 	}
@@ -64,6 +68,21 @@ public class DashHelper {
 	 */
 	public static Expr createParameterizedVar(String var, Expr expr, DashModule module) {
 		DashConcState concState = module.getVariableConcState().get(var).getANDState();
+		/*
+		if(module.getVariableConcState().containsKey(var)) {
+			System.out.println("The Key is Present");
+		} else {
+			System.out.println("No key");
+		}
+		if (module.getVariableConcState().get(var) == null) {
+			System.out.println("Get is null");
+		} else {
+			System.out.println("Parent: " + module.getVariableConcState().get(var).getFullyQualName());
+		}
+		if (module.getVariableConcState().get(var).getANDState() == null) {
+			System.out.println("Get is null");
+		}
+		*/
 		if (expr instanceof ExprUnary && concState.getIdentifiers().size() > 0) {
 			ExprUnary exprUnary = (ExprUnary) expr;	
 			int index = concState.getIdentifiers().size() - 1;
@@ -236,6 +255,31 @@ public class DashHelper {
 			}
 		}
 		return innerConcStates;
+	}
+	
+	public static List<DashSuperState> getNestedStates (DashSuperState state) {
+		List<DashSuperState> nestedStates = new ArrayList<>();
+		nestedStates.add(state);
+		state.getInnerConcStates().forEach(x -> {
+			nestedStates.add(x);
+			getNestedStatesHelper(x, nestedStates);
+		});
+		state.getInnerORStates().forEach(x -> {
+			nestedStates.add(x);
+			getNestedStatesHelper(x, nestedStates);
+		});
+		return nestedStates;
+	}
+	
+	public static void getNestedStatesHelper(DashSuperState state, List<DashSuperState> states) {
+		state.getInnerConcStates().forEach(x -> {
+			states.add(x);
+			getNestedStatesHelper(x, states);
+		});
+		state.getInnerORStates().forEach(x -> {
+			states.add(x);
+			getNestedStatesHelper(x, states);
+		});
 	}
 	
 	public static void getConcurrentStateInORState(DashState state, List<DashConcState> concStates) {
@@ -798,18 +842,18 @@ public class DashHelper {
 }
    
   public static DashConcState getParentConcState(Object item) { 	
-       if (item instanceof DashState) {
-           if (((DashState) item).getParent() instanceof DashState)
-               return getParentConcState(((DashState) item).getParent());
-           if (((DashState) item).getParent() instanceof DashConcState)
-               return (DashConcState) ((DashState) item).getParent();
-       }
+      if (item instanceof DashState) {
+          if (((DashState) item).getParent() instanceof DashState)
+              return getParentConcState(((DashState) item).getParent());
+          if (((DashState) item).getParent() instanceof DashConcState)
+              return (DashConcState) ((DashState) item).getParent();
+      }
 
-       if (item instanceof DashConcState)
-           return (DashConcState) item;
+      if (item instanceof DashConcState)
+          return (DashConcState) item;
 
-       return null;
-   }
+      return null;
+  }
 
   public static Object getParent(Object parent) {
        if (parent instanceof DashState)
@@ -819,20 +863,11 @@ public class DashHelper {
        return null;
    }
   
-  public static DashConcState getTopLevelConcStates(DashSuperState state) {
-	  if (state == null) {
-		  return null;
+  public static DashConcState getTopLevelConcState(DashSuperState state) {
+	  if (state.getParentConcState() == null) {
+		  return state.getANDState(); 
 	  }
-	  
-	  if (state.getParent() != null) {
-		  return getTopLevelConcStates(state.getParent());
-	  } else {  	
-		  if (state instanceof DashConcState)
-			  return (DashConcState) state;
-		  else {
-			  return state.getANDState();
-		  }
-	  }
+	  return getTopLevelConcState(state.getParentConcState());
   }
   
   public static Optional<DashConcState> locateANDState(DashConcState concState, String name) {
@@ -891,7 +926,7 @@ public class DashHelper {
    * Start by checking if the variable is present inside the AND-state in which it was declared
    * If not, perform a search of all AND-states to look for the variable
    */
-  public static Optional<DashSuperState> findVariableParent (DashModule module, DashConcState parent, String reference) {
+  public static Optional<DashSuperState> findVariableParentByReference (DashModule module, DashConcState parent, String reference) {
 	  if (reference == null || reference.indexOf('/') < 0) {
 		  return Optional.empty();
 	  }
@@ -934,7 +969,7 @@ public class DashHelper {
 	  findEventParentHelper(parent, reference, match);
 	  // Look at the top level AND-state for the parent
 	  if (match.size() == 0) {
-		  findEventParentHelper(DashHelper.getTopLevelConcStates(parent), reference, match);
+		  findEventParentHelper(DashHelper.getTopLevelConcState(parent), reference, match);
 	  }
 	  
 	  return match.size() > 0 ? Optional.ofNullable(match.get(0)) : Optional.empty();
@@ -1006,6 +1041,30 @@ public class DashHelper {
 	  } else {
 		  return Optional.empty();
 	  }
+  }
+  
+  public static Optional<DashSuperState> findVariableParent(DashModule module, DashSuperState state, String variable) {
+	  if (state == null) {
+		  return Optional.empty();
+	  }
+	  variable = DashHelper.cleanVariable(variable);
+	  if (state.getVariableNames().contains(variable)) {
+		  return Optional.ofNullable(state);
+	  }
+	  
+	  List<DashSuperState> matches = new ArrayList<>();
+	  findVariableParentHelper(module, getTopLevelConcState(state), variable, matches);
+	  
+	  return (matches.size() == 0) ? Optional.empty() : Optional.ofNullable(matches.get(0));
+  }
+  
+  public static void findVariableParentHelper (DashModule module, DashSuperState state, String variable, List<DashSuperState> matches) {
+	  if (state.getVariableNames().contains(variable)) {
+		  matches.add(state);
+	  }
+	  state.getInnerStatesDeepCopy().forEach(nestedState -> {
+		  findVariableParentHelper(module, nestedState, variable, matches);
+	  });
   }
   
   /* Get all the transitions within a state */
