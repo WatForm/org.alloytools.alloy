@@ -1046,9 +1046,7 @@ public class DashModelsTest {
         A4Reporter rep = new A4Reporter();
         alloyModule = DashModule.resolveAll(rep == null ? A4Reporter.NOP : rep, alloyModule);
         
-        if (alloyModule.getConfLevels().size() != 3) {
-        	throw new Exception("Configurations are not stored properly.");
-        }
+        assertEquals(alloyModule.getConfLevels().size(), 3);
         
         Sig snapshot = null;
         for (Sig sig : alloyModule.getAllSigs()) {

@@ -1452,12 +1452,12 @@ public final class SimpleGUI implements ComponentListener, Listener {
             DashModule alloy = DashOptions.isElectrum ? new CoreDashToElectrum().convertToElectrumAST(coreDash, "", "") : new CoreDashToAlloy().convertToAlloyAST(coreDash, "", "");
             alloy = DashModule.resolveAll(A4Reporter.NOP, alloy);
             if (text.get().isFile()) {
-                DashModuleToString.toString(alloy);
+                new DashModuleToString(true).toString(alloy);
                 text.newtab(DashOptions.outputDir + ".als");
-                text.get().setText(DashModuleToString.getString(alloy));
+                text.get().setText(new DashModuleToString(true).getString(alloy));
             } else {
                 text.newtab(null);
-                text.get().setText(DashModuleToString.getString(alloy));
+                text.get().setText(new DashModuleToString(true).getString(alloy));
             }
         } catch (Err e) {
             runmenu.getItem(0).setEnabled(false);

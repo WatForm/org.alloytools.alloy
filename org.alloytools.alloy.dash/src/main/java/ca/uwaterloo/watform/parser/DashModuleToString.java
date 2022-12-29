@@ -18,19 +18,29 @@ import edu.mit.csail.sdg.ast.ExprBinary;
 
 public class DashModuleToString {
 	
-	static int indent = 4;
-    static int lineWidth = 120;
-    static Boolean transitionLabelPrinted = false;
-    static Boolean eventLabelPrinted = false;
-    static String exprBinary = "EXPRBINARY";
+	int indent;
+    int lineWidth;
+    Boolean transitionLabelPrinted;
+    Boolean eventLabelPrinted;
+    Boolean isTranslationFromDash;
+    String exprBinary;
+    
+    public DashModuleToString(boolean isTranslationToDash) {
+    	this.indent = 4;
+    	this.lineWidth = 120;
+    	this.transitionLabelPrinted = false;
+    	this.eventLabelPrinted = false;
+    	this.isTranslationFromDash = isTranslationToDash;
+    	this.exprBinary = "EXPRBINARY";
+    }
 
-    public static void toString(DashModule module) throws IOException {
+    public void toString(DashModule module) throws IOException {
 		BufferedWriter writer = new BufferedWriter(new FileWriter(DashOptions.outputDir + ".als"));
 		writer.write(getString(module));
 		writer.close();
 	}
 
-    public static String getString(DashModule module) throws IOException {
+    public String getString(DashModule module) throws IOException {
 		StringBackend back = new StringBackend(lineWidth);
 		DataLayouter<NoExceptions> out = new DataLayouter<NoExceptions>(back, indent);
 		out.beginC(0);
@@ -44,7 +54,7 @@ public class DashModuleToString {
 		return back.getString();
     }
 
-	private static void printOpens(DashModule module, DataLayouter<NoExceptions> out) {
+	private void printOpens(DashModule module, DataLayouter<NoExceptions> out) {
 		for(DashModule.Open open: module.getOpens()) {
 			out.print("open ").print(open.filename);
 			if (open.args.size() > 0) {
@@ -67,7 +77,7 @@ public class DashModuleToString {
 		out.brk();
 	}
 
-    private static void printSigs(DashModule module, DataLayouter<NoExceptions> out) {
+    private void printSigs(DashModule module, DataLayouter<NoExceptions> out) {
     	for(Sig sig: module.sigs.values()) {
     		printComments(module, sig.label, out);
     		
@@ -77,7 +87,6 @@ public class DashModuleToString {
     			out.print("one ");
     		if(sig.isVariable != null)
     			out.print("var ");
-
 
             out.print("sig ");
 			printSig(sig, out);
@@ -117,7 +126,7 @@ public class DashModuleToString {
 		out.brk();
     }
 
-    private static void printPreds(DashModule module, DataLayouter<NoExceptions> out) {
+    private void printPreds(DashModule module, DataLayouter<NoExceptions> out) {
     	for(ArrayList<Func> funcs: module.funcs.values()) {
 			for (Func func : funcs) {
 				printComments(module, func.label, out);
@@ -146,7 +155,7 @@ public class DashModuleToString {
 		}
     }
     
-    private static void printFacts(DashModule module, DataLayouter<NoExceptions> out) {
+    private void printFacts(DashModule module, DataLayouter<NoExceptions> out) {
     	for(Pair<String,Expr> fact: module.facts) {
     		printComments(module, fact.a, out);
 			printComments(module, fact.b.toString(), out);
@@ -160,7 +169,7 @@ public class DashModuleToString {
     	}
     }
     
-    private static void printAsserts(DashModule module, DataLayouter<NoExceptions> out) {
+    private void printAsserts(DashModule module, DataLayouter<NoExceptions> out) {
     	for(String asserts: module.asserts.keySet()) {
 			out.print("assert").print(' ').print(asserts).print(" {").beginCInd().brk(1,0);
 			printExpr(module.asserts.get(asserts),out);
@@ -168,7 +177,7 @@ public class DashModuleToString {
     	}
     }
     
-    private static void printCommands(DashModule module, DataLayouter<NoExceptions> out) {
+    private void printCommands(DashModule module, DataLayouter<NoExceptions> out) {
     	for(Command command: module.commands) {
     		out.print(command.toString().substring(0, 1).toLowerCase() + command.toString().substring(1));
     		out.brk();
@@ -176,7 +185,7 @@ public class DashModuleToString {
     	out.brk().brk();
     }
     
-	private static void printExpr(Expr expr, DataLayouter<NoExceptions> out) {
+	private void printExpr(Expr expr, DataLayouter<NoExceptions> out) {
 		if (expr instanceof ExprBad){
 			printExprBad((ExprBad)expr, out);
 		} else if (expr instanceof ExprBadCall){
@@ -210,13 +219,13 @@ public class DashModuleToString {
 		}
 	}
 
-	private static void printExprBad(ExprBad expr, DataLayouter<NoExceptions> out) {
+	private void printExprBad(ExprBad expr, DataLayouter<NoExceptions> out) {
 		StringBuilder tempOut = new StringBuilder();
 		expr.toString(tempOut, -1);
 		out.print(tempOut.toString());
 	}
 
-	private static void printExprBadCall(ExprBadCall expr, DataLayouter<NoExceptions> out) {
+	private void printExprBadCall(ExprBadCall expr, DataLayouter<NoExceptions> out) {
 		out.print(cleanLabel(expr.fun.label)).print('[').beginCInd();
 		for (int i = 0; i < expr.args.size(); i++) {
 			if (i > 0)
@@ -226,15 +235,17 @@ public class DashModuleToString {
 		out.end().print(']');
 	}
 
-	private static void printExprBadJoin(ExprBadJoin expr, DataLayouter<NoExceptions> out) {
+	private void printExprBadJoin(ExprBadJoin expr, DataLayouter<NoExceptions> out) {
 		printExpr(expr.left, out);
 		out.print('.');
 		printExpr(expr.right, out);
 	}
 
-	private static void printExprBinary(ExprBinary expr, DataLayouter<NoExceptions> out) {
-		if (expr.op == ExprBinary.Op.ISSEQ_ARROW_LONE)
-			out.print("seq ").print(expr.right.toString());
+	private void printExprBinary(ExprBinary expr, DataLayouter<NoExceptions> out) {
+		if (expr.op == ExprBinary.Op.ISSEQ_ARROW_LONE) {
+			out.print("seq ");
+			printExpr(expr.right, out);
+		}
 		else if (expr.op == ExprBinary.Op.JOIN)
 			printExprBinaryJoin(expr, out);
 		else if (expr.op == ExprBinary.Op.IMPLIES) {
@@ -270,30 +281,31 @@ public class DashModuleToString {
 		}
 	}
 	
-	private static void printExprBinaryJoin(ExprBinary expr, DataLayouter<NoExceptions> out) {
+	private void printExprBinaryJoin(ExprBinary expr, DataLayouter<NoExceptions> out) {
 		// The Alloy resolve dot joins (this) to a variable reference in a variable. We should not bring the ("this")
-		boolean variableReference = expr.left.toString().equals("this");
+		// We also do not print (Snapshot <: ...)
+		boolean clean = (expr.left.toString().equals("this") && isTranslationFromDash);
 
 		if (expr.right.toString().charAt(0) == '(') {
-			if (!variableReference) {
+			if (!clean) {
 				printExpr(expr.left, out);
 				out.print(expr.op);
 			}
 			printExpr(expr.right, out);
 		}
 		else {
-			if (!variableReference) {
+			if (!clean) {
 				printExpr(expr.left, out);
 				out.print(expr.op).print(' ').print('(');
 			}
 			printExpr(expr.right, out);
-			if (!variableReference) {
+			if (!clean) {
 				out.print(")");
 			}
 		}
 	}
 
-	private static void printExprCall(ExprCall expr, DataLayouter<NoExceptions> out) {
+	private void printExprCall(ExprCall expr, DataLayouter<NoExceptions> out) {
 		out.print(cleanLabel(expr.fun.label));
 		if (expr.args.size() == 0)
 			return;
@@ -306,7 +318,7 @@ public class DashModuleToString {
 		out.print(']').end();
 	}
 
-	private static void printExprChoice(ExprChoice expr, DataLayouter<NoExceptions> out) {
+	private void printExprChoice(ExprChoice expr, DataLayouter<NoExceptions> out) {
 		out.print("<");
 		for (Expr e : expr.choices) {
 			printExpr(e, out);
@@ -315,7 +327,7 @@ public class DashModuleToString {
 		out.print(">");
 	}
 
-	private static void printExprConstant(ExprConstant expr, DataLayouter<NoExceptions> out) {
+	private void printExprConstant(ExprConstant expr, DataLayouter<NoExceptions> out) {
 		if (expr.op == ExprConstant.Op.NUMBER)
 			out.print(expr.num);
 		else if (expr.op == ExprConstant.Op.STRING)
@@ -324,7 +336,7 @@ public class DashModuleToString {
 			out.print(expr.op);
 	}
 
-	private static void printExprITE(ExprITE expr, DataLayouter<NoExceptions> out) {
+	private void printExprITE(ExprITE expr, DataLayouter<NoExceptions> out) {
 		out.print('(').beginCInd();
 		printExpr(expr.cond, out);
 		out.print(" => ").brk(1,0);
@@ -335,13 +347,13 @@ public class DashModuleToString {
 		out.brk(1,-indent).end().print(')');
 	}
 
-	private static void printExprLet(ExprLet expr, DataLayouter<NoExceptions> out) {
+	private void printExprLet(ExprLet expr, DataLayouter<NoExceptions> out) {
 		out.print("(let ").print(cleanLabel(expr.var.label)).print("= ").print(expr.toString()).print(" | ");
 		printExpr(expr.sub, out);
 		out.print(')');
 	}
 
-	private static void printExprList(ExprList expr, DataLayouter<NoExceptions> out) {
+	private void printExprList(ExprList expr, DataLayouter<NoExceptions> out) {
         if (expr.op == ExprList.Op.AND ) {
             String op = " and";
             for (int i = 0; i < expr.args.size(); i++) {
@@ -371,7 +383,7 @@ public class DashModuleToString {
         }
 	}
 
-	private static void printExprQt(ExprQt expr, DataLayouter<NoExceptions> out) {
+	private void printExprQt(ExprQt expr, DataLayouter<NoExceptions> out) {
 		boolean first = true;
 		if (expr.op != ExprQt.Op.COMPREHENSION)
 			out.print('(').print(expr.op).print(' ').beginCInd();
@@ -388,7 +400,7 @@ public class DashModuleToString {
 			out.end().print('}');
 	}
 
-	private static void printExprUnary(ExprUnary expr, DataLayouter<NoExceptions> out) {
+	private void printExprUnary(ExprUnary expr, DataLayouter<NoExceptions> out) {
 		switch (expr.op) {
 			case SOMEOF :
 				out.print("some ");
@@ -448,20 +460,21 @@ public class DashModuleToString {
 		printExpr(expr.sub, out);
 	}
 
-	private static void printExprVar(ExprVar expr, DataLayouter<NoExceptions> out) {
+	private void printExprVar(ExprVar expr, DataLayouter<NoExceptions> out) {
 		out.print(cleanLabel(expr.label));
 	}
 
-	private static void printSig(Sig sig, DataLayouter<NoExceptions> out) {
+	private void printSig(Sig sig, DataLayouter<NoExceptions> out) {
 		out.print(cleanLabel(sig.label));
 	}
 
-	private static void printField(Field field, DataLayouter<NoExceptions> out) {
-		out.print("(").print(cleanLabel(field.sig.label)).print(" <: ").print(cleanLabel(field.label)).print(")");
+	private void printField(Field field, DataLayouter<NoExceptions> out) {
+		//out.print("(").print(cleanLabel(field.sig.label)).print(" <: ").print(cleanLabel(field.label)).print(")"); (OLD IMPLEMENTATION)
+		out.print("(").print(cleanLabel(field.label)).print(")");
 	}
 
 	// Helper method to print a list of declarations
-	private static void printDecls(ConstList<Decl> decls, DataLayouter<NoExceptions> out) {
+	private void printDecls(ConstList<Decl> decls, DataLayouter<NoExceptions> out) {
 		boolean first = true;
 		for (Decl decl : decls) {
 			StringJoiner namesJoiner = new StringJoiner(",");
@@ -480,7 +493,7 @@ public class DashModuleToString {
 	}
 
 	// Helper method to change "{path/label}" to "label"
-    private static String cleanLabel(String label) {
+    private String cleanLabel(String label) {
     	if (!label.contains("this/")) {
     		return label;
     	}
@@ -494,19 +507,19 @@ public class DashModuleToString {
         return label;
     }
     
-    private static String exprType(Expr expr) {	
+    private String exprType(Expr expr) {	
     	if (expr instanceof ExprBinary)
     		return exprBinary;
     	return "";
     }
     
-    private static ExprBinary.Op exprOp (Expr expr) {
+    private ExprBinary.Op exprOp (Expr expr) {
     	if (expr instanceof ExprBinary)
     		return ((ExprBinary) expr).op;
     	return null;
     }
     
-    private static void printComments(DashModule module, String reference, DataLayouter<NoExceptions> out) {
+    private void printComments(DashModule module, String reference, DataLayouter<NoExceptions> out) {
     	if (reference.equals("this/StateLabel")) {
     		out.brk().print("/***************************** STATE SPACE ************************************/").brk(); 
     	}
