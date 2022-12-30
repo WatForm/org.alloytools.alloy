@@ -909,7 +909,7 @@ public class DashHelper {
    * Locate the parent state of an item that is being referenced (state/myVar) -> state
    */
   public static void findItemParentLocally(DashSuperState state, final String reference, List<DashSuperState> match) {
-	  if (reference.indexOf('/') < 0) {
+	  if (reference.indexOf('/') < 0 || match.size() > 0) {
 		  return;
 	  }
 	  String stateName = reference.substring(0, reference.indexOf('/'));
@@ -1059,6 +1059,9 @@ public class DashHelper {
   }
   
   public static void findVariableParentHelper (DashModule module, DashSuperState state, String variable, List<DashSuperState> matches) {
+	  if (matches.size() > 0) {
+		  return;
+	  }
 	  if (state.getVariableNames().contains(variable)) {
 		  matches.add(state);
 	  }

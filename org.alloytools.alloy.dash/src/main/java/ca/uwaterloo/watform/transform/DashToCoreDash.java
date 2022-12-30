@@ -42,16 +42,16 @@ public class DashToCoreDash {
     public DashModule transformToCoreDash(final DashModule module, final String fileName, final String path) throws IOException {
     	DashModule coreDashModule = new DashModule(module, fileName, path, true);
         modifyTransitions(coreDashModule);
-        modifyGoToCommands(coreDashModule); 
-        modifyFromCommands(coreDashModule);
+        completedGoToCommands(coreDashModule);
+		completeFromCommands(coreDashModule);
         modifyTransitionParent(coreDashModule);
         return coreDashModule;
     }
 
      private void modifyTransitions(final DashModule module) {
         for (DashTrans trans : module.getTransitions().values()) {
-            trans.setOrigin(new DashFrom(completeFromCommand(trans, module), false));
-            trans.setDestination(completeGoToCommand(trans, module));
+        	trans.setOrigin(new DashFrom(createFromCommand(trans, module), false));
+        	trans.setDestination(new DashGoto(createGoToCommand(trans, module)));
             trans.setTriggerEvent(completeOnCommand(trans, module));
             trans.setEventsTriggered(completeSendCommand(trans, module));
             trans.setAction(addAction(trans.getAction(), module));
@@ -74,11 +74,39 @@ public class DashToCoreDash {
         		}
         	}     	
         } 
-    } 
+    }
+    
+    DashGoto createGoToCommand(final DashTrans trans, final DashModule module) {
+         List<String> completedGoToCommands = new ArrayList<String>();
+
+         if (trans.getDestination() != null && trans.getDestination().getAllDestinations() != null) {
+             for (String gotoCommand : trans.getDestination().getAllDestinations()) {
+             	if(gotoCommand.contains("/")) {
+             		completedGoToCommands.add(gotoCommand);
+             		return new DashGoto(trans.getDestination().getPos(), completedGoToCommands, trans.getDestination().getDestination());
+             	}
+             	
+             	DashState gotoState = locateState(trans, gotoCommand, module);
+             	
+             	if(gotoState != null) {
+             		completedGoToCommands.add(gotoState.getFullyQualName());
+             	}
+             	else {/* Transitioning to a conc state that does not have an OR state */
+             		completedGoToCommands.add(generateCompleteCommand(trans, gotoCommand));
+             	}
+             }
+         }
+         else {
+             //If we do not have a goto command, it should be equal to the origin of the transition
+             completedGoToCommands.add(trans.getOrigin().getAllOrigins().get(0));
+         }
+  
+         return trans.getDestination() == null ? new DashGoto(null, completedGoToCommands, null) : new DashGoto(trans.getDestination().getPos(), completedGoToCommands, trans.getDestination().getDestination());
+     }
     
     /* Check if a GoTo command transitions to a state that has inner OR states. If so,
      * then that transition will need to transition to the default inner OR state */
-     private void modifyGoToCommands(final DashModule module) { 
+     private void completedGoToCommands(final DashModule module) { 
         for (DashTrans trans : module.getTransitions().values()) {
         	String destination = trans.getDestination().getAllDestinations().get(0);
         	DashState destinationState = DashHelper.getState(destination, module);
@@ -118,42 +146,64 @@ public class DashToCoreDash {
         	}
         }
     } 
+     
+    List<String> createFromCommand(final DashTrans trans, final DashModule module) {
+         List<String> completedFromCommands = new ArrayList<String>();
+
+         if (trans.getOrigin() != null) {
+             for (String fromCommand : trans.getOrigin().getAllOrigins()) {
+             	if(fromCommand.contains("/"))
+             		fromCommand = fromCommand.substring(fromCommand.lastIndexOf("/") + 1);
+             	
+             	DashState fromState = locateState(trans, fromCommand, module);
+             	
+             	if(fromState != null)
+             		completedFromCommands.add(fromState.getFullyQualName());
+             	else /* Transitioning to a conc state that does not have an OR state */
+             		completedFromCommands.add(generateCompleteCommand(trans, fromCommand));
+             }
+         } else {
+             completedFromCommands.add(generateCompleteCommand(trans, ""));
+         }
+          
+         return completedFromCommands;
+     }
     
     /* Check if leave a state will result in other concurrent states leaving their current state */
-     private void modifyFromCommands(final DashModule module) {
-        for (DashTrans trans : module.getTransitions().values()) {
-        	DashState fromState = DashHelper.getState(trans.getOrigin().getAllOrigins().get(0).replace("/", "_"), module);
-        	DashState gotoState = DashHelper.getState(trans.getDestination().getAllDestinations().get(0).replace("/", "_"), module);
-        	if (fromState == null || gotoState == null) {
-        		continue;
-        	}
-        	DashConcState fromParent = DashHelper.getParentConcState(fromState);
-        	DashConcState gotoParent = DashHelper.getParentConcState(gotoState);
-        	if (fromParent == null || gotoParent == null) {
-        		continue;
-        	}
-        	if (fromParent.getFullyQualName().equals(gotoParent.getFullyQualName())) {
-        		continue; 
-        	}
-        	DashSuperState immediateFromParent = fromState.getParent();
-        	while (immediateFromParent != null) {
-        		DashSuperState lookAhead = immediateFromParent.getParent();
-    			DashSuperState stateParent = lookAhead;
-    			if (stateParent.getFullyQualName().equals(gotoParent.getFullyQualName())) {
-    				trans.getOrigin().setLeavingMultipleStates(true);
-    				break;
-    			}
-        		immediateFromParent = immediateFromParent.getParent();
-        	}
-        	
-        	if (trans.getOrigin().isTransitionToParentState()) {
-        		trans.getOrigin().setConcStatesExited(immediateFromParent instanceof DashConcState ? new ArrayList<DashConcState>(getAllConcStates((DashConcState) immediateFromParent)) 
-        				: new ArrayList<DashConcState>(getAllConcStates((DashState) immediateFromParent)));
-        		trans.getOrigin().setStateBeingLeft((immediateFromParent instanceof DashConcState) ? ((DashConcState) immediateFromParent).getFullyQualName() 
-        				: ((DashState) immediateFromParent).getFullyQualName());
-        		trans.getOrigin().setConcStateExited(fromParent);
-        	}
-        }
+     private void completeFromCommands(final DashModule module) {
+    	for (DashTrans trans: module.getTransitions().values()) {
+	    	DashState fromState = DashHelper.getState(trans.getOrigin().getAllOrigins().get(0).replace("/", "_"), module);
+	    	DashState gotoState = DashHelper.getState(trans.getDestination().getAllDestinations().get(0).replace("/", "_"), module);
+	    	if (fromState == null || gotoState == null) {
+	    		continue;
+	    	}
+	    	DashConcState fromParent = DashHelper.getParentConcState(fromState);
+	    	DashConcState gotoParent = DashHelper.getParentConcState(gotoState);
+	    	if (fromParent == null || gotoParent == null) {
+	    		continue;
+	    	}
+	    	if (fromParent.getFullyQualName().equals(gotoParent.getFullyQualName())) {
+	    		continue; 
+	    	}
+	    	DashSuperState immediateFromParent = fromState.getParent();
+	    	while (immediateFromParent != null) {
+	    		DashSuperState lookAhead = immediateFromParent.getParent();
+				DashSuperState stateParent = lookAhead;
+				if (stateParent.getFullyQualName().equals(gotoParent.getFullyQualName())) {
+					trans.getOrigin().setLeavingMultipleStates(true);
+					break;
+				}
+	    		immediateFromParent = immediateFromParent.getParent();
+	    	}
+	    	
+	    	if (trans.getOrigin().isTransitionToParentState()) {
+	    		trans.getOrigin().setConcStatesExited(immediateFromParent instanceof DashConcState ? new ArrayList<DashConcState>(getAllConcStates((DashConcState) immediateFromParent)) 
+	    				: new ArrayList<DashConcState>(getAllConcStates((DashState) immediateFromParent)));
+	    		trans.getOrigin().setStateBeingLeft((immediateFromParent instanceof DashConcState) ? ((DashConcState) immediateFromParent).getFullyQualName() 
+	    				: ((DashState) immediateFromParent).getFullyQualName());
+	    		trans.getOrigin().setConcStateExited(fromParent);
+	    	}
+    	}
     }
     
      List<DashConcState> getAllConcStates (final DashSuperState state) {
@@ -170,10 +220,10 @@ public class DashToCoreDash {
     
     //Check to see if a state that we are transitioning to has an inner default state,
     //if it does, then the transition will need to transition to that state instead
-     String getDefaultState(final DashState state, List<DashState> statesEntered) { 
+     String getDefaultState(final DashSuperState state, List<DashState> statesEntered) { 
     	for(DashState innerState: state.getInnerORStates()) {
     		if(innerState.isDefault()) {
-    			statesEntered.add(state);
+    			statesEntered.add((DashState)state);
     			return getDefaultState(innerState, statesEntered);
     		}
     	}
@@ -181,17 +231,6 @@ public class DashToCoreDash {
         return state.getFullyQualName();
     } 
     
-    //Check to see if a state that we are transitioning to has an inner default state,
-    //if it does, then the transition will need to transition to that state instead
-     String getDefaultState(final DashConcState state, List<DashState> statesEntered) { 
-    	for(DashState innerState: state.getInnerORStates()) {
-    		if(innerState.isDefault())
-    			return getDefaultState(innerState, statesEntered);
-    	}
-
-        return state.getFullyQualName();
-    }
-
     /* Check to see if a state that we are transitioning to has an inner default state,
     	if it does, then the transition will need to transition to that state instead
     */
@@ -382,56 +421,6 @@ public class DashToCoreDash {
     		
     	}
     	return false;
-    }
-
-     List<String> completeFromCommand(final DashTrans trans, final DashModule module) {
-        List<String> completedFromCommands = new ArrayList<String>();
-
-        if (trans.getOrigin() != null) {
-            for (String fromCommand : trans.getOrigin().getAllOrigins()) {
-            	if(fromCommand.contains("/"))
-            		fromCommand = fromCommand.substring(fromCommand.lastIndexOf("/") + 1);
-            	
-            	DashState fromState = locateState(trans, fromCommand, module);
-            	
-            	if(fromState != null)
-            		completedFromCommands.add(fromState.getFullyQualName());
-            	else /* Transitioning to a conc state that does not have an OR state */
-            		completedFromCommands.add(generateCompleteCommand(trans, fromCommand));
-            }
-        } else {
-            completedFromCommands.add(generateCompleteCommand(trans, ""));
-        }
-         
-        return completedFromCommands;
-    }
-
-     DashGoto completeGoToCommand(final DashTrans trans, final DashModule module) {
-        List<String> completedGoToCommands = new ArrayList<String>();
-
-        if (trans.getDestination() != null && trans.getDestination().getAllDestinations() != null) {
-            for (String gotoCommand : trans.getDestination().getAllDestinations()) {
-            	if(gotoCommand.contains("/")) {
-            		completedGoToCommands.add(gotoCommand);
-            		return new DashGoto(trans.getDestination().getPos(), completedGoToCommands, trans.getDestination().getDestination());
-            	}
-            	
-            	DashState gotoState = locateState(trans, gotoCommand, module);
-            	
-            	if(gotoState != null) {
-            		completedGoToCommands.add(gotoState.getFullyQualName());
-            	}
-            	else {/* Transitioning to a conc state that does not have an OR state */
-            		completedGoToCommands.add(generateCompleteCommand(trans, gotoCommand));
-            	}
-            }
-        }
-        else {
-            //If we do not have a goto command, it should be equal to the origin of the transition
-            completedGoToCommands.add(trans.getOrigin().getAllOrigins().get(0));
-        }
- 
-        return trans.getDestination() == null ? new DashGoto(null, completedGoToCommands, null) : new DashGoto(trans.getDestination().getPos(), completedGoToCommands, trans.getDestination().getDestination());
     }
     
     /* Locate an or state to transition to  */
