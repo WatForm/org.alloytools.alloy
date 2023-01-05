@@ -897,6 +897,9 @@ public class DashHelper {
   }
    
   public static void locateStateHelper (DashSuperState state, String name, List<DashSuperState> match) {
+	  if (match.size() > 0) {
+		  return;
+	  }
 	  List<DashConcState> ANDMatches = state.getInnerConcStates().parallelStream().filter(x -> x.getRawName().equals(name)).collect(Collectors.toCollection(ArrayList::new));
 	  List<DashState> ORMatches = state.getInnerORStates().parallelStream().filter(x -> x.getRawName().equals(name)).collect(Collectors.toCollection(ArrayList::new));
 	  match.addAll(ANDMatches);
