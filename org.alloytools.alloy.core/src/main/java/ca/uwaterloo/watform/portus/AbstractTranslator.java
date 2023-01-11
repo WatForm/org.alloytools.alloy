@@ -30,7 +30,7 @@ abstract class AbstractTranslator implements Translator {
     // The Translator used for recursive translation.
     // We can't just call translate() because that wouldn't give other translators
     // the chance to translate.
-    private final Translator topLevelTranslator;
+    protected final Translator topLevelTranslator;
 
     private final Visitor visitor = new Visitor();
 

@@ -39,6 +39,9 @@ import java.util.stream.IntStream;
  */
 final class DefaultTranslator extends AbstractTranslator {
 
+    // For creating the scope axioms.
+    private final ScopeAxiomStrategy scopeAxiomStrategy;
+
     // Membership predicates for each signature (see KT 4.2).
     // Represent it by a Java function taking "x" to "inA(x)".
     // (For some arguments the function might not just return inA(x) - it could return Top or Bottom as opts.)
@@ -58,8 +61,9 @@ final class DefaultTranslator extends AbstractTranslator {
     // It's not a real map because Expr doesn't support equals()/hashCode() easily, and we can tolerate O(n) lookup.
     private final List<Pair<Pair<Expr, Sort>, String>> auxClosureRelationNames = new ArrayList<>();
 
-    public DefaultTranslator(Translator topLevelTranslator) {
+    public DefaultTranslator(Translator topLevelTranslator, ScopeAxiomStrategy scopeAxiomStrategy) {
         super(topLevelTranslator);
+        this.scopeAxiomStrategy = scopeAxiomStrategy;
     }
 
     /** Translate a PrimSig declaration. */
@@ -111,9 +115,9 @@ final class DefaultTranslator extends AbstractTranslator {
         // Generate scope constraints
         int scope = context.scoper.sig2scope(sig);
         if (context.scoper.isExact(sig)) {
-            context.addAxiom(makeExactScopeAxiom(sig, scope, context));
+            context.addAxiom(scopeAxiomStrategy.makeExactScopeAxiom(sig, scope, topLevelTranslator, context));
         } else {
-            context.addAxiom(makeNonExactScopeAxiom(sig, scope, context));
+            context.addAxiom(scopeAxiomStrategy.makeNonExactScopeAxiom(sig, scope, topLevelTranslator, context));
         }
 
         // return Top because the returned Term doesn't matter for a Sig
@@ -153,72 +157,6 @@ final class DefaultTranslator extends AbstractTranslator {
         }
         Expr completenessAxiom = disjunction.forAll(x);
         return recursivelyTranslate(completenessAxiom, context);
-    }
-
-    /** Create an axiom that the sig has an exact scope of `scope`. */
-    private Term makeExactScopeAxiom(Sig sig, int scope, TranslationContext context) {
-        // Fortress: "exists x1, ..., xn: sort . forall x: sort . !(x1 = x2) && ...
-        // && !(x1 = xn) && !(x2 = x3) && ... && !(x{n-1} = xn) && ([[x \in sig]] <=> x = x1
-        // || ... || x = xn)" (KT 4.3)
-        List<AnnotatedVar> vars = new ArrayList<>(scope);
-        Sort sigSort = context.sortPolicy.getSort(sig);
-        assert sigSort != null;
-        for (int i = 0; i < scope; i++) {
-            vars.add(AnnotatedVar.apply(Term.mkVar("x" + i), sigSort));
-        }
-        AnnotatedVar x = AnnotatedVar.apply(Term.mkVar("x"), sigSort);
-
-        // construct the !(xi = xj) conjuncts
-        List<Term> conjuncts = new ArrayList<>();
-        for (int i = 0; i < scope; i++) {
-            for (int j = i+1; j < scope; j++) {
-                conjuncts.add(Term.mkNot(Term.mkEq(vars.get(i).variable(), vars.get(j).variable())));
-            }
-        }
-
-        // construct the x = xi disjuncts
-        List<Term> eqDisjuncts = vars.stream()
-                .map(var -> Term.mkEq(x.variable(), var.variable()))
-                .collect(Collectors.toList());
-
-        // construct the last conjunct
-        Term xInChild = recursivelyTranslate(ExprElementOf.make(x, sig), context);
-        Term implication = Term.mkIff(xInChild, Term.mkOr(eqDisjuncts));
-        conjuncts.add(implication);
-
-        // construct the final axiom
-        return Term.mkExists(vars, Term.mkForall(x, Term.mkAnd(conjuncts)));
-    }
-
-    /** Create an axiom that the sig has a non-exact scope of `scope`. */
-    private Term makeNonExactScopeAxiom(Sig sig, int scope, TranslationContext context) {
-        // Fortress: "forall x1, ..., x{n+1}: sort . [[x1 \in child]] && ... && [[x{n+1} \in child]] =>
-        // x1 = x2 || .. || x1 = x{n+1} || x2 = x3 || ... || xn = x{n+1}" (KT 4.3)
-        int numVars = scope + 1;
-        List<AnnotatedVar> vars = new ArrayList<>(numVars);
-        Sort sigSort = context.sortPolicy.getSort(sig);
-        assert sigSort != null;
-        for (int i = 0; i < numVars; i++) {
-            vars.add(AnnotatedVar.apply(Term.mkVar("x" + i), sigSort));
-        }
-
-        // construct the conjuncts
-        List<Term> conjuncts = vars.stream()
-                .map(var -> recursivelyTranslate(ExprElementOf.make(var, sig), context))
-                .collect(Collectors.toList());
-        Term conjunction = Term.mkAnd(conjuncts);
-
-        // construct the O(scope^2) disjuncts
-        List<Term> disjuncts = new ArrayList<>();
-        for (int i = 0; i < numVars; i++) {
-            for (int j = i+1; j < numVars; j++) {
-                disjuncts.add(Term.mkEq(vars.get(i).variable(), vars.get(j).variable()));
-            }
-        }
-        Term disjunction = Term.mkOr(disjuncts);
-
-        // construct the forall and the final axiom
-        return Term.mkForall(vars, Term.mkImp(conjunction, disjunction));
     }
 
     /** Translate "var \in sig". */

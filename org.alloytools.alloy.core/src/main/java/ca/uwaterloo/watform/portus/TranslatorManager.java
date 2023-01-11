@@ -35,7 +35,7 @@ final class TranslatorManager implements Translator {
         translators.add(new FunctionOptTranslator(this, true));
         translators.add(new JoinOptTranslator(this));
         translators.add(new OrderingModuleOptTranslator(this));
-        translators.add(new DefaultTranslator(this));
+        translators.add(new DefaultTranslator(this, new CardinalityScopeAxiomStrategy()));
     }
 
     /**

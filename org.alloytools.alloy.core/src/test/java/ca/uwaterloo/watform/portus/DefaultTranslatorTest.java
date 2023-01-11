@@ -81,7 +81,7 @@ public class DefaultTranslatorTest {
     @Before
     public void setUp() {
         mockRoot = mock(Translator.class);
-        translator = new DefaultTranslator(mockRoot);
+        translator = new DefaultTranslator(mockRoot, new QuantifierScopeAxiomStrategy());
         mockScoper = mock(ScopeComputer.class);
         mockSortPolicy = mock(SortPolicy.class, delegatesTo(
                 new UnivSortPolicy(univ, Collections.emptyList(), mockScoper)));
