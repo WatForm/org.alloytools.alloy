@@ -46,7 +46,7 @@ public class DashPythonTranslationTest {
     public void testStates() throws Exception {
         String dashModel = "conc state concState { default state topStateA { default state innerState{}} state topStateB{}}";
         DashModule dashModule = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
-        DashToCoreDash.transformToCoreDash(dashModule);
+        dashModule = new DashToCoreDash().transformToCoreDash(dashModule, null, "");
         DashPythonTranslation translation = new DashPythonTranslation(dashModule);
         assertEquals(1, translation.getStates().size());
         assertEquals("concState", translation.getStates().get(0).getName());
@@ -73,7 +73,7 @@ public class DashPythonTranslationTest {
     public void testStateInit() throws Exception {
         String dashModel = "sig Chair {} sig Player {} conc state Game { active_players: set Player active_chairs: set Chair occupied: Chair set -> set Player init { active_players = Player active_chairs = Chair occupied = none -> none}}";
         DashModule dashModule = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
-        DashToCoreDash.transformToCoreDash(dashModule);
+        dashModule = new DashToCoreDash().transformToCoreDash(dashModule, null, "");
         DashPythonTranslation translation = new DashPythonTranslation(dashModule);
         assertEquals(1, translation.getStates().size());
 
@@ -97,7 +97,7 @@ public class DashPythonTranslationTest {
         String dashModel = "conc state topConcStateA { event A{} default state s1{} state s2{} trans t1 {from s2 on A goto s1} trans t2 {from s1 on A goto s2} }";
 
         DashModule dashModule = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
-        DashToCoreDash.transformToCoreDash(dashModule);
+        dashModule = new DashToCoreDash().transformToCoreDash(dashModule, null, "");
 
         DashPythonTranslation translation = new DashPythonTranslation(dashModule);
 
@@ -127,7 +127,7 @@ public class DashPythonTranslationTest {
                 "lone sig LoneSig {}";
 
         DashModule dashModule = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
-        DashToCoreDash.transformToCoreDash(dashModule);
+        dashModule = new DashToCoreDash().transformToCoreDash(dashModule, null, "");
 
         DashPythonTranslation translation = new DashPythonTranslation(dashModule);
 
@@ -156,7 +156,7 @@ public class DashPythonTranslationTest {
                 "sig AAA extends AA {}";
 
         DashModule dashModule = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
-        DashToCoreDash.transformToCoreDash(dashModule);
+        dashModule = new DashToCoreDash().transformToCoreDash(dashModule, null, "");
 
         DashPythonTranslation translation = new DashPythonTranslation(dashModule);
 
@@ -318,7 +318,7 @@ public class DashPythonTranslationTest {
             );
 
         DashModule dashModule = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
-        DashToCoreDash.transformToCoreDash(dashModule);
+        dashModule = new DashToCoreDash().transformToCoreDash(dashModule, null, "");
         DashPythonTranslation translation = new DashPythonTranslation(dashModule);
 
         for (int index = 0; index < expectedResults.size(); index++) {
@@ -345,7 +345,7 @@ public class DashPythonTranslationTest {
                 "trans trans_When_test_unequal_bang {when !(SigA != SigB)} }";
 
         DashModule dashModule = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
-        DashToCoreDash.transformToCoreDash(dashModule);
+        dashModule = new DashToCoreDash().transformToCoreDash(dashModule, null, "");
 
         DashPythonTranslation translation = new DashPythonTranslation(dashModule);
 
@@ -383,7 +383,7 @@ public class DashPythonTranslationTest {
                 "}";
 
         DashModule dashModule = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
-        DashToCoreDash.transformToCoreDash(dashModule);
+        dashModule = new DashToCoreDash().transformToCoreDash(dashModule, null, "");
 
         DashPythonTranslation translation = new DashPythonTranslation(dashModule);
 
@@ -442,7 +442,7 @@ public class DashPythonTranslationTest {
         );
 
         DashModule dashModule = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
-        DashToCoreDash.transformToCoreDash(dashModule);
+        dashModule = new DashToCoreDash().transformToCoreDash(dashModule, null, "");
         DashPythonTranslation translation = new DashPythonTranslation(dashModule);
 
         for (int index = 0; index < expectedResults.size(); index++) {
