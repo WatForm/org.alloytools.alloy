@@ -37,7 +37,7 @@ public class CoreDashToPythonTest {
     public void testStates() throws IOException {
         String dashModel = "conc state concState { default state topStateA { default state innerState{}} state topStateB{}}";
         DashModule dashModule = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
-        DashToCoreDash.transformToCoreDash(dashModule);
+        dashModule = new DashToCoreDash().transformToCoreDash(dashModule, null, "");
         DashPythonTranslation translation = new DashPythonTranslation(dashModule);
 
         assertNotNull(CoreDashToPython.convert2String(translation));
@@ -51,29 +51,30 @@ public class CoreDashToPythonTest {
                 "some sig SomeSig {}\n" +
                 "lone sig LoneSig {}";
         DashModule dashModule = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
-        DashToCoreDash.transformToCoreDash(dashModule);
+        dashModule = new DashToCoreDash().transformToCoreDash(dashModule, null, "");
         DashPythonTranslation translation = new DashPythonTranslation(dashModule);
 
         List<String> expectedTranslation = Arrays.asList("class Floor(Signature):",
-                "sig_objects = {\"Floor$0\", \"Floor$1\", \"Floor$2\"}",
+                "atoms = {\"Floor$0\", \"Floor$1\", \"Floor$2\"}",
                 "class Medication(Signature):",
-                "sig_objects = {\"Medication$0\", \"Medication$1\", \"Medication$2\"}",
+                "atoms = {\"Medication$0\", \"Medication$1\", \"Medication$2\"}",
                 "class Chicken(Signature):",
-                "sig_objects = {\"Chicken$0\"}",
+                "atoms = {\"Chicken$0\"}",
                 "class Farmer(Signature):",
-                "sig_objects = {\"Farmer$0\"}",
+                "atoms = {\"Farmer$0\"}",
                 "class Fox(Signature):",
-                "sig_objects = {\"Fox$0\"}",
+                "atoms = {\"Fox$0\"}",
                 "class Grain(Signature):",
-                "sig_objects = {\"Grain$0\"}",
+                "atoms = {\"Grain$0\"}",
                 "class SomeSig(Signature):",
-                "sig_objects = {\"SomeSig$0\", \"SomeSig$1\", \"SomeSig$2\"}",
+                "atoms = {\"SomeSig$0\", \"SomeSig$1\", \"SomeSig$2\"}",
                 "class LoneSig(Signature):",
-                "sig_objects = {}");
+                "atoms = {}");
 
         CoreDashToPython.print(translation);
 
         for(String sigTrans : expectedTranslation){
+            System.out.println("====== "+sigTrans);
             assert (CoreDashToPython.convert2String(translation).contains(sigTrans));
         }
     }
@@ -89,7 +90,7 @@ public class CoreDashToPythonTest {
         "sig B {}\n";
 
         DashModule dashModule = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
-        DashToCoreDash.transformToCoreDash(dashModule);
+        dashModule = new DashToCoreDash().transformToCoreDash(dashModule, null, "");
         DashPythonTranslation translation = new DashPythonTranslation(dashModule);
 
         List<String> expectedTranslation = Arrays.asList("class Asubset1(Signature):",
@@ -119,7 +120,7 @@ public class CoreDashToPythonTest {
                 "sig A6 {f6: A1 one -> lone A2 -> lone A3}";
 
         DashModule dashModule = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
-        DashToCoreDash.transformToCoreDash(dashModule);
+        dashModule = new DashToCoreDash().transformToCoreDash(dashModule, null, "");
         DashPythonTranslation translation = new DashPythonTranslation(dashModule);
 
         List<String> expectedTranslation = Arrays.asList("class f0(Relation):",
