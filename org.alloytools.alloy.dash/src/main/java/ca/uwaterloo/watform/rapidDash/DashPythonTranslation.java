@@ -519,7 +519,7 @@ public class DashPythonTranslation {
                 this.action = dashExprTranslator.toString();
             }
             if(dashTrans.getDestination() != null){    // determine the next state
-                this.toStateName = dashTrans.getDestination().toString();
+                this.toStateName = dashTrans.getDestination().getAllDestinations().get(0);
             }
             if(dashTrans.getEventsTriggered() != null){    // determines the event to send
                 this.triggerEvent = dashTrans.getEventsTriggered().getRawName();
