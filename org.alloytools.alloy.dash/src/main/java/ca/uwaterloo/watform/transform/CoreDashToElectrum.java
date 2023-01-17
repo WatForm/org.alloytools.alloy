@@ -74,7 +74,9 @@ public class CoreDashToElectrum {
         createTransitionsAST(alloyModule);
         
         createInitAST(alloyModule);
-        createTestIfStableAST(alloyModule);
+        if(module.getAllConcurrentStates().size() > 1) {
+        	createTestIfStableAST(alloyModule);
+        }
         createSmallStepAST(alloyModule);
         
         createEqualsAST(alloyModule);
@@ -166,8 +168,16 @@ public class CoreDashToElectrum {
         	}
         }
         
-        // Creating the Variable signature and its relations
         decls.clear();
+        /* Creating the following expression: evnVar: mappings */
+        for (String variableName : module.getEnvVarExpresssion().keySet()) {
+            b = module.getEnvVarExpresssion().get(variableName);
+            a.add(ExprVar.make(null, variableName));
+        	decls.add(new Decl(null, null, null, null, a, b));
+            a.clear();
+        }  
+        
+        // Creating the Variable signature and its relations
         for (String variableName : module.getVariableExpresssion().keySet()) {
         	if (module.getVariableConcState().get(variableName).getANDState().getIdentifiers().size() > 0) continue;       		
             b = module.getVariableExpresssion().get(variableName);
@@ -1304,7 +1314,9 @@ public class CoreDashToElectrum {
         
         Expr initCall =  DashHelper.createExprVar("init");
         initCall = DashHelper.addParametersJoin(initCall, module.getIdentifierElements().size());
-        initCall = ExprQt.Op.ALL.make(null, null, decls, initCall);
+        if (!decls.isEmpty()) {
+        	initCall = ExprQt.Op.ALL.make(null, null, decls, initCall);
+        }
         
     	return initCall;
     }
