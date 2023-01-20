@@ -149,6 +149,18 @@ abstract class SortPolicy {
         return result;
     }
 
+    /** Is a sort definite (i.e. nonnull)? Use this instead of testing for null for readability. */
+    public static boolean isSortDefinite(Sort sort) {
+        return sort != null;
+    }
+
+    /** Is sort 'a' a subset of sort 'b'? Everything is assumed to be a subset of INDEFINITE. */
+    public static boolean isSortSubset(Sort a, Sort b) {
+        // The only sort hierarchy is that everything is a subset of INDEFINITE.
+        // So a is a subset of b iff a = b or b is indefinite.
+        return a.equals(b) || !isSortDefinite(b);
+    }
+
     private final class SortVisitor extends FortressVisitReturn<List<Sort>> {
 
         // Thrown on failure, because exceptions-as-flow-control is the most convenient here (unfortunately)

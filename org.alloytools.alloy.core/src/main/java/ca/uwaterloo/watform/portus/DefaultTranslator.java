@@ -568,21 +568,49 @@ final class DefaultTranslator extends AbstractTranslator {
         //   [[(x1, ..., xn) \in e1]] <=> [[(x1, ..., xn) \in e2]]
         // We also handle multiplicities on e2 in the case of "e1 in M e2", because Alloy supports formulas
         // like "a in ONEOF(b)" and these come up in translating field declarations.
-        // Typechecker ensured arities are the same, make sure sort are the same
-        assert e1.type().arity() == e2.type().arity();
-        String sortErrMsg = "Both sides in an 'in' or '=' formula must have the same definite Portus sorts!";
+
+        // Determine the sorts. We need to quantify over each term in each position, so we need a definite Portus sort
+        // for each position, but we also need to support constructions like "f in iden", so we can't demand that both
+        // e1 and e2 have definite sorts in the 'in' case (since iden's sorts are indefinite).
+        // We strike the following compromise:
+        // - in "e1 = e2", e1 and e2 must have equal definite sorts. This disallows tricky cases like "f = iden".
+        // - in "e1 in e2", e1 must have definite sorts which are subsets of the (definite or indefinite) sorts of e2.
+        //   We will quantify over e1's sorts. This disallows "iden in f" but allows "f in iden", which is common.
+        // Currently we reject formulas that don't meet these standards, but there's room for short-circuiting.
+        String sortErrMsg = "Both sides in an 'in' or '=' formula must have well-defined Portus sorts!";
         List<Sort> e1Sorts = context.sortPolicy.getMinimalExprSorts(e1, sortErrMsg, context);
         List<Sort> e2Sorts = context.sortPolicy.getMinimalExprSorts(e2, sortErrMsg, context);
-        if (!e1Sorts.equals(e2Sorts)) {
-            throw new ErrorFatal("The Portus sorts of both sides of an 'in' or '=' formula must be the same! "
-                + e1Sorts.size() + " " + e2Sorts.size());
+        assert e1Sorts.size() == e2Sorts.size(); // typechecker should have ensured this
+        List<Sort> sorts = new ArrayList<>();
+        for (int i = 0; i < e1Sorts.size(); i++) {
+            // Merge the sorts as described above.
+            Sort e1Sort = e1Sorts.get(i), e2Sort = e2Sorts.get(i);
+            if (op == ExprBinary.Op.EQUALS) {
+                // they must be equal definite sorts: disallow "f = iden"
+                boolean ok = (e1Sort == e2Sort && SortPolicy.isSortDefinite(e1Sort));
+                if (!ok) {
+                    // TODO: can we short-circuit here? Requires knowing whether there are other sorts
+                    throw new ErrorFatal("Both sides of an '=' formula must have the same definite Portus sorts.");
+                }
+            } else { // ExprBinary.Op.IN
+                // in "e1 in e2", e1 must have definite sorts that are a subset of e2's sorts
+                // so we allow "f in iden", but not "iden in f"
+                boolean ok = (SortPolicy.isSortDefinite(e1Sort) && SortPolicy.isSortSubset(e1Sort, e2Sort));
+                if (!ok) {
+                    // TODO: short-circuiting here as well?
+                    throw new ErrorFatal("The left side of an 'in' must have definite Portus sorts that are a" +
+                            " subset of the right side's sorts.");
+                }
+            }
+            // Use the left side's sorts in either case (they'll be equal if it's an '=' formula).
+            sorts.add(e1Sort);
         }
 
         // Create the variables
         // TODO: also think about how much short circuiting we can do here
         List<AnnotatedVar> vars = IntStream.range(0, e1.type().arity())
                 .mapToObj(idx -> Term.mkVar(context.nameGenerator.freshName("x" + idx))
-                        .of(e1Sorts.get(idx)))
+                        .of(sorts.get(idx)))
                 .collect(Collectors.toList());
 
         Term inE1 = recursivelyTranslate(ExprElementOf.make(new VarTuple(vars), e1), context);
