@@ -57,7 +57,7 @@ class State(ABC):
     def __ne__(self, obj):
         return type(self) != type(obj)
 
-    def handleEvent(self):
+    def handleEvent(self) -> bool:
         possible_transitions = []
         for k, v in self.transitions.items():
             if k():
@@ -66,11 +66,20 @@ class State(ABC):
         if(possible_transitions):
             chosen_transition = random.randint(0, len(possible_transitions) - 1)
             possible_transitions[chosen_transition]()
+            return True
         elif(self._active_state):
-            self._active_state.handleEvent()
+            return self._active_state.handleEvent()
         elif(self._conc_states):
-            for s in self._conc_states:
-                s.handleEvent()
+            unused_conc_states = self._conc_states.copy()
+            transitions_taken = True
+            while len(unused_conc_states) > 0 and transitions_taken:
+                transitions_taken = False
+                for s in unused_conc_states:
+                    if(s.handleEvent()):
+                        unused_conc_states.remove(s)
+                        transitions_taken = True
+        
+        return False
 
     def printStates(self):
         if(self._active_state):
@@ -362,7 +371,6 @@ class CentralController:
             if(eventName in self.possibleEvents):
                 activeEvents.clear()
                 activeEvents.add(eventName)
-                # TODO: refactor to only allow 1 transition per conc state in a big step
                 self.concState.handleEvent()
             elif(eventName != "QUIT"):
                 print("Invalid event name")
