@@ -41,6 +41,7 @@ public class Dash {
 
         if (Files.notExists(path)) {
             System.err.println(actual + " : does not exist");
+            return;
         }
 
         Path fileName = path.getFileName();
