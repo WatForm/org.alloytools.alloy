@@ -34,8 +34,13 @@ class State(ABC):
         # State() => doesn't do anything
         # State(parent_state: State) => set _parent_state
         # State(parent_state: State, root_state: State) => also set _root_state
-        self._active_state: State = None # used when there is only one active child state
-        self._conc_states: List[State] = [] # used when there is multple children conc states
+
+        self._children: List[State] = [] # Set once when creating children
+        self.is_conc: bool = False # Set once when creating children
+        self._is_children_conc: bool = False # Set once when creating children
+        self.is_active: bool = False # Set at controller start, and when transition happens
+        self._default_state: State = None # Set once when creating children
+
         self.transitions = dict()
         if len(args) >= 2 and isinstance(args[1], State):
             self._set_root_state(args[1])
@@ -47,10 +52,7 @@ class State(ABC):
 
     def print_tree(self, level: int = 0):
         print("\t"*level+self.__repr__())
-        if self._active_state:
-            self._active_state.print_tree(level + 1)
-        else:
-            for s in self._conc_states:
+        for s in self._children:
             s.print_tree(level + 1)
 
     def _set_parent_state(self, state: State):
@@ -320,14 +322,23 @@ $padding    def __init__(self, parent_state: State, root_state: State) -> None:
     #set($rootStateName = "#if(${padding} == '')self#{else}root_state#end")
     #set($parentStateName = "#if(${padding} == '')None#{else}parent_state#end")
 $padding        super(#if(${padding} == '')#{else}parent_state.#end${concState.getName()}_State, self).__init__($parentStateName, $rootStateName) # init superclass
-    #if($concState.getSubstates())
-        #if(${concState.getSubstates().get(0).getIsConc()})
-            #foreach ($subState in $concState.getSubstates())
-$padding        self._conc_states.append(self.${subState.getName()}_State(self, $rootStateName))
-            #end
-        #else
-$padding        self.change_state(self.${concState.getDefaultSubstate().getName()}_State(self, $rootStateName))  # go to default state
+    #if(${concState.getIsConc()})## If current state is conc
+$padding        self.is_conc = True
+        #if(${padding} != '')## if we are not root (which does not have parent), set parent _is_children_conc to True
+$padding        parent_state._is_children_conc = True
         #end
+    #end
+    #if($concState.getSubstates())
+            #foreach ($subState in $concState.getSubstates())
+                #if($subState == $concState.getDefaultSubstate())
+$padding        # Add default state to children
+$padding        self._default_state = (self.${subState.getName()}_State(self, $rootStateName))
+$padding        self._children.append(self._default_state)
+                #else
+$padding        # Add non-default state to children
+$padding        self._children.append(self.${subState.getName()}_State(self, $rootStateName))
+                #end
+            #end
     #else
 $padding        # No substate for this state, so default state is None
     #end
