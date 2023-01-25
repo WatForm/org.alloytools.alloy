@@ -47,11 +47,25 @@ class State(ABC):
         if len(args) >= 1 and isinstance(args[0], State):
             self._set_parent_state(args[0])
 
+    def default_initialize(self):
+        self.is_active = True;
+        if self._is_children_conc:
+            for s in self._children:
+                s.default_initialize()
+        elif self._children:
+            assert self._default_state # If we have OR states children but no default state, raise error
+            self._default_state.default_initialize()
+
     def __repr__(self):
         return f"{self.__class__.__name__}"
 
     def print_tree(self, level: int = 0):
-        print("\t"*level+self.__repr__())
+        if self.is_active:
+            color = "\u001b[32m" # green
+        else:
+            color = "\u001b[31m" # red
+        black = "\u001b[30m"
+        print(color + "\t"*level+self.__repr__() + black)
         for s in self._children:
             s.print_tree(level + 1)
 
@@ -431,6 +445,7 @@ class CentralController:
 
     def __init__(self):
         self.concState = $!{rootState.getName()}_State(None, None)
+        self.concState.default_initialize()
         self.commands = {"help": self.printHelp, "states": self.printStates, "execute": self.execute}
         #if(${allEnvEvents.size()}> 0)
         self.possibleEvents = {"${allEnvEvents.get(0).getModifiedName()}"#foreach($event in ${allEnvEvents.subList(1, ${allEncEvents.size()})}), "$!{event.getModifiedName()}"#end}
