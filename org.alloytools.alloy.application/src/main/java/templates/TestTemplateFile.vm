@@ -45,6 +45,14 @@ class State(ABC):
     def __repr__(self):
         return f"{self.__class__.__name__}"
 
+    def print_tree(self, level: int = 0):
+        print("\t"*level+self.__repr__())
+        if self._active_state:
+            self._active_state.print_tree(level + 1)
+        else:
+            for s in self._conc_states:
+            s.print_tree(level + 1)
+
     def _set_parent_state(self, state: State):
         self._parent_state = state
 
@@ -420,6 +428,7 @@ class CentralController:
         #end
 
     def run(self) -> None:
+        self.concState.print_tree()
         eventName = ""
         # big step
         while eventName.lower() != "quit":
@@ -427,6 +436,7 @@ class CentralController:
                 SS.activeEvents.clear()
                 SS.activeEvents.add(eventName)
                 self.concState.handleEvent()
+				self.concState.print_tree()
             elif eventName != "":
                 print("Invalid event name")
 
