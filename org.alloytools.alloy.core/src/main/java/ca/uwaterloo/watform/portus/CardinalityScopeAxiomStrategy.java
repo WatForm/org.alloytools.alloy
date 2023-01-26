@@ -2,8 +2,6 @@ package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.alloy4.Util;
-import edu.mit.csail.sdg.ast.Expr;
-import edu.mit.csail.sdg.ast.ExprConstant;
 import edu.mit.csail.sdg.ast.Sig;
 import fortress.msfol.IntegerLiteral;
 import fortress.msfol.Sort;

@@ -3,6 +3,7 @@ package ca.uwaterloo.watform.portus;
 import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.alloy4.Err;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
+import edu.mit.csail.sdg.alloy4.Util;
 import edu.mit.csail.sdg.alloy4.XMLNode;
 import edu.mit.csail.sdg.ast.Assert;
 import edu.mit.csail.sdg.ast.Command;
@@ -27,6 +28,7 @@ import edu.mit.csail.sdg.translator.A4Options;
 import edu.mit.csail.sdg.translator.A4Solution;
 import edu.mit.csail.sdg.translator.A4SolutionReader;
 import edu.mit.csail.sdg.translator.AlloySolution;
+import edu.mit.csail.sdg.translator.ScopeComputer;
 
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -42,6 +44,9 @@ import java.util.stream.Collectors;
  * interpretations, then ensures that each interpretation is valid according to Kodkod.
  */
 public final class CorrectnessCLI {
+
+    private static final String OPTION_HELP = "-h";
+    private static final String OPTION_ADJUST_BITWIDTH = "-b";
 
     private static final A4Options.SatSolver FORTRESS_SOLVER = A4Options.SatSolver.Z3;
     private static final A4Options.SatSolver KODKOD_SOLVER = A4Options.SatSolver.SAT4J;
@@ -183,8 +188,44 @@ public final class CorrectnessCLI {
         }.visitThis(formula);
     }
 
-    private static void processCommand(Module world, Command command, A4Options options) {
+    private static Command fixBitwidthForCardinalityScope(Module world, Command command, A4Options options) {
+        // TODO: choose the sort policy more intelligently when we do it in TranslateAlloyToFortress
+        Iterable<Sig> sigs = world.getAllReachableSigs();
+        ScopeComputer scoper = ScopeComputer.compute(A4Reporter.NOP, options, sigs, command).b;
+        SortPolicy sortPolicy = new UnivSortPolicy(sigs, scoper);
+
+        // find the smallest bitwidth >= the command's bitwidth such that the max int representable is >= the size
+        // of all sorts created by the sort policy
+        int bitwidth = command.bitwidth;
+        for (Sig sig : world.getAllReachableUserDefinedSigs()) {
+            int sortScope = sortPolicy.getSortScope(sortPolicy.getSort(sig));
+            // bump up the bitwidth until it can represent sortScope
+            while (Util.max(bitwidth) < sortScope) {
+                bitwidth++;
+            }
+        }
+
+        // replace the command's bitwidth but keep everything else the same
+        return new Command(
+                command.pos, command.nameExpr, command.label, command.check, command.overall, bitwidth, command.maxseq,
+                command.minprefix, command.maxprefix, command.expects, command.scope, command.additionalExactScopes,
+                command.commandKeyword, command.formula, command.parent);
+    }
+
+    private static void processCommand(Module world, Command command, A4Options options, boolean adjustBitwidth) {
         System.out.println("  Command: " + command.label);
+
+        if (adjustBitwidth) {
+            // Fix the command bitwidth to avoid errors when using the cardinality scope axiom strategy
+            Command fixedBitwidth = fixBitwidthForCardinalityScope(world, command, options);
+            if (fixedBitwidth.bitwidth != command.bitwidth) {
+                System.out.println("  WARNING: bumped bitwidth from " + command.bitwidth + " to "
+                        + fixedBitwidth.bitwidth
+                        + " to meet requirements of cardinality scope axiom strategy (enabled due to "
+                        + OPTION_ADJUST_BITWIDTH + ")");
+                command = fixedBitwidth;
+            }
+        }
 
         try {
             // Run through Portus and get a solution using Fortress
@@ -229,7 +270,7 @@ public final class CorrectnessCLI {
         }
     }
 
-    private static void processAlloyFile(String alloyFilename) {
+    private static void processAlloyFile(String alloyFilename, boolean adjustBitwidth) {
         System.out.println("Processing " + alloyFilename + "...");
         try {
             Module world = CompUtil.parseEverything_fromFile(null, null, alloyFilename);
@@ -239,21 +280,25 @@ public final class CorrectnessCLI {
             options.originalFilename = alloyFilename;
 
             for (Command command : commands) {
-                processCommand(world, command, options);
+                processCommand(world, command, options, adjustBitwidth);
             }
         } catch (Exception e) {
             System.err.println("EXCEPTION: " + e);
+            throw e;
         }
     }
 
     public static void main(String[] args) {
-        if (args.length == 0 || Arrays.asList(args).contains("-h")) {
+        // TODO: proper options parsing
+        if (args.length == 0 || Arrays.asList(args).contains(OPTION_HELP)) {
             help();
             return;
         }
 
         for (String alloyFilename : args) {
-            processAlloyFile(alloyFilename);
+            if (!alloyFilename.equals(OPTION_ADJUST_BITWIDTH)) {
+                processAlloyFile(alloyFilename, Arrays.asList(args).contains(OPTION_ADJUST_BITWIDTH));
+            }
         }
     }
 
