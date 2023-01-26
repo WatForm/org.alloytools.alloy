@@ -321,6 +321,11 @@ class ${relation.Name}(Relation):
     #end
 #end
 
+# --- References to States  ---
+#foreach($value in $allStates.values())
+$value.getPythonVariableName(): State = None
+#end
+
 #if($rootState)
 # --- Conc States ---
 #macro(generateState $concState $padding)
@@ -333,6 +338,8 @@ $padding    # substate(s)
 		#generateState($substate $newpadding)
 	#end
 $padding    def __init__(self, parent_state: State, root_state: State) -> None:
+$padding        global $concState.getPythonVariableName()
+$padding        $concState.getPythonVariableName() = self # Initialize global reference to this state
     #set($rootStateName = "#if(${padding} == '')self#{else}root_state#end")
     #set($parentStateName = "#if(${padding} == '')None#{else}parent_state#end")
 $padding        super(#if(${padding} == '')#{else}parent_state.#end${concState.getName()}_State, self).__init__($parentStateName, $rootStateName) # init superclass
@@ -423,12 +430,21 @@ $padding        logging.log(ACLOG,f"Execution of [${concState.getName()}_${trans
                 #foreach($action in $trans.getActions())
 $padding        ${action}
                 #end
-            #end
-$padding        new_state = self._parent_state.${trans.getToStateName()}_State(self._parent_state, self._root_state)
-$padding        self._parent_state.change_state(new_state)
-                #if(${trans.getTriggerEvent()})
-$padding        SS.activeEvents.add("${trans.getTriggerEvent()}")
+$padding        #if(${trans.getTriggerEvent()})SS.activeEvents.add("${trans.getTriggerEvent()}") #end
+$padding        # Apply State Activeness Changes
+                #if($trans.getNonActiveStatesAfterTrans().size() > 0)
+$padding        # size = $trans.getNonActiveStatesAfterTrans().size()
+$padding        states_becoming_non_active = $trans.getNonActiveStatesAfterTransPythonStr()
+$padding        for state in states_becoming_non_active:
+$padding            state.is_active = False
                 #end
+                #if($trans.getActiveStatesAfterTrans().size() > 0)
+$padding        # size = $trans.geActiveStatesAfterTrans().size()
+$padding        states_becoming_active = $trans.getActiveStatesAfterTransPythonStr()
+$padding        for state in states_becoming_active:
+$padding            state.is_active = True
+                #end
+$padding        #if(${trans.getTriggerEvent()})activeEvents.add("${trans.getTriggerEvent()}") #end
 
             #end
         #end
