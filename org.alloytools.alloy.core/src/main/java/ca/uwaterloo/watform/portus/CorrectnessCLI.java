@@ -3,6 +3,7 @@ package ca.uwaterloo.watform.portus;
 import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.alloy4.Err;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
+import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.alloy4.Util;
 import edu.mit.csail.sdg.alloy4.XMLNode;
 import edu.mit.csail.sdg.ast.Assert;
@@ -188,7 +189,12 @@ public final class CorrectnessCLI {
         }.visitThis(formula);
     }
 
-    private static Command fixBitwidthForCardinalityScope(Module world, Command command, A4Options options) {
+    /**
+     * Return a new command with bitwidth adjusted high enough to be able to represent the scope of every sort,
+     * so the cardinality scope axiom strategy will work. Also return the old bitwidth.
+     */
+    private static Pair<Integer, Command> fixBitwidthForCardinalityScope(
+            Module world, Command command, A4Options options) {
         // TODO: choose the sort policy more intelligently when we do it in TranslateAlloyToFortress
         Iterable<Sig> sigs = world.getAllReachableSigs();
         ScopeComputer scoper = ScopeComputer.compute(A4Reporter.NOP, options, sigs, command).b;
@@ -196,7 +202,7 @@ public final class CorrectnessCLI {
 
         // find the smallest bitwidth >= the command's bitwidth such that the max int representable is >= the size
         // of all sorts created by the sort policy
-        int bitwidth = command.bitwidth;
+        int bitwidth = scoper.getBitwidth();
         for (Sig sig : world.getAllReachableUserDefinedSigs()) {
             int sortScope = sortPolicy.getSortScope(sortPolicy.getSort(sig));
             // bump up the bitwidth until it can represent sortScope
@@ -206,10 +212,11 @@ public final class CorrectnessCLI {
         }
 
         // replace the command's bitwidth but keep everything else the same
-        return new Command(
+        Command newCommand = new Command(
                 command.pos, command.nameExpr, command.label, command.check, command.overall, bitwidth, command.maxseq,
                 command.minprefix, command.maxprefix, command.expects, command.scope, command.additionalExactScopes,
                 command.commandKeyword, command.formula, command.parent);
+        return new Pair<>(scoper.getBitwidth(), newCommand);
     }
 
     private static void processCommand(Module world, Command command, A4Options options, boolean adjustBitwidth) {
@@ -217,13 +224,15 @@ public final class CorrectnessCLI {
 
         if (adjustBitwidth) {
             // Fix the command bitwidth to avoid errors when using the cardinality scope axiom strategy
-            Command fixedBitwidth = fixBitwidthForCardinalityScope(world, command, options);
-            if (fixedBitwidth.bitwidth != command.bitwidth) {
-                System.out.println("  WARNING: bumped bitwidth from " + command.bitwidth + " to "
-                        + fixedBitwidth.bitwidth
+            Pair<Integer, Command> fixed = fixBitwidthForCardinalityScope(world, command, options);
+            int oldBitwidth = fixed.a;
+            Command newCommand = fixed.b;
+            if (oldBitwidth != newCommand.bitwidth) {
+                System.out.println("  WARNING: bumped bitwidth from " + oldBitwidth + " to "
+                        + newCommand.bitwidth
                         + " to meet requirements of cardinality scope axiom strategy (enabled due to "
                         + OPTION_ADJUST_BITWIDTH + ")");
-                command = fixedBitwidth;
+                command = newCommand;
             }
         }
 
