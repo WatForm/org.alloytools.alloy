@@ -27,6 +27,8 @@ import fortress.problemstate.Scope;
 import fortress.solverinterface.SolverInterface;
 import fortress.solverinterface.Z3CliInterface$;
 import fortress.solverinterface.solver;
+import fortress.transformers.DomainEliminationTransformer$;
+import fortress.transformers.EnumEliminationTransformer$;
 import fortress.transformers.TheoryTransformer;
 import fortress.transformers.TypecheckSanitizeTransformer;
 import fortress.transformers.TypecheckSanitizeTransformer$;
@@ -263,6 +265,8 @@ public final class TranslateAlloyToFortress implements CommandRunner {
                         ConfigurableCompiler compiler = new ConfigurableCompiler();
                         compiler.addTransformer(
                                 TheoryTransformer.asProblemStateTransformer(TypecheckSanitizeTransformer$.MODULE$));
+                        compiler.addTransformer(EnumEliminationTransformer$.MODULE$);
+                        compiler.addTransformer(DomainEliminationTransformer$.MODULE$);
                         return compiler;
                     }
                 };
