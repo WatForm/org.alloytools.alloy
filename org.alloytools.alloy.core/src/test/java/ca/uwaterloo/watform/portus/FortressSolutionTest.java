@@ -44,7 +44,7 @@ public class FortressSolutionTest {
         Sort univ = Sort.mkSortConst("testUniv");
         ScopeComputer mockScoper = mock(ScopeComputer.class);
         SortPolicy sortPolicy = new UnivSortPolicy(univ, new ArrayList<>(), mockScoper);
-        TranslationContext context = new TranslationContext(new FortressOptions(), mockScoper, sortPolicy);
+        TranslationContext context = new TranslationContext(new PortusOptions(), mockScoper, sortPolicy);
 
         Map<Sort, Seq<Value>> sorts = new HashMap<>();
         List<Value> elems = new ArrayList<>();

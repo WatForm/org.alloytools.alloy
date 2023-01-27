@@ -33,7 +33,7 @@ public class PortusUtilTest {
     @Before
     public void setUp() {
         policy = mock(SortPolicy.class, CALLS_REAL_METHODS);
-        context = new TranslationContext(new FortressOptions(), mock(ScopeComputer.class), policy);
+        context = new TranslationContext(new PortusOptions(), mock(ScopeComputer.class), policy);
     }
 
     private ExprVar makeTestVar(String label) {

@@ -31,7 +31,7 @@ public final class PortusCLI {
             Module world, Command command, A4Options options) {
         Iterable<Sig> sigs = world.getAllReachableSigs();
         ScopeComputer scoper = ScopeComputer.compute(A4Reporter.NOP, options, sigs, command).b;
-        SortPolicy sortPolicy = options.fortressOptions.getSortPolicy(sigs, scoper);
+        SortPolicy sortPolicy = options.portusOptions.getSortPolicy(sigs, scoper);
 
         // find the smallest bitwidth >= the command's bitwidth such that the max int representable is >= the size
         // of all sorts created by the sort policy
@@ -72,7 +72,12 @@ public final class PortusCLI {
 
         for (CommandProcessor processor : processors) {
             System.out.println("Running with processor: " + processor.displayName());
-            processor.process(world.getAllReachableSigs(), command, alloyOptions);
+            try {
+                processor.process(world.getAllReachableSigs(), command, alloyOptions);
+            } catch (Exception e) {
+                System.out.println("  EXCEPTION:");
+                e.printStackTrace();
+            }
         }
     }
 
@@ -91,7 +96,8 @@ public final class PortusCLI {
                 processCommand(world, command, alloyOptions, options, processors);
             }
         } catch (Exception e) {
-            System.err.println("EXCEPTION: " + e);
+            System.err.println("EXCEPTION:");
+            e.printStackTrace();
         }
     }
 
@@ -102,18 +108,34 @@ public final class PortusCLI {
         if (options.useCorrectnessProcessor.active()) {
             processors.add(new CorrectnessCommandProcessor());
         }
+        if (options.useOutputSmtlibProcessor.active()) {
+            processors.add(new OutputSmtlibCommandProcessor());
+        }
         return processors;
     }
 
     public static void main(String[] args) {
         PortusCLIOptions options = new PortusCLIOptions(args);
-        if (options.alloyFilenames.size() == 0 || options.help.active()) {
+        if (options.help.active()) {
+            options.printHelp(PROGRAM_NAME);
+            return;
+        }
+
+        if (options.alloyFilenames.isEmpty()) {
+            System.err.println("Error: no Alloy files specified");
+            options.printHelp(PROGRAM_NAME);
+            return;
+        }
+
+        List<CommandProcessor> processors = getCommandProcessors(options);
+        if (processors.size() == 0) {
+            System.err.println("Error: no command processing options specified.");
             options.printHelp(PROGRAM_NAME);
             return;
         }
 
         for (String alloyFilename : options.alloyFilenames) {
-            processAlloyFile(alloyFilename, options, getCommandProcessors(options));
+            processAlloyFile(alloyFilename, options, processors);
         }
     }
 

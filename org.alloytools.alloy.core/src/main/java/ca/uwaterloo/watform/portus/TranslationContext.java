@@ -87,7 +87,7 @@ final class TranslationContext {
     }
 
     // The Fortress options to be used for the translation.
-    public final FortressOptions options;
+    public final PortusOptions options;
 
     // Calculates the scopes for each signature.
     public final ScopeComputer scoper;
@@ -113,7 +113,7 @@ final class TranslationContext {
     // represents the same problem.
     private final Set<Sort> unchangingSorts;
 
-    public TranslationContext(FortressOptions options, ScopeComputer scoper, SortPolicy sortPolicy) {
+    public TranslationContext(PortusOptions options, ScopeComputer scoper, SortPolicy sortPolicy) {
         this.options = options;
         this.scoper = scoper;
         this.sortPolicy = sortPolicy;

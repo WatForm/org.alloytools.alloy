@@ -5,12 +5,18 @@ import edu.mit.csail.sdg.translator.A4Options.SatSolver;
 import edu.mit.csail.sdg.translator.CommandRunner;
 import edu.mit.csail.sdg.translator.ScopeComputer;
 
+import java.io.File;
 import java.io.Serializable;
+import java.util.Random;
 
 /**
- * All the Fortress-specific options configurable by the user. Immutable.
+ * All the Portus-specific options configurable by the user. Immutable.
  */
-public final class FortressOptions implements Serializable {
+public final class PortusOptions implements Serializable {
+
+    // File extensions used by some outputting solvers.
+    public static final String SMTLIBPLUS_EXTENSION = ".smttc";
+    public static final String MSFOL_EXTENSION = ".msfol";
 
     /**
      * A {@link SatSolver} that uses Fortress as its {@link CommandRunner}.
@@ -37,6 +43,28 @@ public final class FortressOptions implements Serializable {
 
     /** Ensure we can serialize correctly. */
     private static final long serialVersionUID = 0L;
+
+    // The directory to be used for any output files (e.g. for SMTLIB+ or MSFOL dumps).
+    // By default, a temporary directory.
+    public String outputDirectory = System.getProperty("java.io.tmpdir");
+
+    // The name to be used for output files, without the file extension.
+    // By default, a random filename.
+    public String outputName = "tmp" + Math.abs(new Random().nextLong());
+
+    // Create a PortusOptions specifying options.
+    public PortusOptions(String outputDirectory, String outputName) {
+        this.outputDirectory = outputDirectory;
+        this.outputName = outputName;
+    }
+
+    // Create a PortusOptions with the default options.
+    public PortusOptions() {}
+
+    /** Create a file with the given extension with parameters specified in the options. */
+    public File createOutputFile(String extension) {
+        return new File(outputDirectory, outputName + extension);
+    }
 
     /** Which sort policy should we use to translate? */
     public SortPolicy getSortPolicy(Iterable<Sig> sigs, ScopeComputer scoper) {

@@ -15,9 +15,10 @@ final class PortusCLIOptions {
             "-b", "Adjust bitwidths to be large enough for the cardinality scope axiom strategy");
 
     public final Option useCorrectnessProcessor = new Option("-c", "Check Portus correctness on each command.");
+    public final Option useOutputSmtlibProcessor = new Option("-s", "Output SMTLIB+ for each command.");
 
     public final Option[] allOptions = new Option[] {
-            help, adjustBitwidth
+            help, adjustBitwidth, useCorrectnessProcessor, useOutputSmtlibProcessor,
     };
 
     // The positional arguments - a list of Alloy filenames.

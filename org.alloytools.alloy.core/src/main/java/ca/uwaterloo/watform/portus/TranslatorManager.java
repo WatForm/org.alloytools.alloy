@@ -29,7 +29,7 @@ final class TranslatorManager implements Translator {
      *                This usually means enabling/disabling optimizations based
      *                on the options selected by the user.
      */
-    public TranslatorManager(FortressOptions options) {
+    public TranslatorManager(PortusOptions options) {
         // TODO: use options to come up with a list of translators
         // but for now:
         translators.add(new FunctionOptTranslator(this, true));

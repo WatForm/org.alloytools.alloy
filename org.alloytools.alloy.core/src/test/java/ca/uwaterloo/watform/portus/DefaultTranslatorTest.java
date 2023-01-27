@@ -85,7 +85,7 @@ public class DefaultTranslatorTest {
         mockScoper = mock(ScopeComputer.class);
         mockSortPolicy = mock(SortPolicy.class, delegatesTo(
                 new UnivSortPolicy(univ, Collections.emptyList(), mockScoper)));
-        context = new TranslationContext(new FortressOptions(), mockScoper, mockSortPolicy);
+        context = new TranslationContext(new PortusOptions(), mockScoper, mockSortPolicy);
     }
 
     // Convience function to make a PrimSig with a (non-null) parent sig.

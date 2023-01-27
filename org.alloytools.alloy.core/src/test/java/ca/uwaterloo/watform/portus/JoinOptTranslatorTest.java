@@ -39,7 +39,7 @@ public class JoinOptTranslatorTest {
         mockSortPolicy = mock(SortPolicy.class);
         when(mockSortPolicy.addSortsToTheory(any())).thenReturn(Theory.empty().withSort(testSort));
         ScopeComputer mockScoper = mock(ScopeComputer.class);
-        context = new TranslationContext(new FortressOptions(), mockScoper, mockSortPolicy);
+        context = new TranslationContext(new PortusOptions(), mockScoper, mockSortPolicy);
     }
 
     @Test

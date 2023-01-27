@@ -61,7 +61,7 @@ public class OrderingModuleOptTranslatorTest {
         ordSig.addFact(ExprList.makeTOTALORDER(null, null, Arrays.asList(
                 orderedSig, ordSig.join(firstField), ordSig.join(nextField))));
 
-        context = new TranslationContext(new FortressOptions(), scoper, policy);
+        context = new TranslationContext(new PortusOptions(), scoper, policy);
     }
 
     @Test

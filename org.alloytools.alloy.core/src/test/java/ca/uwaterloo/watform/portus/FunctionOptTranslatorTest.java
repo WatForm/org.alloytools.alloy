@@ -57,7 +57,7 @@ public class FunctionOptTranslatorTest {
         when(mockSortPolicy.addSortsToTheory(any())).thenReturn(
                 Theory.empty().withSort(sortA).withSort(sortB).withSort(Sort.Int()));
         ScopeComputer mockScoper = mock(ScopeComputer.class);
-        context = new TranslationContext(new FortressOptions(), mockScoper, mockSortPolicy);
+        context = new TranslationContext(new PortusOptions(), mockScoper, mockSortPolicy);
     }
 
     @Test

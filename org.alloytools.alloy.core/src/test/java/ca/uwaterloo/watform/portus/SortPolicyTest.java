@@ -38,7 +38,7 @@ public class SortPolicyTest {
     public void setUp() {
         policy = mock(SortPolicy.class, CALLS_REAL_METHODS);
         scoper = mock(ScopeComputer.class);
-        context = new TranslationContext(new FortressOptions(), scoper, policy);
+        context = new TranslationContext(new PortusOptions(), scoper, policy);
     }
 
     private void assertRange(int left, int right, Pair<Integer, Integer> range) {
