@@ -108,8 +108,10 @@ public final class PortusCLI {
         if (options.useCorrectnessProcessor.active()) {
             processors.add(new CorrectnessCommandProcessor());
         }
-        if (options.useOutputSmtlibProcessor.active()) {
-            processors.add(new OutputSmtlibCommandProcessor());
+        if (options.useOutputPreSmtlibProcessor.active()) {
+            processors.add(new OutputSmtlibCommandProcessor(A4Options.SatSolver.PRE_FORTRESS_SMTLIB));
+        } else if (options.useOutputPostSmtlibProcessor.active()) { // don't do both - confusing
+            processors.add(new OutputSmtlibCommandProcessor(A4Options.SatSolver.POST_FORTRESS_SMTLIB));
         }
         return processors;
     }

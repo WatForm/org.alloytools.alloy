@@ -15,13 +15,20 @@ import java.nio.file.Paths;
  */
 class OutputSmtlibCommandProcessor implements CommandProcessor {
 
+    // Which solver should we use to output SMTLIB+? Determines what transformers are called.
+    private final A4Options.SatSolver solver;
+
+    public OutputSmtlibCommandProcessor(A4Options.SatSolver solver) {
+        this.solver = solver;
+    }
+
     @Override
     public void process(Iterable<Sig> sigs, Command command, A4Options options) {
         // Setup how we want to output the SMTLIB+ file: "filename_command.smttc" in the Alloy file's directory.
         Path alloyFilePath = Paths.get(options.originalFilename).toAbsolutePath();
         options.portusOptions.outputDirectory = alloyFilePath.getParent().toString();
         options.portusOptions.outputName = getOutputName(alloyFilePath.getFileName().toString(), command.label);
-        options.solver = A4Options.SatSolver.SMTLIB;
+        options.solver = solver;
 
         options.solver.commandRunner().executeCommand(A4Reporter.NOP, sigs, command, options);
         System.out.println("  Done. Output to " + options.portusOptions.outputDirectory
@@ -40,7 +47,7 @@ class OutputSmtlibCommandProcessor implements CommandProcessor {
 
     @Override
     public String displayName() {
-        return "Output SMTLIB+";
+        return "Output SMTLIB+: " + solver.id();
     }
 
 }

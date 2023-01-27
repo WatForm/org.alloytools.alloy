@@ -10,6 +10,7 @@ import edu.mit.csail.sdg.translator.A4Options;
 import edu.mit.csail.sdg.translator.AlloySolution;
 import edu.mit.csail.sdg.translator.CommandRunner;
 import edu.mit.csail.sdg.translator.ScopeComputer;
+import fortress.compiler.ConfigurableCompiler;
 import fortress.compiler.DatatypeMethodWithRangeCompiler;
 import fortress.compiler.LogicCompiler;
 import fortress.interpretation.Interpretation;
@@ -26,6 +27,9 @@ import fortress.problemstate.Scope;
 import fortress.solverinterface.SolverInterface;
 import fortress.solverinterface.Z3CliInterface$;
 import fortress.solverinterface.solver;
+import fortress.transformers.TheoryTransformer;
+import fortress.transformers.TypecheckSanitizeTransformer;
+import fortress.transformers.TypecheckSanitizeTransformer$;
 import fortress.util.Dump;
 import fortress.util.Milliseconds;
 
@@ -86,12 +90,13 @@ public final class TranslateAlloyToFortress implements CommandRunner {
         context.addAxiom(translator.translate(command.formula, context));
         logger.translationFinished(context.getTheory());
 
-        // Write raw MSFOL or SMT-LIB to file if the appropriate solver is chosen
+        // Write raw MSFOL or SMTLIB+ to file if the appropriate solver is chosen
         if (options.solver.id().equals(A4Options.SatSolver.FORTRESS_MSFOL.id())) {
             writeFortressToFile(logger, options, context);
             return null;
         }
-        if (options.solver.id().equals(A4Options.SatSolver.SMTLIB.id())) {
+        if (options.solver.id().equals(A4Options.SatSolver.POST_FORTRESS_SMTLIB.id())
+            || options.solver.id().equals(A4Options.SatSolver.PRE_FORTRESS_SMTLIB.id())) {
             writeSmtlibToFile(logger, options, context);
             return null;
         }
@@ -118,7 +123,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
 
     // TODO: configure the model finder based on the FortressOptions
     private ModelFinder createModelFinder(SolverInterface solverInterface) {
-        // For now we use ConstantsMethodCompiler as a good default.
+        // For now we use this compiler as a good default.
         return new CompilationModelFinder(solverInterface) {
             @Override
             public LogicCompiler createCompiler() {
@@ -213,7 +218,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
             // The trick is to replace Fortress's solver connection (SolverSession) with one that just translates
             // everything to SMT-LIB and writes to the file.
             SmtlibConverter converter = new SmtlibConverter(writer);
-            ModelFinder finder = createModelFinder(() -> new solver() {
+            SolverInterface solverInterface = () -> new solver() {
                 @Override
                 public void setTheory(Theory theory) {
                     // In order to dump the scope info as well, we need to create a problem state from the theory
@@ -244,7 +249,25 @@ public final class TranslateAlloyToFortress implements CommandRunner {
 
                 @Override
                 public void close() {}
-            });
+            };
+
+            ModelFinder finder;
+            if (options.solver.id().equals(A4Options.SatSolver.POST_FORTRESS_SMTLIB.id())) {
+                // Use all the standard transformers
+                finder = createModelFinder(solverInterface);
+            } else { // PRE_FORTRESS_SMTLIB
+                // Use only the typechecking transformer
+                finder = new CompilationModelFinder(solverInterface) {
+                    @Override
+                    public LogicCompiler createCompiler() {
+                        ConfigurableCompiler compiler = new ConfigurableCompiler();
+                        compiler.addTransformer(
+                                TheoryTransformer.asProblemStateTransformer(TypecheckSanitizeTransformer$.MODULE$));
+                        return compiler;
+                    }
+                };
+            }
+
             context.configureModelFinder(finder);
             finder.checkSat();
             writer.flush();

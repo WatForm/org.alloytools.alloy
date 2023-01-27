@@ -276,7 +276,7 @@ public final class SimpleCLI {
                 else if (minisat)
                     options.solver = A4Options.SatSolver.MiniSatJNI;
                 else if (fortressDumpToSmtlib)
-                    options.solver = A4Options.SatSolver.SMTLIB;
+                    options.solver = A4Options.SatSolver.POST_FORTRESS_SMTLIB;
                 else
                     options.solver = solver;
                 for (int i = 0; i < cmds.size(); i++) {
