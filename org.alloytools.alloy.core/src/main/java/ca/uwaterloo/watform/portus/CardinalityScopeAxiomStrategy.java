@@ -11,7 +11,7 @@ import fortress.msfol.Term;
  * A scope axiom strategy that uses cardinality to express scopes.
  * TODO: a ScopeAxiomStrategy that uses a heuristic to decide between this and QuantifierScopeAxiomStrategy.
  */
-class CardinalityScopeAxiomStrategy implements ScopeAxiomStrategy {
+final class CardinalityScopeAxiomStrategy implements ScopeAxiomStrategy {
 
     @Override
     public Term makeExactScopeAxiom(Sig sig, int scope, Translator recursiveTranslator, TranslationContext context) {

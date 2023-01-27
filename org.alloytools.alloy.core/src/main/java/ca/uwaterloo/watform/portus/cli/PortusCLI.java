@@ -1,0 +1,120 @@
+package ca.uwaterloo.watform.portus.cli;
+
+import ca.uwaterloo.watform.portus.SortPolicy;
+import edu.mit.csail.sdg.alloy4.A4Reporter;
+import edu.mit.csail.sdg.alloy4.Pair;
+import edu.mit.csail.sdg.alloy4.Util;
+import edu.mit.csail.sdg.ast.Command;
+import edu.mit.csail.sdg.ast.Module;
+import edu.mit.csail.sdg.ast.Sig;
+import edu.mit.csail.sdg.parser.CompUtil;
+import edu.mit.csail.sdg.translator.A4Options;
+import edu.mit.csail.sdg.translator.ScopeComputer;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * A CLI for testing Portus.
+ * Given a list of Alloy files on the command line, runs them through various command processors.
+ */
+public final class PortusCLI {
+
+    private static final String PROGRAM_NAME = "PortusCLI";
+
+    /**
+     * Return a new command with bitwidth adjusted high enough to be able to represent the scope of every sort,
+     * so the cardinality scope axiom strategy will work. Also return the old bitwidth.
+     * TODO: this is an ugly hack, can we move it into the main portus package?
+     */
+    private static Pair<Integer, Command> fixBitwidthForCardinalityScope(
+            Module world, Command command, A4Options options) {
+        Iterable<Sig> sigs = world.getAllReachableSigs();
+        ScopeComputer scoper = ScopeComputer.compute(A4Reporter.NOP, options, sigs, command).b;
+        SortPolicy sortPolicy = options.fortressOptions.getSortPolicy(sigs, scoper);
+
+        // find the smallest bitwidth >= the command's bitwidth such that the max int representable is >= the size
+        // of all sorts created by the sort policy
+        int bitwidth = scoper.getBitwidth();
+        for (Sig sig : world.getAllReachableUserDefinedSigs()) {
+            int sortScope = sortPolicy.getSortScope(sortPolicy.getSort(sig));
+            // bump up the bitwidth until it can represent sortScope
+            while (Util.max(bitwidth) < sortScope) {
+                bitwidth++;
+            }
+        }
+
+        // replace the command's bitwidth but keep everything else the same
+        Command newCommand = new Command(
+                command.pos, command.nameExpr, command.label, command.check, command.overall, bitwidth, command.maxseq,
+                command.minprefix, command.maxprefix, command.expects, command.scope, command.additionalExactScopes,
+                command.commandKeyword, command.formula, command.parent);
+        return new Pair<>(scoper.getBitwidth(), newCommand);
+    }
+
+    /** Process a single command in an Alloy file with each of the chosen processors. */
+    private static void processCommand(Module world, Command command, A4Options alloyOptions, PortusCLIOptions options,
+                                       List<CommandProcessor> processors) {
+        System.out.println("Command: " + command.label);
+
+        if (options.adjustBitwidth.active()) {
+            // Fix the command bitwidth to avoid errors when using the cardinality scope axiom strategy
+            Pair<Integer, Command> fixed = fixBitwidthForCardinalityScope(world, command, alloyOptions);
+            int oldBitwidth = fixed.a;
+            Command newCommand = fixed.b;
+            if (oldBitwidth != newCommand.bitwidth) {
+                System.out.println("WARNING: bumped bitwidth from " + oldBitwidth + " to " + newCommand.bitwidth
+                        + " to meet requirements of cardinality scope axiom strategy (enabled due to "
+                        + options.adjustBitwidth.displayName() + ")");
+                command = newCommand;
+            }
+        }
+
+        for (CommandProcessor processor : processors) {
+            System.out.println("Running with processor: " + processor.displayName());
+            processor.process(world.getAllReachableSigs(), command, alloyOptions);
+        }
+    }
+
+    /** Process all the commands in an Alloy file. */
+    private static void processAlloyFile(String alloyFilename, PortusCLIOptions options,
+                                         List<CommandProcessor> processors) {
+        System.out.println("Processing " + alloyFilename + "...");
+        try {
+            Module world = CompUtil.parseEverything_fromFile(null, null, alloyFilename);
+            List<Command> commands = world.getAllCommands();
+
+            A4Options alloyOptions = new A4Options();
+            alloyOptions.originalFilename = alloyFilename;
+
+            for (Command command : commands) {
+                processCommand(world, command, alloyOptions, options, processors);
+            }
+        } catch (Exception e) {
+            System.err.println("EXCEPTION: " + e);
+        }
+    }
+
+    /** Get a list of all the processors to use based on the options. */
+    private static List<CommandProcessor> getCommandProcessors(PortusCLIOptions options) {
+        // This could be abstracted if needed, but it's probably fine.
+        List<CommandProcessor> processors = new ArrayList<>();
+        if (options.useCorrectnessProcessor.active()) {
+            processors.add(new CorrectnessCommandProcessor());
+        }
+        return processors;
+    }
+
+    public static void main(String[] args) {
+        PortusCLIOptions options = new PortusCLIOptions(args);
+        if (options.alloyFilenames.size() == 0 || options.help.active()) {
+            options.printHelp(PROGRAM_NAME);
+            return;
+        }
+
+        for (String alloyFilename : options.alloyFilenames) {
+            processAlloyFile(alloyFilename, options, getCommandProcessors(options));
+        }
+    }
+
+}

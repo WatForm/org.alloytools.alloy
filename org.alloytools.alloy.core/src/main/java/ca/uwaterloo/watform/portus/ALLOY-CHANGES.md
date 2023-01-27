@@ -3,6 +3,7 @@
 - Added the `ca.uwaterloo.watform.portus` package for the main Portus codebase.
 - Added the `org.alloytools.fortress.core` bundle as a wrapper over Fortress.
 - Added the `org.alloytools.fortress.core` bundle as a dependency of `org.alloytools.alloy.core`.
+- Included `org.alloytools.fortress.core` in the `org.alloytools.alloy.dist` JAR.
 - Made the `ScopeComputer` class public so Portus's translation process can use it, and made it not final 
   so it can be mocked in unit tests. Also make `ScopeComputer.compute` public so we can use it.
 - Added public `getBitwidth` and `getMaxSeq` methods in `ScopeComputer`, because the information is

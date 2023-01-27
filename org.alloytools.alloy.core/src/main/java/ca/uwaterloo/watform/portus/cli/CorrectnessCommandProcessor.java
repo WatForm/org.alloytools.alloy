@@ -1,10 +1,10 @@
-package ca.uwaterloo.watform.portus;
+package ca.uwaterloo.watform.portus.cli;
 
+import ca.uwaterloo.watform.portus.ExprElementOf;
+import ca.uwaterloo.watform.portus.FortressVisitReturn;
 import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.alloy4.Err;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
-import edu.mit.csail.sdg.alloy4.Pair;
-import edu.mit.csail.sdg.alloy4.Util;
 import edu.mit.csail.sdg.alloy4.XMLNode;
 import edu.mit.csail.sdg.ast.Assert;
 import edu.mit.csail.sdg.ast.Command;
@@ -21,40 +21,28 @@ import edu.mit.csail.sdg.ast.ExprQt;
 import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Func;
-import edu.mit.csail.sdg.ast.Module;
 import edu.mit.csail.sdg.ast.Sig;
-import edu.mit.csail.sdg.parser.CompUtil;
 import edu.mit.csail.sdg.parser.Macro;
 import edu.mit.csail.sdg.translator.A4Options;
 import edu.mit.csail.sdg.translator.A4Solution;
 import edu.mit.csail.sdg.translator.A4SolutionReader;
 import edu.mit.csail.sdg.translator.AlloySolution;
-import edu.mit.csail.sdg.translator.ScopeComputer;
 
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringReader;
 import java.io.StringWriter;
-import java.util.Arrays;
-import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * A correctness checker CLI for Portus.
- * Given a list of Alloy files on the command line, runs them through Portus and Fortress to generate
- * interpretations, then ensures that each interpretation is valid according to Kodkod.
+ * A command processor that checks correctness. Given a command, it generates an intepretation by going through Portus,
+ * then ensures the interpretation is valid according to Kodkod. If Portus returns UNSAT, it ensures the command is
+ * UNSAT according to Kodkod as well.
  */
-public final class CorrectnessCLI {
-
-    private static final String OPTION_HELP = "-h";
-    private static final String OPTION_ADJUST_BITWIDTH = "-b";
+final class CorrectnessCommandProcessor implements CommandProcessor {
 
     private static final A4Options.SatSolver FORTRESS_SOLVER = A4Options.SatSolver.Z3;
     private static final A4Options.SatSolver KODKOD_SOLVER = A4Options.SatSolver.SAT4J;
-
-    private static void help() {
-        System.err.println("Usage: CorrectnessCLI <Alloy files...>");
-    }
 
     private static A4Solution convertToKodkod(AlloySolution solution) throws IOException {
         // Output to XML (in-memory) and then read back
@@ -166,10 +154,10 @@ public final class CorrectnessCLI {
 
             private Decl visitDecl(Decl decl) {
                 return new Decl(decl.isPrivate, decl.disjoint, decl.disjoint2, decl.isVar,
-                    decl.names.stream()
-                            .map(name -> (ExprHasName) visitThis(name))
-                            .collect(Collectors.toList()),
-                    visitThis(decl.expr));
+                        decl.names.stream()
+                                .map(name -> (ExprHasName) visitThis(name))
+                                .collect(Collectors.toList()),
+                        visitThis(decl.expr));
             }
 
             @Override
@@ -189,62 +177,17 @@ public final class CorrectnessCLI {
         }.visitThis(formula);
     }
 
-    /**
-     * Return a new command with bitwidth adjusted high enough to be able to represent the scope of every sort,
-     * so the cardinality scope axiom strategy will work. Also return the old bitwidth.
-     */
-    private static Pair<Integer, Command> fixBitwidthForCardinalityScope(
-            Module world, Command command, A4Options options) {
-        // TODO: choose the sort policy more intelligently when we do it in TranslateAlloyToFortress
-        Iterable<Sig> sigs = world.getAllReachableSigs();
-        ScopeComputer scoper = ScopeComputer.compute(A4Reporter.NOP, options, sigs, command).b;
-        SortPolicy sortPolicy = new UnivSortPolicy(sigs, scoper);
-
-        // find the smallest bitwidth >= the command's bitwidth such that the max int representable is >= the size
-        // of all sorts created by the sort policy
-        int bitwidth = scoper.getBitwidth();
-        for (Sig sig : world.getAllReachableUserDefinedSigs()) {
-            int sortScope = sortPolicy.getSortScope(sortPolicy.getSort(sig));
-            // bump up the bitwidth until it can represent sortScope
-            while (Util.max(bitwidth) < sortScope) {
-                bitwidth++;
-            }
-        }
-
-        // replace the command's bitwidth but keep everything else the same
-        Command newCommand = new Command(
-                command.pos, command.nameExpr, command.label, command.check, command.overall, bitwidth, command.maxseq,
-                command.minprefix, command.maxprefix, command.expects, command.scope, command.additionalExactScopes,
-                command.commandKeyword, command.formula, command.parent);
-        return new Pair<>(scoper.getBitwidth(), newCommand);
-    }
-
-    private static void processCommand(Module world, Command command, A4Options options, boolean adjustBitwidth) {
-        System.out.println("  Command: " + command.label);
-
-        if (adjustBitwidth) {
-            // Fix the command bitwidth to avoid errors when using the cardinality scope axiom strategy
-            Pair<Integer, Command> fixed = fixBitwidthForCardinalityScope(world, command, options);
-            int oldBitwidth = fixed.a;
-            Command newCommand = fixed.b;
-            if (oldBitwidth != newCommand.bitwidth) {
-                System.out.println("  WARNING: bumped bitwidth from " + oldBitwidth + " to "
-                        + newCommand.bitwidth
-                        + " to meet requirements of cardinality scope axiom strategy (enabled due to "
-                        + OPTION_ADJUST_BITWIDTH + ")");
-                command = newCommand;
-            }
-        }
-
+    @Override
+    public void process(Iterable<Sig> sigs, Command command, A4Options options) {
         try {
             // Run through Portus and get a solution using Fortress
             AlloySolution fortressSol = FORTRESS_SOLVER.commandRunner().executeCommand(
-                    A4Reporter.NOP, world.getAllReachableSigs(), command, options);
+                    A4Reporter.NOP, sigs, command, options);
 
             if (!fortressSol.satisfiable()) {
                 // Make sure Kodkod also thinks it's unsat
                 AlloySolution kodkodSol = KODKOD_SOLVER.commandRunner().executeCommand(
-                        A4Reporter.NOP, world.getAllReachableSigs(), command, options);
+                        A4Reporter.NOP, sigs, command, options);
                 if (kodkodSol.satisfiable()) {
                     System.out.println("  ERROR: Fortress gives UNSAT but Kodkod gives SAT");
                 } else {
@@ -279,36 +222,9 @@ public final class CorrectnessCLI {
         }
     }
 
-    private static void processAlloyFile(String alloyFilename, boolean adjustBitwidth) {
-        System.out.println("Processing " + alloyFilename + "...");
-        try {
-            Module world = CompUtil.parseEverything_fromFile(null, null, alloyFilename);
-            List<Command> commands = world.getAllCommands();
-
-            A4Options options = new A4Options();
-            options.originalFilename = alloyFilename;
-
-            for (Command command : commands) {
-                processCommand(world, command, options, adjustBitwidth);
-            }
-        } catch (Exception e) {
-            System.err.println("EXCEPTION: " + e);
-            throw e;
-        }
-    }
-
-    public static void main(String[] args) {
-        // TODO: proper options parsing
-        if (args.length == 0 || Arrays.asList(args).contains(OPTION_HELP)) {
-            help();
-            return;
-        }
-
-        for (String alloyFilename : args) {
-            if (!alloyFilename.equals(OPTION_ADJUST_BITWIDTH)) {
-                processAlloyFile(alloyFilename, Arrays.asList(args).contains(OPTION_ADJUST_BITWIDTH));
-            }
-        }
+    @Override
+    public String displayName() {
+        return "Correctness";
     }
 
 }

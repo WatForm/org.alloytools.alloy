@@ -42,7 +42,7 @@ import java.util.stream.StreamSupport;
 /**
  * An abstraction responsible for assigning sigs to sorts. Should be immutable.
  */
-abstract class SortPolicy {
+public abstract class SortPolicy {
 
     protected final List<Sig> allSigs;
 

@@ -12,7 +12,7 @@ import java.util.stream.Collectors;
 /**
  * A scope axiom strategy which uses nested quantifiers to express the axioms.
  */
-class QuantifierScopeAxiomStrategy implements ScopeAxiomStrategy {
+final class QuantifierScopeAxiomStrategy implements ScopeAxiomStrategy {
 
     @Override
     public Term makeExactScopeAxiom(Sig sig, int scope, Translator recursiveTranslator, TranslationContext context) {

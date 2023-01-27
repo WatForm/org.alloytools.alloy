@@ -1,7 +1,9 @@
 package ca.uwaterloo.watform.portus;
 
+import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.A4Options.SatSolver;
 import edu.mit.csail.sdg.translator.CommandRunner;
+import edu.mit.csail.sdg.translator.ScopeComputer;
 
 import java.io.Serializable;
 
@@ -35,6 +37,12 @@ public final class FortressOptions implements Serializable {
 
     /** Ensure we can serialize correctly. */
     private static final long serialVersionUID = 0L;
+
+    /** Which sort policy should we use to translate? */
+    public SortPolicy getSortPolicy(Iterable<Sig> sigs, ScopeComputer scoper) {
+        // For now, always use the univ sort policy
+        return new UnivSortPolicy(sigs, scoper);
+    }
 
     // TODO: some options, used to determine optimizations
 

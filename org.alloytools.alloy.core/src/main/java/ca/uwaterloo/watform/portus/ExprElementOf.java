@@ -22,7 +22,7 @@ import java.util.stream.Collectors;
  * Represents "(x1, ..., xn) \in e" where x1, ..., xn are Fortress Vars and
  * e is an Alloy expression. Used to pass down contextual info. See KT 4.4.
  */
-final class ExprElementOf extends Expr {
+public final class ExprElementOf extends Expr {
 
     public final VarTuple tuple;
     public final Expr sub;
