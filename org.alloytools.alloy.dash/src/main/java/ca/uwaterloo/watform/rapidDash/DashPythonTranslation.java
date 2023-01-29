@@ -433,7 +433,7 @@ public class DashPythonTranslation {
         	for(Decl decl: state.getVariables()) {
         		DashExprToPython dashExprTranslator = new DashExprToPython<>(decl.expr);
         		dashExprTranslator.isDecl = true;
-        		this.concStateMap.get(state.getFullyQualName()).addDecl("self." + decl.get() + " = " + dashExprTranslator.toString());
+        		this.concStateMap.get(state.getFullyQualName()).addDecl(decl.get() + " = " + dashExprTranslator.toString());
         	}
         	// add state variable initializations and constraints (inits and init_constraints)
         	for(DashInit init: state.getInitialConds()) {
