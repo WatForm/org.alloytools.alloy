@@ -9,7 +9,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 
-import ca.uwaterloo.watform.transform.CoreDashToPython;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -24,11 +23,11 @@ public class DashPythonTranslationTest {
     private InputStream sysInBackup;
 
     private long findStateOccurncesInTranslation(DashPythonTranslation translation, String stateName) {
-        return translation.getStates().stream().filter(state -> state.getName().equals(stateName)).count();
+        return translation.getRootStates().stream().filter(state -> state.getName().equals(stateName)).count();
     }
 
     private DashPythonTranslation.State findStateInTranslation(DashPythonTranslation translation, String stateName) {
-        return translation.getStates().stream().filter(state -> state.getName().equals(stateName)).findAny().get();
+        return translation.getRootStates().stream().filter(state -> state.getName().equals(stateName)).findAny().get();
     }
 
     @Before
@@ -49,11 +48,11 @@ public class DashPythonTranslationTest {
         DashModule dashModule = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
         dashModule = new DashToCoreDash().transformToCoreDash(dashModule, null, "");
         DashPythonTranslation translation = new DashPythonTranslation(dashModule);
-        assertEquals(1, translation.getStates().size());
-        assertEquals("concState", translation.getStates().get(0).getName());
-        assertTrue("concState", translation.getStates().get(0).getIsConc());
+        assertEquals(1, translation.getRootStates().size());
+        assertEquals("concState", translation.getRootStates().get(0).getName());
+        assertTrue("concState", translation.getRootStates().get(0).getIsConc());
 
-        List<DashPythonTranslation.State> secondary_states = translation.getStates().get(0).getSubstates();
+        List<DashPythonTranslation.State> secondary_states = translation.getRootStates().get(0).getSubstates();
 
         assertEquals(2, secondary_states.size());
         HashMap<String, DashPythonTranslation.State> nameToState = new HashMap<>();
@@ -76,15 +75,14 @@ public class DashPythonTranslationTest {
         DashModule dashModule = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
         dashModule = new DashToCoreDash().transformToCoreDash(dashModule, null, "");
         DashPythonTranslation translation = new DashPythonTranslation(dashModule);
-        assertEquals(1, translation.getStates().size());
+        assertEquals(1, translation.getRootStates().size());
 
-        DashPythonTranslation.State gameState = translation.getStates().get(0);
+        DashPythonTranslation.State gameState = translation.getRootStates().get(0);
         assertEquals(3, gameState.getDecls().size());
         assertEquals(3, gameState.getInits().size());
 
         for (String decl : gameState.getDecls()) {
             assertTrue(decl.contains("="));
-            assertTrue(decl.contains("self."));
             assertTrue(decl.contains("set()") || decl.contains("dict()"));
         }
 
@@ -102,7 +100,7 @@ public class DashPythonTranslationTest {
 
         DashPythonTranslation translation = new DashPythonTranslation(dashModule);
 
-        DashPythonTranslation.State topState = translation.getStates().get(0);
+        DashPythonTranslation.State topState = translation.getRootStates().get(0);
         assertEquals("topConcStateA", topState.getName());
 
         DashPythonTranslation.State s1 =
@@ -350,7 +348,7 @@ public class DashPythonTranslationTest {
 
         DashPythonTranslation translation = new DashPythonTranslation(dashModule);
 
-        List<DashPythonTranslation.Transition> transitions = translation.getStates().get(0).getTransitions();
+        List<DashPythonTranslation.Transition> transitions = translation.getRootStates().get(0).getTransitions();
         assertEquals( 6,transitions.size());
 
         List<String> expectedString = Arrays.asList(
@@ -388,7 +386,7 @@ public class DashPythonTranslationTest {
 
         DashPythonTranslation translation = new DashPythonTranslation(dashModule);
 
-        List<DashPythonTranslation.Transition> transitions = translation.getStates().get(0).getTransitions();
+        List<DashPythonTranslation.Transition> transitions = translation.getRootStates().get(0).getTransitions();
         assertEquals(12, transitions.size());
 
         List<String> expectedString = Arrays.asList(

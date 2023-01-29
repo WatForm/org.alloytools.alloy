@@ -1,10 +1,6 @@
 package ca.uwaterloo.watform.rapidDash;
 
-import ca.uwaterloo.watform.ast.DashConcState;
-import ca.uwaterloo.watform.ast.DashEvent;
-import ca.uwaterloo.watform.ast.DashState;
-import ca.uwaterloo.watform.ast.DashTrans;
-import ca.uwaterloo.watform.ast.DashInit;
+import ca.uwaterloo.watform.ast.*;
 import ca.uwaterloo.watform.parser.DashModule;
 import com.google.gson.*;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
@@ -29,7 +25,7 @@ public class DashPythonTranslation {
     public List<Relation> relations;
     public List<Event> allEnvEvents = new ArrayList<Event>();
     public State rootState = null;
-    private Map<String, State> concStateMap;
+    private Map<String, State> statesMap;
 
     public class Signature {
         public String name;
@@ -416,25 +412,23 @@ public class DashPythonTranslation {
         }
 
         // get state hierarchy
-        this.concStateMap = new HashMap<>();
+        this.statesMap = new HashMap<>();
         // initialize all states instances
-        for(String stateName: dashModule.getAllConcurrentStates().keySet()){
-            this.concStateMap.put(stateName, new State(stateName, true));
+        for(String stateName: dashModule.getConcurrentStateNames()){
+            this.statesMap.put(stateName, new State(stateName, true));
         }
         for(String stateName: dashModule.getORStates().keySet()){
-            this.concStateMap.put(stateName, new State(stateName, false));
+            this.statesMap.put(stateName, new State(stateName, false));
         }
 
+        // process Concurrent states
         for(DashConcState state: dashModule.getAllConcurrentStates().values()) {
             if(rootState == null) {
-                rootState = this.concStateMap.get(state.getFullyQualName());
+                rootState = this.statesMap.get(state.getFullyQualName());
             }
         	// add state variable declarations (decls)
-        	for(Decl decl: state.getVariables()) {
-        		DashExprToPython dashExprTranslator = new DashExprToPython<>(decl.expr);
-        		dashExprTranslator.isDecl = true;
-        		this.concStateMap.get(state.getFullyQualName()).addDecl(decl.get() + " = " + dashExprTranslator.toString());
-        	}
+            addDeclarations(state);
+
         	// add state variable initializations and constraints (inits and init_constraints)
         	for(DashInit init: state.getInitialConds()) {
         		for(Expr expr: init.getAllExpressions()) {
@@ -452,61 +446,87 @@ public class DashPythonTranslation {
         			if(expr instanceof ExprBinary) {
         				ExprBinary binaryNode = (ExprBinary) expr;
         				if(binaryNode.left instanceof ExprUnary && ((ExprUnary)binaryNode.left).op == ExprUnary.Op.CARDINALITY) {
-        					this.concStateMap.get(state.getFullyQualName()).addInitConstraint("assert " + dashExprTranslator.toString());
+        					this.statesMap.get(state.getFullyQualName()).addInitConstraint("assert " + dashExprTranslator.toString());
         					continue;
         				}
         			}
-            		this.concStateMap.get(state.getFullyQualName()).addInit(dashExprTranslator.toString());
+            		this.statesMap.get(state.getFullyQualName()).addInit(dashExprTranslator.toString());
         		}
         	}
 
         	// add state events
         	for(DashEvent event: state.getEvents()) {
-        		Event newEvent = new Event(event.getRawName(), event.getFullyQualName(), event.getType(), this.concStateMap.get(state.getFullyQualName()));
-        		this.concStateMap.get(newEvent);
+        		Event newEvent = new Event(event.getRawName(), event.getFullyQualName(), event.getType(), this.statesMap.get(state.getFullyQualName()));
+        		this.statesMap.get(newEvent);
         		if(newEvent.isEnvEvent) {
         			allEnvEvents.add(newEvent);
         		}
         	}
 
-        	// add substates to conc states
+            // add sub-states
         	for(DashConcState substate: state.getInnerConcStates()) {
-        		this.concStateMap.get(state.getFullyQualName()).addSubstate(this.concStateMap.get(substate.getFullyQualName()));
-        		this.concStateMap.get(substate.getFullyQualName()).parent = concStateMap.get(state.getFullyQualName());
+        		this.statesMap.get(state.getFullyQualName()).addSubstate(this.statesMap.get(substate.getFullyQualName()));
+        		this.statesMap.get(substate.getFullyQualName()).parent = statesMap.get(state.getFullyQualName());
         	}
         	for(DashState substate: state.getInnerORStates()) {
-        		this.concStateMap.get(state.getFullyQualName()).addSubstate(this.concStateMap.get(substate.getFullyQualName()));
-        		this.concStateMap.get(substate.getFullyQualName()).parent = concStateMap.get(state.getFullyQualName());
-        		if(substate.isDefault() && this.concStateMap.get(state.getFullyQualName()).defaultSubstate == null) {
-        			this.concStateMap.get(state.getFullyQualName()).defaultSubstate = this.concStateMap.get(substate.getFullyQualName());
+        		this.statesMap.get(state.getFullyQualName()).addSubstate(this.statesMap.get(substate.getFullyQualName()));
+        		this.statesMap.get(substate.getFullyQualName()).parent = statesMap.get(state.getFullyQualName());
+        		if(substate.isDefault() && this.statesMap.get(state.getFullyQualName()).defaultSubstate == null) {
+        			this.statesMap.get(state.getFullyQualName()).defaultSubstate = this.statesMap.get(substate.getFullyQualName());
         		}
         	}
         }
 
-        // add substates to dash states
+        // process Or states
         for(DashState state: dashModule.getORStates().values()) {
+            // add state variable declarations (decls)
+            addDeclarations(state);
+
+            // add sub-states
+            for(DashConcState substate: state.getInnerConcStates()) {
+                this.statesMap.get(state.getFullyQualName()).addSubstate(this.statesMap.get(substate.getFullyQualName()));
+                this.statesMap.get(substate.getFullyQualName()).parent = statesMap.get(state.getFullyQualName());
+            }
         	for(DashState substate: state.getInnerORStates()) {
-        		this.concStateMap.get(state.getFullyQualName()).addSubstate(this.concStateMap.get(substate.getFullyQualName()));
-        		this.concStateMap.get(substate.getFullyQualName()).parent = concStateMap.get(state.getFullyQualName());
+        		this.statesMap.get(state.getFullyQualName()).addSubstate(this.statesMap.get(substate.getFullyQualName()));
+        		this.statesMap.get(substate.getFullyQualName()).parent = statesMap.get(state.getFullyQualName());
         	}
         }
 
         // generate transitions
         for(DashTrans dashTrans : dashModule.getTransitions().values()){
             Transition trans = new Transition(dashTrans);
-            this.concStateMap.get(trans.getStateName()).addTransition(trans);
+            this.statesMap.get(trans.getStateName()).addTransition(trans);
         }
     }
 
     // return all states that aren't substates (to prevent them from appearing multiple times)
-    public List<State> getStates() {
-    	List<State> states = new ArrayList<State>();
-    	for(State state: concStateMap.values()) {
+    public List<State> getRootStates() {
+    	List<State> states = new ArrayList<>();
+    	for(State state: statesMap.values()) {
     		if(state.parent == null) {
     			states.add(state);
     		}
     	}
     	return states;
+    }
+
+    public List<State> getAllStates() {
+        List<State> states = new ArrayList<>();
+        for(State state: statesMap.values()) {
+            states.add(state);
+        }
+        return states;
+    }
+
+    private void addDeclarations(DashSuperState state) {
+        for(Decl decl: state.getVariables()) {
+            DashExprToPython dashExprTranslator = new DashExprToPython<>(decl.expr);
+            dashExprTranslator.isDecl = true;
+            String statename = state.getFullyQualName();
+            String declname = decl.get().toString();
+            this.statesMap.get(state.getFullyQualName()).addDecl(decl.get() + " = " + dashExprTranslator.toString());
+        }
     }
 
     private void dfs(List<Sig> outputList, Set<String> covered, Set<Sig> subsets, Sig sig){
