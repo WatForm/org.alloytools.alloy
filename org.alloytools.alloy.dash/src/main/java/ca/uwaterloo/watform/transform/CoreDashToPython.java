@@ -46,7 +46,7 @@ public class CoreDashToPython {
         ve.setProperty(RuntimeConstants.RESOURCE_LOADERS, "classpath");
         ve.setProperty("resource.loader.classpath.class", ClasspathResourceLoader.class.getName());
         ve.init();
-        Template t = ve.getTemplate("templates/TestTemplateFile.vm");     // the template used to develop (without code that's not generated)
+        Template t = ve.getTemplate("org.alloytools.alloy.application/src/main/java/templates/TestTemplateFile.vm");     // the template used to develop (without code that's not generated)
         VelocityContext vc = new VelocityContext();
 
         // add to template file

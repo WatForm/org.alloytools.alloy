@@ -325,9 +325,12 @@ $padding        #if(${trans.getTriggerEvent()})activeEvents.add("${trans.getTrig
     #end
 #end
 
-#foreach($concState in $concStateList)
-	#generateState($concState "")
-#end
+## TODO: This part is broken!
+##SEVERE: Exception in macro #generateState called at org.alloytools.alloy.application/src/main/java/templates/TestTemplateFile.vm[line 329, column 9]
+##Exception in thread "main" org.apache.velocity.exception.MethodInvocationException: Invocation of method 'get' in  class java.util.ArrayList threw exception java.lang.IndexOutOfBoundsException: Index: 0, Size: 0 at org.alloytools.alloy.application/src/main/java/templates/TestTemplateFile.vm[line 257, column 40]
+###foreach($concState in $concStateList)
+##	#generateState($concState "")
+###end
 #if($rootState)
 # --- Central Controller ---
 

@@ -1,10 +1,6 @@
 apply plugin: 'java'
 
 dependencies {
-	implementation files('../cnf/jars/commons-collections4-4.4-sources.jar')
-	implementation files('../cnf/jars/commons-collections4-4.4.jar')
-	implementation files('../cnf/jars/commons-lang3-3.12.0-sources.jar')
-	implementation files('../cnf/jars/commons-lang3-3.12.0.jar')
 	implementation files('../cnf/jars/slf4j-api-1.7.32.jar')
 	implementation files('../cnf/jars/slf4j-simple-1.7.32.jar')
 	implementation files('../cnf/jars/velocity-engine-core-2.3-sources.jar')
@@ -27,8 +23,6 @@ task cup(type: JavaExec ) {
 
     classpath file( '../cnf/jars/java-cup-11a.jar' )
     classpath file( '../cnf/jars/java-cup-runtime-0.11-a-czt01-cdh.jar' )
-    classpath file( '../cnf/jars/velocity-engine-core-2.3-sources.jar' )
-    classpath file( '../cnf/jars/velocity-engine-core-2.3.jar' )
     main = 'java_cup.Main'
     workingDir( "src/main/java/ca/uwaterloo/watform/parser")
     args(

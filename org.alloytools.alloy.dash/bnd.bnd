@@ -24,8 +24,7 @@ Export-Package: \
 	ca.uwaterloo.watform.parser,\
 	ca.uwaterloo.watform.rapidDash,\
 	ca.uwaterloo.watform.transform,\
-    	de.uka.ilkd.pp,\
-      org.apache.velocity,\
+	de.uka.ilkd.pp,\
 	
 Private-Package: \
 	java_cup.runtime

@@ -1,4 +1,4 @@
-Main-Class: ca.uwaterloo.watform.dash4whole.Dash
+Main-Class: ca.uwaterloo.watform.dash4whole.RapidDash
 
 -buildpath: \
 	org.alloytools.alloy.application,\
@@ -11,7 +11,7 @@ Main-Class: ca.uwaterloo.watform.dash4whole.Dash
 	
 
 -sources: false
--conditionalpackage: aQute.lib*, org.apache.commmons.cli, slf4j*
+-conditionalpackage: aQute.lib*, slf4j*
 
 -includeresource: \
 	@${repo;org.alloytools.alloy.application}, \
@@ -23,4 +23,7 @@ Main-Class: ca.uwaterloo.watform.dash4whole.Dash
 	@${repo;org.sat4j.core}, \
 	@${repo;org.sat4j.maxsat}, \
 	@${repo;org.sat4j.pb}, \
+	@${repo;org.apache.commons:commons-collections}, \
+	@${repo;org.apache.commons:commons-lang}, \
+	@${repo;org.apache.velocity}, \
 	LICENSES
