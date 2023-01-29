@@ -5,23 +5,17 @@ import ca.uwaterloo.watform.ast.DashEvent;
 import ca.uwaterloo.watform.ast.DashState;
 import ca.uwaterloo.watform.ast.DashTrans;
 import ca.uwaterloo.watform.ast.DashInit;
-import ca.uwaterloo.watform.ast.DashWhenExpr;
 import ca.uwaterloo.watform.parser.DashModule;
+import com.google.gson.*;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
-import edu.mit.csail.sdg.alloy4.Pair;
-import edu.mit.csail.sdg.alloy4.SafeList;
 import edu.mit.csail.sdg.ast.*;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
+
 
 import static edu.mit.csail.sdg.alloy4.TableView.clean;
-import static edu.mit.csail.sdg.ast.ExprBinary.Op.*;
-
-import edu.mit.csail.sdg.alloy4.ConstList;
 
 /**
  * Mutable; this class represents an Dash to Python translation module
@@ -163,11 +157,31 @@ public class DashPythonTranslation {
                 minimal_size = 0;
             }
             String input;
+
+            // Only ask to use the config file if needed, and only once.
+            if(!hasPromptedSigConfig){
+                hasPromptedSigConfig = true;
+                promptForUsingSignatureConfig();
+            }
+
+            // If the user wants to use the config file, try to get the scope from it.
+            if(useSignatureConfig){
+                int scope = getScopeFromConfig(sig, minimal_size);
+                if (scope != -1) {
+                    return scope;
+                }
+                needToUpdateConfigFile = true;
+            }
+
             while(true){
                 // TODO: check the value for subsig/subset
                 // scope of the subsig/subset should not exceed the scope of its parent(s)
                 // TODO: add default in the future (and or change this part to be reading from a config file)
                 // System.out.printf("Choose a scope for %s, (type \"d\" for default):%n", clean(sig.label));
+
+                if(useSignatureConfig){
+                    System.out.printf("Cannot find \"$%s\" in the config file. ", clean(sig.label));
+                }
                 if(minimal_size != 0){
                     System.out.printf("Choose a scope for %s (at least %d, input < %d will be seen as %d):%n", clean(sig.label), minimal_size, minimal_size, minimal_size);
                 }else{
@@ -179,9 +193,10 @@ public class DashPythonTranslation {
                     if(val < minimal_size){
                         val = minimal_size;
                     }
+                    signatureScopeMap.put(sig.label, val);
                     return val;
                 } catch(NumberFormatException ex){
-                    System.out.print("Please input a number! ");
+                    System.out.print("Please input a valid number! ");
                 } catch (Exception ex){
                     System.out.print(ex);
                 }
@@ -219,6 +234,98 @@ public class DashPythonTranslation {
         public boolean isSubset() {return isSubset;}
         public boolean isAbstract() {return isAbstract;}
         public boolean hasChildSubsig() {return hasChildSubsig;}
+    }
+
+
+    private Boolean useSignatureConfig, hasPromptedSigConfig, needToUpdateConfigFile;
+    private BufferedReader br;
+    private JsonObject signatureJSONConfig;
+    private HashMap<String, Integer> signatureScopeMap;
+
+    private void initSignatures(List<Sig> signaturesSortedList){
+        br = new BufferedReader(new InputStreamReader(System.in));
+        useSignatureConfig = false;
+        hasPromptedSigConfig = false;
+        needToUpdateConfigFile = false;
+        signatureJSONConfig = new JsonObject();
+        signatureScopeMap = new HashMap<>();
+
+        // get signatures
+        this.signatures = new ArrayList<>();
+        for(Sig sig : signaturesSortedList) {
+            this.signatures.add(new Signature(sig, br, this.signatures));
+        }
+
+        // If didn't use config file, ask user if they wish to generate a config file for it.
+        if (!useSignatureConfig || needToUpdateConfigFile){
+            promptForStoringSignatureConfig();
+        }
+
+        try{
+            br.close();
+        }catch (IOException ex){
+            System.out.print(ex);
+        }
+    }
+
+    // Ask if user wants to use the config file when it exists.
+    private void promptForUsingSignatureConfig(){
+        File signatureConfigFile = new File(RapidDashOptions.inputDir);
+        if(signatureConfigFile.exists() && !signatureConfigFile.isDirectory()) {
+            useSignatureConfig = true;
+            System.out.printf("Do you wish to use the existing signature config for scopes? (y/n)%n");
+            try{
+                String answer = br.readLine();
+                useSignatureConfig = answer.equals("y") || answer.equals("");
+            } catch (IOException ex){
+                System.out.print(ex);
+            }
+        }
+
+        // Read the config file.
+        if(useSignatureConfig){
+            try (Reader reader = new FileReader(signatureConfigFile)) {
+                JsonElement jelement = new JsonParser().parse(reader);
+                signatureJSONConfig = jelement.getAsJsonObject();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    // Save the config file.
+    private void promptForStoringSignatureConfig(){
+        File signatureConfigFile = new File(RapidDashOptions.inputDir);
+        System.out.printf("Do you wish to %s the signature config for later use? (y/n)%n", needToUpdateConfigFile ? "update" : "save");
+        try{
+            String answer = br.readLine();
+            if(!answer.equals("y") && !answer.equals("")){
+                return;
+            }
+            // Save the config file.
+            FileWriter fileWriter = new FileWriter(signatureConfigFile);
+            Gson gson = new GsonBuilder()
+                    .setPrettyPrinting()
+                    .create();
+            gson.toJson(signatureScopeMap, fileWriter);
+            fileWriter.flush();
+            fileWriter.close();
+        } catch (IOException ex){
+            System.out.print(ex);
+        }
+    }
+
+    private int getScopeFromConfig(Sig sig, int minimal_size){
+        if (signatureJSONConfig.get(sig.label) != null){
+            int scope = signatureJSONConfig.get(sig.label).getAsInt();
+            if (scope < minimal_size ){
+                scope = minimal_size;
+            }
+            signatureScopeMap.put(sig.label, scope);
+            return scope;
+        }
+        // Cannot find the scope in the config file.
+        return -1;
     }
 
     public class Relation {
@@ -279,14 +386,8 @@ public class DashPythonTranslation {
         List<Sig> signaturesSortedList = topoSortSig(signaturesOriginalList);
         // subsigs <- sigs <- subsets
 
-        // TODO: read a config file for this dash model, if exists
-        // TODO: if no config file exists, read from user input and generate a config file
         // get signatures
-        BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
-        this.signatures = new ArrayList<>();
-        for(Sig sig : signaturesSortedList) {
-            this.signatures.add(new Signature(sig, br, this.signatures));
-        }
+        initSignatures(signaturesSortedList);
 
         // sort the signatures again, so it is in the same order as the input dash file
         Collections.sort(this.signatures, Comparator.comparing(item -> {

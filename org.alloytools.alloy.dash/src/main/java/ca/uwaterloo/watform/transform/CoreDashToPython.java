@@ -1,7 +1,6 @@
 package ca.uwaterloo.watform.transform;
 
 import ca.uwaterloo.watform.parser.DashModule;
-import ca.uwaterloo.watform.parser.DashOptions;
 import ca.uwaterloo.watform.rapidDash.DashPythonTranslation;
 import ca.uwaterloo.watform.rapidDash.RapidDashOptions;
 import org.apache.velocity.Template;

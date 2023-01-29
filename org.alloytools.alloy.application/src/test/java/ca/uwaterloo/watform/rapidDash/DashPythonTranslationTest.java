@@ -34,8 +34,9 @@ public class DashPythonTranslationTest {
     @Before
     public void initInput(){
         sysInBackup = System.in;
+        String noConfig = "n" + System.lineSeparator();
         String userInput = new String(new char[30]).replace("\0", "3" + System.lineSeparator());
-        System.setIn(new ByteArrayInputStream(userInput.getBytes()));
+        System.setIn(new ByteArrayInputStream((noConfig + userInput).getBytes()));
     }
 
     @After
