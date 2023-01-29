@@ -21,6 +21,7 @@
 	<classpathentry kind="lib" path="/cnf/jars/slf4j-simple-1.7.32.jar"/>
 	<classpathentry kind="lib" path="/cnf/jars/velocity-engine-core-2.3.jar"/>
 	<classpathentry kind="lib" path="/cnf/jars/velocity-engine-core-2.3-sources.jar"/>
+	<classpathentry kind="lib" path="/cnf/jars/gson-2.8.2.jar"/>
 	<classpathentry combineaccessrules="false" kind="src" path="/org.alloytools.alloy.core"/>
 	<classpathentry combineaccessrules="false" kind="src" path="/org.alloytools.alloy.dash"/>
 	<classpathentry combineaccessrules="false" kind="src" path="/org.alloytools.alloy.dist"/>
