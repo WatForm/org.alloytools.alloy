@@ -9,6 +9,7 @@ dependencies {
 	implementation files('../cnf/jars/slf4j-simple-1.7.32.jar')
 	implementation files('../cnf/jars/velocity-engine-core-2.3-sources.jar')
 	implementation files('../cnf/jars/velocity-engine-core-2.3.jar')
+    implementation files('../cnf/jars/gson-2.8.2.jar')
 }
 
 task jflex(type: JavaExec) {
@@ -42,4 +43,4 @@ task cup(type: JavaExec ) {
 
 compileJava.dependsOn(jflex)
 compileJava.dependsOn(cup)
-cup.dependsOn(jflex) 
+cup.dependsOn(jflex)

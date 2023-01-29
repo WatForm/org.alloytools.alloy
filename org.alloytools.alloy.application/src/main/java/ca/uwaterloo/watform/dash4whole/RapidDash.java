@@ -30,8 +30,9 @@ public class RapidDash {
         Path path = Paths.get(actual);
         Path fileName = path.getFileName();
         Path directory = path.getParent();
-        DashOptions.outputDir = (directory.toString() + '/' + fileName.toString().substring(0, fileName.toString().indexOf(".")) + "AST");
-        RapidDashOptions.outputDir = (directory.toString() + '/' + fileName.toString().substring(0, fileName.toString().indexOf(".")));
+        RapidDashOptions.outputDir = directory.toString() + '/' + fileName.toString().substring(0, fileName.toString().indexOf("."));
+        RapidDashOptions.inputDir = directory + "/signature_config.json";
+        DashOptions.outputDir = RapidDashOptions.outputDir + "AST";
         if (directory.toString() != null){
             DashOptions.dashModelLocation = directory.toString();
             RapidDashOptions.dashModelLocation = directory.toString();
