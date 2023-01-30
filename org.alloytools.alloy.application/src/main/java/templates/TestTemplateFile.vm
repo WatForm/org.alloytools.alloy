@@ -157,32 +157,38 @@ class MetaSignature(type):
 
 
 class Signature(metaclass = MetaSignature):
-    def __init__(self, name, instance_scope):
+    def __init__(self, name, multiplicity):
         """
         Used by state variables
         - the member variables and functions will be used by state variables
 
         :param str name: the name of this state variable
-        :param int instance_scope: the scope of this state variable
+        :param int multiplicity: the multiplicity type of this state variable
         :member set elements: all the elements in this instance (state variable)
         """
         # for state variables:
         self.name = name
-        self.instance_scope = instance_scope
+        self.multiplicity = multiplicity
         self.elements = set()
         # TODO: delete this comment
         # Note: state variables are not implemented yet, this only aims to help in the future implementation of state variables
 
-    # State variable functions
+    # Return elements
     def get_elements(self) -> set:
         return self.elements
 
-    # check if the new set of elements is valid for this state variable
+    # Returns true if the new set of elements is valid for its multiplicity
     def is_valid(self, new_elements) -> bool:
-        if(len(self.elements) > self.instance_scope):
-            return False
-        if(new_elements - type(self).objects()):
-            return False
+        length = len(self.elements)
+        if self.multiplicity  == 0:  # Lone
+            if(length != 0 and length != 1):
+                return False
+        elif self.multiplicity == 1: # One
+            if(length != 1):
+                return False
+        elif self.multiplicity == 2: # Some
+            if(length == 0):
+                return False
         return True
 
     # returns true if successfully set the new set of elements for this state variable
@@ -225,18 +231,13 @@ class Snapshot:
         self.changes = dict()               # Changes made in this snapshot.
         # TODO: [Code] Need to record the transitions taken. To avoid making the same transition twice during backtracking.
 
-        # --- State variables ---
-#foreach($state in $allStates)
-
-        # -- $state.getName()_State --
-    #foreach($decl in $state.getDecls())
-        self.$decl
-    #end
-#end
+        # TODO: [Code] Add backtracking support for events.
+        self.activeEvents = set()
 
     def __setattr__(self, name, value):
-        self.changes[name] = self.__dict__[name]    # Record the value for the current snapshot.
-        self.__dict__[name] = value                 # Set the value.
+        if name in self.__dict__:       # Record the variables for current snapshot.
+            self.changes[name] = self.__dict__[name]
+        self.__dict__[name] = value     # Set the value.
 
     # TODO: delete this comment.
     # Call this when a big step is made.
@@ -273,14 +274,7 @@ class ${sig.Name}(Signature):
 class ${relation.Name}(Relation):
     types = ${relation.Types}
 
-
     #end
-#end
-
-#if(${allEnvEvents.size()}> 0)
-# --- Active Event Tracker ---
-
-activeEvents = set()
 #end
 
 #if($rootState)
@@ -309,17 +303,25 @@ $padding        self.change_state(self.${concState.getDefaultSubstate().getName(
     #else
 $padding        # No substate for this state, so default state is None
     #end
-    #if($state.getInits())
-$padding        # state variable initializations
-        #foreach($init in $state.getInits())
-                self.$init
+    #if($concState.getDecls())
+
+$padding        # state variable declarations
+        #foreach($decl in $concState.getDecls())
+$padding        SS.$decl
         #end
     #end
-    #if($state.getInitConstraints())
+    #if($concState.getInits())
+
+$padding        # state variable initializations
+        #foreach($init in $concState.getInits())
+$padding        self.$init
+        #end
+    #end
+    #if($concState.getInitConstraints())
 
 $padding        # state variable constraint assertions
-        #foreach($init_constraint in $state.getInitConstraints())
-                $init_constraint
+        #foreach($init_constraint in $concState.getInitConstraints())
+$padding        $init_constraint
         #end
     #end
     #if($concState.getTransitions())
@@ -336,7 +338,7 @@ $padding    # transitions
 $padding    # transition ${trans.getTransName()} guard function
 $padding    def _trans_${trans.getTransName()}_guard(self) -> bool:
 		        #if(${trans.getEventCondition()})
-$padding        if(not ("${trans.getEventCondition()}" in activeEvents)):
+$padding        if(not ("${trans.getEventCondition()}" in SS.activeEvents)):
 $padding            return False
 		        #end
                 #if($trans.getGuardCondition())
@@ -359,7 +361,7 @@ $padding        ${trans.getAction()}
                 #end
 $padding        new_state = self._parent_state.${trans.getToStateName()}_State(self._parent_state, self._root_state)      
 $padding        self._parent_state.change_state(new_state)
-$padding        #if(${trans.getTriggerEvent()})activeEvents.add("${trans.getTriggerEvent()}") #end
+$padding        #if(${trans.getTriggerEvent()})SS.activeEvents.add("${trans.getTriggerEvent()}") #end
 
             #end
         #end
@@ -378,6 +380,8 @@ class CentralController:
         self.concState = $!{rootState.getName()}_State(None, None)
         #if(${allEnvEvents.size()}> 0)
         self.possibleEvents = {"${allEnvEvents.get(0).getModifiedName()}"#foreach($event in ${allEnvEvents.subList(1, ${allEncEvents.size()})}), "$!{event.getModifiedName()}"#end}
+        #else
+        self.possibleEvents = {}
         #end
     
     def run(self) -> None:
@@ -389,8 +393,10 @@ class CentralController:
             while(eventName == "help" or eventName == "states"):
                 if(eventName == "help"):
                     print("\nEnv Events:")
+                    #if(${allEnvEvents.size()}> 0)
                     for x in self.possibleEvents:
                         print(x)
+                    #end
                     print("\nOther Commands:")
                     print("states: print the model's current states")
                     print("QUIT: terminate the model\n")
@@ -401,8 +407,8 @@ class CentralController:
                 eventName = input("Please enter an event to be processed by the model. Type \"help\" for a list of possible events\n")
 
             if(eventName in self.possibleEvents):
-                activeEvents.clear()
-                activeEvents.add(eventName)
+                SS.activeEvents.clear()
+                SS.activeEvents.add(eventName)
                 # TODO: refactor to only allow 1 transition per conc state in a big step
                 self.concState.handleEvent()
             elif(eventName != "QUIT"):

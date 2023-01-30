@@ -9,6 +9,9 @@ import edu.mit.csail.sdg.ast.ExprConstant;
 import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.ExprVar;
 
+import java.util.List;
+import java.util.Map;
+
 
 /*
     a class used to translate expressions to Python code
@@ -16,15 +19,25 @@ import edu.mit.csail.sdg.ast.ExprVar;
 public class DashExprToPython<ExprType> {
     private ExprType specialExpr;
     private StringBuilder sb;
+    private Map<String, String> variable2StateNameMap;
+    private String varName;;
+    private List<DashPythonTranslation.Relation> relations;
     public boolean isDecl = false;
     public boolean isInit = false;
 
-    public DashExprToPython(ExprType specialExpr){
+    public DashExprToPython(ExprType specialExpr, Map<String, String> variable2StateNameMap, String varName, List<DashPythonTranslation.Relation> relations){
         this.specialExpr = specialExpr;
         this.sb = new StringBuilder();
+        this.variable2StateNameMap = variable2StateNameMap;
+        this.varName = varName;
+        this.relations = relations;
 
         // TODO: currently only support DashWhenExpr
         this.parseExpr();
+    }
+
+    public DashExprToPython(ExprType specialExpr, Map<String, String> variable2StateNameMap){
+        this(specialExpr, variable2StateNameMap, "", null);
     }
 
     @Override
@@ -41,10 +54,12 @@ public class DashExprToPython<ExprType> {
     private void parseExpr(){
         // TODO: need to handle predicates with multiple lines
         if(specialExpr instanceof DashWhenExpr){
-            sb.append(genExpr(((DashWhenExpr)this.specialExpr).getExpr(), ((DashWhenExpr)this.specialExpr).getAllExpressions().size()));
+            DashWhenExpr exp = (DashWhenExpr)this.specialExpr;
+            sb.append(genExpr(exp.getExpr(), exp.getAllExpressions().size()));
         } else if (specialExpr instanceof DashDoExpr){
             // TODO: Do expr should be different since actions are needed, not just evaluation statements
-            sb.append(genExpr(((DashDoExpr)this.specialExpr).getExpr(), ((DashDoExpr)this.specialExpr).getAllExpression().size()));
+            DashDoExpr exp = (DashDoExpr)this.specialExpr;
+            sb.append(genExpr(exp.getExpr(), exp.getAllExpression().size()));
         } else {
         	sb.append(genExpr((Expr)specialExpr, 1));
         }
@@ -58,7 +73,8 @@ public class DashExprToPython<ExprType> {
         if (node instanceof ExprUnary) {
             // TODO: is sub always a binary?
 
-        	
+            // variable2StateNameMap
+
             ExprUnary unaryNode = (ExprUnary) node;
             return(UnaryOp2PythonOp(unaryNode.op, unaryNode.sub));
         } else if (node instanceof ExprBinary) {
@@ -91,17 +107,17 @@ public class DashExprToPython<ExprType> {
     private String UnaryOp2PythonOp(ExprUnary.Op op, Expr node){
         String res = " ";
         switch (op){
-            case SOMEOF:
-                res = " ";
+            case LONEOF:    // State variable declaration
+                res = node.toString() + "('" + varName + "', 0)";
                 break;
-            case LONEOF:
-                res = " ";
+            case ONEOF:     // State variable declaration
+                res = node.toString() + "('" + varName + "', 1)";
                 break;
-            case ONEOF:
-                res = " ";
+            case SOMEOF:    // State variable declaration
+                res = node.toString() + "('" + varName + "', 2)";
                 break;
-            case SETOF:
-                res = "set() # of sig " + node.toString();// this translation is for state variable declarations
+            case SETOF:     // State variable declaration
+                res = node.toString() + "('" + varName + "', 3)";
                 break;
             case EXACTLYOF:
                 res = " ";
@@ -171,10 +187,18 @@ public class DashExprToPython<ExprType> {
     private String BinaryOp2PythonOp(ExprBinary node){
         String res = " ";
         boolean addParanthesis = false;
+        boolean rightConsumed = false;
         switch(node.op){
-            case ARROW:
-            	// TODO: parse the left and right side of the arrow operation
-                res = "dict()";
+            case ARROW:     // State relation declaration
+            	// TODO: currently only support relation for exactly 2 types
+
+                // Generate new relation name and add it to the list of relations.
+                String newRelationName = node.left + "_" + node.right;
+                String type = "[" + node.left + ", " + node.right  + "]";
+                DashPythonTranslation.Relation newRelation = new DashPythonTranslation.Relation(newRelationName, type);
+                if (!relations.contains(newRelation)){ relations.add(newRelation); }
+                res = newRelationName + "()";
+                rightConsumed = true;
                 break;
             case ANY_ARROW_SOME:
                 res = " ";
@@ -260,7 +284,7 @@ public class DashExprToPython<ExprType> {
             case REM:
                 res = " ";
                 break;
-            case EQUALS:        // this part assumes this part assumes inner expression are a signature instances and are comparable
+            case EQUALS:        // this part assumes inner expression is a signature instances and are comparable
             	if(isInit) {
             		res = this.genExpr(node.left, 1) + " = " + this.genExpr(node.right, 1).toLowerCase();
             	} else {
@@ -268,7 +292,7 @@ public class DashExprToPython<ExprType> {
             	}
                 
                 break;
-            case NOT_EQUALS:    // this part assumes inner expression are a signature instances and are comparable
+            case NOT_EQUALS:    // this part assumes inner expression is a signature instances and are comparable
                 res = this.genExpr(node.left, 1) + " != ";
                 break;
             case IMPLIES:
@@ -341,7 +365,7 @@ public class DashExprToPython<ExprType> {
         // add paranthesis for right node
         if(addParanthesis || node.right instanceof ExprBinary){
             res += "(" + this.genExpr(node.right, 1) + ")";
-        }else{
+        }else if (!rightConsumed){
             res += this.genExpr(node.right, 1);
         }
         return res;
