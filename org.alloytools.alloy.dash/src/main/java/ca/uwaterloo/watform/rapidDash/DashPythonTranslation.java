@@ -1,10 +1,6 @@
 package ca.uwaterloo.watform.rapidDash;
 
-import ca.uwaterloo.watform.ast.DashConcState;
-import ca.uwaterloo.watform.ast.DashEvent;
-import ca.uwaterloo.watform.ast.DashState;
-import ca.uwaterloo.watform.ast.DashTrans;
-import ca.uwaterloo.watform.ast.DashInit;
+import ca.uwaterloo.watform.ast.*;
 import ca.uwaterloo.watform.parser.DashModule;
 import com.google.gson.*;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
@@ -29,7 +25,10 @@ public class DashPythonTranslation {
     public List<Relation> relations;
     public List<Event> allEnvEvents = new ArrayList<Event>();
     public State rootState = null;
-    private Map<String, State> concStateMap;
+    private Map<String, State> statesMap;
+
+    private Map<String, String> variable2StateNameMap;  // maps variable names to state names or prefixes
+    private Map<String, String> envVariable2VarNameMap; // maps env variable names to variable names
 
     public class Signature {
         public String name;
@@ -328,7 +327,7 @@ public class DashPythonTranslation {
         return -1;
     }
 
-    public class Relation {
+    public static class Relation {
         public String name;
         public String types;
 
@@ -339,6 +338,15 @@ public class DashPythonTranslation {
 
         public String getName() { return name; }
         public String getTypes() { return types; }
+
+        @Override
+        public boolean equals(Object object) {
+            Relation otherRelation= (Relation) object; //downcasting from object to Person
+            if (!this.name.equals(otherRelation.name)  || !this.types.equals(otherRelation.types)){
+                return false;
+            }
+            return true;
+        }
     }
 
     private String fieldDeclExprToString(Expr expr) {
@@ -409,32 +417,36 @@ public class DashPythonTranslation {
                 for (Decl decl : dashModule.old2fields.get(key)) {
                     String types = "[" + clean(key.label) + ", " + fieldDeclExprToString(decl.expr) + "]";
                     for (int i = 0; i < decl.names.size(); i++) {
-                        relations.add(new Relation(((ExprVar) decl.names.get(i)).label, types));
+                        relations.add(new Relation((decl.names.get(i)).label, types));
                     }
                 }
             }
         }
 
         // get state hierarchy
-        this.concStateMap = new HashMap<>();
+        this.statesMap = new HashMap<>();
         // initialize all states instances
-        for(String stateName: dashModule.getAllConcurrentStates().keySet()){
-            this.concStateMap.put(stateName, new State(stateName, true));
+        for(String stateName: dashModule.getConcurrentStateNames()){
+            this.statesMap.put(stateName, new State(stateName, true));
         }
         for(String stateName: dashModule.getORStates().keySet()){
-            this.concStateMap.put(stateName, new State(stateName, false));
+            this.statesMap.put(stateName, new State(stateName, false));
         }
 
+        // process environmental variables
+        this.variable2StateNameMap = new HashMap<>();
+        this.envVariable2VarNameMap = new HashMap<>();
+
+        addEnvVariableDeclarations();
+
+        // process Concurrent states and add state variables
         for(DashConcState state: dashModule.getAllConcurrentStates().values()) {
             if(rootState == null) {
-                rootState = this.concStateMap.get(state.getFullyQualName());
+                rootState = this.statesMap.get(state.getFullyQualName());
             }
         	// add state variable declarations (decls)
-        	for(Decl decl: state.getVariables()) {
-        		DashExprToPython dashExprTranslator = new DashExprToPython<>(decl.expr);
-        		dashExprTranslator.isDecl = true;
-        		this.concStateMap.get(state.getFullyQualName()).addDecl("self." + decl.get() + " = " + dashExprTranslator.toString());
-        	}
+            addVariableDeclarations(state);
+
         	// add state variable initializations and constraints (inits and init_constraints)
         	for(DashInit init: state.getInitialConds()) {
         		for(Expr expr: init.getAllExpressions()) {
@@ -442,7 +454,7 @@ public class DashPythonTranslation {
         			if(expr.toString().equals("true")) {
         				continue;
         			}
-        			DashExprToPython dashExprTranslator = new DashExprToPython<>(expr);
+        			DashExprToPython dashExprTranslator = new DashExprToPython<>(expr, variable2StateNameMap);
         			// TODO: this (and DashExprToPython) needs to be cleaned up
         			dashExprTranslator.isInit = true;
         			dashExprTranslator.reparseExpr();
@@ -452,61 +464,115 @@ public class DashPythonTranslation {
         			if(expr instanceof ExprBinary) {
         				ExprBinary binaryNode = (ExprBinary) expr;
         				if(binaryNode.left instanceof ExprUnary && ((ExprUnary)binaryNode.left).op == ExprUnary.Op.CARDINALITY) {
-        					this.concStateMap.get(state.getFullyQualName()).addInitConstraint("assert " + dashExprTranslator.toString());
+        					this.statesMap.get(state.getFullyQualName()).addInitConstraint("assert " + dashExprTranslator.toString());
         					continue;
         				}
         			}
-            		this.concStateMap.get(state.getFullyQualName()).addInit(dashExprTranslator.toString());
+            		this.statesMap.get(state.getFullyQualName()).addInit(dashExprTranslator.toString());
         		}
         	}
 
         	// add state events
         	for(DashEvent event: state.getEvents()) {
-        		Event newEvent = new Event(event.getRawName(), event.getFullyQualName(), event.getType(), this.concStateMap.get(state.getFullyQualName()));
-        		this.concStateMap.get(newEvent);
+        		Event newEvent = new Event(event.getRawName(), event.getFullyQualName(), event.getType(), this.statesMap.get(state.getFullyQualName()));
+        		this.statesMap.get(newEvent);
         		if(newEvent.isEnvEvent) {
         			allEnvEvents.add(newEvent);
         		}
         	}
 
-        	// add substates to conc states
+            // add sub-states
         	for(DashConcState substate: state.getInnerConcStates()) {
-        		this.concStateMap.get(state.getFullyQualName()).addSubstate(this.concStateMap.get(substate.getFullyQualName()));
-        		this.concStateMap.get(substate.getFullyQualName()).parent = concStateMap.get(state.getFullyQualName());
+        		this.statesMap.get(state.getFullyQualName()).addSubstate(this.statesMap.get(substate.getFullyQualName()));
+        		this.statesMap.get(substate.getFullyQualName()).parent = statesMap.get(state.getFullyQualName());
         	}
         	for(DashState substate: state.getInnerORStates()) {
-        		this.concStateMap.get(state.getFullyQualName()).addSubstate(this.concStateMap.get(substate.getFullyQualName()));
-        		this.concStateMap.get(substate.getFullyQualName()).parent = concStateMap.get(state.getFullyQualName());
-        		if(substate.isDefault() && this.concStateMap.get(state.getFullyQualName()).defaultSubstate == null) {
-        			this.concStateMap.get(state.getFullyQualName()).defaultSubstate = this.concStateMap.get(substate.getFullyQualName());
+        		this.statesMap.get(state.getFullyQualName()).addSubstate(this.statesMap.get(substate.getFullyQualName()));
+        		this.statesMap.get(substate.getFullyQualName()).parent = statesMap.get(state.getFullyQualName());
+        		if(substate.isDefault() && this.statesMap.get(state.getFullyQualName()).defaultSubstate == null) {
+        			this.statesMap.get(state.getFullyQualName()).defaultSubstate = this.statesMap.get(substate.getFullyQualName());
         		}
         	}
         }
 
-        // add substates to dash states
+        // process Or states
         for(DashState state: dashModule.getORStates().values()) {
+            // add state variable declarations (decls)
+            addVariableDeclarations(state);
+
+            // add sub-states
+            for(DashConcState substate: state.getInnerConcStates()) {
+                this.statesMap.get(state.getFullyQualName()).addSubstate(this.statesMap.get(substate.getFullyQualName()));
+                this.statesMap.get(substate.getFullyQualName()).parent = statesMap.get(state.getFullyQualName());
+            }
         	for(DashState substate: state.getInnerORStates()) {
-        		this.concStateMap.get(state.getFullyQualName()).addSubstate(this.concStateMap.get(substate.getFullyQualName()));
-        		this.concStateMap.get(substate.getFullyQualName()).parent = concStateMap.get(state.getFullyQualName());
+        		this.statesMap.get(state.getFullyQualName()).addSubstate(this.statesMap.get(substate.getFullyQualName()));
+        		this.statesMap.get(substate.getFullyQualName()).parent = statesMap.get(state.getFullyQualName());
         	}
         }
 
         // generate transitions
         for(DashTrans dashTrans : dashModule.getTransitions().values()){
             Transition trans = new Transition(dashTrans);
-            this.concStateMap.get(trans.getStateName()).addTransition(trans);
+            this.statesMap.get(trans.getStateName()).addTransition(trans);
         }
     }
 
     // return all states that aren't substates (to prevent them from appearing multiple times)
-    public List<State> getStates() {
-    	List<State> states = new ArrayList<State>();
-    	for(State state: concStateMap.values()) {
+    public List<State> getRootStates() {
+    	List<State> states = new ArrayList<>();
+    	for(State state: statesMap.values()) {
     		if(state.parent == null) {
     			states.add(state);
     		}
     	}
     	return states;
+    }
+
+    public List<State> getAllStates() {
+        List<State> states = new ArrayList<>();
+        for(State state: statesMap.values()) {
+            states.add(state);
+        }
+        return states;
+    }
+
+    // Declare state variables and add them into the map.
+    private void addEnvVariableDeclarations() {
+
+        // add the environmental variables
+        for(Map.Entry<String,List<String>> envNames: dashModule.getEnvironmentalVarNames().entrySet()) {
+            String stateName = envNames.getKey();
+            for (String variableName : envNames.getValue()) {
+                variable2StateNameMap.put(variableName, stateName);
+                envVariable2VarNameMap.put(stateName + "_" + variableName, variableName);
+                variable2StateNameMap.put(stateName + "_" + variableName, stateName);
+            }
+        }
+
+        // add the environmental variable expressions
+        for(Map.Entry<String, Expr> envExprs: dashModule.getEnvVarExpresssion().entrySet()) {
+            String envName = envExprs.getKey();
+            String variableName = envVariable2VarNameMap.get(envName);
+            String stateName = variable2StateNameMap.get(envName);
+
+            DashExprToPython dashExprTranslator = new DashExprToPython<>(envExprs.getValue(), variable2StateNameMap, variableName, this.relations);
+            statesMap.get(stateName).addDecl(envName + " = " + dashExprTranslator);
+        }
+    }
+
+    // Declare state variables and add them into the map.
+    private void addVariableDeclarations(DashSuperState state) {
+        for(Decl decl: state.getVariables()) {
+
+            String stateName = state.getFullyQualName();
+            String variableName = decl.get().toString();
+            variable2StateNameMap.put(variableName, stateName);
+
+            DashExprToPython dashExprTranslator = new DashExprToPython<>(decl.expr, variable2StateNameMap, variableName, this.relations);
+            dashExprTranslator.isDecl = true;
+            statesMap.get(stateName).addDecl(stateName + "_" + variableName + " = " + dashExprTranslator);
+        }
     }
 
     private void dfs(List<Sig> outputList, Set<String> covered, Set<Sig> subsets, Sig sig){
@@ -608,13 +674,13 @@ public class DashPythonTranslation {
                 this.eventCondition = dashTrans.getTriggerEvent().getRawName();
             }
             if(dashTrans.getCondition() != null){    // determines the guard_condition (if statement)
-                DashExprToPython dashExprTranslator = new DashExprToPython<>(dashTrans.getCondition());
+                DashExprToPython dashExprTranslator = new DashExprToPython<>(dashTrans.getCondition(), variable2StateNameMap);
 
                 // set condition
                 this.guardCondition = dashExprTranslator.toString();
             }
             if(dashTrans.getAction() != null){      // determines the action
-                DashExprToPython dashExprTranslator = new DashExprToPython<>(dashTrans.getAction());
+                DashExprToPython dashExprTranslator = new DashExprToPython<>(dashTrans.getAction(), variable2StateNameMap);
 
                 // set action
                 this.action = dashExprTranslator.toString();
