@@ -190,13 +190,14 @@ public class DashExprToPython<ExprType> {
         boolean rightConsumed = false;
         switch(node.op){
             case ARROW:     // State relation declaration
+                // TODO: should apply this to other relation types.
             	// TODO: currently only support relation for exactly 2 types
 
                 // Generate new relation name and add it to the list of relations.
                 String newRelationName = node.left + "_" + node.right;
                 String type = "[" + node.left + ", " + node.right  + "]";
                 DashPythonTranslation.Relation newRelation = new DashPythonTranslation.Relation(newRelationName, type);
-                if (!relations.contains(newRelation)){ relations.add(newRelation); }
+                if (relations != null && !relations.contains(newRelation)){ relations.add(newRelation); }
                 res = newRelationName + "()";
                 rightConsumed = true;
                 break;

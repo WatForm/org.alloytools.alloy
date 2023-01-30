@@ -1,3 +1,7 @@
+/**
+ * Test the translation data structure.
+ */
+
 package ca.uwaterloo.watform.rapidDash;
 
 
@@ -70,7 +74,7 @@ public class DashPythonTranslationTest {
     }
 
     @Test
-    public void testStateInit() throws Exception {
+    public void testStateInitAndUnnamedRelations() throws Exception {
         String dashModel = "sig Chair {} sig Player {} conc state Game { active_players: set Player active_chairs: set Chair occupied: Chair set -> set Player init { active_players = Player active_chairs = Chair occupied = none -> none}}";
         DashModule dashModule = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
         dashModule = new DashToCoreDash().transformToCoreDash(dashModule, null, "");
@@ -83,8 +87,14 @@ public class DashPythonTranslationTest {
 
         for (String decl : gameState.getDecls()) {
             assertTrue(decl.contains("="));
-            assertTrue(decl.contains("set()") || decl.contains("dict()"));
         }
+
+        // Unamed relation should be generated.
+        assertTrue(translation.relations.contains(new DashPythonTranslation.Relation("Chair_Player", "[Chair, Player]")));
+
+        assertTrue(gameState.getDecls().contains("Game_active_players = Player('active_players', 3)"));
+        assertTrue(gameState.getDecls().contains("Game_active_chairs = Chair('active_chairs', 3)"));
+        assertTrue(gameState.getDecls().contains("Game_occupied = Chair_Player()"));
 
         for (String init : gameState.getInits()) {
             assertTrue(init.contains("="));
