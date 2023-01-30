@@ -26,7 +26,9 @@ public class DashPythonTranslation {
     public List<Event> allEnvEvents = new ArrayList<Event>();
     public State rootState = null;
     private Map<String, State> statesMap;
-    private Map<String, String> variable2StateNameMap;   // maps variable names to state names
+
+    private Map<String, String> variable2StateNameMap;  // maps variable names to state names or prefixes
+    private Map<String, String> envVariable2VarNameMap; // maps env variable names to variable names
 
     public class Signature {
         public String name;
@@ -431,8 +433,13 @@ public class DashPythonTranslation {
             this.statesMap.put(stateName, new State(stateName, false));
         }
 
-        // process Concurrent states
+        // process environmental variables
         this.variable2StateNameMap = new HashMap<>();
+        this.envVariable2VarNameMap = new HashMap<>();
+
+        addEnvVariableDeclarations();
+
+        // process Concurrent states and add state variables
         for(DashConcState state: dashModule.getAllConcurrentStates().values()) {
             if(rootState == null) {
                 rootState = this.statesMap.get(state.getFullyQualName());
@@ -528,6 +535,30 @@ public class DashPythonTranslation {
             states.add(state);
         }
         return states;
+    }
+
+    // Declare state variables and add them into the map.
+    private void addEnvVariableDeclarations() {
+
+        // add the environmental variables
+        for(Map.Entry<String,List<String>> envNames: dashModule.getEnvironmentalVarNames().entrySet()) {
+            String stateName = envNames.getKey();
+            for (String variableName : envNames.getValue()) {
+                variable2StateNameMap.put(variableName, stateName);
+                envVariable2VarNameMap.put(stateName + "_" + variableName, variableName);
+                variable2StateNameMap.put(stateName + "_" + variableName, stateName);
+            }
+        }
+
+        // add the environmental variable expressions
+        for(Map.Entry<String, Expr> envExprs: dashModule.getEnvVarExpresssion().entrySet()) {
+            String envName = envExprs.getKey();
+            String variableName = envVariable2VarNameMap.get(envName);
+            String stateName = variable2StateNameMap.get(envName);
+
+            DashExprToPython dashExprTranslator = new DashExprToPython<>(envExprs.getValue(), variable2StateNameMap, variableName, this.relations);
+            statesMap.get(stateName).addDecl(envName + " = " + dashExprTranslator);
+        }
     }
 
     // Declare state variables and add them into the map.

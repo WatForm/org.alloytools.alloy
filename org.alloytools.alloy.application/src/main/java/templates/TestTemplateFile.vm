@@ -226,7 +226,7 @@ class Snapshot:
     It also maintains a history of all the snapshots that have happened so far.
     """
     def __init__(self):
-        # --- Snapshot meta data ---
+        # --- Snapshot metadata ---
         self.history_of_changes = deque()   # History used for backtracking.
         self.changes = dict()               # Changes made in this snapshot.
         # TODO: [Code] Need to record the transitions taken. To avoid making the same transition twice during backtracking.
