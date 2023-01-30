@@ -1,3 +1,7 @@
+/**
+ * Test the data populated to the Velocity template.
+ */
+
 package ca.uwaterloo.watform.transform;
 
 import ca.uwaterloo.watform.parser.DashModule;

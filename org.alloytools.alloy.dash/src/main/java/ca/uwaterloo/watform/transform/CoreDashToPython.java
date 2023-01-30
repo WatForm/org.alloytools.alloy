@@ -57,8 +57,9 @@ public class CoreDashToPython {
         // add relations
         vc.put("relations", dashPythonTranslation.relations);
 
-        // add concurrent states
-        vc.put("concStateList", dashPythonTranslation.getStates());
+        // add states
+        vc.put("rootStates", dashPythonTranslation.getRootStates());
+        vc.put("allStates", dashPythonTranslation.getAllStates());
         
         // add events
         vc.put("allEnvEvents", dashPythonTranslation.allEnvEvents);
