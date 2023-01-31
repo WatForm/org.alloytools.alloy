@@ -30,7 +30,6 @@ import fortress.solverinterface.solver;
 import fortress.transformers.DomainEliminationTransformer$;
 import fortress.transformers.EnumEliminationTransformer$;
 import fortress.transformers.TheoryTransformer;
-import fortress.transformers.TypecheckSanitizeTransformer;
 import fortress.transformers.TypecheckSanitizeTransformer$;
 import fortress.util.Dump;
 import fortress.util.Milliseconds;

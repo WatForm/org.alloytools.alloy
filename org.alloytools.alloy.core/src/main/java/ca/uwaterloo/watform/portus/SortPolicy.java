@@ -115,7 +115,17 @@ public abstract class SortPolicy {
                 .collect(Collectors.toList());
 
         // start in the parent's range, then find our offset according to our order with our siblings
-        int domainElementStart = primSig.isTopLevel() ? 1 : getDomainElementRange(primSig.parent, scoper).a;
+        int domainElementStart;
+        if (primSig.isTopLevel()) {
+            domainElementStart = 1; // the range of the univ sig starts at 1
+        } else {
+            Pair<Integer, Integer> parentRange = getDomainElementRange(primSig.parent, scoper);
+            if (parentRange == null) {
+                // We can't get the range of the parent sig, so we can't get the range of this sig
+                return null;
+            }
+            domainElementStart = parentRange.a;
+        }
         for (Sig.PrimSig sibling : siblings) {
             if (sibling == sig) {
                 break;

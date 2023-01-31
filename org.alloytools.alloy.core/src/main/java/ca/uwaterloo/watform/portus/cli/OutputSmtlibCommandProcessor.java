@@ -13,7 +13,7 @@ import java.nio.file.Paths;
 /**
  * A command processor which runs the command through Portus and dumps Fortress's SMTLIB+.
  */
-class OutputSmtlibCommandProcessor implements CommandProcessor {
+final class OutputSmtlibCommandProcessor implements CommandProcessor {
 
     // Which solver should we use to output SMTLIB+? Determines what transformers are called.
     private final A4Options.SatSolver solver;
