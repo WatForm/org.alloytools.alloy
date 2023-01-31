@@ -2,6 +2,7 @@ package ca.uwaterloo.watform.dash4whole;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.Files;
 import java.util.Scanner;
 
 import ca.uwaterloo.watform.parser.DashModule;
@@ -37,8 +38,14 @@ public class Dash {
         sc.close();
 
         Path path = Paths.get(actual);
+
+        if (Files.notExists(path)) {
+            System.err.println(actual + " : does not exist");
+            return;
+        }
+
         Path fileName = path.getFileName();
-        Path directory = path.getParent();
+        Path directory = path.toAbsolutePath().getParent();
         DashOptions.outputDir = (directory.toString() + '/' + fileName.toString().substring(0, fileName.toString().indexOf(".")) + "AST");
         if (directory.toString() != null)
             DashOptions.dashModelLocation = directory.toString();
