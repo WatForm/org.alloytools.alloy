@@ -82,7 +82,14 @@ public abstract class SortPolicy {
      */
     public abstract Map<Sort, Scope> getSortToScopeMap(Set<Sort> unchangingSorts);
 
-    /** Get the inclusive range of domain element indices in the sort spanned by this sig. */
+    /**
+     * Get the inclusive range of domain element indices in the sort spanned by this sig.
+     * May be null if an exact domain element range cannot be determined.
+     * If sig has a non-exact scope, we return a range of the minimum size that is forced by any child with an exact
+     * scope. (For example, if A has a non-exact scope but its (only) child A1 has an exact scope of 2, we return a
+     * range of size 2 for A.) This result should not be relied upon except to find the domain element ranges of those
+     * children with exact scopes - check if sig is exact before using this function.
+     */
     public Pair<Integer, Integer> getDomainElementRange(Sig sig, ScopeComputer scoper) {
         if (!(sig instanceof Sig.PrimSig)) {
             // TODO: can we support subset sigs?
@@ -92,10 +99,6 @@ public abstract class SortPolicy {
             // domain elements of Int are special, so we don't support them
             return null;
         }
-        if (!scoper.isExact(sig)) {
-            // we only support exact scopes - a warning for the ordering module is printed in that optimization
-            return null;
-        }
 
         Sig.PrimSig primSig = (Sig.PrimSig) sig;
         Sort sort = getSort(primSig);
@@ -103,10 +106,10 @@ public abstract class SortPolicy {
             // they've passed in something we can't deal with
             return null;
         }
-        int sigScope = scoper.sig2scope(sig);
+        int sigScope = getMinimumSize(primSig, scoper);
 
         List<Sig.PrimSig> siblings = allSigs.stream()
-                .filter(otherSig -> otherSig instanceof Sig.PrimSig && scoper.isExact(otherSig))
+                .filter(otherSig -> otherSig instanceof Sig.PrimSig)
                 .map(otherSig -> (Sig.PrimSig) otherSig)
                 .filter(otherSig -> primSig.isTopLevel()
                             ? otherSig.isTopLevel() && sort == getSort(otherSig)
@@ -134,6 +137,20 @@ public abstract class SortPolicy {
         }
 
         return new Pair<>(domainElementStart, domainElementStart + sigScope - 1);
+    }
+
+    private int getMinimumSize(Sig.PrimSig sig, ScopeComputer scoper) {
+        if (scoper.isExact(sig)) {
+            return scoper.sig2scope(sig);
+        } else {
+            // use the sum of all the children's minimum sizes, because it's the size that the children with
+            // exact scopes will force this sig to be at least
+            int minSize = 0;
+            for (Sig.PrimSig child : sig.children()) {
+                minSize += getMinimumSize(child, scoper);
+            }
+            return minSize;
+        }
     }
 
     /**

@@ -168,8 +168,9 @@ public class SortPolicyTest {
     }
 
     @Test
-    public void testGetDomainElementRange_nonExact() {
-        // we don't support non-exact scopes because we can't assign a definite domain element range
+    public void testGetDomainElementRange_nonExactWithNoChildren() {
+        // for non-exact scopes, we fall back on the sum of the sizes of the children with exact scopes,
+        // which results in ranges of size 0 when no such scopes exist
         Sig sig = new Sig.PrimSig("S");
         Sort sort = Sort.mkSortConst("sort");
         policy = mock(SortPolicy.class, withSettings()
@@ -178,13 +179,13 @@ public class SortPolicyTest {
         when(policy.getSort(sig)).thenReturn(sort);
         when(scoper.isExact(sig)).thenReturn(false);
         when(scoper.sig2scope(sig)).thenReturn(3);
-        assertNull(policy.getDomainElementRange(sig, scoper));
+        assertEquals(new Pair<>(1, 0), policy.getDomainElementRange(sig, scoper));
     }
 
     @Test
     public void testGetDomainElementRange_childOfNonExact() {
-        // bug patch: a naive implementation (like the previous one) might NPE on this case
-        // since the parent recursion returns null
+        // an exact-scope child of a sig with a non-exact scope should bump up its domain element range to a minimum
+        // size of the child's exact scope
         Sort sort = Sort.mkSortConst("sort");
         Sig.PrimSig parent = new Sig.PrimSig("S");
         Sig.PrimSig child = new Sig.PrimSig(null, "S1", new Pos("", 0, 0), parent);
@@ -193,11 +194,12 @@ public class SortPolicyTest {
                 .defaultAnswer(CALLS_REAL_METHODS));
         when(policy.getSort(parent)).thenReturn(sort);
         when(scoper.isExact(parent)).thenReturn(false);
-        when(scoper.sig2scope(parent)).thenReturn(3);
+        when(scoper.sig2scope(parent)).thenReturn(5);
         when(policy.getSort(child)).thenReturn(sort);
         when(scoper.isExact(child)).thenReturn(true);
         when(scoper.sig2scope(child)).thenReturn(3);
-        assertNull(policy.getDomainElementRange(child, scoper));
+        assertEquals(new Pair<>(1, 3), policy.getDomainElementRange(child, scoper));
+        assertEquals(new Pair<>(1, 3), policy.getDomainElementRange(parent, scoper));
     }
 
     @Test
