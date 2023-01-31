@@ -85,21 +85,28 @@ class State(ABC):
 
     def __ne__(self, obj):
         return type(self) != type(obj)
+        
+    def get_conc_descendants(self):
+        desc = [self] if self.is_conc else []
+        for child in self._children:
+            desc.extend(child.get_conc_descendants())
+        return desc
 
-    def handleEvent(self):
-        possible_transitions = []
-        for k, v in self.transitions.items():
-            if k():
-                possible_transitions.append(v)
+    def get_active_child_state(self) -> State:
+        if self._is_children_conc:
+            return None
+        for child_state in self._children:
+            if child_state.is_active:
+                return child_state
+        return None
 
-        if(possible_transitions):
-            chosen_transition = random.randint(0, len(possible_transitions) - 1)
-            possible_transitions[chosen_transition]()
-        elif(self._active_state):
-            self._active_state.handleEvent()
-        elif(self._conc_states):
-            for s in self._conc_states:
-                s.handleEvent()
+    def get_active_child_state_repr(self) -> str:
+        if self._is_children_conc:
+            return ""
+        for child_state in self._children:
+            if child_state.is_active:
+                return child_state.__repr__()
+        return ""
 
     def printStates(self):
         if(self._active_state):
@@ -444,7 +451,7 @@ $padding        states_becoming_active = $trans.getActiveStatesAfterTransPythonS
 $padding        for state in states_becoming_active:
 $padding            state.is_active = True
                 #end
-$padding        #if(${trans.getTriggerEvent()})activeEvents.add("${trans.getTriggerEvent()}") #end
+$padding        #if(${trans.getTriggerEvent()})SS.activeEvents.add("${trans.getTriggerEvent()}") #end
 
             #end
         #end
@@ -468,7 +475,42 @@ class CentralController:
         #else
         self.possibleEvents = {}
         #end
+    
+    def handle_event(self):
+        unused_conc_states = self.concState.get_conc_descendants()
+        old_active_states = dict()
+        for conc_state in unused_conc_states:
+            old_active_states[conc_state.__repr__()] = conc_state.get_active_child_state_repr()
+        prev_num_unused_conc_states = -1
+        
+        while len(unused_conc_states) > 0 and not prev_num_unused_conc_states == len(unused_conc_states):
+            prev_num_unused_conc_states = len(unused_conc_states)
+            state_queue = [self.concState]
+            while state_queue:
+                cur_state = state_queue[0]
+                del state_queue[0]
 
+                possible_transitions = []
+                for k, v in cur_state.transitions.items():
+                    if k():
+                        possible_transitions.append(v)
+
+                if possible_transitions:
+                    chosen_transition = random.randint(0, len(possible_transitions) - 1)
+                    possible_transitions[chosen_transition]()
+                    # check if any concurrent states have taken a transition
+                    # if so, remove them from the set to prevent additional transitions (big step maximality)
+                    for conc_state in unused_conc_states:
+                        if not conc_state.get_active_child_state_repr() == old_active_states[conc_state.__repr__()]: 
+                            unused_conc_states.remove(conc_state)
+                elif cur_state._is_children_conc:
+                    for conc_state in cur_state._children:
+                        if unused_conc_states.count(conc_state) > 0:
+                            state_queue.append(conc_state)
+                else:
+                    if cur_state.get_active_child_state() is not None:
+                        state_queue.append(cur_state.get_active_child_state())
+    
     def run(self) -> None:
         self.concState.print_tree()
         eventName = ""
@@ -477,8 +519,8 @@ class CentralController:
             if eventName in self.possibleEvents:
                 SS.activeEvents.clear()
                 SS.activeEvents.add(eventName)
-                self.concState.handleEvent()
-				self.concState.print_tree()
+                self.handle_event()
+                self.concState.print_tree()
             elif eventName != "":
                 print("Invalid event name")
 
