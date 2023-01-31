@@ -1,5 +1,7 @@
 package ca.uwaterloo.watform.dash4whole;
 
+import java.util.*;
+
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.Files;
@@ -21,30 +23,68 @@ import edu.mit.csail.sdg.translator.A4Solution;
 import edu.mit.csail.sdg.translator.TranslateAlloyToKodkod;
 
 public class Dash {
-    @SuppressWarnings("resource" )
-    public static void main(String args[]) throws Exception {
-        // System.out.println("Please specify the .dsh file path:");
-        // Scanner sc = new Scanner(System.in);
-        // String actual = sc.nextLine();
 
+   @SuppressWarnings("resource" )
+   public static void main(String args[]) throws Exception { 
         if(args.length == 0) {
-            System.out.println("No filename arguments given");
+            System.out.println("(-m traces|tcmc|electrum) (-c #) filename(s)");
             System.exit(0);
         }
 
-        for (String filename : args) {
+        // simple roll-our-own argument parser
+        // to avoid having to import an external package
+
+        List<String> filelist = new ArrayList<>();
+
+        // default values
+        String method = "traces";
+        Integer cmdnum = 0;
+
+        for (int i=0; i<args.length;i++) {
+            if (args[i].equals("-m")) {
+                if (i+1 != args.length) {
+                    method = args[i+1];
+                    if (!(method.equals("traces") | method.equals("tcmc") | method.equals("electrum"))) {
+                        System.err.println("-method must be traces, tcmc, or electrum");
+                        System.exit(0);
+                    }
+                } else {
+                   System.err.println("Method must be followed by traces, tcmc, or electrum");
+                   System.exit(0); 
+                }
+                i++;
+            } else if (args[i].equals("-c")) {
+                if (i+1 != args.length) {
+                    cmdnum = Integer.parseInt(args[i+1]);
+                    if (cmdnum < 0) {
+                        System.err.println("Command number must be greater than 1");
+                        System.exit(0);
+                    }
+                } else {
+                   System.err.println("-c must be followed by a number");
+                   System.exit(0); 
+                }
+                i++;                   
+            } else {
+                // everything else is a file name
+                filelist.add(args[i]);
+            }
+        }
+
+        //TODO  these should have all false as defaults in DashOptions
+        DashOptions.generateSigAxioms = false;
+        DashOptions.generateTraces  = (method == "traces"); 
+        //TODO this option should be renamed to tcmc
+        DashOptions.ctlModelChecking = (method == "tcmc");
+        DashOptions.isElectrum = (method == "electrum");    
+
+
+        for (String filename : filelist) {
             // TODO make it add the .dsh extension if not included
             if (!filename.endsWith(".dsh")) {
-                System.err.println("File not supported.\nExpected a Dash file with 'dsh' extension");
+                System.err.println("Expected a Dash file with 'dsh' extension");
                 break;
             }
-
-            // TODO choose these at the cmd-line
-            DashOptions.generateSigAxioms = false;
-            DashOptions.ctlModelChecking = false;
-            DashOptions.generateTraces = true;
-            DashOptions.isElectrum = false;
-            // sc.close();
 
             Path f = Paths.get(filename);
 
@@ -53,15 +93,6 @@ public class Dash {
                 return;
             }
             
-            
-
-            // if (Files.notExists(path)) {
-            //    System.err.println(filename + " : does not exist");
-            //    return;
-            //}
-
-            // Path filename = path.getFileName();
-
             // QUES: what is this next part doing?
             Path directory = f.toAbsolutePath().getParent();
             DashOptions.outputDir = (directory.toString() + '/' + filename.toString().substring(0, filename.toString().indexOf(".")) + "AST");
@@ -85,8 +116,11 @@ public class Dash {
                 DashModule dash = DashUtil.parseEverything_fromFileDash(rep, null, filename);
                 DashValidation.validateDashModel(dash);
                 DashModule coreDash = new DashToCoreDash().transformToCoreDash(dash, filename.toString(), "");
-                //TODO make this a cmd-line option
-                DashModule alloy = DashOptions.isElectrum ? new CoreDashToElectrum().convertToElectrumAST(coreDash, "", "") : new CoreDashToAlloy().convertToAlloyAST(coreDash, "", "");
+                //TODO why are tcmc and traces not relevant here also?  either they are chosen in the options or chosen here?
+                DashModule alloy = 
+                    DashOptions.isElectrum ? 
+                          new CoreDashToElectrum().convertToElectrumAST(coreDash, "", "") 
+                        : new CoreDashToAlloy().convertToAlloyAST(coreDash, "", "");
                 alloy = DashModule.resolveAll(rep == null ? A4Reporter.NOP : rep, alloy);
 
                 // Choose some default options for how you want to execute the
