@@ -5,8 +5,6 @@ import java.util.*;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.Files;
-// import java.util.Scanner;
-
 
 import ca.uwaterloo.watform.parser.DashModule;
 import ca.uwaterloo.watform.parser.DashOptions;
@@ -25,9 +23,37 @@ import edu.mit.csail.sdg.translator.TranslateAlloyToKodkod;
 public class Dash {
 
    @SuppressWarnings("resource" )
+
+   static void executeCommand(Command cmd, DashModule alloy, A4Reporter rep) {
+
+        //TODO make this a cmd line option?
+        VizGUI viz = null;
+
+        // Choose some default options for how you want to execute the
+        // commands
+        A4Options options = new A4Options();
+
+        //TODO this should be an option also
+        options.solver = A4Options.SatSolver.SAT4J;
+
+        System.out.println("============ Command " + cmd + ": ============");
+        A4Solution ans = TranslateAlloyToKodkod.execute_command(rep, alloy.getAllReachableSigs(), cmd, options); // Print the outcome
+        System.out.println(ans); // If satisfiable...
+        if (ans.satisfiable()) { // You can query "ans" to find out the values of each set or // type. // This can be useful for debugging. //
+            // You can also write the outcome to an XML file
+            ans.writeXML("alloy_example_output.xml"); // // You can then visualize the XML file by calling this:
+            if (viz == null) {
+                viz = new VizGUI(false, "alloy_example_output.xml", null);
+            } else {
+                viz.loadXML("alloy_example_output.xml", true);
+            }
+        }
+    }
+
    public static void main(String args[]) throws Exception { 
+
         if(args.length == 0) {
-            System.out.println("(-m traces|tcmc|electrum) (-c #) filename(s)");
+            System.out.println("Arguments: (-m traces|tcmc|electrum) (-c #) filename(s)");
             System.exit(0);
         }
 
@@ -39,6 +65,7 @@ public class Dash {
         // default values
         String method = "traces";
         Integer cmdnum = 0;
+
 
         for (int i=0; i<args.length;i++) {
             if (args[i].equals("-m")) {
@@ -71,7 +98,7 @@ public class Dash {
             }
         }
 
-        //TODO  these should have all false as defaults in DashOptions
+        //TODO  these should all have false as defaults in DashOptions
         DashOptions.generateSigAxioms = false;
         DashOptions.generateTraces  = (method == "traces"); 
         //TODO this option should be renamed to tcmc
@@ -82,7 +109,7 @@ public class Dash {
         for (String filename : filelist) {
             // TODO make it add the .dsh extension if not included
             if (!filename.endsWith(".dsh")) {
-                System.err.println("Expected a Dash file with 'dsh' extension");
+                System.err.println("Expected a Dash file with 'dsh' extension: "+filename);
                 break;
             }
 
@@ -99,7 +126,7 @@ public class Dash {
             if (directory.toString() != null)
                 DashOptions.dashModelLocation = directory.toString();
 
-            A4Reporter rep = new A4Reporter();
+            
 
             // QUES: why?
             boolean parse = true;
@@ -108,11 +135,11 @@ public class Dash {
 
                 System.out.println("Parsing Model");
 
-                VizGUI viz = null;
-
+ 
                 //Parse+typecheck the model
                 System.out.println("=========== Parsing+Typechecking " + filename + " =============");
 
+                A4Reporter rep = new A4Reporter();
                 DashModule dash = DashUtil.parseEverything_fromFileDash(rep, null, filename);
                 DashValidation.validateDashModel(dash);
                 DashModule coreDash = new DashToCoreDash().transformToCoreDash(dash, filename.toString(), "");
@@ -123,29 +150,23 @@ public class Dash {
                         : new CoreDashToAlloy().convertToAlloyAST(coreDash, "", "");
                 alloy = DashModule.resolveAll(rep == null ? A4Reporter.NOP : rep, alloy);
 
-                // Choose some default options for how you want to execute the
-                // commands
-                A4Options options = new A4Options();
+                // execute command(s)
 
-                options.solver = A4Options.SatSolver.SAT4J;
-
-                // TODO: Add an option for which command to execute (a number)
-                for (Command command : alloy.getAllCommands()) { // Execute the command
-                    System.out.println("============ Command " + command + ": ============");
-                    A4Solution ans = TranslateAlloyToKodkod.execute_command(rep, alloy.getAllReachableSigs(), command, options); // Print the outcome
-                    System.out.println(ans); // If satisfiable...
-                    if (ans.satisfiable()) { // You can query "ans" to find out the values of each set or // type. // This can be useful for debugging. //
-                        // You can also write the outcome to an XML file
-                        ans.writeXML("alloy_example_output.xml"); // // You can then visualize the XML file by calling this:
-                        if (viz == null) {
-                            viz = new VizGUI(false, "alloy_example_output.xml", null);
-                        } else {
-                            viz.loadXML("alloy_example_output.xml", true);
-                        }
+                List<Command> commands = alloy.getAllCommands();
+                // this is an annoying way to convert a list to an array
+                Integer i = 1;
+                for (Command cmd : commands) { 
+                    if (i == cmdnum | cmdnum == 0) {
+                        executeCommand(cmd,alloy,rep);
                     }
+                    i++;
                 }
-
+                if (cmdnum >= i) {
+                    System.err.println("Command number: " + cmdnum + " does not exist in file");
+                }
             }
+
         }
     }
 }
+
