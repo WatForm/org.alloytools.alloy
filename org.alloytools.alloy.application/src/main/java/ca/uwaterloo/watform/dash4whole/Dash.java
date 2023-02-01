@@ -26,8 +26,7 @@ public class Dash {
 
    static void executeCommand(Command cmd, DashModule alloy, A4Reporter rep) {
 
-        //TODO make this a cmd line option?
-        VizGUI viz = null;
+
 
         // Choose some default options for how you want to execute the
         // commands
@@ -36,8 +35,17 @@ public class Dash {
         //TODO this should be an option also
         options.solver = A4Options.SatSolver.SAT4J;
 
-        System.out.println("============ Command " + cmd + ": ============");
+        System.out.println("Executing command: " + cmd);
         A4Solution ans = TranslateAlloyToKodkod.execute_command(rep, alloy.getAllReachableSigs(), cmd, options); // Print the outcome
+        if (ans.satisfiable()) {
+            System.out.println("Result: SAT");
+        } else {
+            System.out.println("Result: UNSAT");
+        }
+        /*
+        We can play with showing/viewing the result later
+        //TODO make this a cmd line option?
+        VizGUI viz = null;
         System.out.println(ans); // If satisfiable...
         if (ans.satisfiable()) { // You can query "ans" to find out the values of each set or // type. // This can be useful for debugging. //
             // You can also write the outcome to an XML file
@@ -48,6 +56,7 @@ public class Dash {
                 viz.loadXML("alloy_example_output.xml", true);
             }
         }
+        */
     }
 
    public static void main(String args[]) throws Exception { 
@@ -133,11 +142,8 @@ public class Dash {
 
             if (parse) {
 
-                System.out.println("Parsing Model");
-
- 
                 //Parse+typecheck the model
-                System.out.println("=========== Parsing+Typechecking " + filename + " =============");
+                System.out.println("Reading: " + filename );
 
                 A4Reporter rep = new A4Reporter();
                 DashModule dash = DashUtil.parseEverything_fromFileDash(rep, null, filename);
