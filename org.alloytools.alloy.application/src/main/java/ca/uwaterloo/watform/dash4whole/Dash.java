@@ -6,7 +6,12 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.Files;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+
 import ca.uwaterloo.watform.parser.DashModule;
+import ca.uwaterloo.watform.parser.DashModuleToString;
 import ca.uwaterloo.watform.parser.DashOptions;
 import ca.uwaterloo.watform.parser.DashUtil;
 import ca.uwaterloo.watform.parser.DashValidation;
@@ -62,7 +67,7 @@ public class Dash {
    public static void main(String args[]) throws Exception { 
 
         if(args.length == 0) {
-            System.out.println("Arguments: (-m traces|tcmc|electrum) (-c #) filename(s)");
+            System.out.println("Arguments: (-m traces|tcmc|electrum) (-c #) (-t) filename(s); -c is cmdnum; -t is translateOnly");
             System.exit(0);
         }
 
@@ -74,7 +79,7 @@ public class Dash {
         // default values
         String method = "traces";
         Integer cmdnum = 0;
-
+        Boolean translateOnly = false;
 
         for (int i=0; i<args.length;i++) {
             if (args[i].equals("-m")) {
@@ -101,6 +106,8 @@ public class Dash {
                    System.exit(0); 
                 }
                 i++;                   
+            } else if (args[i].equals("-t")) {
+                translateOnly = true;
             } else {
                 // everything else is a file name
                 filelist.add(args[i]);
@@ -109,17 +116,21 @@ public class Dash {
 
         //TODO  these should all have false as defaults in DashOptions
         DashOptions.generateSigAxioms = false;
-        DashOptions.generateTraces  = (method == "traces"); 
+        DashOptions.generateTraces  = (method.equals("traces"));
         //TODO this option should be renamed to tcmc
-        DashOptions.ctlModelChecking = (method == "tcmc");
-        DashOptions.isElectrum = (method == "electrum");    
-
+        DashOptions.ctlModelChecking = (method.equals("tcmc"));
+        DashOptions.isElectrum = (method.equals("electrum"));    
 
         for (String filename : filelist) {
-            // TODO make it add the .dsh extension if not included
+            // add the .dsh extension if not included
             if (!filename.endsWith(".dsh")) {
-                System.err.println("Expected a Dash file with 'dsh' extension: "+filename);
-                break;
+                int index = filename.lastIndexOf('.');
+                if (index > 0) {
+                    System.err.println("Expected a Dash file with 'dsh' extension: "+filename);
+                    break;
+                } else {
+                    filename = filename + ".dsh";
+                }
             }
 
             Path f = Paths.get(filename);
@@ -156,19 +167,38 @@ public class Dash {
                         : new CoreDashToAlloy().convertToAlloyAST(coreDash, "", "");
                 alloy = DashModule.resolveAll(rep == null ? A4Reporter.NOP : rep, alloy);
 
-                // execute command(s)
-
-                List<Command> commands = alloy.getAllCommands();
-                // this is an annoying way to convert a list to an array
-                Integer i = 1;
-                for (Command cmd : commands) { 
-                    if (i == cmdnum | cmdnum == 0) {
-                        executeCommand(cmd,alloy,rep);
+                if (translateOnly) {
+                    try {
+                        // have to fix output name
+                        String outfilename = filename.substring(0,filename.length()-4) + "-" + method + ".als";
+                        File out = new File(outfilename);
+                        if (!out.exists()) {
+                            out.createNewFile();
+                        }
+                        System.out.println("Creating: " + outfilename);
+                        String content = new DashModuleToString(true).getString(alloy);
+                        FileWriter fw = new FileWriter(out.getAbsoluteFile());
+                        BufferedWriter bw = new BufferedWriter(fw);
+                        bw.write(content);
+                        bw.close();
+                    } catch(Exception e){
+                        System.err.println(e);
                     }
-                    i++;
-                }
-                if (cmdnum >= i) {
-                    System.err.println("Command number: " + cmdnum + " does not exist in file");
+                } else {
+                    // execute command(s)
+
+                    List<Command> commands = alloy.getAllCommands();
+                    // this is an annoying way to convert a list to an array
+                    Integer i = 1;
+                    for (Command cmd : commands) { 
+                        if (i == cmdnum | cmdnum == 0) {
+                            executeCommand(cmd,alloy,rep);
+                        }
+                        i++;
+                    }
+                    if (cmdnum >= i) {
+                        System.err.println("Command number: " + cmdnum + " does not exist in file");
+                    }
                 }
             }
 
