@@ -1545,8 +1545,8 @@ public class CoreDashToAlloy extends TranslationFromCoreDash {
         	initFirst = ExprVar.make(null, "snapshot/first"); // ordering/first
         }
         else if(DashOptions.ctlModelChecking) {
-        	next = ExprVar.make(null, "path_ctl/ks_sigma"); //next
-        	initFirst = ExprVar.make(null, "path_ctl/ks_s0"); // ordering/first
+        	next = ExprVar.make(null, "ctl_path/ks_sigma"); //next
+        	initFirst = ExprVar.make(null, "ctl_path/ks_s0"); // ordering/first
         }
         else {
         	ExprVar sInit = ExprVar.make(null, "s_init");
@@ -1849,8 +1849,8 @@ public class CoreDashToAlloy extends TranslationFromCoreDash {
         	initFirst = ExprVar.make(null, "snapshot/first"); // ordering/first
         }
         else if(DashOptions.ctlModelChecking) {
-        	next = ExprVar.make(null, "path_ctl/ks_sigma"); //next
-        	initFirst = ExprVar.make(null, "path_ctl/ks_s0"); // ordering/first
+        	next = ExprVar.make(null, "ctl_path/ks_sigma"); //next
+        	initFirst = ExprVar.make(null, "ctl_path/ks_s0"); // ordering/first
         }
         else {
         	ExprVar sInit = ExprVar.make(null, "s_init");

@@ -2351,7 +2351,7 @@ public final class DashModule extends Browsable implements Module {
     public void importModules() {
     	status = 0;
     	if (DashOptions.ctlModelChecking)
-    		addOpen(null, null, ExprVar.make(null, "util/path_ctl"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "Snapshot"))), null);
+    		addOpen(null, null, ExprVar.make(null, "util/ctl_path"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "Snapshot"))), null);
     	if (DashOptions.generateTraces)
     		addOpen(null, null, ExprVar.make(null, "util/ordering"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, "Snapshot"))), ExprVar.make(modulePos, "snapshot")); 
 		addOpen(null, null, ExprVar.make(null, "util/boolean"), new ArrayList<ExprVar>(), null);
