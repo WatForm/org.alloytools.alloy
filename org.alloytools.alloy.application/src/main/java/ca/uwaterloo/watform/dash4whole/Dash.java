@@ -157,16 +157,25 @@ public class Dash {
                 System.out.println("Reading: " + filename );
 
                 A4Reporter rep = new A4Reporter();
-                DashModule dash = DashUtil.parseEverything_fromFileDash(rep, null, filename);
-                DashValidation.validateDashModel(dash);
-                DashModule coreDash = new DashToCoreDash().transformToCoreDash(dash, filename.toString(), "");
-                //TODO why are tcmc and traces not relevant here also?  either they are chosen in the options or chosen here?
-                DashModule alloy = 
-                    DashOptions.isElectrum ? 
-                          new CoreDashToElectrum().convertToElectrumAST(coreDash, "", "") 
-                        : new CoreDashToAlloy().convertToAlloyAST(coreDash, "", "");
-                alloy = DashModule.resolveAll(rep == null ? A4Reporter.NOP : rep, alloy);
-
+                DashModule alloy = null;
+                try {
+                    DashModule dash = DashUtil.parseEverything_fromFileDash(rep, null, filename);
+                    DashValidation.validateDashModel(dash);
+                    DashModule coreDash = new DashToCoreDash().transformToCoreDash(dash, filename.toString(), "");
+                    //TODO why are tcmc and traces not relevant here also?  either they are chosen in the options or chosen here?
+                    alloy = 
+                        DashOptions.isElectrum ? 
+                              new CoreDashToElectrum().convertToElectrumAST(coreDash, "", "") 
+                            : new CoreDashToAlloy().convertToAlloyAST(coreDash, "", "");
+                    alloy = DashModule.resolveAll(rep == null ? A4Reporter.NOP : rep, alloy);
+                } catch (Exception e) {
+                    System.err.println(e);
+                    System.exit(1);
+                }
+                if (alloy == null) {
+                    System.err.println("Something went wrong");
+                    System.exit(1);
+                }
                 if (translateOnly) {
                     try {
                         // have to fix output name
