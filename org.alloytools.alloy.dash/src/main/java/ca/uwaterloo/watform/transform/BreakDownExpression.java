@@ -1,5 +1,7 @@
 package ca.uwaterloo.watform.transform;
 
+import java.io.*;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -36,31 +38,38 @@ public class BreakDownExpression {
    /****************************** Retrieving Variables in Expressions *****************************/
     
     Expr getVarFromParentExpr(Expr parentExpr, DashConcState parent, DashModule module) {
+
+        Expr ret = null;
         if (parentExpr instanceof ExprBinary) {
             ExprBinary exprBinary = (ExprBinary) parentExpr;
-            return getVarFromBinary(exprBinary, parent, module);
+            ret = getVarFromBinary(exprBinary, parent, module);
         }
         if (parentExpr instanceof ExprUnary) {
             ExprUnary unary = (ExprUnary) parentExpr;
-            return getVarFromUnary(unary, parent, module, false);
+            ret = getVarFromUnary(unary, parent, module, false);
         }
         if (parentExpr instanceof ExprBadJoin) {
-        	return getVarFromBadJoin((ExprBadJoin) parentExpr, parent, module);
+        	ret =  getVarFromBadJoin((ExprBadJoin) parentExpr, parent, module);
         }
         if (parentExpr instanceof ExprQt) {
-            return getVarFromExprQt((ExprQt) parentExpr, parent, module, new ArrayList<Decl>(), false);
+            ret = getVarFromExprQt((ExprQt) parentExpr, parent, module, new ArrayList<Decl>(), false);
         }
         if (parentExpr instanceof ExprVar) {
-        	return modifyExprWithVar((ExprVar) parentExpr, parent, module, false);
+        	ret = modifyExprWithVar((ExprVar) parentExpr, parent, module, false);
         }
         if (parentExpr instanceof ExprList) {
-        	return getVarFromExprList((ExprList) parentExpr, parent, module, false);
+        	ret = getVarFromExprList((ExprList) parentExpr, parent, module, false);
         }
         if (parentExpr instanceof ExprConstant) {
-        	return (Expr) parentExpr;
+        	ret = (Expr) parentExpr;
         }
-        
-        return null;
+        // defensive programming
+        if (ret == null) {
+            throw new NullPointerException("BreakDownExpression.getVarFromParentExpr");
+        } else {
+            return ret;
+        }
+
     }
 
     /*
@@ -121,7 +130,14 @@ public class BreakDownExpression {
         	right = getVarFromExprQt((ExprQt) binary.right, parent, module, new ArrayList<Decl>(), false);
         }
 
-        return DashHelper.createBinaryExpr(left, binary.op, right);
+        Expr ret = DashHelper.createBinaryExpr(left, binary.op, right);
+        // defensive programming
+        if (ret == null) {
+            throw new NullPointerException("DashHelper.getVarFromBinary left="+left+" op="+binary.op+"right="+right);
+        } else {
+            return ret;
+        }
+
     }
     
     private ExprITE getVarFromITE (ExprITE ite, DashConcState parent, DashModule module) {
@@ -195,7 +211,13 @@ public class BreakDownExpression {
         	cond = getVarFromExprQt((ExprQt) ite.cond, parent, module, new ArrayList<Decl>(), false);
         }
         
-        return (ExprITE) ExprITE.make(null, cond, left, right);
+        ExprITE ret = (ExprITE) ExprITE.make(null, cond, left, right);
+        // defensive programming
+        if (ret == null) {
+            throw new NullPointerException("BreakDownExpression.getVarFromITE left="+left+" cond="+cond+"right="+right);
+        } else {
+            return ret;
+        }
     }
     
     /*
@@ -229,7 +251,13 @@ public class BreakDownExpression {
         	sub = unary.sub;
         }
 
-        return DashHelper.createUnaryExpr(unary.op, sub);
+        ExprUnary ret =  DashHelper.createUnaryExpr(unary.op, sub);
+        // defensive programming
+        if (ret == null) {
+            throw new NullPointerException("DashHelper.getVarFromUnary unary="+unary);
+        } else {
+            return ret;
+        }
     }
 
     /*

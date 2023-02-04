@@ -537,6 +537,7 @@ public class DashValidation {
 
     /* Accessed by the DashParser */
     public static void importModule(String fileName) {
+        // It needs to parse the util files o/w it won't find symbols
     	if(fileName.contains("/"))
     		fileName = fileName.substring(fileName.indexOf("/") + 1);
         File utilFolder = new File(DashOptions.dashModelLocation + "/util/" + fileName + ".als"); 

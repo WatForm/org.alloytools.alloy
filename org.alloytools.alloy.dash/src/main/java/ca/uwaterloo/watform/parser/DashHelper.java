@@ -1,5 +1,7 @@
 package ca.uwaterloo.watform.parser;
 
+import java.io.*;
+
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -467,82 +469,136 @@ public class DashHelper {
 	}
 	
     public static Expr createBinaryExpr(Expr left, ExprBinary.Op op, Expr right) {
-        if(op == Op.ARROW)
-        	return (ExprBinary) ExprBinary.Op.ARROW.make(null, null, left, right);
-        if(op == Op.JOIN)
-        	return (ExprBinary) ExprBinary.Op.JOIN.make(null, null, left, right);
-        if(op == Op.DOMAIN)
-        	return (ExprBinary) ExprBinary.Op.DOMAIN.make(null, null, left, right);
-        if(op == Op.RANGE)
-        	return (ExprBinary) ExprBinary.Op.RANGE.make(null, null, left, right);
-        if(op == Op.INTERSECT)
-        	return (ExprBinary) ExprBinary.Op.INTERSECT.make(null, null, left, right);
-        if(op == Op.PLUSPLUS)
-        	return (ExprBinary) ExprBinary.Op.PLUSPLUS.make(null, null, left, right);
-        if(op == Op.PLUSPLUS)
-        	return (ExprBinary) ExprBinary.Op.PLUSPLUS.make(null, null, left, right);
-        if(op == Op.PLUS)
-        	return (ExprBinary) ExprBinary.Op.PLUS.make(null, null, left, right);
-        if(op == Op.MINUS)
-        	return (ExprBinary) ExprBinary.Op.MINUS.make(null, null, left, right);
-        if(op == Op.MUL)
-        	return (ExprBinary) ExprBinary.Op.MUL.make(null, null, left, right);
-        if(op == Op.DIV)
-        	return (ExprBinary) ExprBinary.Op.DIV.make(null, null, left, right);
-        if(op == Op.REM)
-        	return (ExprBinary) ExprBinary.Op.REM.make(null, null, left, right);
-        if(op == Op.EQUALS)
-        	return (ExprBinary) ExprBinary.Op.EQUALS.make(null, null, left, right);
-        if(op == Op.NOT_EQUALS)
-        	return (ExprBinary) ExprBinary.Op.NOT_EQUALS.make(null, null, left, right);
-        if(op == Op.IMPLIES)
-        	return (ExprBinary) ExprBinary.Op.IMPLIES.make(null, null, left, right);
-        if(op == Op.LT)
-        	return (ExprBinary) ExprBinary.Op.LT.make(null, null, left, right);
-        if(op == Op.LTE)
-        	return (ExprBinary) ExprBinary.Op.LTE.make(null, null, left, right);
-        if(op == Op.GT)
-        	return (ExprBinary) ExprBinary.Op.GT.make(null, null, left, right);
-        if(op == Op.GTE)
-        	return (ExprBinary) ExprBinary.Op.GTE.make(null, null, left, right);
-        if(op == Op.NOT_LT)
-        	return (ExprBinary) ExprBinary.Op.NOT_LT.make(null, null, left, right);
-        if(op == Op.NOT_LTE)
-        	return (ExprBinary) ExprBinary.Op.NOT_LTE.make(null, null, left, right);
-        if(op == Op.NOT_GT)
-        	return (ExprBinary) ExprBinary.Op.NOT_GT.make(null, null, left, right);
-        if(op == Op.NOT_GTE)
-        	return (ExprBinary) ExprBinary.Op.NOT_GTE.make(null, null, left, right);
-        if(op == Op.SHL)
-        	return (ExprBinary) ExprBinary.Op.SHL.make(null, null, left, right);
-        if(op == Op.SHA)
-        	return (ExprBinary) ExprBinary.Op.SHA.make(null, null, left, right);
-        if(op == Op.SHR)
-        	return (ExprBinary) ExprBinary.Op.SHR.make(null, null, left, right);
-        if(op == Op.IN)
-        	return (ExprBinary) ExprBinary.Op.IN.make(null, null, left, right);
-        if(op == Op.NOT_IN)
-        	return (ExprBinary) ExprBinary.Op.NOT_IN.make(null, null, left, right);
-        if(op == Op.AND)
-        	return ExprBinary.Op.AND.make(null, null, left, right);
-        if(op == Op.OR)
-        	return ExprBinary.Op.OR.make(null, null, left, right);
-        if(op == Op.IFF)
-        	return (ExprBinary) ExprBinary.Op.IFF.make(null, null, left, right);
-        if(op == Op.UNTIL)
-        	return (ExprBinary) ExprBinary.Op.UNTIL.make(null, null, left, right);
-        if(op == Op.RELEASES)
-        	return (ExprBinary) ExprBinary.Op.RELEASES.make(null, null, left, right);
-        if(op == Op.SINCE)
-        	return (ExprBinary) ExprBinary.Op.SINCE.make(null, null, left, right);
-        if(op == Op.TRIGGERED)
-        	return (ExprBinary) ExprBinary.Op.TRIGGERED.make(null, null, left, right);
-        if(op == Op.ISSEQ_ARROW_LONE)
-        	return ExprBinary.Op.ISSEQ_ARROW_LONE.make(null, null, left, right);
-        if(op == Op.ONE_ARROW_ONE) 
-            return ExprBinary.Op.ONE_ARROW_ONE.make(null, null, left, right);
+ 
+ 		Expr ret = null;
         
-        return null;
+        if(op == Op.ARROW)
+        	ret = (ExprBinary) ExprBinary.Op.ARROW.make(null, null, left, right);
+
+        if(op == Op.ANY_ARROW_SOME) 
+            ret = ExprBinary.Op.ANY_ARROW_SOME.make(null, null, left, right);
+        if(op == Op.ANY_ARROW_ONE) 
+            ret = ExprBinary.Op.ANY_ARROW_ONE.make(null, null, left, right);
+        if(op == Op.ANY_ARROW_LONE) 
+            ret = ExprBinary.Op.ANY_ARROW_LONE.make(null, null, left, right);
+        
+        if(op==Op.SOME_ARROW_ANY) 
+        	ret = ExprBinary.Op.SOME_ARROW_ANY.make(null, null, left, right);
+        if(op==Op.SOME_ARROW_SOME) 
+        	ret = ExprBinary.Op.SOME_ARROW_SOME.make(null, null, left, right);
+        if(op==Op.SOME_ARROW_ONE) 
+        	ret = ExprBinary.Op.SOME_ARROW_ONE.make(null, null, left, right);
+        if(op==Op.SOME_ARROW_LONE) 
+        	ret = ExprBinary.Op.SOME_ARROW_LONE.make(null, null, left, right);
+
+        if(op == Op.ONE_ARROW_ANY) 
+            ret = ExprBinary.Op.ONE_ARROW_ANY.make(null, null, left, right);
+        if(op == Op.ONE_ARROW_SOME) 
+            ret = ExprBinary.Op.ONE_ARROW_SOME.make(null, null, left, right);
+        if(op == Op.ONE_ARROW_ONE) 
+            ret = ExprBinary.Op.ONE_ARROW_ONE.make(null, null, left, right);
+        if(op == Op.ONE_ARROW_LONE) 
+            ret = ExprBinary.Op.ONE_ARROW_LONE.make(null, null, left, right);
+
+        if(op == Op.LONE_ARROW_ANY) 
+            ret = ExprBinary.Op.ONE_ARROW_ANY.make(null, null, left, right);
+        if(op == Op.LONE_ARROW_SOME) 
+            ret = ExprBinary.Op.ONE_ARROW_SOME.make(null, null, left, right);
+        if(op == Op.LONE_ARROW_ONE) 
+            ret = ExprBinary.Op.ONE_ARROW_ONE.make(null, null, left, right);
+        if(op == Op.LONE_ARROW_LONE) 
+            ret = ExprBinary.Op.ONE_ARROW_LONE.make(null, null, left, right);
+
+        if(op == Op.ISSEQ_ARROW_LONE)
+        	ret = ExprBinary.Op.ISSEQ_ARROW_LONE.make(null, null, left, right);
+
+        if(op == Op.JOIN)
+        	ret = (ExprBinary) ExprBinary.Op.JOIN.make(null, null, left, right);
+        if(op == Op.DOMAIN)
+        	ret = (ExprBinary) ExprBinary.Op.DOMAIN.make(null, null, left, right);
+        if(op == Op.RANGE)
+        	ret = (ExprBinary) ExprBinary.Op.RANGE.make(null, null, left, right);
+        if(op == Op.INTERSECT)
+        	ret = (ExprBinary) ExprBinary.Op.INTERSECT.make(null, null, left, right);
+        if(op == Op.PLUSPLUS)
+        	ret = (ExprBinary) ExprBinary.Op.PLUSPLUS.make(null, null, left, right);
+
+        if(op == Op.PLUS)
+        	ret = (ExprBinary) ExprBinary.Op.PLUS.make(null, null, left, right);
+        if(op == Op.IPLUS)
+        	ret = (ExprBinary) ExprBinary.Op.IPLUS.make(null, null, left, right);
+
+        if(op == Op.MINUS)
+        	ret = (ExprBinary) ExprBinary.Op.MINUS.make(null, null, left, right);
+        if(op == Op.IMINUS)
+        	ret = (ExprBinary) ExprBinary.Op.IMINUS.make(null, null, left, right);
+
+        if(op == Op.MUL)
+        	ret = (ExprBinary) ExprBinary.Op.MUL.make(null, null, left, right);
+        if(op == Op.DIV)
+        	ret = (ExprBinary) ExprBinary.Op.DIV.make(null, null, left, right);
+        if(op == Op.REM)
+        	ret = (ExprBinary) ExprBinary.Op.REM.make(null, null, left, right);
+
+        if(op == Op.EQUALS)
+        	ret = (ExprBinary) ExprBinary.Op.EQUALS.make(null, null, left, right);
+        if(op == Op.NOT_EQUALS)
+        	ret = (ExprBinary) ExprBinary.Op.NOT_EQUALS.make(null, null, left, right);
+
+        if(op == Op.IMPLIES)
+        	ret = (ExprBinary) ExprBinary.Op.IMPLIES.make(null, null, left, right);
+        if(op == Op.LT)
+        	ret = (ExprBinary) ExprBinary.Op.LT.make(null, null, left, right);
+        if(op == Op.LTE)
+        	ret = (ExprBinary) ExprBinary.Op.LTE.make(null, null, left, right);
+        if(op == Op.GT)
+        	ret =  (ExprBinary) ExprBinary.Op.GT.make(null, null, left, right);
+        if(op == Op.GTE)
+        	ret = (ExprBinary) ExprBinary.Op.GTE.make(null, null, left, right);
+
+        if(op == Op.NOT_LT)
+        	ret = (ExprBinary) ExprBinary.Op.NOT_LT.make(null, null, left, right);
+        if(op == Op.NOT_LTE)
+        	ret = (ExprBinary) ExprBinary.Op.NOT_LTE.make(null, null, left, right);
+        if(op == Op.NOT_GT)
+        	ret = (ExprBinary) ExprBinary.Op.NOT_GT.make(null, null, left, right);
+        if(op == Op.NOT_GTE)
+        	ret = (ExprBinary) ExprBinary.Op.NOT_GTE.make(null, null, left, right);
+
+        if(op == Op.SHL)
+        	ret = (ExprBinary) ExprBinary.Op.SHL.make(null, null, left, right);
+        if(op == Op.SHA)
+        	ret = (ExprBinary) ExprBinary.Op.SHA.make(null, null, left, right);
+        if(op == Op.SHR)
+        	ret = (ExprBinary) ExprBinary.Op.SHR.make(null, null, left, right);
+
+        if(op == Op.IN)
+        	ret = (ExprBinary) ExprBinary.Op.IN.make(null, null, left, right);
+        if(op == Op.NOT_IN)
+        	ret = (ExprBinary) ExprBinary.Op.NOT_IN.make(null, null, left, right);
+
+        if(op == Op.AND)
+        	ret = ExprBinary.Op.AND.make(null, null, left, right);
+        if(op == Op.OR)
+        	ret = ExprBinary.Op.OR.make(null, null, left, right);
+        if(op == Op.IFF)
+        	ret = (ExprBinary) ExprBinary.Op.IFF.make(null, null, left, right);
+
+        if(op == Op.UNTIL)
+        	ret = (ExprBinary) ExprBinary.Op.UNTIL.make(null, null, left, right);
+        if(op == Op.RELEASES)
+        	ret = (ExprBinary) ExprBinary.Op.RELEASES.make(null, null, left, right);
+        if(op == Op.SINCE)
+        	ret = (ExprBinary) ExprBinary.Op.SINCE.make(null, null, left, right);
+        if(op == Op.TRIGGERED)
+        	ret = (ExprBinary) ExprBinary.Op.TRIGGERED.make(null, null, left, right);
+
+        // defensive programming
+        if (ret == null) {
+        	throw new NullPointerException("DashHelper.createBinaryExpr left="+left+" op="+op+"right="+right);
+        } else {
+        	return ret;
+        }
     }
     
     public static ExprUnary createUnaryExpr(ExprUnary.Op op, Expr sub) {
