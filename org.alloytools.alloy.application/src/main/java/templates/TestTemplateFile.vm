@@ -359,9 +359,11 @@ $padding        logging.log(ACLOG,f"Execution of [${concState.getName()}_${trans
                 #if($trans.getAction())
 $padding        ${trans.getAction()}
                 #end
-$padding        new_state = self._parent_state.${trans.getToStateName()}_State(self._parent_state, self._root_state)      
+$padding        new_state = self._parent_state.${trans.getToStateName()}_State(self._parent_state, self._root_state)
 $padding        self._parent_state.change_state(new_state)
-$padding        #if(${trans.getTriggerEvent()})SS.activeEvents.add("${trans.getTriggerEvent()}") #end
+                #if(${trans.getTriggerEvent()})
+$padding        SS.activeEvents.add("${trans.getTriggerEvent()}")
+                #end
 
             #end
         #end
@@ -383,7 +385,7 @@ class CentralController:
         #else
         self.possibleEvents = {}
         #end
-    
+
     def run(self) -> None:
         eventName = ""
         # big step
