@@ -351,7 +351,7 @@ public class DashPythonTranslation {
     public static class Relation {
         public String name;
         public String types;
-        public List<List<String>> values;
+        public List<List<String>> values = new ArrayList<>();;
 
         public Relation(String name, String types) {
             this.name = name;
@@ -361,7 +361,6 @@ public class DashPythonTranslation {
         public Relation(String name, String types, A4Solution a4Solution) {
             this.name = name;
             this.types = types;
-            this.values = new ArrayList<>();
             for (Sig s : a4Solution.getAllReachableSigs()) {
                 for (Sig.Field f: s.getFields()){
                     if (f.label.equals(name)) {
