@@ -273,6 +273,7 @@ class ${sig.Name}(Signature):
     #foreach($relation in $relations)
 class ${relation.Name}(Relation):
     types = ${relation.Types}
+    values = ${relation.Values}
 
     #end
 #end
