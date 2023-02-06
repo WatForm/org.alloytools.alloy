@@ -651,7 +651,7 @@ public class DashPythonTranslation {
         private String fromStateName = "";
         private String toStateName = "";
         private String transName = "";                       // transition name
-        private String action = "";                          // the logic for this transition to be executed
+        private List<String> actions = new ArrayList<>();    // the logic for this transition to be executed
         private String guardCondition = "";                  // the guard condition of this transition
         private String eventCondition = "";
         private String triggerEvent = "";
@@ -682,8 +682,8 @@ public class DashPythonTranslation {
             if(dashTrans.getAction() != null){      // determines the action
                 DashExprToPython dashExprTranslator = new DashExprToPython<>(dashTrans.getAction(), variable2StateNameMap);
 
-                // set action
-                this.action = dashExprTranslator.toString();
+                // set actions
+                this.actions = dashExprTranslator.toList();
             }
             if(dashTrans.getDestination() != null){    // determine the next state
                 this.toStateName = dashTrans.getDestination().getAllDestinations().get(0);
@@ -698,7 +698,7 @@ public class DashPythonTranslation {
         public String getTransName(){return transName;}
         public String getStateName(){return stateName;}
         public String getGuardCondition(){return guardCondition;}
-        public String getAction(){return action;}
+        public List<String> getActions(){return actions;}
         public String getEventCondition() {return eventCondition;}
         public String getFromStateName() {return fromStateName;}
         public String getToStateName() {return toStateName;}
