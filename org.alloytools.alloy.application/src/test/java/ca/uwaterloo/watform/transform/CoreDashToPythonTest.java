@@ -43,7 +43,7 @@ public class CoreDashToPythonTest {
         String dashModel = "conc state concState { default state topStateA { default state innerState{}} state topStateB{}}";
         DashModule dashModule = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
         dashModule = new DashToCoreDash().transformToCoreDash(dashModule, null, "");
-        DashPythonTranslation translation = new DashPythonTranslation(dashModule);
+        DashPythonTranslation translation = new DashPythonTranslation(dashModule, null);
 
         assertNotNull(CoreDashToPython.convert2String(translation));
     }
@@ -57,7 +57,7 @@ public class CoreDashToPythonTest {
                 "lone sig LoneSig {}";
         DashModule dashModule = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
         dashModule = new DashToCoreDash().transformToCoreDash(dashModule, null, "");
-        DashPythonTranslation translation = new DashPythonTranslation(dashModule);
+        DashPythonTranslation translation = new DashPythonTranslation(dashModule, null);
 
         List<String> expectedTranslation = Arrays.asList("class Floor(Signature):",
                 "atoms = {\"Floor$0\", \"Floor$1\", \"Floor$2\"}",
@@ -96,7 +96,7 @@ public class CoreDashToPythonTest {
 
         DashModule dashModule = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
         dashModule = new DashToCoreDash().transformToCoreDash(dashModule, null, "");
-        DashPythonTranslation translation = new DashPythonTranslation(dashModule);
+        DashPythonTranslation translation = new DashPythonTranslation(dashModule, null);
 
         List<String> expectedTranslation = Arrays.asList("class Asubset1(Signature):",
                 "class Asubset2(Signature):",
@@ -126,7 +126,7 @@ public class CoreDashToPythonTest {
 
         DashModule dashModule = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
         dashModule = new DashToCoreDash().transformToCoreDash(dashModule, null, "");
-        DashPythonTranslation translation = new DashPythonTranslation(dashModule);
+        DashPythonTranslation translation = new DashPythonTranslation(dashModule, null);
 
         List<String> expectedTranslation = Arrays.asList("class f0(Relation):",
                 "class f1(Relation):",

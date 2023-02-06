@@ -51,7 +51,7 @@ public class DashPythonTranslationTest {
         String dashModel = "conc state concState { default state topStateA { default state innerState{}} state topStateB{}}";
         DashModule dashModule = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
         dashModule = new DashToCoreDash().transformToCoreDash(dashModule, null, "");
-        DashPythonTranslation translation = new DashPythonTranslation(dashModule);
+        DashPythonTranslation translation = new DashPythonTranslation(dashModule, null);
         assertEquals(1, translation.getRootStates().size());
         assertEquals("concState", translation.getRootStates().get(0).getName());
         assertTrue("concState", translation.getRootStates().get(0).getIsConc());
@@ -78,7 +78,7 @@ public class DashPythonTranslationTest {
         String dashModel = "sig Chair {} sig Player {} conc state Game { active_players: set Player active_chairs: set Chair occupied: Chair set -> set Player init { active_players = Player active_chairs = Chair occupied = none -> none}}";
         DashModule dashModule = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
         dashModule = new DashToCoreDash().transformToCoreDash(dashModule, null, "");
-        DashPythonTranslation translation = new DashPythonTranslation(dashModule);
+        DashPythonTranslation translation = new DashPythonTranslation(dashModule, null);
         assertEquals(1, translation.getRootStates().size());
 
         DashPythonTranslation.State gameState = translation.getRootStates().get(0);
@@ -108,7 +108,7 @@ public class DashPythonTranslationTest {
         DashModule dashModule = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
         dashModule = new DashToCoreDash().transformToCoreDash(dashModule, null, "");
 
-        DashPythonTranslation translation = new DashPythonTranslation(dashModule);
+        DashPythonTranslation translation = new DashPythonTranslation(dashModule, null);
 
         DashPythonTranslation.State topState = translation.getRootStates().get(0);
         assertEquals("topConcStateA", topState.getName());
@@ -138,7 +138,7 @@ public class DashPythonTranslationTest {
         DashModule dashModule = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
         dashModule = new DashToCoreDash().transformToCoreDash(dashModule, null, "");
 
-        DashPythonTranslation translation = new DashPythonTranslation(dashModule);
+        DashPythonTranslation translation = new DashPythonTranslation(dashModule, null);
 
         assertEquals(4, translation.signatures.size());
         assertEquals(translation.signatures.get(0).name, "Floor");
@@ -167,7 +167,7 @@ public class DashPythonTranslationTest {
         DashModule dashModule = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
         dashModule = new DashToCoreDash().transformToCoreDash(dashModule, null, "");
 
-        DashPythonTranslation translation = new DashPythonTranslation(dashModule);
+        DashPythonTranslation translation = new DashPythonTranslation(dashModule, null);
 
         assertEquals(6, translation.signatures.size());
         assertEquals(translation.signatures.get(0).name, "A");
@@ -328,7 +328,7 @@ public class DashPythonTranslationTest {
 
         DashModule dashModule = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
         dashModule = new DashToCoreDash().transformToCoreDash(dashModule, null, "");
-        DashPythonTranslation translation = new DashPythonTranslation(dashModule);
+        DashPythonTranslation translation = new DashPythonTranslation(dashModule, null);
 
         for (int index = 0; index < expectedResults.size(); index++) {
             assertEquals(expectedResults.get(index).scope, translation.signatures.get(index).scope);
@@ -356,7 +356,7 @@ public class DashPythonTranslationTest {
         DashModule dashModule = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
         dashModule = new DashToCoreDash().transformToCoreDash(dashModule, null, "");
 
-        DashPythonTranslation translation = new DashPythonTranslation(dashModule);
+        DashPythonTranslation translation = new DashPythonTranslation(dashModule, null);
 
         List<DashPythonTranslation.Transition> transitions = translation.getRootStates().get(0).getTransitions();
         assertEquals( 6,transitions.size());
@@ -394,7 +394,7 @@ public class DashPythonTranslationTest {
         DashModule dashModule = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
         dashModule = new DashToCoreDash().transformToCoreDash(dashModule, null, "");
 
-        DashPythonTranslation translation = new DashPythonTranslation(dashModule);
+        DashPythonTranslation translation = new DashPythonTranslation(dashModule, null);
 
         List<DashPythonTranslation.Transition> transitions = translation.getRootStates().get(0).getTransitions();
         assertEquals(12, transitions.size());
@@ -452,7 +452,7 @@ public class DashPythonTranslationTest {
 
         DashModule dashModule = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
         dashModule = new DashToCoreDash().transformToCoreDash(dashModule, null, "");
-        DashPythonTranslation translation = new DashPythonTranslation(dashModule);
+        DashPythonTranslation translation = new DashPythonTranslation(dashModule, null);
 
         for (int index = 0; index < expectedResults.size(); index++) {
             assertEquals(expectedResults.get(index).name, translation.relations.get(index).name);

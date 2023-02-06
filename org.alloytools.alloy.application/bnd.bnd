@@ -6,6 +6,9 @@
 	org.alloytools:pardinus.core;version='1.3.0',\
 	org.alloytools.alloy.core;version=latest,\
 	org.alloytools.alloy.dash;version=latest,\
+	org.sat4j.core, \
+	org.sat4j.maxsat, \
+	org.sat4j.pb, \
 	aQute.libg
 	aQute.libg
 -testpath: \
