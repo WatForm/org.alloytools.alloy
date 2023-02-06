@@ -130,10 +130,14 @@ public class DashModuleToString {
     	for(ArrayList<Func> funcs: module.funcs.values()) {
 			for (Func func : funcs) {
 				printComments(module, func.label, out);
+				String funcLabel = func.label;
+				if (funcLabel.contains("run$")) {
+					funcLabel = funcLabel.replace("run$", "runDefault");
+				}
 				if (func.isPred)
-					out.print("pred " + cleanLabel(func.label));
+					out.print("pred " + cleanLabel(funcLabel));
 				else
-					out.print("fun " + cleanLabel(func.label));
+					out.print("fun " + cleanLabel(funcLabel));
 					
 				if (func.decls.size() > 0)
 					out.print("[").beginCInd();
@@ -179,7 +183,12 @@ public class DashModuleToString {
     
     private void printCommands(DashModule module, DataLayouter<NoExceptions> out) {
     	for(Command command: module.commands) {
-    		out.print(command.toString().substring(0, 1).toLowerCase() + command.toString().substring(1));
+    		String completeCommand = command.toString().substring(0, 1).toLowerCase() + command.toString().substring(1);
+    		if (completeCommand.contains("run$")) {
+    			completeCommand = completeCommand.replace("run$", "runDefault");
+    		}
+    		System.out.println("Command: " + completeCommand);
+    		out.print(completeCommand);
     		out.brk();
     	}
     	out.brk().brk();

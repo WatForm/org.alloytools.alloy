@@ -1988,6 +1988,12 @@ public final class DashModule extends Browsable implements Module {
             variable2Expression.put(fullyQualVarName, decl.expr);
             variable2State.put(fullyQualVarName, state);
         }
+        
+        for (DashBuffer buffer : state.getBuffers()) {
+        	String varName = buffer.getRawName();
+            variables.add(varName);
+            state.getVariableNames().add(varName);
+        }
 
         for (String var : variables) {
             if (!modifiedVarNames.contains(state.getFullyQualName() + "_" + var)) {

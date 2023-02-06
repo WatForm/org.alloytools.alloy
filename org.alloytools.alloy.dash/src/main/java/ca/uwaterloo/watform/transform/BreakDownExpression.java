@@ -418,7 +418,7 @@ public class BreakDownExpression {
         	return current.isCreatingInit && parent.isParameterized() ? ExprVar.make(null, "p" + module.getIdentifierElements().indexOf(parent.getReplicatedIdentifier())) : 
         		ExprVar.make(null, "p0");
         }
-
+        
         //If we make a reference to a conc state outside of the current conc state, find it and 
         //modify the value of the expression accordingly
     	if(expr.toString().contains("/")) {

@@ -27,6 +27,9 @@ public class CoreDashToAlloy extends TranslationFromCoreDash {
 		super();
 	}
 	
+	// For Debugging purposes ONLY
+	public DashTrans currentTrans;
+	
     public DashModule convertToAlloyAST(DashModule module, String fileName, String path) {	
     	DashModule alloyModule = new DashModule(module, fileName, path, true);
     	
@@ -113,6 +116,7 @@ public class CoreDashToAlloy extends TranslationFromCoreDash {
     
     private void createTransitionsAST(DashModule module) {
         for (DashTrans transition : module.getTransitions().values()) {
+    		currentTrans = transition; 
             createPreConditionAST(transition, module);
             createPostConditionAST(transition, module);
             createTransCallAST(transition, module);
@@ -2118,6 +2122,14 @@ public class CoreDashToAlloy extends TranslationFromCoreDash {
 		for (DashConcState concState: module.getAllConcurrentStates().values()) {
 			stateLabelScope += getBasicStateCount(getStates(concState));
 			transitionLabelScope += getTransitions(module, concState).size();
+		}
+		
+		// For Default Commands
+		if (command.label.contains("run$") && !DashOptions.isElectrum) {
+			CommandScope snapshotNumber = new CommandScope(null            , Sig.NONE, true,          3, 3,             1    );
+			CommandScope stateSigScope = new CommandScope(null, new PrimSig("Snapshot", 
+					AttrType.WHERE.make(new Pos(null, 0, 0))), snapshotNumber.isExact, snapshotNumber.startingScope, snapshotNumber.endingScope, snapshotNumber.increment);
+			scopes.add(stateSigScope);
 		}
 		
 		CommandScope stateNumber = new CommandScope(null            , Sig.NONE, true,          stateLabelScope, stateLabelScope,             1    );
