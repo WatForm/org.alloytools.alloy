@@ -41,7 +41,7 @@ public class RapidDash {
         A4Reporter rep = new A4Reporter();
 
         boolean parse = true;
-        boolean toFile = true;
+        boolean toFile = false;
 
         if (parse) {
 

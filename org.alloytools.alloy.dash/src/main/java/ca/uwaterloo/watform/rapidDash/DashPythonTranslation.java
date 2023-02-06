@@ -686,7 +686,7 @@ public class DashPythonTranslation {
                 this.actions = dashExprTranslator.toList();
             }
             if(dashTrans.getDestination() != null){    // determine the next state
-                this.toStateName = dashTrans.getDestination().getAllDestinations().get(0);
+                this.toStateName = dashTrans.getDestination().getAllDestinations().get(0).replace("/", "_");
             }
             if(dashTrans.getEventsTriggered() != null){    // determines the event to send
                 this.triggerEvent = dashTrans.getEventsTriggered().getRawName();

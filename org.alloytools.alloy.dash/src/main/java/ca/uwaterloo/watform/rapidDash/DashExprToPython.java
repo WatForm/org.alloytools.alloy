@@ -357,7 +357,7 @@ public class DashExprToPython<ExprType> {
                 res = this.genExpr(node.left, 1) + " in ";
                 break;
             case NOT_IN:        // this part assumes inner expression are a signature instances and are sets
-                res = "not " + this.genExpr(node.left, 1) + " not in";
+                res = this.genExpr(node.left, 1) + " not in ";
                 break;
             case AND:           // this part assumes the inner expression is a statement that evaluates to true or false
                 res = "(" + this.genExpr(node.left, 1) + ") and ";
