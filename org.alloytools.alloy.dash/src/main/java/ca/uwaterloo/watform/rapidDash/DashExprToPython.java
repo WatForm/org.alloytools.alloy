@@ -6,9 +6,12 @@ import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprBadJoin;
 import edu.mit.csail.sdg.ast.ExprBinary;
 import edu.mit.csail.sdg.ast.ExprConstant;
+import edu.mit.csail.sdg.ast.ExprList;
 import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.ExprVar;
 
+import java.util.LinkedList;
+import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 
@@ -18,7 +21,7 @@ import java.util.Map;
  */
 public class DashExprToPython<ExprType> {
     private ExprType specialExpr;
-    private StringBuilder sb;
+    private Deque<StringBuilder> sbs;
     private Map<String, String> variable2StateNameMap;
     private String varName;;
     private List<DashPythonTranslation.Relation> relations;
@@ -27,7 +30,8 @@ public class DashExprToPython<ExprType> {
 
     public DashExprToPython(ExprType specialExpr, Map<String, String> variable2StateNameMap, String varName, List<DashPythonTranslation.Relation> relations){
         this.specialExpr = specialExpr;
-        this.sb = new StringBuilder();
+        this.sbs = new LinkedList<>();
+        this.sbs.addLast(new StringBuilder());
         this.variable2StateNameMap = variable2StateNameMap;
         this.varName = varName;
         this.relations = relations;
@@ -42,12 +46,23 @@ public class DashExprToPython<ExprType> {
 
     @Override
     public String toString() {
-        return this.sb.toString();
+        return this.sbs.getLast().toString();
+    }
+
+    public List<String> toList(){
+        List<String> result = new LinkedList<>();
+        for (StringBuilder sb : sbs) {
+            if (sb.length() > 0){
+                result.add(sb.toString());
+            }
+        }
+        return result;
     }
     
     public void reparseExpr() {
-    	this.sb = new StringBuilder();
-    	this.parseExpr();
+        sbs.removeLast();
+        sbs.addLast(new StringBuilder());
+    	parseExpr();
     }
 
     // generate python expressions
@@ -55,13 +70,13 @@ public class DashExprToPython<ExprType> {
         // TODO: need to handle predicates with multiple lines
         if(specialExpr instanceof DashWhenExpr){
             DashWhenExpr exp = (DashWhenExpr)this.specialExpr;
-            sb.append(genExpr(exp.getExpr(), exp.getAllExpressions().size()));
+            sbs.getLast().append(genExpr(exp.getExpr(), exp.getAllExpressions().size()));
         } else if (specialExpr instanceof DashDoExpr){
             // TODO: Do expr should be different since actions are needed, not just evaluation statements
             DashDoExpr exp = (DashDoExpr)this.specialExpr;
-            sb.append(genExpr(exp.getExpr(), exp.getAllExpression().size()));
+            sbs.getLast().append(genExpr(exp.getExpr(), exp.getAllExpression().size()));
         } else {
-        	sb.append(genExpr((Expr)specialExpr, 1));
+            sbs.getLast().append(genExpr((Expr)specialExpr, 1));
         }
     }
 
@@ -70,35 +85,41 @@ public class DashExprToPython<ExprType> {
         // TODO: currently, the second parameter is redundant
 
         // check type, there are two types of expr
-        if (node instanceof ExprUnary) {
+        if (node instanceof  ExprList) {
+            ExprList exprList = (ExprList) node;
+            // Assuming each expr in the list is an independent statement
+            for (Expr subNode : exprList.args) {
+                sbs.getLast().append(genExpr(subNode, exprList.args.size()));
+                sbs.addLast(new StringBuilder());
+            }
+            return "";
+        }else if (node instanceof ExprUnary) {
             // TODO: is sub always a binary?
 
-            // variable2StateNameMap
-
             ExprUnary unaryNode = (ExprUnary) node;
-            return(UnaryOp2PythonOp(unaryNode.op, unaryNode.sub));
+            return UnaryOp2PythonOp(unaryNode.op, unaryNode.sub);
         } else if (node instanceof ExprBinary) {
             // TODO: will BinaryExpr have sub nodes?
 
             // TODO: will need to replace left and right with signature names
-            ExprBinary binaryNode = (ExprBinary) node;
-            return(BinaryOp2PythonOp(binaryNode));
+            return BinaryOp2PythonOp((ExprBinary) node);
         } else if (node instanceof ExprVar || node instanceof ExprConstant){
+            String varName = node.toString();
             if('\'' == node.toString().charAt(node.toString().length() - 1)){
-                return node.toString().substring(0, node.toString().length() - 1);
+                varName = node.toString().substring(0, node.toString().length() - 1);
             }
-			return node.toString();
+			return getVarName(varName);
         } else if (node instanceof ExprBadJoin) {
-        	// this assumes the expr is in the form (#STATE_VARIABLE).PLUS/MINUS[CONSTANT]
-        	ExprBadJoin badNode = (ExprBadJoin)node;
-        	ExprBadJoin badSubnode = (ExprBadJoin)badNode.right;
-        	ExprUnary cardinality = (ExprUnary) badSubnode.left;// #STATE_VARIABLE
-        	String type = badSubnode.right.toString();// plus or minus
-        	String operation = type.equals("plus") ? " + " : " - ";
-        	return UnaryOp2PythonOp(cardinality.op, cardinality.sub) + operation + badNode.left.toString();
+            // this assumes the expr is in the form (#STATE_VARIABLE).PLUS/MINUS[CONSTANT]
+            ExprBadJoin badNode = (ExprBadJoin) node;
+            ExprBadJoin badSubnode = (ExprBadJoin) badNode.right;
+            ExprUnary cardinality = (ExprUnary) badSubnode.left;// #STATE_VARIABLE
+            String type = badSubnode.right.toString();// plus or minus
+            String operation = type.equals("plus") ? " + " : " - ";
+            return UnaryOp2PythonOp(cardinality.op, cardinality.sub) + operation + badNode.left.toString();
         } else {
             // under development, use this to catch more types that could be useful
-            System.out.println("More types: " + node.getClass());
+            System.out.println("[Warning] Need more types: " + node.getClass());
         }
         return "";
     }
@@ -186,7 +207,7 @@ public class DashExprToPython<ExprType> {
     // translate Binary operation, also returns the empty space
     private String BinaryOp2PythonOp(ExprBinary node){
         String res = " ";
-        boolean addParanthesis = false;
+        boolean addParanthesis = node.right instanceof ExprBinary;
         boolean rightConsumed = false;
         switch(node.op){
             case ARROW:     // State relation declaration
@@ -265,7 +286,7 @@ public class DashExprToPython<ExprType> {
                 res = " ";
                 break;
             case PLUS:        // this part assumes inner expression are a signature instances and are sets
-                res = this.genExpr(node.left, 1) + " | ";
+                res = this.genExpr(node.left, 1) + " + ";
                 break;
             case IPLUS:
                 res = " ";
@@ -291,7 +312,7 @@ public class DashExprToPython<ExprType> {
             	} else {
             		res = this.genExpr(node.left, 1) + " = ";
             	}
-                
+                addParanthesis = false;
                 break;
             case NOT_EQUALS:    // this part assumes inner expression is a signature instances and are comparable
                 res = this.genExpr(node.left, 1) + " != ";
@@ -333,12 +354,10 @@ public class DashExprToPython<ExprType> {
                 res = " ";
                 break;
             case IN:            // this part assumes inner expression are a signature instances and are sets
-                res = this.genExpr(node.left, 1) + ".issubset";
-                addParanthesis = true;
+                res = this.genExpr(node.left, 1) + " in ";
                 break;
             case NOT_IN:        // this part assumes inner expression are a signature instances and are sets
-                res = "not " + this.genExpr(node.left, 1) + ".issubset";
-                addParanthesis = true;
+                res = this.genExpr(node.left, 1) + " not in ";
                 break;
             case AND:           // this part assumes the inner expression is a statement that evaluates to true or false
                 res = "(" + this.genExpr(node.left, 1) + ") and ";
@@ -364,11 +383,18 @@ public class DashExprToPython<ExprType> {
         }
 
         // add paranthesis for right node
-        if(addParanthesis || node.right instanceof ExprBinary){
+        if(addParanthesis){
             res += "(" + this.genExpr(node.right, 1) + ")";
         }else if (!rightConsumed){
             res += this.genExpr(node.right, 1);
         }
         return res;
+    }
+
+    private String getVarName(String varName){
+        if (variable2StateNameMap.containsKey(varName)){
+            return "SS." + variable2StateNameMap.get(varName) + "_" + varName;
+        }
+    	return varName;
     }
 }
