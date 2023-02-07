@@ -1,13 +1,20 @@
 package ca.uwaterloo.watform.dash4whole;
 
-import ca.uwaterloo.watform.parser.DashModule;
-import ca.uwaterloo.watform.parser.DashOptions;
-import ca.uwaterloo.watform.parser.DashUtil;
+import ca.uwaterloo.watform.parser.*;
 import ca.uwaterloo.watform.rapidDash.DashPythonTranslation;
 import ca.uwaterloo.watform.rapidDash.RapidDashOptions;
+import ca.uwaterloo.watform.transform.CoreDashToAlloy;
+import ca.uwaterloo.watform.transform.CoreDashToElectrum;
 import ca.uwaterloo.watform.transform.CoreDashToPython;
 import ca.uwaterloo.watform.transform.DashToCoreDash;
 import edu.mit.csail.sdg.alloy4.A4Reporter;
+import edu.mit.csail.sdg.alloy4viz.VizGUI;
+import edu.mit.csail.sdg.ast.Command;
+import edu.mit.csail.sdg.parser.CompModule;
+import edu.mit.csail.sdg.parser.CompUtil;
+import edu.mit.csail.sdg.translator.A4Options;
+import edu.mit.csail.sdg.translator.A4Solution;
+import edu.mit.csail.sdg.translator.TranslateAlloyToKodkod;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -26,6 +33,11 @@ public class RapidDash {
             System.err.println("File not supported.\nExpected a Dash file with 'dsh' extension");
             return;
         }
+
+        DashOptions.generateSigAxioms = false;
+        DashOptions.ctlModelChecking = false;
+        DashOptions.generateTraces = true;
+        DashOptions.isElectrum = false;
 
         Path path = Paths.get(actual);
         Path fileName = path.getFileName();
@@ -50,11 +62,41 @@ public class RapidDash {
             // Parse + typecheck the model
             System.out.println("=========== Parsing+Typechecking " + fileName + " =============");
 
+            // Solve the Dash module first to get initial values
             DashModule dash = DashUtil.parseEverything_fromFileDash(rep, null, actual);
+            DashValidation.validateDashModel(dash);
             DashModule coreDash = new DashToCoreDash().transformToCoreDash(dash, fileName.toString(), "");
+            DashModule alloy = DashOptions.isElectrum ? new CoreDashToElectrum().convertToElectrumAST(coreDash, "", "") : new CoreDashToAlloy().convertToAlloyAST(coreDash, "", "");
+            alloy = DashModule.resolveAll(rep == null ? A4Reporter.NOP : rep, alloy);
+            String alloyString = new DashModuleToString(true).getString(alloy);
+            System.out.println(alloyString);
+            CompModule alloyComp = CompUtil.parseEverything_fromString(rep, alloyString);
 
+            VizGUI viz = null;
+
+            A4Options options = new A4Options();
+
+            options.solver = A4Options.SatSolver.SAT4J;
+
+            A4Solution ans = null;
+            for (Command command : alloyComp.getAllCommands()) { // Execute the command
+                System.out.println("============ Command " + command + ": ============");
+                ans = TranslateAlloyToKodkod.execute_command(rep, alloyComp.getAllReachableSigs(), command, options);
+                System.out.println(ans); // If satisfiable...
+            }
+
+
+            // Start generating Python code
+            dash = DashUtil.parseEverything_fromFileDash(rep, null, actual);
+            coreDash = new DashToCoreDash().transformToCoreDash(dash, fileName.toString(), "");
+
+            DashPythonTranslation dashPythonTranslation = null;
             // Translate to our data-structure that has everything to be put into the template file
-            DashPythonTranslation dashPythonTranslation = CoreDashToPython.convertToPythonTranslation(coreDash);
+            if (ans != null && ans.satisfiable()) {
+                dashPythonTranslation = CoreDashToPython.convertToPythonTranslation(coreDash, ans);
+            } else {
+                dashPythonTranslation = CoreDashToPython.convertToPythonTranslation(coreDash, null);
+            }
 
             // Output to file or print to standard output
             if(toFile){

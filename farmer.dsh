@@ -19,7 +19,7 @@ fact eating {
 }
 
 conc state Puzzle {
-    near: set Object - Fox
+    near: set Object
     far: set Object
 
     init {

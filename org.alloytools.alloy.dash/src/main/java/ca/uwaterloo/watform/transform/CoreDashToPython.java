@@ -3,6 +3,7 @@ package ca.uwaterloo.watform.transform;
 import ca.uwaterloo.watform.parser.DashModule;
 import ca.uwaterloo.watform.rapidDash.DashPythonTranslation;
 import ca.uwaterloo.watform.rapidDash.RapidDashOptions;
+import edu.mit.csail.sdg.translator.A4Solution;
 import org.apache.velocity.Template;
 import org.apache.velocity.VelocityContext;
 import org.apache.velocity.app.VelocityEngine;
@@ -19,8 +20,8 @@ import java.util.stream.Collectors;
 public class CoreDashToPython {
     static DashPythonTranslation dashPythonTranslation;
 
-    public static DashPythonTranslation convertToPythonTranslation(DashModule module) {
-        return new DashPythonTranslation(module);
+    public static DashPythonTranslation convertToPythonTranslation(DashModule module, A4Solution ans) {
+        return new DashPythonTranslation(module, ans);
     }
 
     /**
