@@ -10,16 +10,16 @@ import random
 
 # ===== logging =====
 
-GCLOG = logging.DEBUG+1  # used for guard condition
-ACLOG = logging.DEBUG+2  # used for action chosen
-CALOG = logging.DEBUG+3  # used for feedback on adding called
-SVLOG = logging.DEBUG+4  # used for signature validity check
+CALOG = logging.DEBUG+1  # used for feedback on adding called
+SVLOG = logging.DEBUG+2  # used for signature validity check
+GCLOG = logging.INFO+1  # used for guard condition
+ACLOG = logging.INFO+2  # used for action chosen
 
 logging.basicConfig(level=logging.INFO)
-logging.addLevelName(GCLOG, "GUARD")
-logging.addLevelName(ACLOG, "ACTION")
 logging.addLevelName(CALOG, "CALLED")
 logging.addLevelName(SVLOG, "SIG")
+logging.addLevelName(GCLOG, "GUARD")
+logging.addLevelName(ACLOG, "ACTION")
 
 # ===== Base Classes =====
 
@@ -356,12 +356,16 @@ $padding        # TODO: global variables (signatures used in this state)
 $padding        global ${globalVar}
                 #end#end
 $padding        logging.log(ACLOG,f"Execution of [${concState.getName()}_${trans.getTransName()}] triggered.")
-                #if($trans.getAction())
-$padding        ${trans.getAction()}
+            #if($trans.getActions())
+                #foreach($action in $trans.getActions())
+$padding        ${action}
                 #end
-$padding        new_state = self._parent_state.${trans.getToStateName()}_State(self._parent_state, self._root_state)      
+            #end
+$padding        new_state = self._parent_state.${trans.getToStateName()}_State(self._parent_state, self._root_state)
 $padding        self._parent_state.change_state(new_state)
-$padding        #if(${trans.getTriggerEvent()})SS.activeEvents.add("${trans.getTriggerEvent()}") #end
+                #if(${trans.getTriggerEvent()})
+$padding        SS.activeEvents.add("${trans.getTriggerEvent()}")
+                #end
 
             #end
         #end
@@ -378,42 +382,49 @@ class CentralController:
 
     def __init__(self):
         self.concState = $!{rootState.getName()}_State(None, None)
+        self.commands = {"help": self.printHelp, "states": self.printStates, "execute": self.execute}
         #if(${allEnvEvents.size()}> 0)
         self.possibleEvents = {"${allEnvEvents.get(0).getModifiedName()}"#foreach($event in ${allEnvEvents.subList(1, ${allEncEvents.size()})}), "$!{event.getModifiedName()}"#end}
         #else
         self.possibleEvents = {}
         #end
-    
+
     def run(self) -> None:
         eventName = ""
         # big step
-        while(eventName != "QUIT"):
-            eventName = input("Please enter an event to be processed by the model. Type \"help\" for a list of possible events\n")
-
-            while(eventName == "help" or eventName == "states"):
-                if(eventName == "help"):
-                    print("\nEnv Events:")
-                    #if(${allEnvEvents.size()}> 0)
-                    for x in self.possibleEvents:
-                        print(x)
-                    #end
-                    print("\nOther Commands:")
-                    print("states: print the model's current states")
-                    print("QUIT: terminate the model\n")
-                elif(eventName == "states"):
-                    print("\n" + type(self.concState).__name__ + " Current States:\n")
-                    self.concState.printStates()
-
-                eventName = input("Please enter an event to be processed by the model. Type \"help\" for a list of possible events\n")
-
-            if(eventName in self.possibleEvents):
+        while eventName.lower() != "quit":
+            if eventName in self.possibleEvents:
                 SS.activeEvents.clear()
                 SS.activeEvents.add(eventName)
-                # TODO: refactor to only allow 1 transition per conc state in a big step
                 self.concState.handleEvent()
-            elif(eventName != "QUIT"):
+            elif eventName != "":
                 print("Invalid event name")
 
+            eventName = input("Please enter an event to be processed by the model. Type \"help\" for a list of possible events\n")
+            while eventName == "":
+                eventName = input()
+
+            if eventName in self.commands:
+                self.commands[eventName]()
+                eventName = ""
+
+    def printHelp(self):
+        print("\n-- Env Events --")
+        #if(${allEnvEvents.size()}> 0)
+        for x in self.possibleEvents:
+            print(x)
+        #end
+        print("\n-- Other Commands --")
+        print("states: print the model's current states")
+        print("execute: take a random transition (if possible)")
+        print("quit: terminate the model\n")
+
+    def printStates(self):
+        print("\n" + type(self.concState).__name__ + " Current States:\n")
+        self.concState.printStates()
+
+    def execute(self):
+        self.concState.handleEvent()
 
 # --- Run the Model ---
 

@@ -362,9 +362,9 @@ public class DashPythonTranslationTest {
         assertEquals( 6,transitions.size());
 
         List<String> expectedString = Arrays.asList(
-                "SigA.issubset(near)",
-                "not SigA.issubset(near)",
-                "not(not SigA.issubset(near))",
+                "SigA in SS.StateA_near",
+                "SigA not in SS.StateA_near",
+                "not(SigA not in SS.StateA_near)",
                 "SigA != SigB",
                 "not(SigA)",
                 "not(SigA != SigB)");
@@ -400,21 +400,21 @@ public class DashPythonTranslationTest {
         assertEquals(12, transitions.size());
 
         List<String> expectedString = Arrays.asList(
-                "far = far",
-                "far = far",
-                "far = far",
-                "far = (far | SigA)",
-                "far = (far | SigA | SigB)",
-                "far = (far | SigA | SigB)",
-                "far = (far | (SigB | SigA))",
-                "far = (far - SigA)",
-                "far = (far - SigA - SigB)",
-                "far = (far - SigA - SigB)",
-                "far = (far - (SigA - SigB))",
-                "far = (far | SigA - (SigB - far))");
+                "SS.StateA_far = SS.StateA_far",
+                "SS.StateA_far = SS.StateA_far",
+                "SS.StateA_far = SS.StateA_far",
+                "SS.StateA_far = SS.StateA_far + SigA",
+                "SS.StateA_far = SS.StateA_far + SigA + SigB",
+                "SS.StateA_far = SS.StateA_far + SigA + SigB",
+                "SS.StateA_far = SS.StateA_far + (SigB + SigA)",
+                "SS.StateA_far = SS.StateA_far - SigA",
+                "SS.StateA_far = SS.StateA_far - SigA - SigB",
+                "SS.StateA_far = SS.StateA_far - SigA - SigB",
+                "SS.StateA_far = SS.StateA_far - (SigA - SigB)",
+                "SS.StateA_far = SS.StateA_far + SigA - (SigB - SS.StateA_far)");
 
         for (int index = 0; index < transitions.size(); index++) {
-            assertEquals(expectedString.get(index), transitions.get(index).getAction());
+            assertEquals(expectedString.get(index), transitions.get(index).getActions().get(0));
         }
     }
 
