@@ -347,10 +347,20 @@ $padding    def _trans_${trans.getTransName()}_guard(self) -> bool:
 $padding        if(not ("${trans.getEventCondition()}" in SS.activeEvents)):
 $padding            return False
 		        #end
-                #if($trans.getGuardCondition())
-$padding        if not (${trans.getGuardCondition()}):
+            #if($trans.getGuardConditions())
+                #if($trans.getGuardConditions().size() == 1)
+$padding        if not ($trans.getGuardConditions().get(0)):
+$padding            return False
+                #else
+$padding        if not ($trans.getGuardConditions().get(0) and
+                    #set($lastIndex = ${trans.getGuardConditions().size()} - 1)
+                    #foreach($guardCondition in ${trans.getGuardConditions().subList(1, $lastIndex)})
+$padding                ${guardCondition} and
+                    #end
+$padding                ${trans.getGuardConditions().get($lastIndex)}):
 $padding            return False
                 #end
+            #end
 $padding        logging.log(GCLOG,f"Guard of [${concState.getName()}_${trans.getTransName()}] triggered.")
 $padding        return True
 
@@ -361,7 +371,7 @@ $padding        # TODO: global variables (signatures used in this state)
                 #foreach($globalVar in $globalVariables)
 $padding        global ${globalVar}
                 #end#end
-$padding        logging.log(ACLOG,f"Execution of [${concState.getName()}_${trans.getTransName()}] triggered.")
+$padding        logging.log(ACLOG,f"Execution of [${concState.getName()}_${trans.getTransName()}] passed.")
             #if($trans.getActions())
                 #foreach($action in $trans.getActions())
 $padding        ${action}

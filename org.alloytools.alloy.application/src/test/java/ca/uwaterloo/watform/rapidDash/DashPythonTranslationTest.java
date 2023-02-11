@@ -370,7 +370,7 @@ public class DashPythonTranslationTest {
                 "not(SigA != SigB)");
 
         for(int index = 0; index < transitions.size(); index++){
-            assertEquals(expectedString.get(index), transitions.get(index).getGuardCondition());
+            assertEquals(expectedString.get(index), transitions.get(index).getGuardConditions().get(0));
         }
     }
 
