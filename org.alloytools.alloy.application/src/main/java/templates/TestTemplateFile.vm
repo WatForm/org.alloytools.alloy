@@ -469,7 +469,7 @@ class CentralController:
     def __init__(self):
         self.concState = $!{rootState.getName()}_State(None, None)
         self.concState.default_initialize()
-        self.commands = {"help": self.printHelp, "states": self.printStates, "execute": self.execute}
+        self.commands = {"help": self.printHelp, "execute": self.execute}
         #if(${allEnvEvents.size()}> 0)
         self.possibleEvents = {"${allEnvEvents.get(0).getModifiedName()}"#foreach($event in ${allEnvEvents.subList(1, ${allEncEvents.size()})}), "$!{event.getModifiedName()}"#end}
         #else
@@ -513,6 +513,7 @@ class CentralController:
     
     def run(self) -> None:
         self.concState.print_tree()
+        self.printHelp()
         eventName = ""
         # big step
         while eventName.lower() != "quit":
@@ -539,13 +540,8 @@ class CentralController:
             print(x)
         #end
         print("\n-- Other Commands --")
-        print("states: print the model's current states")
         print("execute: take a random transition (if possible)")
         print("quit: terminate the model\n")
-
-    def printStates(self):
-        print("\n" + type(self.concState).__name__ + " Current States:\n")
-        self.concState.printStates()
 
     def execute(self):
         self.concState.handleEvent()
