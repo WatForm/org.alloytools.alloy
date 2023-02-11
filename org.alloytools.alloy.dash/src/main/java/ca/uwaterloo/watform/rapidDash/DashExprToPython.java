@@ -112,11 +112,21 @@ public class DashExprToPython<ExprType> {
         } else if (node instanceof ExprBadJoin) {
             // this assumes the expr is in the form (#STATE_VARIABLE).PLUS/MINUS[CONSTANT]
             ExprBadJoin badNode = (ExprBadJoin) node;
-            ExprBadJoin badSubnode = (ExprBadJoin) badNode.right;
-            ExprUnary cardinality = (ExprUnary) badSubnode.left;// #STATE_VARIABLE
-            String type = badSubnode.right.toString();// plus or minus
-            String operation = type.equals("plus") ? " + " : " - ";
-            return UnaryOp2PythonOp(cardinality.op, cardinality.sub) + operation + badNode.left.toString();
+            if (badNode.right instanceof ExprBadJoin){
+                ExprBadJoin badSubnode = (ExprBadJoin) badNode.right;
+                ExprUnary cardinality = (ExprUnary) badSubnode.left;// #STATE_VARIABLE
+                String type = badSubnode.right.toString();// plus or minus
+                String operation = type.equals("plus") ? " + " : " - ";
+                return UnaryOp2PythonOp(cardinality.op, cardinality.sub) + operation + badNode.left.toString();
+            } else if (badNode.right instanceof ExprVar){
+                // This probably means it's a map (e.g., A.B => A[B])
+                // TODO: this is a hack and did not handle the case, only to prevent exceptions, need to fix
+                String nodeLeft = genExpr(badNode.left, 1);
+                String nodeRight = genExpr(badNode.right, 1);
+                return nodeLeft + "." + nodeRight;
+            } else {
+                System.out.println("[Warning] BadNode needs more types: " + node.getClass());
+            }
         } else {
             // under development, use this to catch more types that could be useful
             System.out.println("[Warning] Need more types: " + node.getClass());
