@@ -157,7 +157,7 @@ class MetaSignature(type):
 
 
 class Signature(metaclass = MetaSignature):
-    def __init__(self, name, multiplicity):
+    def __init__(self, name, multiplicity, elements=set()):
         """
         Used by state variables
         - the member variables and functions will be used by state variables
@@ -169,7 +169,7 @@ class Signature(metaclass = MetaSignature):
         # for state variables:
         self.name = name
         self.multiplicity = multiplicity
-        self.elements = set()
+        self.elements = elements
         # TODO: delete this comment
         # Note: state variables are not implemented yet, this only aims to help in the future implementation of state variables
 
@@ -214,6 +214,20 @@ class Signature(metaclass = MetaSignature):
         return MetaSignature.Set(self.elements) - MetaSignature.Set(other)
 
 class Relation:
+    def __init__(self, name, types, values=set()):
+        """
+        Used by state variables
+        - the member variables and functions will be used by state variables
+
+        :param str name: the name of this state variable
+        :param list[string] types: the types of this state variable
+        :member set values: all the tuples in this instance (state variable)
+        """
+        # for state variables:
+        self.name = name
+        self.types = types
+        self.values = values
+
     @classmethod
     def possible_tuples(cls):
         domain_elements = [type.objects() for type in cls.types]
