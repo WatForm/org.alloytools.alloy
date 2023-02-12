@@ -965,7 +965,10 @@ final class DefaultTranslator extends AbstractTranslator {
         List<AnnotatedVar> vars = new ArrayList<>(arity);
 
         List<Sort> exprSorts = context.sortPolicy.getMinimalExprSorts(expr,
-                "Translating a quantified expression requires the inner expression to have definite sorts!", context);
+                "Translating a quantified expression requires the inner expression to have well-defined sorts!",
+                context);
+        SortPolicy.requireAllSortsDefinite(exprSorts,
+                "Translating a quantified expression requires the inner expression's sorts to all be definite!");
         for (int i = 0; i < arity; i++) {
             Var var = Term.mkVar(context.nameGenerator.freshName("x" + i));
             vars.add(var.of(exprSorts.get(i)));
@@ -1412,10 +1415,16 @@ final class DefaultTranslator extends AbstractTranslator {
                 }
 
                 Var var = Term.mkVar(context.nameGenerator.freshName(name.label));
-                // Note that the decl expr has to be unary because we don't support anything else
-                Sort varSort = context.sortPolicy.getMinimalExprSorts(declExpr,
-                        "Translating a quantification requires the variable declarations to have "
-                        + "definite Portus sorts!", context).get(0);
+                // Note that the decl expr has to be unary since typechecking should have caught anything else
+                String definiteSortsError = "Translating a quantification requires the variable declarations " +
+                        "to have definite and well-defined Portus sorts!";
+                List<Sort> exprSorts = context.sortPolicy.getMinimalExprSorts(declExpr, definiteSortsError, context);
+                if (exprSorts.size() != 1) {
+                    // Shouldn't happen since Alloy typechecking should catch this case
+                    throw new ErrorFatal("Quantifier declaration expressions should be unary!");
+                }
+                SortPolicy.requireAllSortsDefinite(exprSorts, definiteSortsError);
+                Sort varSort = exprSorts.get(0);
                 AnnotatedVar annotatedVar = var.of(varSort);
                 namesToVars.put(name.label, annotatedVar);
 

@@ -176,6 +176,13 @@ public abstract class SortPolicy {
         return result;
     }
 
+    /** For convenience, throw an error if any of the sorts aren't definite. */
+    public static void requireAllSortsDefinite(List<Sort> sorts, String errorMessage) {
+        if (sorts.stream().anyMatch(sort -> !isSortDefinite(sort))) {
+            throw new ErrorFatal(errorMessage);
+        }
+    }
+
     /** Is a sort definite (i.e. nonnull)? Use this instead of testing for null for readability. */
     public static boolean isSortDefinite(Sort sort) {
         return sort != null;
