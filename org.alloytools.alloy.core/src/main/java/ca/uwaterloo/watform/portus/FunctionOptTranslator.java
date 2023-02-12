@@ -171,8 +171,11 @@ final class FunctionOptTranslator extends AbstractTranslator {
                 return left.any_arrow_lone(right);
             case SOMEOF:
                 return left.any_arrow_some(right);
+            case EXACTLYOF:
+                // EXACTLYOF should only appear here if the meta feature is used, which we don't support
+                throw new ErrorFatal("Portus doesn't support Alloy's 'meta' feature");
             default:
-                // we don't support EXACTLYOF or anything else
+                // we don't support anything else
                 throw new ErrorFatal("Unsupported multiplicity: " + mult);
         }
     }
