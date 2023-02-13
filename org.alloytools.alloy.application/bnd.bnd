@@ -1,5 +1,3 @@
-Main-Class: ca.uwaterloo.watform.dash4whole.RapidDash
-
 -includeresource: \
 	src/main/resources
 
