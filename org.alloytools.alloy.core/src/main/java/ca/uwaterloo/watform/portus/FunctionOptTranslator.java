@@ -222,7 +222,7 @@ final class FunctionOptTranslator extends AbstractTranslator {
     @Override
     public Term translate(ExprBinary expr, TranslationContext context) {
         if (expr.op == ExprBinary.Op.JOIN) {
-            return translateIntJoin(expr.left, expr.right, context);
+            return translateIntJoin(expr, context);
         }
 
         if (expr.op != ExprBinary.Op.IN && expr.op != ExprBinary.Op.EQUALS) return null;
@@ -292,7 +292,7 @@ final class FunctionOptTranslator extends AbstractTranslator {
     }
 
     /** Translate "x.y" as an integer expression. We do this here because we need to use the function for y. */
-    private Term translateIntJoin(Expr left, Expr right, TranslationContext context) {
+    private Term translateIntJoin(ExprBinary joinExpr, TranslationContext context) {
         // The common case is that "x.y" is an integer expression if y is a function X->one Int and x is a singleton
         // set. We restrict x to a singleton (i.e. bound variable or one sig) because we don't support treating
         // sets of integers like integers. (Kodkod does support this, it just sums them.)
@@ -300,59 +300,98 @@ final class FunctionOptTranslator extends AbstractTranslator {
         // x: Int one->Y (among other exotic combinations), but this is less common.
         // Then we map x.y to "x in y's domain => y(x) else 0". Defaulting to 0 is consistent with Kodkod's behaviour
         // (because an empty set sums to 0).
-        // TODO: it's possible (but slightly harder) to support x.y.z (= (x.y).z) as well
-        // To support x.y.z we'd just have to modify castToScalar to return something useful for scalar x.y
+        // Similarly, x.y.z will be mapped to "x in y's domain and y(x) in z's domain => z(y(x)) else 0"
         // TODO: might also have to support fun/next (ExprConstant.NEXT) here
-        left = left.deNOP();
-        right = right.deNOP();
+        // Note: this case is not supported by the default translator, so this 'optimization' must be activated
+        // for expressions of this form to be successfully translated.
+        assert joinExpr.op == ExprBinary.Op.JOIN;
 
-        Pair<Term, Sort> leftScalar = castToScalar(left, context);
+        // Offload all the work to castToScalar because it's recursive.
+        Pair<Term, Pair<Term, Sort>> scalarResult = castToScalar(joinExpr, context);
+        Term scalar = scalarResult.a;
+        Term guard = scalarResult.b.a;
+        Sort sort = scalarResult.b.b;
 
-        if (!(right instanceof Sig.Field)) {
-            throw new ErrorFatal("RHS of an integer join expression must be a pure field");
-        }
-        Sig.Field field = (Sig.Field) right;
-        if (!optimizedFieldsInfo.containsKey(field)) {
-            throw new ErrorFatal("RHS of an integer join expression must be a function");
-        }
-        FieldFuncInfo optInfo = optimizedFieldsInfo.get(field);
-        if (optInfo.argSorts.size() != 1) {
-            throw new ErrorFatal("RHS function of an integer join expression must be unary");
-        }
-        if (optInfo.resultSort != Sort.Int()) {
-            throw new ErrorFatal("A join used as an expression must be of integer type");
+        if (sort != Sort.Int()) {
+            throw new ErrorFatal("A join used as an expression must be of the integer type");
         }
 
-        // We want to express "left scalar in domain of field", but the left scalar could be an arbitrary Term while
-        // makeDomainFormula requires a VarTuple (so AnnotatedVars). To get around this, use a temporary variable
-        // and substitute it with the term.
-        AnnotatedVar tempVar = Term.mkVar(context.nameGenerator.freshName("temp")).of(leftScalar.b);
-        Term unsubbedInDomain = makeDomainFormula(new VarTuple(tempVar), optInfo, context);
-        Term inDomain = PortusUtil.substitute(tempVar, leftScalar.a, unsubbedInDomain);
-
-        return Term.mkIfThenElse(inDomain, Term.mkApp(optInfo.funcName, leftScalar.a), IntegerLiteral.apply(0));
+        return Term.mkIfThenElse(guard, scalar, IntegerLiteral.apply(0));
     }
 
-    private Pair<Term, Sort> castToScalar(Expr expr, TranslationContext context) {
+    /**
+     * Return a pair of a variable or domain element and a pair of a guard and its sort corresponding to the expression,
+     * or throw an exception if expr is not (definitely) a scalar.
+     * Use of the scalar term must be conditioned on the guard (it could be e.g. a domain check).
+     * The guard will be Top if it is not necessary.
+     */
+    private Pair<Term, Pair<Term, Sort>> castToScalar(Expr expr, TranslationContext context) {
+        expr = expr.deNOP();
+
         if (expr instanceof ExprVar) {
+            // it could be a variable
             String varName = ((ExprVar) expr).label;
             if (context.hasVarMapping(varName)) {
                 AnnotatedVar fortressVar = context.getVarMapping(varName);
                 assert fortressVar != null;
-                return new Pair<>(fortressVar.variable(), fortressVar.sort());
+                // no guard on the variable usage is needed
+                return new Pair<>(fortressVar.variable(), new Pair<>(Term.mkTop(), fortressVar.sort()));
             }
         } else if (expr instanceof Sig) {
+            // it could be a one sig
             Sig sig = (Sig) expr;
             if (sig.isOne != null) {
                 // use its first/only domain element as the term
                 Pair<Integer, Integer> domElemRange = context.sortPolicy.getDomainElementRange(sig, context.scoper);
                 Sort sort = context.sortPolicy.getSort(sig);
                 if (domElemRange == null || sort == null) {
-                    return null; // some special sort of sig we don't want to deal with
+                    // some special sort of sig we don't want to deal with
+                    throw new ErrorFatal(
+                            sort + " on the left side of a join used as an integer expression is not supported");
                 }
                 int domainElementIdx = domElemRange.a;
                 Term domainElement = Term.mkDomainElement(domainElementIdx, sort);
-                return new Pair<>(domainElement, sort);
+                // no guard on the domain element usage is needed
+                return new Pair<>(domainElement, new Pair<>(Term.mkTop(), sort));
+            }
+        } else if (expr instanceof ExprBinary) {
+            ExprBinary binExpr = (ExprBinary) expr;
+            if (binExpr.op == ExprBinary.Op.JOIN) {
+                // it could be a join expression that resolves to a scalar
+                // "x.y" is a scalar if (and maybe only if) x is a scalar and y is optimized as a function
+                // then the scalar term is y(x)
+                Pair<Term, Pair<Term, Sort>> leftScalarData = castToScalar(binExpr.left, context);
+                Term leftScalar = leftScalarData.a;
+                Term leftScalarGuard = leftScalarData.b.a;
+                Sort leftScalarSort = leftScalarData.b.b;
+
+                Expr right = binExpr.right.deNOP();
+                if (!(right instanceof Sig.Field)) {
+                    throw new ErrorFatal(
+                            "All join operands except the first in an integer join expression must be pure fields");
+                }
+                Sig.Field field = (Sig.Field) right;
+                if (!optimizedFieldsInfo.containsKey(field)) {
+                    throw new ErrorFatal(
+                            "All join operands except the first in an integer join expression must be functions");
+                }
+                FieldFuncInfo optInfo = optimizedFieldsInfo.get(field);
+                if (optInfo.argSorts.size() != 1) {
+                    // this restriction could probably be loosened to allow translating into things like f(g(x),h(y))
+                    throw new ErrorFatal("Functions in an integer join expression must be unary");
+                }
+
+                // We want to express "leftScalar in domain of field", but leftScalar could be an arbitrary Term while
+                // makeDomainFormula requires a VarTuple (so AnnotatedVars). To get around this, use a temporary
+                // variable and substitute it with the term.
+                AnnotatedVar tempVar = Term.mkVar(context.nameGenerator.freshName("temp")).of(leftScalarSort);
+                Term unsubbedInDomain = makeDomainFormula(new VarTuple(tempVar), optInfo, context);
+                Term inDomain = PortusUtil.substitute(tempVar, leftScalar, unsubbedInDomain);
+
+                Term scalar = Term.mkApp(optInfo.funcName, leftScalar);
+                Term guard = Term.mkAnd(leftScalarGuard, inDomain);
+                Sort sort = optInfo.resultSort;
+                return new Pair<>(scalar, new Pair<>(guard, sort));
             }
         }
         throw new ErrorFatal("Using join as an integer expression requires a bound variable or one sig on the LHS");

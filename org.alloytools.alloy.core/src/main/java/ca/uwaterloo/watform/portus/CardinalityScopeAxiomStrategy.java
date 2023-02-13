@@ -34,7 +34,7 @@ final class CardinalityScopeAxiomStrategy implements ScopeAxiomStrategy {
     private void checkSufficientBitwidth(Sig sig, TranslationContext context) {
         // To use this technique, we require the max size of the sig's sort to be representable as an integer.
         // (This is always at least the scope we're trying to check, so we don't check that explicitly.)
-        // TODO: if this error is too annoying, add a preliminary pass to force the bitwidth large enough
+        // TODO: if Fortress's integer implementation changes, this might be unnecessary
         Sort sort = context.sortPolicy.getSort(sig);
         int sortScope = context.sortPolicy.getSortScope(sort);
         if (sortScope > Util.max(context.getBitwidth())) {
