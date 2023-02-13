@@ -84,9 +84,8 @@ public final class FortressSolution implements AlloySolution {
 
             // Manually include integers if they aren't already included
             if (!sortInterpretations.containsKey(Sort.Int())) {
-                // TODO: is it okay to specify *which* integers are included like this?
-                int intScope = context.getIntScope();
-                sortInterpretations.put(Sort.Int(), IntStream.range(-intScope/2, intScope/2)
+                int bitwidth = context.getBitwidth();
+                sortInterpretations.put(Sort.Int(), IntStream.range(Util.min(bitwidth), Util.max(bitwidth))
                         .mapToObj(IntegerLiteral::apply)
                         .collect(Collectors.toList()));
             }

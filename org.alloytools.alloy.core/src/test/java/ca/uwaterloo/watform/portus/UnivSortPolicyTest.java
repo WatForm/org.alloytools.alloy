@@ -106,10 +106,10 @@ public class UnivSortPolicyTest {
 
     @Test
     public void testGetSortScope_int() {
-        // should be the bitwidth
+        // should be the number of ints (2^bitwidth)
         when(scoper.getBitwidth()).thenReturn(7);
         SortPolicy policy = new UnivSortPolicy(univ, new ArrayList<>(), scoper);
-        assertEquals(7, policy.getSortScope(Sort.Int()));
+        assertEquals(128, policy.getSortScope(Sort.Int()));
     }
 
 }

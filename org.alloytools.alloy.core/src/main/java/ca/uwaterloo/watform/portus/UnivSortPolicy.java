@@ -1,6 +1,7 @@
 package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
+import edu.mit.csail.sdg.alloy4.Util;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.modelfind.ModelFinder;
@@ -9,9 +10,11 @@ import fortress.msfol.Theory;
 import fortress.problemstate.ExactScope;
 import fortress.problemstate.Scope;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * A simple sort policy which assigns everything to a single univ sort, except for integers, which it assigns
@@ -62,7 +65,7 @@ final class UnivSortPolicy extends SortPolicy {
         if (univ.equals(sort)) {
             return univScope;
         } else if (Sort.Int().equals(sort)) {
-            return bitwidth; // careful! not the number of integers (2^bitwidth)!
+            return 1 << bitwidth; // 2^bitwidth, the number of integers
         } else {
             throw new ErrorFatal("Unknown sort: " + sort);
         }
@@ -75,10 +78,12 @@ final class UnivSortPolicy extends SortPolicy {
 
     @Override
     public Map<Sort, Scope> getSortToScopeMap(Set<Sort> unchangingSorts) {
-        Map<Sort, Scope> map = new HashMap<>();
-        map.put(univ, ExactScope.apply(univScope, unchangingSorts.contains(univ)));
-        map.put(Sort.Int(), ExactScope.apply(bitwidth, unchangingSorts.contains(Sort.Int())));
-        return map;
+        // All the sorts we'll ever return.
+        Sort[] sorts = {univ, Sort.Int()};
+
+        // Map each sort to an exact scope with the appropriate scope and unchanging flag.
+        return Arrays.stream(sorts).collect(Collectors.toMap(sort -> sort,
+                sort -> ExactScope.apply(getSortScope(sort), unchangingSorts.contains(sort))));
     }
 
 }

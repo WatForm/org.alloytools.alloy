@@ -1070,8 +1070,8 @@ final class DefaultTranslator extends AbstractTranslator {
         for (AnnotatedVar var : vars) {
             Sort sort = var.sort();
             sorts.add(sort);
-            // Special case: Int's scope is the bitwidth and not 2^bitwidth, so use context.getIntScope() instead
-            sortScopes.add(sort == Sort.Int() ? context.getIntScope() : context.sortPolicy.getSortScope(sort));
+            // Note: this is OK for Int because getSortScope(Sort.Int()) returns the number of ints, not the bitwidth
+            sortScopes.add(context.sortPolicy.getSortScope(sort));
             currentIdxs.add(1);
 
             // We're expanding over the domain elements of the sort, so its scope can't be changed arbitrarily

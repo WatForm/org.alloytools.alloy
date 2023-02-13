@@ -140,13 +140,6 @@ final class TranslationContext {
     }
 
     /**
-     * Get the scope of the `Int` sort (equal to 2^bitwidth).
-     */
-    public int getIntScope() {
-        return 1 << getBitwidth();
-    }
-
-    /**
      * Get the bitwidth used for the `Int` sort.
      */
     public int getBitwidth() {
