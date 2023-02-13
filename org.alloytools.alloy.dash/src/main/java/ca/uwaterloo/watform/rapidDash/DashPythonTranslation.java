@@ -512,29 +512,32 @@ public class DashPythonTranslation {
             addVariableDeclarations(state);
 
         	// add state variable initializations and constraints (inits and init_constraints)
-        	for(DashInit init: state.getInitialConds()) {
-        		for(Expr expr: init.getAllExpressions()) {
-        			// if the Dash init func is empty, there will be one expr that says "true"
-        			if(expr.toString().equals("true")) {
-        				continue;
-        			}
-        			DashExprToPython dashExprTranslator = new DashExprToPython<>(expr, variable2StateNameMap);
-        			// TODO: this (and DashExprToPython) needs to be cleaned up
-        			dashExprTranslator.isInit = true;
-        			dashExprTranslator.reparseExpr();
+            if (a4Solution == null) {
+                for(DashInit init: state.getInitialConds()) {
+                    for(Expr expr: init.getAllExpressions()) {
+                        // if the Dash init func is empty, there will be one expr that says "true"
+                        if(expr.toString().equals("true")) {
+                            continue;
+                        }
+                        DashExprToPython dashExprTranslator = new DashExprToPython<>(expr, variable2StateNameMap);
+                        // TODO: this (and DashExprToPython) needs to be cleaned up
+                        dashExprTranslator.isInit = true;
+                        dashExprTranslator.reparseExpr();
 
-        			// if the expression is a constraint on a variable's cardinality, add "assert"
-        			// TODO: are other initialization constraint types possible? They need to be handled here
-        			if(expr instanceof ExprBinary) {
-        				ExprBinary binaryNode = (ExprBinary) expr;
-        				if(binaryNode.left instanceof ExprUnary && ((ExprUnary)binaryNode.left).op == ExprUnary.Op.CARDINALITY) {
-        					this.statesMap.get(state.getFullyQualName()).addInitConstraint("assert " + dashExprTranslator.toString());
-        					continue;
-        				}
-        			}
-            		this.statesMap.get(state.getFullyQualName()).addInit(dashExprTranslator.toString());
-        		}
-        	}
+                        // if the expression is a constraint on a variable's cardinality, add "assert"
+                        // TODO: are other initialization constraint types possible? They need to be handled here
+                        if(expr instanceof ExprBinary) {
+                            ExprBinary binaryNode = (ExprBinary) expr;
+                            if(binaryNode.left instanceof ExprUnary && ((ExprUnary)binaryNode.left).op == ExprUnary.Op.CARDINALITY) {
+                                this.statesMap.get(state.getFullyQualName()).addInitConstraint("assert " + dashExprTranslator.toString());
+                                continue;
+                            }
+                        }
+                        this.statesMap.get(state.getFullyQualName()).addInit(dashExprTranslator.toString());
+                    }
+                }
+            }
+
 
         	// add state events
         	for(DashEvent event: state.getEvents()) {
@@ -627,15 +630,75 @@ public class DashPythonTranslation {
 
     // Declare state variables and add them into the map.
     private void addVariableDeclarations(DashSuperState state) {
+        Sig snapshot = null;
+        if (a4Solution != null) {
+            // Find Snapshot signature from a4Solution
+            for (Sig sigIter : a4Solution.getAllReachableSigs()) {
+                if (clean(sigIter.label).equals("Snapshot")) {
+                    snapshot = sigIter;
+                    break;
+                }
+            }
+        }
         for(Decl decl: state.getVariables()) {
 
             String stateName = state.getFullyQualName();
             String variableName = decl.get().toString();
             variable2StateNameMap.put(variableName, stateName);
 
-            DashExprToPython dashExprTranslator = new DashExprToPython<>(decl.expr, variable2StateNameMap, variableName, this.relations);
-            dashExprTranslator.isDecl = true;
-            statesMap.get(stateName).addDecl(stateName + "_" + variableName + " = " + dashExprTranslator);
+            if (a4Solution != null) {
+                // Find Snapshot signature from a4Solution
+                boolean found = false;
+                for (Sig.Field f : snapshot.getFields()) {
+                    if (f.label.equals(stateName + "_" + variableName)) {
+                        String className = "Signature";
+                        String multiplicityOrTypes = "3";
+                        String values = "{}";
+                        for (Type.ProductType type : f.type()) {
+                            if (type.arity() == 2) {
+                                // Signature
+                                className = clean(type.get(1).label);
+                                List<String> atoms = new ArrayList<String>();
+                                for (A4Tuple atom: a4Solution.eval(f,0)) {
+                                    if (atom.atom(0).equals("Snapshot$0")) {
+                                        atoms.add("\"" + atom.atom(1) + "\"");
+                                    }
+                                }
+                                values = "{" + String.join(", ", atoms) + "}";
+                            } else {
+                                // Relation
+                                className = "Relation";
+                                List<String> typeStrings = new ArrayList<String>();
+                                for (int i = 1; i < type.arity(); i++) {
+                                    typeStrings.add(clean(type.get(i).label));
+                                }
+                                multiplicityOrTypes = "[" + String.join(", ", typeStrings) + "]";
+                                List<String> atoms = new ArrayList<String>();
+                                for (A4Tuple atom : a4Solution.eval(f, 0)) {
+                                    if (atom.atom(0).equals("Snapshot$0")) {
+                                        List<String> tuple = new ArrayList<String>();
+                                        for (int i = 1; i < atom.arity(); i++) {
+                                            tuple.add("\"" + atom.atom(i) + "\"");
+                                        }
+                                        atoms.add("(" + String.join(", ", tuple) + ")");
+                                    }
+                                }
+                                values = "{" + String.join(", ", atoms) + "}";
+                            }
+                        }
+                        statesMap.get(stateName).addDecl(stateName + "_" + variableName + " = " + className + "('" + variableName + "', " + multiplicityOrTypes + ", " + values + ")");
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    throw new ErrorFatal("Cannot find state variable " + stateName + "_" + variableName + " in the solution");
+                }
+            } else {
+                DashExprToPython dashExprTranslator = new DashExprToPython<>(decl.expr, variable2StateNameMap, variableName, this.relations);
+                dashExprTranslator.isDecl = true;
+                statesMap.get(stateName).addDecl(stateName + "_" + variableName + " = " + dashExprTranslator);
+            }
         }
     }
 
