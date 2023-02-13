@@ -12,14 +12,18 @@ import random
 
 CALOG = logging.DEBUG+1  # used for feedback on adding called
 SVLOG = logging.DEBUG+2  # used for signature validity check
-GCLOG = logging.INFO+1  # used for guard condition
-ACLOG = logging.INFO+2  # used for action chosen
+GCLOG = logging.INFO+1   # used for guard condition
+ACLOG = logging.INFO+2   # used for action chosen
+VARLOG = logging.INFO+3  # used for variables
+SCLOG = logging.INFO+4   # used for state change
 
 logging.basicConfig(level=logging.INFO)
-logging.addLevelName(CALOG, "CALLED")
+logging.addLevelName(CALOG, "CALL")
 logging.addLevelName(SVLOG, "SIG")
 logging.addLevelName(GCLOG, "GUARD")
 logging.addLevelName(ACLOG, "ACTION")
+logging.addLevelName(VARLOG, "VAR")
+logging.addLevelName(SCLOG, "STATE")
 
 # ===== Base Classes =====
 
@@ -49,7 +53,7 @@ class State(ABC):
 
     def change_state(self, state: State):
         if(self._active_state is not None):
-            logging.info(f"{self._active_state} => {state}")
+            logging.log(SCLOG, f"State change: {self._active_state} => {state}")
         self._active_state = state
 
     def __eq__(self, obj):
@@ -237,6 +241,7 @@ class Snapshot:
     def __setattr__(self, name, value):
         if name in self.__dict__:       # Record the variables for current snapshot.
             self.changes[name] = self.__dict__[name]
+            logging.log(VARLOG,f"Variable [{name}] changed from \"{self.changes[name]}\" to \"{value}\".")
         self.__dict__[name] = value     # Set the value.
 
     # TODO: delete this comment.
@@ -342,10 +347,20 @@ $padding    def _trans_${trans.getTransName()}_guard(self) -> bool:
 $padding        if(not ("${trans.getEventCondition()}" in SS.activeEvents)):
 $padding            return False
 		        #end
-                #if($trans.getGuardCondition())
-$padding        if not (${trans.getGuardCondition()}):
+            #if($trans.getGuardConditions())
+                #if($trans.getGuardConditions().size() == 1)
+$padding        if not ($trans.getGuardConditions().get(0)):
+$padding            return False
+                #else
+$padding        if not ($trans.getGuardConditions().get(0) and
+                    #set($lastIndex = ${trans.getGuardConditions().size()} - 1)
+                    #foreach($guardCondition in ${trans.getGuardConditions().subList(1, $lastIndex)})
+$padding                ${guardCondition} and
+                    #end
+$padding                ${trans.getGuardConditions().get($lastIndex)}):
 $padding            return False
                 #end
+            #end
 $padding        logging.log(GCLOG,f"Guard of [${concState.getName()}_${trans.getTransName()}] triggered.")
 $padding        return True
 
@@ -356,7 +371,7 @@ $padding        # TODO: global variables (signatures used in this state)
                 #foreach($globalVar in $globalVariables)
 $padding        global ${globalVar}
                 #end#end
-$padding        logging.log(ACLOG,f"Execution of [${concState.getName()}_${trans.getTransName()}] triggered.")
+$padding        logging.log(ACLOG,f"Execution of [${concState.getName()}_${trans.getTransName()}] passed.")
             #if($trans.getActions())
                 #foreach($action in $trans.getActions())
 $padding        ${action}
