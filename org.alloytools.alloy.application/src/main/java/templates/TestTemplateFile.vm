@@ -25,6 +25,13 @@ logging.addLevelName(ACLOG, "ACTION")
 logging.addLevelName(VARLOG, "VAR")
 logging.addLevelName(SCLOG, "STATE")
 
+# ===== Colors =====
+Reset = "\u001B[0m"
+Red = "\u001b[31m"
+Green = "\u001b[32m"
+Blue = "\u001B[34m"
+Cyan = "\u001B[36m"
+
 # ===== Base Classes =====
 
 #if($rootState)
@@ -61,11 +68,10 @@ class State(ABC):
 
     def print_tree(self, level: int = 0):
         if self.is_active:
-            color = "\u001b[32m" # green
+            color = Green
         else:
-            color = "\u001b[31m" # red
-        black = "\u001b[30m"
-        print(color + "\t"*level+self.__repr__() + black)
+            color = Red
+        print(color + "\t"*level+self.__repr__() + Reset)
         for s in self._children:
             s.print_tree(level + 1)
 
@@ -85,7 +91,8 @@ class State(ABC):
 
     def __ne__(self, obj):
         return type(self) != type(obj)
-        
+
+    # TODO: do at compile time instead
     def get_conc_descendants(self):
         desc = [self] if self.is_conc else []
         for child in self._children:
@@ -107,14 +114,6 @@ class State(ABC):
             if child_state.is_active:
                 return child_state.__repr__()
         return ""
-
-    def printStates(self):
-        if(self._active_state):
-            print(type(self._active_state).__name__ + "\n")
-        elif(self._conc_states):
-            for s in self._conc_states:
-                print(type(s).__name__ + ": ")
-                s.printStates()
 
 #end
 #if($signatures)
@@ -311,7 +310,7 @@ SS = Snapshot()
 #if($signatures)
 # --- Signatures ---
 
-    #foreach($sig in $signatures)
+#foreach($sig in $signatures)
 class ${sig.Name}(Signature):
     atoms = {${sig.getObjectNames()}}
 
@@ -422,7 +421,6 @@ $padding                ${trans.getGuardConditions().get($lastIndex)}):
 $padding            return False
                 #end
             #end
-$padding        logging.log(GCLOG,f"Guard of [${concState.getName()}_${trans.getTransName()}] triggered.")
 $padding        return True
 
 $padding    # transition ${trans.getTransName()} execution function
@@ -432,11 +430,11 @@ $padding        # TODO: global variables (signatures used in this state)
                 #foreach($globalVar in $globalVariables)
 $padding        global ${globalVar}
                 #end#end
-$padding        logging.log(ACLOG,f"Execution of [${concState.getName()}_${trans.getTransName()}] passed.")
+$padding        print(Blue + "Taking transition " + "${trans.getTransName()}" + Reset)
             #if($trans.getActions())
                 #foreach($action in $trans.getActions())
 $padding        ${action}
-                #end
+            #end#end
 $padding        #if(${trans.getTriggerEvent()})SS.activeEvents.add("${trans.getTriggerEvent()}") #end
 $padding        # Apply State Activeness Changes
                 #if($trans.getNonActiveStatesAfterTrans().size() > 0)
@@ -451,7 +449,10 @@ $padding        states_becoming_active = $trans.getActiveStatesAfterTransPythonS
 $padding        for state in states_becoming_active:
 $padding            state.is_active = True
                 #end
-$padding        #if(${trans.getTriggerEvent()})SS.activeEvents.add("${trans.getTriggerEvent()}") #end
+                #if(${trans.getTriggerEvent()})
+$padding        SS.activeEvents.add("${trans.getTriggerEvent()}")
+$padding        print(Cyan + "Sending event " + "${trans.getTriggerEvent()}" + Reset)
+                #end
 
             #end
         #end
@@ -498,8 +499,8 @@ class CentralController:
                 if possible_transitions:
                     chosen_transition = random.randint(0, len(possible_transitions) - 1)
                     possible_transitions[chosen_transition]()
-                    # check if any concurrent states have taken a transition
-                    # if so, remove them from the set to prevent additional transitions (big step maximality)
+                    # check if any concurrent states have taken a transition. If so,
+                    # remove concurrent states from the set to prevent additional transitions (big step maximality)
                     for conc_state in unused_conc_states:
                         if not conc_state.get_active_child_state_repr() == old_active_states[conc_state.__repr__()]: 
                             unused_conc_states.remove(conc_state)
@@ -518,6 +519,7 @@ class CentralController:
         # big step
         while eventName.lower() != "quit":
             if eventName in self.possibleEvents:
+                print(Cyan + "Running model with env event " + eventName + Reset)
                 SS.activeEvents.clear()
                 SS.activeEvents.add(eventName)
                 self.handle_event()
@@ -544,7 +546,10 @@ class CentralController:
         print("quit: terminate the model\n")
 
     def execute(self):
-        self.concState.handleEvent()
+        print(Cyan + "Running model without env event" + Reset)
+        SS.activeEvents.clear()
+        self.handle_event()
+        self.concState.print_tree()
 
 # --- Run the Model ---
 
