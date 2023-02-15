@@ -55,7 +55,7 @@ class State(ABC):
             self._set_parent_state(args[0])
 
     def default_initialize(self):
-        self.is_active = True;
+        self.is_active = True
         if self._is_children_conc:
             for s in self._children:
                 s.default_initialize()
@@ -65,6 +65,9 @@ class State(ABC):
 
     def __repr__(self):
         return f"{self.__class__.__name__}"
+
+    def __hash__(self):
+        return id(self)
 
     def print_tree(self, level: int = 0):
         if self.is_active:
@@ -94,9 +97,9 @@ class State(ABC):
 
     # TODO: do at compile time instead
     def get_conc_descendants(self):
-        desc = [self] if self.is_conc else []
+        desc = {self} if self.is_conc else {}
         for child in self._children:
-            desc.extend(child.get_conc_descendants())
+            desc.update(child.get_conc_descendants())
         return desc
 
     def get_active_child_state(self) -> State:
@@ -106,14 +109,6 @@ class State(ABC):
             if child_state.is_active:
                 return child_state
         return None
-
-    def get_active_child_state_repr(self) -> str:
-        if self._is_children_conc:
-            return ""
-        for child_state in self._children:
-            if child_state.is_active:
-                return child_state.__repr__()
-        return ""
 
 #end
 #if($signatures)
@@ -328,7 +323,7 @@ class ${relation.Name}(Relation):
 #end
 
 # --- References to States  ---
-#foreach($value in $allStates.values())
+#foreach($value in $allStates)
 $value.getPythonVariableName(): State = None
 #end
 
@@ -478,39 +473,39 @@ class CentralController:
         #end
     
     def handle_event(self):
-        unused_conc_states = self.concState.get_conc_descendants()
-        old_active_states = dict()
+        unused_conc_states = self.concState.get_conc_descendants() # set of conc states that haven't taken a transition in this big step
+        conc_state_to_active_child = dict() # dictionary that maps each conc state to its active child at the start of this big step
         for conc_state in unused_conc_states:
-            old_active_states[conc_state.__repr__()] = conc_state.get_active_child_state_repr()
+            conc_state_to_active_child[conc_state] = conc_state.get_active_child_state()
         prev_num_unused_conc_states = -1
         
-        while len(unused_conc_states) > 0 and not prev_num_unused_conc_states == len(unused_conc_states):
+        while len(unused_conc_states) > 0 and prev_num_unused_conc_states != len(unused_conc_states):
             prev_num_unused_conc_states = len(unused_conc_states)
             state_queue = [self.concState]
             while state_queue:
-                cur_state = state_queue[0]
-                del state_queue[0]
+                cur_state = state_queue.pop(0)
 
                 possible_transitions = []
                 for k, v in cur_state.transitions.items():
                     if k():
                         possible_transitions.append(v)
 
+                # if any transitions are possible, take one at random
                 if possible_transitions:
                     chosen_transition = random.randint(0, len(possible_transitions) - 1)
                     possible_transitions[chosen_transition]()
-                    # check if any concurrent states have taken a transition. If so,
-                    # remove concurrent states from the set to prevent additional transitions (big step maximality)
-                    for conc_state in unused_conc_states:
-                        if not conc_state.get_active_child_state_repr() == old_active_states[conc_state.__repr__()]: 
+                    # if conc_state's active state changed (i.e. conc_state took a transition), prevent additional transitions (big step maximality)
+                    for conc_state in unused_conc_states.copy():
+                        if conc_state.get_active_child_state() != conc_state_to_active_child[conc_state]:
                             unused_conc_states.remove(conc_state)
+                # add cur_state's conc state children to queue
                 elif cur_state._is_children_conc:
                     for conc_state in cur_state._children:
-                        if unused_conc_states.count(conc_state) > 0:
+                        if conc_state in unused_conc_states:
                             state_queue.append(conc_state)
-                else:
-                    if cur_state.get_active_child_state() is not None:
-                        state_queue.append(cur_state.get_active_child_state())
+                # add cur_state's active state to queue
+                elif cur_state.get_active_child_state() is not None:
+                    state_queue.append(cur_state.get_active_child_state())
     
     def run(self) -> None:
         self.concState.print_tree()
