@@ -9,7 +9,6 @@
 	org.sat4j.core, \
 	org.sat4j.maxsat, \
 	org.sat4j.pb, \
-	com.io7m.jpplib.io7m-jpplib-core;version='0.7.4',\
 	aQute.libg
 	aQute.libg
 -testpath: \
