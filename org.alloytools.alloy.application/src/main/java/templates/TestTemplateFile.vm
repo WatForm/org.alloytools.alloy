@@ -97,7 +97,7 @@ class State(ABC):
 
     # TODO: do at compile time instead
     def get_conc_descendants(self):
-        desc = {self} if self.is_conc else {}
+        desc = {self} if self.is_conc else set()
         for child in self._children:
             desc.update(child.get_conc_descendants())
         return desc
