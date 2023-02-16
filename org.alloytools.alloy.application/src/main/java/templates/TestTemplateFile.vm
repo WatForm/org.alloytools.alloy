@@ -95,13 +95,6 @@ class State(ABC):
     def __ne__(self, obj):
         return type(self) != type(obj)
 
-    # TODO: do at compile time instead
-    def get_conc_descendants(self):
-        desc = {self} if self.is_conc else set()
-        for child in self._children:
-            desc.update(child.get_conc_descendants())
-        return desc
-
     def get_active_child_state(self) -> State:
         if self._is_children_conc:
             return None
@@ -473,7 +466,7 @@ class CentralController:
         #end
     
     def handle_event(self):
-        unused_conc_states = self.concState.get_conc_descendants() # set of conc states that haven't taken a transition in this big step
+        unused_conc_states = {self.concState#foreach($value in $allStates)#if($value.getIsConc() && !$value.isRootState()), $value.getPythonVariableName()#end#end} # set of conc states that haven't taken a transition in this big step
         conc_state_to_active_child = dict() # dictionary that maps each conc state to its active child at the start of this big step
         for conc_state in unused_conc_states:
             conc_state_to_active_child[conc_state] = conc_state.get_active_child_state()

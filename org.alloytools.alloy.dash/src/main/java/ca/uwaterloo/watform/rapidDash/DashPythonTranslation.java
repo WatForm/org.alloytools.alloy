@@ -787,6 +787,8 @@ public class DashPythonTranslation {
 
         public boolean getIsConc() {return isConc;}
 
+        public boolean isRootState() { return parent == null; }
+
         public void addSubstate(State s) { substates.add(s); }
         public void addDecl(String s) { decls.add(s); }
         public void addInit(String s) { inits.add(s); }
