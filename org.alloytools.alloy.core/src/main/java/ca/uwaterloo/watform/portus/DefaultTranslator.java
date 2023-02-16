@@ -56,10 +56,10 @@ final class DefaultTranslator extends AbstractTranslator {
     // Names of the above relation predicates for easy access.
     private final Map<Sig.Field, String> relationPredicateNames = new HashMap<>();
 
-    // When "^expr" or "*expr" is translated, this "maps" expr and its sort to the name of an auxiliary function
-    // f_sort(x,y) = [[(x,y) \in expr]], used in the translation.
+    // When "^expr" or "*expr" is translated, this "maps" expr and the auxiliary function's signature
+    // to the name of an auxiliary function f_sort(x,y,extras) = [[(x,y,extras) \in expr]], used in the translation.
     // It's not a real map because Expr doesn't support equals()/hashCode() easily, and we can tolerate O(n) lookup.
-    private final List<Pair<Pair<Expr, Sort>, String>> auxClosureRelationNames = new ArrayList<>();
+    private final List<Pair<Pair<Expr, List<Sort>>, String>> auxClosureRelationNames = new ArrayList<>();
 
     public DefaultTranslator(Translator topLevelTranslator, ScopeAxiomStrategy scopeAxiomStrategy) {
         super(topLevelTranslator);
@@ -852,11 +852,18 @@ final class DefaultTranslator extends AbstractTranslator {
             }
         }
 
+        // The type of the aux relation is (sort,sort,*extras)->Bool
+        List<AnnotatedVar> freeVars = PortusUtil.computeFreeVariables(expr, context);
+        List<Sort> auxRelSorts = new ArrayList<>();
+        auxRelSorts.add(sort);
+        auxRelSorts.add(sort);
+        auxRelSorts.addAll(freeVars.stream().map(AnnotatedVar::sort).collect(Collectors.toList()));
+
         // Have we already translated this expr/sort combo? If so, use its name.
-        for (Pair<Pair<Expr, Sort>, String> exprAndClosureName : auxClosureRelationNames) {
+        for (Pair<Pair<Expr, List<Sort>>, String> exprAndClosureName : auxClosureRelationNames) {
             Expr prevExpr = exprAndClosureName.a.a;
-            Sort prevSort = exprAndClosureName.a.b;
-            if (sort.equals(prevSort) && expr.isSame(prevExpr)) {
+            List<Sort> prevSorts = exprAndClosureName.a.b;
+            if (auxRelSorts.equals(prevSorts) && expr.isSame(prevExpr)) {
                 return exprAndClosureName.b;
             }
         }
@@ -867,14 +874,8 @@ final class DefaultTranslator extends AbstractTranslator {
 
         // Introduce an auxiliary relation f(x,y) = [[(x,y) \in expr]] of type sort->sort
         // Also include any free variables in the term as extra arguments.
-        List<AnnotatedVar> freeVars = PortusUtil.computeFreeVariables(expr, context);
-        // The type of the aux relation is (sort,sort,*extras)->Bool
-        List<Sort> auxRelSorts = new ArrayList<>();
-        auxRelSorts.add(sort);
-        auxRelSorts.add(sort);
-        auxRelSorts.addAll(freeVars.stream().map(AnnotatedVar::sort).collect(Collectors.toList()));
         String auxRelationName = context.nameGenerator.freshName("closureAux_" + sort.name());
-        auxClosureRelationNames.add(new Pair<>(new Pair<>(expr, sort), auxRelationName));
+        auxClosureRelationNames.add(new Pair<>(new Pair<>(expr, auxRelSorts), auxRelationName));
         FuncDecl auxDecl = FuncDecl.mkFuncDecl(auxRelationName, auxRelSorts, Sort.Bool());
         context.addFunctionDeclaration(auxDecl);
 

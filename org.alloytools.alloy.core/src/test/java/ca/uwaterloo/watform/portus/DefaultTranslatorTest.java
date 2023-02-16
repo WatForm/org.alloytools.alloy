@@ -2275,7 +2275,7 @@ public class DefaultTranslatorTest {
     }
 
     @Test
-    public void testTranslate_reflexive_freeVariables() {
+    public void testTranslate_reflexiveClosure_freeVariables() {
         // test [[(x,y) \in *(v->v)]] := ReflexiveClosure(f(x,y,v)) where f: (univ, univ, univ)->Bool is a new relation,
         // with the defining axiom "forall x,y,v: univ . f(x,y) <=> [[(x,y) \in v->v]]"
         // this tests adding in auxiliary variables on closed-over functions to preserve context
@@ -2320,6 +2320,134 @@ public class DefaultTranslatorTest {
         Iff innerIff = (Iff) forall.body();
         App relationApp = (App) innerIff.left();
         assertEquals(relation.name(), relationApp.functionName());
+    }
+
+    @Test
+    public void testTranslate_transitiveClosure_freeVariablesGeneratesDifferentAuxFunction() {
+        // test that closing over the same function with different numbers of free variables generates
+        // different auxiliary functions
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar v = makeTestVarWithType("v", Type.make(sig));
+        Expr e = v.product(v);
+        Var x = Term.mkVar("x"), y = Term.mkVar("y");
+        Var vVar = Term.mkVar("v");
+
+        // mock out [[(x,y) \in v->v]] from the axiom
+        Var flagInE = makeFlagConstant("inE");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(
+                ExprElementOf.make(new VarTuple(x.of(univ), y.of(univ)), e))), any()))
+                .thenReturn(flagInE);
+
+        // with one free variable
+        context.addVarMapping("v", vVar.of(univ));
+        Term result1 = translator.translate(
+                ExprElementOf.make(new VarTuple(x.of(univ), y.of(univ)), e.closure()), context);
+
+        // with no free variables - "v" is mapped to univ
+        context.removeMapping("v");
+        context.addLetMapping("v", Sig.UNIV);
+        delegateToRealTranslator(); // easier than mocking out the univ->univ translation
+        Term result2 = translator.translate(
+                ExprElementOf.make(new VarTuple(x.of(univ), y.of(univ)), e.closure()), context);
+
+        // assert that two different functions were generated: univ^3 -> Bool and univ^2 -> Bool
+        assertEquals(2, context.getTheory().functionDeclarations().size());
+
+        FuncDecl oneFreeVarRel = context.getTheory().functionDeclarations().head();
+        assertEquals(3, oneFreeVarRel.arity());
+        assertEquals(univ, oneFreeVarRel.argSorts().head());
+        assertEquals(univ, oneFreeVarRel.argSorts().tail().head());
+        assertEquals(univ, oneFreeVarRel.argSorts().last());
+        assertEquals(Sort.Bool(), oneFreeVarRel.resultSort());
+
+        FuncDecl noFreeVarsRel = context.getTheory().functionDeclarations().last();
+        assertEquals(2, noFreeVarsRel.arity());
+        assertEquals(univ, noFreeVarsRel.argSorts().head());
+        assertEquals(univ, noFreeVarsRel.argSorts().last());
+        assertEquals(Sort.Bool(), noFreeVarsRel.resultSort());
+
+        // ensure the results are correct
+        assertEquals(Term.mkClosure(oneFreeVarRel.name(), x, y, Collections.singletonList(vVar)), result1);
+        assertEquals(Term.mkClosure(noFreeVarsRel.name(), x, y), result2);
+
+        // ensure the correct axioms were added
+        assertEquals(2, context.getTheory().axioms().size());
+        Term axiom1 = context.getTheory().axioms().head();
+        Term axiom2 = context.getTheory().axioms().last();
+        assertThat(axiom1, isAlphaEquivalentTerm(
+                Term.mkForall(Arrays.asList(x.of(univ), y.of(univ), vVar.of(univ)),
+                        Term.mkIff(
+                                Term.mkApp(oneFreeVarRel.name(), x, y, vVar),
+                                flagInE))));
+        assertThat(axiom2, isAlphaEquivalentTerm(
+                Term.mkForall(Arrays.asList(x.of(univ), y.of(univ)),
+                        Term.mkIff(
+                                Term.mkApp(noFreeVarsRel.name(), x, y),
+                                Term.mkAnd(Term.mkTop(), Term.mkTop()))))); // [[(x,y) \in univ->univ]]
+    }
+
+    @Test
+    public void testTranslate_reflexiveClosure_freeVariablesGeneratesDifferentAuxFunction() {
+        // test that closing over the same function with different numbers of free variables generates
+        // different auxiliary functions
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar v = makeTestVarWithType("v", Type.make(sig));
+        Expr e = v.product(v);
+        Var x = Term.mkVar("x"), y = Term.mkVar("y");
+        Var vVar = Term.mkVar("v");
+
+        // mock out [[(x,y) \in v->v]] from the axiom
+        Var flagInE = makeFlagConstant("inE");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(
+                ExprElementOf.make(new VarTuple(x.of(univ), y.of(univ)), e))), any()))
+                .thenReturn(flagInE);
+
+        // with one free variable
+        context.addVarMapping("v", vVar.of(univ));
+        Term result1 = translator.translate(
+                ExprElementOf.make(new VarTuple(x.of(univ), y.of(univ)), e.reflexiveClosure()), context);
+
+        // with no free variables - "v" is mapped to univ
+        context.removeMapping("v");
+        context.addLetMapping("v", Sig.UNIV);
+        delegateToRealTranslator(); // easier than mocking out the univ->univ translation
+        Term result2 = translator.translate(
+                ExprElementOf.make(new VarTuple(x.of(univ), y.of(univ)), e.reflexiveClosure()), context);
+
+        // assert that two different functions were generated: univ^3 -> Bool and univ^2 -> Bool
+        assertEquals(2, context.getTheory().functionDeclarations().size());
+
+        FuncDecl oneFreeVarRel = context.getTheory().functionDeclarations().head();
+        assertEquals(3, oneFreeVarRel.arity());
+        assertEquals(univ, oneFreeVarRel.argSorts().head());
+        assertEquals(univ, oneFreeVarRel.argSorts().tail().head());
+        assertEquals(univ, oneFreeVarRel.argSorts().last());
+        assertEquals(Sort.Bool(), oneFreeVarRel.resultSort());
+
+        FuncDecl noFreeVarsRel = context.getTheory().functionDeclarations().last();
+        assertEquals(2, noFreeVarsRel.arity());
+        assertEquals(univ, noFreeVarsRel.argSorts().head());
+        assertEquals(univ, noFreeVarsRel.argSorts().last());
+        assertEquals(Sort.Bool(), noFreeVarsRel.resultSort());
+
+        // ensure the results are correct
+        assertEquals(Term.mkReflexiveClosure(oneFreeVarRel.name(), x, y, Collections.singletonList(vVar)), result1);
+        assertEquals(Term.mkReflexiveClosure(noFreeVarsRel.name(), x, y), result2);
+
+        // ensure the correct axioms were added
+        assertEquals(2, context.getTheory().axioms().size());
+        Term axiom1 = context.getTheory().axioms().head();
+        Term axiom2 = context.getTheory().axioms().last();
+        assertThat(axiom1, isAlphaEquivalentTerm(
+                Term.mkForall(Arrays.asList(x.of(univ), y.of(univ), vVar.of(univ)),
+                        Term.mkIff(
+                                Term.mkApp(oneFreeVarRel.name(), x, y, vVar),
+                                flagInE))));
+        assertThat(axiom2, isAlphaEquivalentTerm(
+                Term.mkForall(Arrays.asList(x.of(univ), y.of(univ)),
+                        Term.mkIff(
+                                Term.mkApp(noFreeVarsRel.name(), x, y),
+                                Term.mkAnd(Term.mkTop(), Term.mkTop()))))); // [[(x,y) \in univ->univ]]
     }
 
     @Test
