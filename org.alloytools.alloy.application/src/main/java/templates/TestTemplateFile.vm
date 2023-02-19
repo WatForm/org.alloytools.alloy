@@ -25,6 +25,13 @@ logging.addLevelName(ACLOG, "ACTION")
 logging.addLevelName(VARLOG, "VAR")
 logging.addLevelName(SCLOG, "STATE")
 
+# ===== Colors =====
+Reset = "\u001B[0m"
+Red = "\u001b[31m"
+Green = "\u001b[32m"
+Blue = "\u001B[34m"
+Cyan = "\u001B[36m"
+
 # ===== Base Classes =====
 
 #if($rootState)
@@ -34,16 +41,42 @@ class State(ABC):
         # State() => doesn't do anything
         # State(parent_state: State) => set _parent_state
         # State(parent_state: State, root_state: State) => also set _root_state
-        self._active_state: State = None # used when there is only one active child state
-        self._conc_states: List[State] = [] # used when there is multple children conc states
+
+        self._children: List[State] = [] # Set once when creating children
+        self.is_conc: bool = False # Set once when creating children
+        self._is_children_conc: bool = False # Set once when creating children
+        self.is_active: bool = False # Set at controller start, and when transition happens
+        self._default_state: State = None # Set once when creating children
+
         self.transitions = dict()
         if len(args) >= 2 and isinstance(args[1], State):
             self._set_root_state(args[1])
         if len(args) >= 1 and isinstance(args[0], State):
             self._set_parent_state(args[0])
 
+    def default_initialize(self):
+        self.is_active = True
+        if self._is_children_conc:
+            for s in self._children:
+                s.default_initialize()
+        elif self._children:
+            assert self._default_state # If we have OR states children but no default state, raise error
+            self._default_state.default_initialize()
+
     def __repr__(self):
         return f"{self.__class__.__name__}"
+
+    def __hash__(self):
+        return id(self)
+
+    def print_tree(self, level: int = 0):
+        if self.is_active:
+            color = Green
+        else:
+            color = Red
+        print(color + "\t"*level+self.__repr__() + Reset)
+        for s in self._children:
+            s.print_tree(level + 1)
 
     def _set_parent_state(self, state: State):
         self._parent_state = state
@@ -62,28 +95,13 @@ class State(ABC):
     def __ne__(self, obj):
         return type(self) != type(obj)
 
-    def handleEvent(self):
-        possible_transitions = []
-        for k, v in self.transitions.items():
-            if k():
-                possible_transitions.append(v)
-
-        if(possible_transitions):
-            chosen_transition = random.randint(0, len(possible_transitions) - 1)
-            possible_transitions[chosen_transition]()
-        elif(self._active_state):
-            self._active_state.handleEvent()
-        elif(self._conc_states):
-            for s in self._conc_states:
-                s.handleEvent()
-
-    def printStates(self):
-        if(self._active_state):
-            print(type(self._active_state).__name__ + "\n")
-        elif(self._conc_states):
-            for s in self._conc_states:
-                print(type(s).__name__ + ": ")
-                s.printStates()
+    def get_active_child_state(self) -> State:
+        if self._is_children_conc:
+            return None
+        for child_state in self._children:
+            if child_state.is_active:
+                return child_state
+        return None
 
 #end
 #if($signatures)
@@ -280,7 +298,7 @@ SS = Snapshot()
 #if($signatures)
 # --- Signatures ---
 
-    #foreach($sig in $signatures)
+#foreach($sig in $signatures)
 class ${sig.Name}(Signature):
     atoms = {${sig.getObjectNames()}}
 
@@ -297,6 +315,11 @@ class ${relation.Name}(Relation):
     #end
 #end
 
+# --- References to States  ---
+#foreach($value in $allStates)
+$value.getPythonVariableName(): State = None
+#end
+
 #if($rootState)
 # --- Conc States ---
 #macro(generateState $concState $padding)
@@ -309,17 +332,28 @@ $padding    # substate(s)
 		#generateState($substate $newpadding)
 	#end
 $padding    def __init__(self, parent_state: State, root_state: State) -> None:
+$padding        global $concState.getPythonVariableName()
+$padding        $concState.getPythonVariableName() = self # Initialize global reference to this state
     #set($rootStateName = "#if(${padding} == '')self#{else}root_state#end")
     #set($parentStateName = "#if(${padding} == '')None#{else}parent_state#end")
 $padding        super(#if(${padding} == '')#{else}parent_state.#end${concState.getName()}_State, self).__init__($parentStateName, $rootStateName) # init superclass
-    #if($concState.getSubstates())
-        #if(${concState.getSubstates().get(0).getIsConc()})
-            #foreach ($subState in $concState.getSubstates())
-$padding        self._conc_states.append(self.${subState.getName()}_State(self, $rootStateName))
-            #end
-        #else
-$padding        self.change_state(self.${concState.getDefaultSubstate().getName()}_State(self, $rootStateName))  # go to default state
+    #if(${concState.getIsConc()})## If current state is conc
+$padding        self.is_conc = True
+        #if(${padding} != '')## if we are not root (which does not have parent), set parent _is_children_conc to True
+$padding        parent_state._is_children_conc = True
         #end
+    #end
+    #if($concState.getSubstates())
+            #foreach ($subState in $concState.getSubstates())
+                #if($subState == $concState.getDefaultSubstate())
+$padding        # Add default state to children
+$padding        self._default_state = (self.${subState.getName()}_State(self, $rootStateName))
+$padding        self._children.append(self._default_state)
+                #else
+$padding        # Add non-default state to children
+$padding        self._children.append(self.${subState.getName()}_State(self, $rootStateName))
+                #end
+            #end
     #else
 $padding        # No substate for this state, so default state is None
     #end
@@ -375,7 +409,6 @@ $padding                ${trans.getGuardConditions().get($lastIndex)}):
 $padding            return False
                 #end
             #end
-$padding        logging.log(GCLOG,f"Guard of [${concState.getName()}_${trans.getTransName()}] triggered.")
 $padding        return True
 
 $padding    # transition ${trans.getTransName()} execution function
@@ -385,16 +418,28 @@ $padding        # TODO: global variables (signatures used in this state)
                 #foreach($globalVar in $globalVariables)
 $padding        global ${globalVar}
                 #end#end
-$padding        logging.log(ACLOG,f"Execution of [${concState.getName()}_${trans.getTransName()}] passed.")
+$padding        print(Blue + "Taking transition " + "${trans.getTransName()}" + Reset)
             #if($trans.getActions())
                 #foreach($action in $trans.getActions())
 $padding        ${action}
+            #end#end
+$padding        #if(${trans.getTriggerEvent()})SS.activeEvents.add("${trans.getTriggerEvent()}") #end
+$padding        # Apply State Activeness Changes
+                #if($trans.getNonActiveStatesAfterTrans().size() > 0)
+$padding        # size = $trans.getNonActiveStatesAfterTrans().size()
+$padding        states_becoming_non_active = $trans.getNonActiveStatesAfterTransPythonStr()
+$padding        for state in states_becoming_non_active:
+$padding            state.is_active = False
                 #end
-            #end
-$padding        new_state = self._parent_state.${trans.getToStateName()}_State(self._parent_state, self._root_state)
-$padding        self._parent_state.change_state(new_state)
+                #if($trans.getActiveStatesAfterTrans().size() > 0)
+$padding        # size = $trans.geActiveStatesAfterTrans().size()
+$padding        states_becoming_active = $trans.getActiveStatesAfterTransPythonStr()
+$padding        for state in states_becoming_active:
+$padding            state.is_active = True
+                #end
                 #if(${trans.getTriggerEvent()})
 $padding        SS.activeEvents.add("${trans.getTriggerEvent()}")
+$padding        print(Cyan + "Sending event " + "${trans.getTriggerEvent()}" + Reset)
                 #end
 
             #end
@@ -412,21 +457,61 @@ class CentralController:
 
     def __init__(self):
         self.concState = $!{rootState.getName()}_State(None, None)
-        self.commands = {"help": self.printHelp, "states": self.printStates, "execute": self.execute}
+        self.concState.default_initialize()
+        self.commands = {"help": self.printHelp, "execute": self.execute}
         #if(${allEnvEvents.size()}> 0)
         self.possibleEvents = {"${allEnvEvents.get(0).getModifiedName()}"#foreach($event in ${allEnvEvents.subList(1, ${allEncEvents.size()})}), "$!{event.getModifiedName()}"#end}
         #else
         self.possibleEvents = {}
         #end
+    
+    def handle_event(self):
+        unused_conc_states = {self.concState#foreach($value in $allStates)#if($value.getIsConc() && !$value.isRootState()), $value.getPythonVariableName()#end#end} # set of conc states that haven't taken a transition in this big step
+        conc_state_to_active_child = dict() # dictionary that maps each conc state to its active child at the start of this big step
+        for conc_state in unused_conc_states:
+            conc_state_to_active_child[conc_state] = conc_state.get_active_child_state()
+        prev_num_unused_conc_states = -1
+        
+        while len(unused_conc_states) > 0 and prev_num_unused_conc_states != len(unused_conc_states):
+            prev_num_unused_conc_states = len(unused_conc_states)
+            state_queue = [self.concState]
+            while state_queue:
+                cur_state = state_queue.pop(0)
 
+                possible_transitions = []
+                for k, v in cur_state.transitions.items():
+                    if k():
+                        possible_transitions.append(v)
+
+                # if any transitions are possible, take one at random
+                if possible_transitions:
+                    chosen_transition = random.randint(0, len(possible_transitions) - 1)
+                    possible_transitions[chosen_transition]()
+                    # if conc_state's active state changed (i.e. conc_state took a transition), prevent additional transitions (big step maximality)
+                    for conc_state in unused_conc_states.copy():
+                        if conc_state.get_active_child_state() != conc_state_to_active_child[conc_state]:
+                            unused_conc_states.remove(conc_state)
+                # add cur_state's conc state children to queue
+                elif cur_state._is_children_conc:
+                    for conc_state in cur_state._children:
+                        if conc_state in unused_conc_states:
+                            state_queue.append(conc_state)
+                # add cur_state's active state to queue
+                elif cur_state.get_active_child_state() is not None:
+                    state_queue.append(cur_state.get_active_child_state())
+    
     def run(self) -> None:
+        self.concState.print_tree()
+        self.printHelp()
         eventName = ""
         # big step
         while eventName.lower() != "quit":
             if eventName in self.possibleEvents:
+                print(Cyan + "Running model with env event " + eventName + Reset)
                 SS.activeEvents.clear()
                 SS.activeEvents.add(eventName)
-                self.concState.handleEvent()
+                self.handle_event()
+                self.concState.print_tree()
             elif eventName != "":
                 print("Invalid event name")
 
@@ -445,16 +530,14 @@ class CentralController:
             print(x)
         #end
         print("\n-- Other Commands --")
-        print("states: print the model's current states")
         print("execute: take a random transition (if possible)")
         print("quit: terminate the model\n")
 
-    def printStates(self):
-        print("\n" + type(self.concState).__name__ + " Current States:\n")
-        self.concState.printStates()
-
     def execute(self):
-        self.concState.handleEvent()
+        print(Cyan + "Running model without env event" + Reset)
+        SS.activeEvents.clear()
+        self.handle_event()
+        self.concState.print_tree()
 
 # --- Run the Model ---
 
