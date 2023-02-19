@@ -18,8 +18,7 @@ import java.io.InputStream;
 import java.util.Arrays;
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.*;
 
 public class CoreDashToPythonTest {
 
@@ -74,12 +73,12 @@ public class CoreDashToPythonTest {
                 "class SomeSig(Signature):",
                 "atoms = {\"SomeSig$0\", \"SomeSig$1\", \"SomeSig$2\"}",
                 "class LoneSig(Signature):",
-                "atoms = {}");
+                "atoms = set()");
 
         CoreDashToPython.print(translation);
 
         for(String sigTrans : expectedTranslation){
-            System.out.println("====== "+sigTrans);
+            // System.out.println("====== "+sigTrans);
             assert (CoreDashToPython.convert2String(translation).contains(sigTrans));
         }
     }
@@ -138,6 +137,78 @@ public class CoreDashToPythonTest {
 
         for(String trans : expectedTranslation){
             assert (CoreDashToPython.convert2String(translation).contains(trans));
+        }
+    }
+
+    @Test
+    public void test_GuardCondition_ConcatenationAndFormat_Correct() throws IOException {
+        String dashModel = "sig Med {}\n" +
+                "conc state S {\n" +
+                "    default state R{\n" +
+                "        env in_m1: lone Med\n" +
+                "        med: set Med\n" +
+                "\n" +
+                "        trans add_med1 {\n" +
+                "            when {\n" +
+                "                (!(in_m1 in med) and !(in_m1 in med))\n" +
+                "                in_m1 in med or in_m1 in med\n" +
+                "            }\n" +
+                "            do med' = med\n" +
+                "        }\n" +
+                "        trans add_med2 {\n" +
+                "            when (!(in_m1 in med) and !(in_m1 in med))\n" +
+                "            do med' = med\n" +
+                "        }\n" +
+                "        trans add_med3 {\n" +
+                "            when (in_m1 in med) and !(in_m1 in med)\n" +
+                "            do med' = med\n" +
+                "        }\n" +
+                "        trans add_med4 {\n" +
+                "            when {\n" +
+                "                (in_m1 in med) and !(in_m1 in med) or\n" +
+                "                (in_m1 in med) or !(in_m1 in med)\n" +
+                "            }\n" +
+                "            do med' = med\n" +
+                "        }\n" +
+                "        trans add_med5 {\n" +
+                "            when {\n" +
+                "                (in_m1 in med) and !(in_m1 in med) or\n" +
+                "                (in_m1 in med) or !(in_m1 in med) and\n" +
+                "                (in_m1 in med) and !(in_m1 in med)\n" +
+                "            }\n" +
+                "            do med' = med\n" +
+                "        }\n" +
+                "    }\n" +
+                "}\n";
+
+        DashModule dashModule = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
+        dashModule = new DashToCoreDash().transformToCoreDash(dashModule, null, "");
+        DashPythonTranslation translation = new DashPythonTranslation(dashModule, null);
+
+        List<String> expectedTranslation = Arrays.asList(
+                "if not (not(SS.S_R_in_m1 in SS.S_R_med) and",  // add_med1
+                "not(SS.S_R_in_m1 in SS.S_R_med) and",
+                "(SS.S_R_in_m1 in SS.S_R_med or",
+                "SS.S_R_in_m1 in SS.S_R_med)):",
+                "if not (not(SS.S_R_in_m1 in SS.S_R_med) and",  // add_med2
+                "not(SS.S_R_in_m1 in SS.S_R_med)):",
+                "if not (SS.S_R_in_m1 in SS.S_R_med and",       // add_med3
+                "not(SS.S_R_in_m1 in SS.S_R_med)):",
+                "if not ((SS.S_R_in_m1 in SS.S_R_med and",      // add_med4
+                "not(SS.S_R_in_m1 in SS.S_R_med)) or",
+                "SS.S_R_in_m1 in SS.S_R_med or",
+                "not(SS.S_R_in_m1 in SS.S_R_med)):",
+                "if not ((SS.S_R_in_m1 in SS.S_R_med and",      // add_med5
+                "not(SS.S_R_in_m1 in SS.S_R_med)) or",
+                "SS.S_R_in_m1 in SS.S_R_med or",
+                "(not(SS.S_R_in_m1 in SS.S_R_med) and",
+                "SS.S_R_in_m1 in SS.S_R_med and",
+                "not(SS.S_R_in_m1 in SS.S_R_med))):");
+
+        String output = CoreDashToPython.convert2String(translation);
+
+        for(String trans : expectedTranslation){
+            assert (output.contains(trans));
         }
     }
 }
