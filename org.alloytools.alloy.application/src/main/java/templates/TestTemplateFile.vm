@@ -385,12 +385,12 @@ $padding            return False
 $padding        if not ($trans.getGuardConditions().get(0)):
 $padding            return False
                 #else
-$padding        if not ($trans.getGuardConditions().get(0) and
+$padding        if not $trans.getGuardConditions().get(0)
                     #set($lastIndex = ${trans.getGuardConditions().size()} - 1)
                     #foreach($guardCondition in ${trans.getGuardConditions().subList(1, $lastIndex)})
-$padding                ${guardCondition} and
+$padding                ${guardCondition}
                     #end
-$padding                ${trans.getGuardConditions().get($lastIndex)}):
+$padding                ${trans.getGuardConditions().get($lastIndex)}:
 $padding            return False
                 #end
             #end

@@ -804,7 +804,7 @@ public class DashPythonTranslation {
                 this.eventCondition = dashTrans.getTriggerEvent().getRawName();
             }
             if(dashTrans.getCondition() != null){    // determines the guard_condition (if statement)
-                DashExprToPython dashExprTranslator = new DashExprToPython<>(dashTrans.getCondition(), variable2StateNameMap);
+                DashExprToPython dashExprTranslator = new DashExprToPython<>(dashTrans.getCondition(), variable2StateNameMap, true);
 
                 // set condition
                 this.guardConditions = dashExprTranslator.toList();

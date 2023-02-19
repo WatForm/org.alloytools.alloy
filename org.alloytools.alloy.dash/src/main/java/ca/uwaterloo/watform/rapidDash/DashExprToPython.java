@@ -10,10 +10,7 @@ import edu.mit.csail.sdg.ast.ExprList;
 import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.ExprVar;
 
-import java.util.LinkedList;
-import java.util.Deque;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 
 /*
@@ -27,21 +24,31 @@ public class DashExprToPython<ExprType> {
     private List<DashPythonTranslation.Relation> relations;
     public boolean isDecl = false;
     public boolean isInit = false;
+    private boolean isWhenExpr;
 
-    public DashExprToPython(ExprType specialExpr, Map<String, String> variable2StateNameMap, String varName, List<DashPythonTranslation.Relation> relations){
+    public DashExprToPython(ExprType specialExpr, Map<String, String> variable2StateNameMap, String varName, List<DashPythonTranslation.Relation> relations, boolean isWhenExpr){
         this.specialExpr = specialExpr;
         this.sbs = new LinkedList<>();
         this.sbs.addLast(new StringBuilder());
         this.variable2StateNameMap = variable2StateNameMap;
         this.varName = varName;
         this.relations = relations;
+        this.isWhenExpr = isWhenExpr;
 
         // TODO: currently only support DashWhenExpr
         this.parseExpr();
     }
 
+    public DashExprToPython(ExprType specialExpr, Map<String, String> variable2StateNameMap, String varName, List<DashPythonTranslation.Relation> relations){
+        this(specialExpr, variable2StateNameMap, varName, relations, false);
+    }
+
+    public DashExprToPython(ExprType specialExpr, Map<String, String> variable2StateNameMap, boolean isWhenExpr){
+        this(specialExpr, variable2StateNameMap, "", null, isWhenExpr);
+    }
+
     public DashExprToPython(ExprType specialExpr, Map<String, String> variable2StateNameMap){
-        this(specialExpr, variable2StateNameMap, "", null);
+        this(specialExpr, variable2StateNameMap, "", null, false);
     }
 
     @Override
@@ -51,14 +58,20 @@ public class DashExprToPython<ExprType> {
 
     public List<String> toList(){
         List<String> result = new LinkedList<>();
-        for (StringBuilder sb : sbs) {
-            if (sb.length() > 0){
-                result.add(sb.toString());
+        for (StringBuilder expr : sbs){
+            if (expr.length() == 0) {
+                continue;
+            }
+            // Concatenate to the previous expression.
+            if (expr.charAt(0) == ')' || expr.toString().equals(" or") || expr.toString().equals(" and")){
+                result.set(result.size() - 1, result.get(result.size() - 1).concat(expr.toString()));
+            }else{
+                result.add(expr.toString());
             }
         }
         return result;
     }
-    
+
     public void reparseExpr() {
         sbs.removeLast();
         sbs.addLast(new StringBuilder());
@@ -88,10 +101,32 @@ public class DashExprToPython<ExprType> {
         if (node instanceof  ExprList) {
             ExprList exprList = (ExprList) node;
             // Assuming each expr in the list is an independent statement
-            for (Expr subNode : exprList.args) {
-                sbs.getLast().append(genExpr(subNode, exprList.args.size()));
+            Iterator<Expr> subNode = exprList.args.iterator();
+
+            if (1 == exprList.args.size()){
+                sbs.getLast().append(genExpr(subNode.next(), exprList.args.size()));
+                sbs.addLast(new StringBuilder());
+                return "";
+            }
+
+            if(isWhenExpr){ sbs.getLast().append("("); }
+            while (subNode.hasNext()) {
+                sbs.getLast().append(genExpr(subNode.next(), exprList.args.size()));
+                // linkOperators
+                if(isWhenExpr){
+                    if (subNode.hasNext()){
+                        if (exprList.op == ExprList.Op.AND){
+                            sbs.getLast().append(" and");
+                        } else if (exprList.op == ExprList.Op.OR){
+                            sbs.getLast().append(" or");
+                        }
+                    }else{
+                        sbs.getLast().append(")");
+                    }
+                }
                 sbs.addLast(new StringBuilder());
             }
+
             return "";
         }else if (node instanceof ExprUnary) {
             // TODO: is sub always a binary?
