@@ -87,33 +87,37 @@ class State(ABC):
 
 #end
 #if($signatures)
-class MetaSignature(type):
+class MetaSet(type):
     """
-    Used by Signatures (statically)
-    - the member variables and functions will be used by Signature Classes themselves, not the instances
+    Used by variables to make operations consistent.
+    - static variable is a class and a dynamic variable is an instance
     """
 
     class Set:
         """
-        used to make more operations between Signature and instances of Signatures easier
+        Everything will be turned into a set. Set of strings or set of tuples.
         """
         def __init__(self, initvalue=()):
-            if isinstance(initvalue, MetaSignature.Set):
+            if isinstance(initvalue, MetaSet.Set):
                 self._set = initvalue._set
             elif isinstance(initvalue, set):
                 self._set = initvalue
             elif isinstance(initvalue, list):
                 self._set = set(initvalue)
-            elif isinstance(initvalue, MetaSignature):
+            elif isinstance(initvalue, MetaSet):
                 self._set = initvalue.objects()
             elif isinstance(initvalue, Signature):
                 self._set = initvalue.elements
+            elif isinstance(initvalue, Relation):
+                self._set = initvalue.values
+            elif isinstance(initvalue, tuple):
+                self._set = {initvalue}
             elif isinstance(initvalue, str):
                 self._set = {initvalue}
             elif isinstance(initvalue, int):
                 self._set = {initvalue}
             else:
-                print("Exception, unsupported type in MetaSignature::Set: %s", type(initvalue))
+                print("Exception, unsupported type in MetaSet::Set: %s", type(initvalue))
 
         def __iter__(self):
             return iter(self._set)
@@ -123,44 +127,42 @@ class MetaSignature(type):
 
         # override "in" operator, e.g.,: other in cls
         def __contains__(cls, other) -> bool:
-            if not isinstance(other, MetaSignature.Set):
-                return MetaSignature.Set(other) in cls
+            if not isinstance(other, MetaSet.Set):
+                return MetaSet.Set(other) in cls
             return other._set.issubset(cls._set)
 
         # override "+" operator, e.g.,: cls + other
-        def __add__(cls, other) -> MetaSignature.Set:
-            if not isinstance(other, MetaSignature.Set):
-                return cls + MetaSignature.Set(other)
-            return MetaSignature.Set(cls._set.union(other._set))
+        def __add__(cls, other) -> MetaSet.Set:
+            if not isinstance(other, MetaSet.Set):
+                return cls + MetaSet.Set(other)
+            return MetaSet.Set(cls._set.union(other._set))
 
         # override "-" operator, e.g.,: cls - other
-        def __sub__(cls, other) -> MetaSignature.Set:
-            if not isinstance(other, MetaSignature.Set):
-                return cls - MetaSignature.Set(other)
-            return MetaSignature.Set(cls._set.difference(other._set))
+        def __sub__(cls, other) -> MetaSet.Set:
+            if not isinstance(other, MetaSet.Set):
+                return cls - MetaSet.Set(other)
+            return MetaSet.Set(cls._set.difference(other._set))
 
     # override "in" operator, e.g.,: other in cls
     def __contains__(cls, other):
-        return  MetaSignature.Set(other) in MetaSignature.Set(cls.objects())
+        return  MetaSet.Set(other) in MetaSet.Set(cls.objects())
 
     # override "+" operator, e.g.,: cls + other
     def __add__(cls, other):
-        return MetaSignature.Set(cls.objects()) + MetaSignature.Set(other)
+        return MetaSet.Set(cls.objects()) + MetaSet.Set(other)
 
     # override "-" operator, e.g.,: cls - other
     def __sub__(cls, other):
-        return MetaSignature.Set(cls.objects()) - MetaSignature.Set(other)
+        return MetaSet.Set(cls.objects()) - MetaSet.Set(other)
 
-    # all objects in this Signature
+    # all objects in this static variable
     def objects(cls) -> set:
-        return cls.atoms
-
-    # the scope of this Signature
-    def scope(cls) -> int:
-        return len(cls.objects())
+        if hasattr(cls, 'possible_tuples'):
+            return cls.possible_tuples()    # Relation
+        return cls.atoms                    # Signature
 
 
-class Signature(metaclass = MetaSignature):
+class Signature(metaclass = MetaSet):
     def __init__(self, name, multiplicity, elements=set()):
         """
         Used by state variables
@@ -207,17 +209,17 @@ class Signature(metaclass = MetaSignature):
 
     # override "in" operator, e.g.,: other in self
     def __contains__(self, other):
-        return  MetaSignature.Set(other) in MetaSignature.Set(self.elements)
+        return  MetaSet.Set(other) in MetaSet.Set(self.elements)
 
     # override "+" operator, e.g.,: self + other
     def __add__(self, other):
-        return MetaSignature.Set(self.elements) + MetaSignature.Set(other)
+        return MetaSet.Set(self.elements) + MetaSet.Set(other)
 
     # override "-" operator, e.g.,: self - other
     def __sub__(self, other):
-        return MetaSignature.Set(self.elements) - MetaSignature.Set(other)
+        return MetaSet.Set(self.elements) - MetaSet.Set(other)
 
-class Relation:
+class Relation(metaclass = MetaSet):
     def __init__(self, name, types, values=set()):
         """
         Used by state variables
@@ -233,18 +235,31 @@ class Relation:
         self.values = values
 
     @classmethod
-    def possible_tuples(cls):
+    def possible_tuples(cls) -> set:
         domain_elements = [type.objects() for type in cls.types]
-        return [tup for tup in itertools.product(*domain_elements)]
+        return set([tup for tup in itertools.product(*domain_elements)])
+
+    # override "in" operator, e.g.,: other in self
+    def __contains__(self, other):
+        return  MetaSet.Set(other) in MetaSet.Set(self.values)
+
+    # override "+" operator, e.g.,: self + other
+    def __add__(self, other):
+        return MetaSet.Set(self.values) + MetaSet.Set(other)
+
+    # override "-" operator, e.g.,: self - other
+    def __sub__(self, other):
+        return MetaSet.Set(self.values) - MetaSet.Set(other)
+
 
 #end
-class Snapshot:
+class VariableTracker:
     """
-    A snapshot of the current status of the system. It contains all state variables.
-    It also maintains a history of all the snapshots that have happened so far.
+    A system variable state tracker. All dynamic variables are tracked here.
+    It also maintains a history of all dynamic variable snapshots that have occurred so far.
     """
     def __init__(self):
-        # --- Snapshot metadata ---
+        # --- Snapshots metadata ---
         self.history_of_changes = deque()   # History used for backtracking.
         self.changes = dict()               # Changes made in this snapshot.
         # TODO: [Code] Need to record the transitions taken. To avoid making the same transition twice during backtracking.
@@ -274,16 +289,20 @@ class Snapshot:
             self.__dict__[name] = value
 
 
-# --- Snapshot ---
-SS = Snapshot()
+# --- Variable Tracker Initialization ---
+# TODO: [Code] Consider changing the variable name SS.
+SS = VariableTracker()
 
 #if($signatures)
 # --- Signatures ---
 
     #foreach($sig in $signatures)
 class ${sig.Name}(Signature):
+        #if(${sig.getObjectNames()})
     atoms = {${sig.getObjectNames()}}
-
+        #else
+    atoms = set()
+        #end
 
     #end
 

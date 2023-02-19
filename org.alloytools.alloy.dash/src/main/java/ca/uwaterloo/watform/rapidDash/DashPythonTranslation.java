@@ -686,6 +686,9 @@ public class DashPythonTranslation {
                                 values = "{" + String.join(", ", atoms) + "}";
                             }
                         }
+                        if (values.equals("{}")) {
+                            values = "set()";
+                        }
                         statesMap.get(stateName).addDecl(stateName + "_" + variableName + " = " + className + "('" + variableName + "', " + multiplicityOrTypes + ", " + values + ")");
                         found = true;
                         break;
