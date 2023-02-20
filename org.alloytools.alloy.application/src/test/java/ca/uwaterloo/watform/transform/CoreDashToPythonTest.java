@@ -210,8 +210,8 @@ public class CoreDashToPythonTest {
                 "(not(SS.S_R_in_m1 in SS.S_R_med) and",
                 "SS.S_R_in_m1 in SS.S_R_med and",
                 "not(SS.S_R_in_m1 in SS.S_R_med))):",
-                "if not (not(SS.in_m1 * SS.in_m2 in SS.S_R_interactions) and", // add_relation
-                "not(SS.in_m2 * SS.in_m1 in SS.S_R_interactions) and",
+                "if not (not(SS.S_R_in_m1 * SS.S_R_in_m2 in SS.S_R_interactions) and", // add_relation
+                "not(SS.S_R_in_m2 * SS.S_R_in_m1 in SS.S_R_interactions) and",
                 "SS.S_R_in_m1 in SS.S_R_med and",
                 "SS.S_R_in_m2 in SS.S_R_med):"
         );
