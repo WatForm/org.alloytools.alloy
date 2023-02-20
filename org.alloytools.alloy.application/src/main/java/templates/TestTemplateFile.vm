@@ -273,6 +273,9 @@ class Relation(metaclass = MetaSet):
         domain_elements = [type.objects() for type in cls.types]
         return set([tup for tup in itertools.product(*domain_elements)])
 
+    def __repr__(self):
+        return f"{self.__class__.__name__} - {self.name} : {self.values}" if self.values else f"{self.__class__.__name__} - {self.name} : Empty"
+
     # override "in" operator, e.g.,: other in self
     def __contains__(self, other):
         return  MetaSet.Set(other) in MetaSet.Set(self.values)
@@ -302,10 +305,15 @@ class VariableTracker:
         self.activeEvents = set()
 
     def __setattr__(self, name, value):
-        if name in self.__dict__:       # Record the variables for current snapshot.
+        if name in self.__dict__:
             self.changes[name] = self.__dict__[name]
-            logging.log(VARLOG,f"Variable [{name}] changed from \"{self.changes[name]}\" to \"{value}\".")
-        self.__dict__[name] = value     # Set the value.
+            if isinstance(self.changes[name], Relation):
+                self.__dict__[name].values = value
+            else: # Assume only Relation and Signature instances are used.
+                self.__dict__[name].elements = value
+            logging.log(VARLOG,f"Variable [{name}] changed from \"{self.changes[name]}\" to \"{self.__dict__[name]}\".")
+        else:
+            self.__dict__[name] = value     # Initialization of variables.
 
     # TODO: delete this comment.
     # Call this when a big step is made.
@@ -453,7 +461,7 @@ $padding        # TODO: global variables (signatures used in this state)
                 #foreach($globalVar in $globalVariables)
 $padding        global ${globalVar}
                 #end#end
-$padding        print(Blue + "Taking transition " + "${trans.getTransName()}" + Reset)
+$padding        print(Blue + "Taking transition ${trans.getTransName()}" + Reset)
             #if(!$trans.getActions().isEmpty())
                 #foreach($action in $trans.getActions())
 $padding        ${action}
@@ -477,7 +485,7 @@ $padding            state.is_active = True
                 #end
                 #if(${trans.getTriggerEvent()})
 $padding        SS.activeEvents.add("${trans.getTriggerEvent()}")
-$padding        print(Cyan + "Sending event " + "${trans.getTriggerEvent()}" + Reset)
+$padding        print(Cyan + "Sending event ${trans.getTriggerEvent()}" + Reset)
                 #end
 
             #end
