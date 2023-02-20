@@ -851,6 +851,10 @@ public class DashPythonTranslation {
         }
 
         public void initializePathToDescendent(State descendent, HashSet<State> nodes) {
+            if (descendent == this) {
+                nodes.add(descendent);
+                return;
+            }
             Stack<State> path = new Stack<State>();
             pathToDescendentInclusive(descendent, path);
 
