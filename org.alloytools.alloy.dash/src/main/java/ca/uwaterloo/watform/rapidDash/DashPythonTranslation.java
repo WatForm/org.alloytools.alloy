@@ -12,7 +12,6 @@ import java.io.*;
 import java.util.*;
 import java.util.stream.Collectors;
 
-
 import static edu.mit.csail.sdg.alloy4.TableView.clean;
 
 /**
@@ -582,6 +581,31 @@ public class DashPythonTranslation {
         for(DashTrans dashTrans : dashModule.getTransitions().values()){
             Transition trans = new Transition(dashTrans);
             this.statesMap.get(trans.getStateName()).addTransition(trans);
+            this.setTransStateActivenessChange(trans);
+        }
+    }
+
+    private void setTransStateActivenessChange(Transition trans) {
+        State s = this.statesMap.get(trans.getStateName());
+        State d = this.statesMap.get(trans.getToStateName());
+        State lca = rootState.LCA(s, d);
+
+        // First get nodes to turn off
+        HashSet<State> nodes_to_turn_off = new HashSet<State>();
+        lca.getAllDescendentsExcludeMyself(nodes_to_turn_off);
+
+        // Then get nodes to turn on
+        HashSet<State> nodes_to_turn_on = new HashSet<State>();
+        lca.initializePathToDescendent(d, nodes_to_turn_on);
+
+        for (State n: nodes_to_turn_off) {
+            // If something is turned off, then on, it is on, so we don't add it here
+            if (!nodes_to_turn_on.contains(n)) {
+                trans.nonActiveStatesAfterTrans.add(n);
+            }
+        }
+        for (State n: nodes_to_turn_on) {
+            trans.activeStatesAfterTrans.add(n);
         }
     }
 
@@ -756,6 +780,7 @@ public class DashPythonTranslation {
             this.transitions.add(transition);
         }
         public String getName(){return stateName;}
+        public String getPythonVariableName() {return "ref_" + stateName.toLowerCase();}
         public List<Transition> getTransitions() {return transitions.stream().collect(Collectors.toList());}
         public List<State> getSubstates() { return substates.stream().collect(Collectors.toList()); }
         public List<String> getDecls() { return decls.stream().collect(Collectors.toList()); }
@@ -765,6 +790,8 @@ public class DashPythonTranslation {
 
         public boolean getIsConc() {return isConc;}
 
+        public boolean isRootState() { return parent == null; }
+
         public void addSubstate(State s) { substates.add(s); }
         public void addDecl(String s) { decls.add(s); }
         public void addInit(String s) { inits.add(s); }
@@ -772,6 +799,101 @@ public class DashPythonTranslation {
         public void addEvent(Event e) { events.add(e); }
         public State getDefaultSubstate() {
         	return defaultSubstate != null ? defaultSubstate : substates.get(0);
+        }
+
+        /**
+         * Get the lowest common ancestor of two nodes
+         * @param n1 first node
+         * @param n2 second node
+         * @return the lowest common ancestor
+         */
+        public State LCA(State n1, State n2) {
+            if (n1 == n2) return n1;
+            if (this == n1 || this == n2) return this;
+            int count = 0;
+            State temp = null;
+            for(State child : getSubstates()) {
+                State result = child.LCA(n1, n2);
+                if(result != null) {
+                    count++;
+                    temp = result;
+                }
+            }
+
+            if(count == 2) {
+                return this;
+            }
+
+            return temp;
+        }
+
+        public boolean pathToDescendentInclusive(State descendent, Stack<State> path) {
+            // push the node's value in 'arr'
+            path.add(this);
+
+            // if it is the required node
+            // return true
+            if (this == descendent)
+                return true;
+
+            for (State child : getSubstates()) {
+                if (child.pathToDescendentInclusive(descendent, path)) {
+                    return true;
+                }
+            }
+
+            path.pop();
+            return false;
+        }
+        
+        public void getAllDescendentsExcludeMyself(HashSet<State> nodes) {
+            for (State child : getSubstates()) {
+                nodes.add(child);
+                child.getAllDescendentsExcludeMyself(nodes);
+            }
+        }
+
+        public void initializePathToDescendent(State descendent, HashSet<State> nodes) {
+            Stack<State> path = new Stack<State>();
+            pathToDescendentInclusive(descendent, path);
+
+            assert descendent == path.pop();
+
+            descendent.getDefaultInitializationSet(nodes);
+
+            while(path.size() > 1) {
+                State node = path.pop();
+                nodes.add(node);
+                if (node.isConc) {
+                    // need to initialize conc siblings as well
+                    // guaranteed to have a parent since it is not root
+                    for (State sibling : node.parent.getSubstates()) {
+                        sibling.getDefaultInitializationSet(nodes);
+                    }
+                }
+            }
+
+            assert this == path.pop();
+        }
+
+        /**
+         * Default initialize current node, nodes are all the nodes that will become active
+         * @param nodes
+         */
+        public void getDefaultInitializationSet(HashSet<State> nodes) {
+            nodes.add(this);
+            if (getSubstates().isEmpty()) {
+                return;
+            }
+
+            boolean is_children_conc = getSubstates().get(0).isConc;
+            if (is_children_conc) {
+                for (State child : getSubstates()) {
+                    child.getDefaultInitializationSet(nodes);
+                }
+            } else if(getDefaultSubstate() != null) {
+                getDefaultSubstate().getDefaultInitializationSet(nodes);
+            }
         }
     }
 
@@ -786,6 +908,9 @@ public class DashPythonTranslation {
         private String eventCondition = "";
         private String triggerEvent = "";
         private String transTemplate = "";
+
+        public HashSet<State> nonActiveStatesAfterTrans = new HashSet<State>();
+        public HashSet<State> activeStatesAfterTrans = new HashSet<State>();
 
         public Transition(DashTrans dashTrans){
             // set default transition information
@@ -834,5 +959,22 @@ public class DashPythonTranslation {
         public String getToStateName() {return toStateName;}
         public String getTransTemplate() {return transTemplate;}
         public String getTriggerEvent() {return triggerEvent;}
+        public HashSet<State> getNonActiveStatesAfterTrans() {return nonActiveStatesAfterTrans;}
+        public HashSet<State> getActiveStatesAfterTrans() {return activeStatesAfterTrans;}
+        private String getStatesAfterTransPythonStr(HashSet<State> state) {
+            StringBuilder b = new StringBuilder();
+            b.append("[");
+            b.append(state.stream().map(s -> s.getPythonVariableName()).collect(Collectors.joining(",")));
+            b.append("]");
+            return b.toString();
+        }
+        public String getNonActiveStatesAfterTransPythonStr() {
+            return getStatesAfterTransPythonStr(nonActiveStatesAfterTrans);
+        }
+
+        public String getActiveStatesAfterTransPythonStr() {
+            return getStatesAfterTransPythonStr(activeStatesAfterTrans);
+        }
+
     }
 }
