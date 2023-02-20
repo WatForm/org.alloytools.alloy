@@ -183,7 +183,12 @@ public class DashExprToPython<ExprType> {
             // TODO: assume only 1 expression and it is an eval statement
             String quantifiedBody = genExpr(qtNode.sub, 1);
 
-            return quantifier + String.format("%s for %s in %s", quantifiedBody, localVarStack.pop(), quantifiedDecl) + "])";
+            String quantifiedVariable = "x";
+            if (!localVarStack.isEmpty()){
+//                quantifiedVariable = localVarStack.peekLast();
+            }
+
+            return quantifier + String.format("%s for %s in %s", quantifiedBody, quantifiedVariable, quantifiedDecl) + "])";
         } else {
             // under development, use this to catch more types that could be useful
             System.out.println("[Warning] Need more types: " + node.getClass());
