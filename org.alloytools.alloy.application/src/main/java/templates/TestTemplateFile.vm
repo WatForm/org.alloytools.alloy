@@ -143,6 +143,13 @@ class MetaSet(type):
                 return cls - MetaSet.Set(other)
             return MetaSet.Set(cls._set.difference(other._set))
 
+        # override "*" operator as cartesian product
+        def __mul__(cls, other) -> set(tuple):
+            return set(itertools.product(cls._set, other._set))
+
+    def __iter__(cls):
+        return iter(cls.objects())
+
     # override "in" operator, e.g.,: other in cls
     def __contains__(cls, other):
         return  MetaSet.Set(other) in MetaSet.Set(cls.objects())
@@ -154,6 +161,10 @@ class MetaSet(type):
     # override "-" operator, e.g.,: cls - other
     def __sub__(cls, other):
         return MetaSet.Set(cls.objects()) - MetaSet.Set(other)
+
+    # override "*" operator as cartesian product
+    def __mul__(cls, other) -> set(tuple):
+        return MetaSet.Set(cls.objects()) * MetaSet.Set(other)
 
     # all objects in this static variable
     def objects(cls) -> set:
@@ -185,7 +196,7 @@ class Signature(metaclass = MetaSet):
 
     # Returns true if the new set of elements is valid for its multiplicity
     def is_valid(self, new_elements) -> bool:
-        length = len(self.elements)
+        length = len(new_elements)
         if self.multiplicity  == 0:  # Lone
             if(length != 0 and length != 1):
                 return False
@@ -221,7 +232,7 @@ class Signature(metaclass = MetaSet):
 
     # override "*" operator as cartesian product
     def __mul__(self, other) -> set(tuple):
-        return set(itertools.product(self.elements, other.elements))
+        return MetaSet.Set(self.elements) * MetaSet.Set(other)
 
 
 class Relation(metaclass = MetaSet):
