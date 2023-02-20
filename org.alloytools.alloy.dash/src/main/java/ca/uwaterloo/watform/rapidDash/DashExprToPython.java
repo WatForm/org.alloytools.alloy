@@ -2,13 +2,7 @@ package ca.uwaterloo.watform.rapidDash;
 
 import ca.uwaterloo.watform.ast.DashDoExpr;
 import ca.uwaterloo.watform.ast.DashWhenExpr;
-import edu.mit.csail.sdg.ast.Expr;
-import edu.mit.csail.sdg.ast.ExprBadJoin;
-import edu.mit.csail.sdg.ast.ExprBinary;
-import edu.mit.csail.sdg.ast.ExprConstant;
-import edu.mit.csail.sdg.ast.ExprList;
-import edu.mit.csail.sdg.ast.ExprUnary;
-import edu.mit.csail.sdg.ast.ExprVar;
+import edu.mit.csail.sdg.ast.*;
 
 import java.util.*;
 
@@ -25,9 +19,11 @@ public class DashExprToPython<ExprType> {
     public boolean isDecl = false;
     public boolean isInit = false;
     private boolean isWhenExpr;
+    private Deque<String> localVarStack;
 
     public DashExprToPython(ExprType specialExpr, Map<String, String> variable2StateNameMap, String varName, List<DashPythonTranslation.Relation> relations, boolean isWhenExpr){
         this.specialExpr = specialExpr;
+        this.localVarStack = new LinkedList<>();
         this.sbs = new LinkedList<>();
         this.sbs.addLast(new StringBuilder());
         this.variable2StateNameMap = variable2StateNameMap;
@@ -115,11 +111,8 @@ public class DashExprToPython<ExprType> {
                 // linkOperators
                 if(isWhenExpr){
                     if (subNode.hasNext()){
-                        if (exprList.op == ExprList.Op.AND){
-                            sbs.getLast().append(" and");
-                        } else if (exprList.op == ExprList.Op.OR){
-                            sbs.getLast().append(" or");
-                        }
+                        if (exprList.op == ExprList.Op.AND){ sbs.getLast().append(" and"); }
+                        else if (exprList.op == ExprList.Op.OR){ sbs.getLast().append(" or"); }
                     }else{
                         sbs.getLast().append(")");
                     }
@@ -162,6 +155,35 @@ public class DashExprToPython<ExprType> {
             } else {
                 System.out.println("[Warning] BadNode needs more types: " + node.getClass());
             }
+        } else if (node instanceof ExprQt) {
+            // Expression with quantifiers
+            ExprQt qtNode = (ExprQt) node;
+
+            // Get the quantifier for list comprehension
+            String quantifier;
+            switch (qtNode.op) {
+                case ONE:
+                    quantifier = "any([";
+                    break;
+                default:
+                case ALL:
+                    quantifier = "all([";
+                    break;
+            }
+
+            // Get declaration of the quantified variable
+            // TODO: assume only 1 declaration
+            String quantifiedDecl = genExpr(qtNode.decls.get(0).expr, 1);
+
+            // Use a stack of local variables to keep track of the quantified variable names
+            // TODO: not exactly sure if this will always work
+            localVarStack.clear();
+
+            // Get the body of the quantifier
+            // TODO: assume only 1 expression and it is an eval statement
+            String quantifiedBody = genExpr(qtNode.sub, 1);
+
+            return quantifier + String.format("%s for %s in %s", quantifiedBody, localVarStack.pop(), quantifiedDecl) + "])";
         } else {
             // under development, use this to catch more types that could be useful
             System.out.println("[Warning] Need more types: " + node.getClass());
@@ -260,7 +282,7 @@ public class DashExprToPython<ExprType> {
             	// TODO: currently only support relation for exactly 2 types
 
                 // Generate new relation name and add it to the list of relations.
-                res = "SS." + node.left + " * SS." + node.right;
+                res = getVarName(node.left.toString()) + " * " + getVarName(node.right.toString());
 
                 /* [Deprecated]: now the Alloy Solver will handle the initialization of relations
                     String type = "[" + node.left + ", " + node.right  + "]";
@@ -444,6 +466,7 @@ public class DashExprToPython<ExprType> {
         if (variable2StateNameMap.containsKey(varName)){
             return "SS." + variable2StateNameMap.get(varName) + "_" + varName;
         }
+        localVarStack.addLast(varName);
     	return varName;
     }
 }
