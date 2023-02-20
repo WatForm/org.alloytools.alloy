@@ -454,11 +454,14 @@ $padding        # TODO: global variables (signatures used in this state)
 $padding        global ${globalVar}
                 #end#end
 $padding        print(Blue + "Taking transition " + "${trans.getTransName()}" + Reset)
-            #if($trans.getActions())
+            #if(!$trans.getActions().isEmpty())
                 #foreach($action in $trans.getActions())
 $padding        ${action}
-            #end#end
-$padding        #if(${trans.getTriggerEvent()})SS.activeEvents.add("${trans.getTriggerEvent()}") #end
+                #end
+            #end
+            #if(${trans.getTriggerEvent()})
+$padding        SS.activeEvents.add("${trans.getTriggerEvent()}")
+            #end
 $padding        # Apply State Activeness Changes
                 #if($trans.getNonActiveStatesAfterTrans().size() > 0)
 $padding        # size = $trans.getNonActiveStatesAfterTrans().size()
@@ -499,14 +502,14 @@ class CentralController:
         #else
         self.possibleEvents = {}
         #end
-    
+
     def handle_event(self):
         unused_conc_states = {self.concState#foreach($value in $allStates)#if($value.getIsConc() && !$value.isRootState()), $value.getPythonVariableName()#end#end} # set of conc states that haven't taken a transition in this big step
         conc_state_to_active_child = dict() # dictionary that maps each conc state to its active child at the start of this big step
         for conc_state in unused_conc_states:
             conc_state_to_active_child[conc_state] = conc_state.get_active_child_state()
         prev_num_unused_conc_states = -1
-        
+
         while len(unused_conc_states) > 0 and prev_num_unused_conc_states != len(unused_conc_states):
             prev_num_unused_conc_states = len(unused_conc_states)
             state_queue = [self.concState]
@@ -534,7 +537,7 @@ class CentralController:
                 # add cur_state's active state to queue
                 elif cur_state.get_active_child_state() is not None:
                     state_queue.append(cur_state.get_active_child_state())
-    
+
     def run(self) -> None:
         self.concState.print_tree()
         self.printHelp()
