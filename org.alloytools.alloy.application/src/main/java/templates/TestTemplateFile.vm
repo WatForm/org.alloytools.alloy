@@ -219,6 +219,11 @@ class Signature(metaclass = MetaSet):
     def __sub__(self, other):
         return MetaSet.Set(self.elements) - MetaSet.Set(other)
 
+    # override "*" operator as cartesian product
+    def __mul__(self, other) -> set(tuple):
+        return set(itertools.product(self.elements, other.elements))
+
+
 class Relation(metaclass = MetaSet):
     def __init__(self, name, types, values=set()):
         """

@@ -75,8 +75,6 @@ public class CoreDashToPythonTest {
                 "class LoneSig(Signature):",
                 "atoms = set()");
 
-        CoreDashToPython.print(translation);
-
         for(String sigTrans : expectedTranslation){
             // System.out.println("====== "+sigTrans);
             assert (CoreDashToPython.convert2String(translation).contains(sigTrans));
@@ -145,9 +143,9 @@ public class CoreDashToPythonTest {
         String dashModel = "sig Med {}\n" +
                 "conc state S {\n" +
                 "    default state R{\n" +
-                "        env in_m1: lone Med\n" +
+                "        env in_m1, in_m2: lone Med\n" +
                 "        med: set Med\n" +
-                "\n" +
+                "        interactions: Med -> set Med\n"+
                 "        trans add_med1 {\n" +
                 "            when {\n" +
                 "                (!(in_m1 in med) and !(in_m1 in med))\n" +
@@ -178,6 +176,14 @@ public class CoreDashToPythonTest {
                 "            }\n" +
                 "            do med' = med\n" +
                 "        }\n" +
+                "        trans add_relation {\n" +
+                "            when {\n" +
+                "                (!(in_m1 -> in_m2 in interactions) and !(in_m2 -> in_m1 in interactions))\n" +
+                "                in_m1 in med\n" +
+                "                in_m2 in med\n" +
+                "            }\n" +
+                "            do interactions' = interactions + {in_m1->in_m2 + in_m2->in_m1}\n" +
+                "        }\n"+
                 "    }\n" +
                 "}\n";
 
@@ -203,7 +209,12 @@ public class CoreDashToPythonTest {
                 "SS.S_R_in_m1 in SS.S_R_med or",
                 "(not(SS.S_R_in_m1 in SS.S_R_med) and",
                 "SS.S_R_in_m1 in SS.S_R_med and",
-                "not(SS.S_R_in_m1 in SS.S_R_med))):");
+                "not(SS.S_R_in_m1 in SS.S_R_med))):",
+                "if not (not(SS.in_m1 * SS.in_m2 in SS.S_R_interactions) and", // add_relation
+                "not(SS.in_m2 * SS.in_m1 in SS.S_R_interactions) and",
+                "SS.S_R_in_m1 in SS.S_R_med and",
+                "SS.S_R_in_m2 in SS.S_R_med):"
+        );
 
         String output = CoreDashToPython.convert2String(translation);
 

@@ -260,11 +260,15 @@ public class DashExprToPython<ExprType> {
             	// TODO: currently only support relation for exactly 2 types
 
                 // Generate new relation name and add it to the list of relations.
-                String newRelationName = node.left + "_" + node.right;
-                String type = "[" + node.left + ", " + node.right  + "]";
-                DashPythonTranslation.Relation newRelation = new DashPythonTranslation.Relation(newRelationName, type);
-                if (relations != null && !relations.contains(newRelation)){ relations.add(newRelation); }
-                res = newRelationName + "()";
+                res = "SS." + node.left + " * SS." + node.right;
+
+                /* [Deprecated]: now the Alloy Solver will handle the initialization of relations
+                    String type = "[" + node.left + ", " + node.right  + "]";
+                    DashPythonTranslation.Relation newRelation = new DashPythonTranslation.Relation(newRelationName, type);
+                    if (relations != null && !relations.contains(newRelation)){ relations.add(newRelation); }
+                    res = newRelationName + "()";
+                 */
+
                 rightConsumed = true;
                 break;
             case ANY_ARROW_SOME:
