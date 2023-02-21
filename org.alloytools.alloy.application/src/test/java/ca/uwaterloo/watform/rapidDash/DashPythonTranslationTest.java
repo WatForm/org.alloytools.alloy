@@ -89,12 +89,9 @@ public class DashPythonTranslationTest {
             assertTrue(decl.contains("="));
         }
 
-        // Unamed relation should be generated.
-        assertTrue(translation.relations.contains(new DashPythonTranslation.Relation("Chair_Player", "[Chair, Player]")));
-
         assertTrue(gameState.getDecls().contains("Game_active_players = Player('active_players', 3)"));
         assertTrue(gameState.getDecls().contains("Game_active_chairs = Chair('active_chairs', 3)"));
-        assertTrue(gameState.getDecls().contains("Game_occupied = Chair_Player()"));
+        assertTrue(gameState.getDecls().contains("Game_occupied = Chair * Player"));
 
         for (String init : gameState.getInits()) {
             assertTrue(init.contains("="));

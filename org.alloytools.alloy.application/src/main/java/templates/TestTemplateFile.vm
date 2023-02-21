@@ -105,33 +105,37 @@ class State(ABC):
 
 #end
 #if($signatures)
-class MetaSignature(type):
+class MetaSet(type):
     """
-    Used by Signatures (statically)
-    - the member variables and functions will be used by Signature Classes themselves, not the instances
+    Used by variables to make operations consistent.
+    - static variable is a class and a dynamic variable is an instance
     """
 
     class Set:
         """
-        used to make more operations between Signature and instances of Signatures easier
+        Everything will be turned into a set. Set of strings or set of tuples.
         """
         def __init__(self, initvalue=()):
-            if isinstance(initvalue, MetaSignature.Set):
+            if isinstance(initvalue, MetaSet.Set):
                 self._set = initvalue._set
             elif isinstance(initvalue, set):
                 self._set = initvalue
             elif isinstance(initvalue, list):
                 self._set = set(initvalue)
-            elif isinstance(initvalue, MetaSignature):
+            elif isinstance(initvalue, MetaSet):
                 self._set = initvalue.objects()
             elif isinstance(initvalue, Signature):
                 self._set = initvalue.elements
+            elif isinstance(initvalue, Relation):
+                self._set = initvalue.values
+            elif isinstance(initvalue, tuple):
+                self._set = {initvalue}
             elif isinstance(initvalue, str):
                 self._set = {initvalue}
             elif isinstance(initvalue, int):
                 self._set = {initvalue}
             else:
-                print("Exception, unsupported type in MetaSignature::Set: %s", type(initvalue))
+                print("Exception, unsupported type in MetaSet::Set: %s", type(initvalue))
 
         def __iter__(self):
             return iter(self._set)
@@ -141,44 +145,53 @@ class MetaSignature(type):
 
         # override "in" operator, e.g.,: other in cls
         def __contains__(cls, other) -> bool:
-            if not isinstance(other, MetaSignature.Set):
-                return MetaSignature.Set(other) in cls
+            if not isinstance(other, MetaSet.Set):
+                return MetaSet.Set(other) in cls
             return other._set.issubset(cls._set)
 
         # override "+" operator, e.g.,: cls + other
-        def __add__(cls, other) -> MetaSignature.Set:
-            if not isinstance(other, MetaSignature.Set):
-                return cls + MetaSignature.Set(other)
-            return MetaSignature.Set(cls._set.union(other._set))
+        def __add__(cls, other) -> MetaSet.Set:
+            if not isinstance(other, MetaSet.Set):
+                return cls + MetaSet.Set(other)
+            return MetaSet.Set(cls._set.union(other._set))
 
         # override "-" operator, e.g.,: cls - other
-        def __sub__(cls, other) -> MetaSignature.Set:
-            if not isinstance(other, MetaSignature.Set):
-                return cls - MetaSignature.Set(other)
-            return MetaSignature.Set(cls._set.difference(other._set))
+        def __sub__(cls, other) -> MetaSet.Set:
+            if not isinstance(other, MetaSet.Set):
+                return cls - MetaSet.Set(other)
+            return MetaSet.Set(cls._set.difference(other._set))
+
+        # override "*" operator as cartesian product
+        def __mul__(cls, other) -> set(tuple):
+            return set(itertools.product(cls._set, other._set))
+
+    def __iter__(cls):
+        return iter(cls.objects())
 
     # override "in" operator, e.g.,: other in cls
     def __contains__(cls, other):
-        return  MetaSignature.Set(other) in MetaSignature.Set(cls.objects())
+        return  MetaSet.Set(other) in MetaSet.Set(cls.objects())
 
     # override "+" operator, e.g.,: cls + other
     def __add__(cls, other):
-        return MetaSignature.Set(cls.objects()) + MetaSignature.Set(other)
+        return MetaSet.Set(cls.objects()) + MetaSet.Set(other)
 
     # override "-" operator, e.g.,: cls - other
     def __sub__(cls, other):
-        return MetaSignature.Set(cls.objects()) - MetaSignature.Set(other)
+        return MetaSet.Set(cls.objects()) - MetaSet.Set(other)
 
-    # all objects in this Signature
+    # override "*" operator as cartesian product
+    def __mul__(cls, other) -> set(tuple):
+        return MetaSet.Set(cls.objects()) * MetaSet.Set(other)
+
+    # all objects in this static variable
     def objects(cls) -> set:
-        return cls.atoms
-
-    # the scope of this Signature
-    def scope(cls) -> int:
-        return len(cls.objects())
+        if hasattr(cls, 'possible_tuples'):
+            return cls.possible_tuples()    # Relation
+        return cls.atoms                    # Signature
 
 
-class Signature(metaclass = MetaSignature):
+class Signature(metaclass = MetaSet):
     def __init__(self, name, multiplicity, elements=set()):
         """
         Used by state variables
@@ -201,7 +214,7 @@ class Signature(metaclass = MetaSignature):
 
     # Returns true if the new set of elements is valid for its multiplicity
     def is_valid(self, new_elements) -> bool:
-        length = len(self.elements)
+        length = len(new_elements)
         if self.multiplicity  == 0:  # Lone
             if(length != 0 and length != 1):
                 return False
@@ -225,17 +238,22 @@ class Signature(metaclass = MetaSignature):
 
     # override "in" operator, e.g.,: other in self
     def __contains__(self, other):
-        return  MetaSignature.Set(other) in MetaSignature.Set(self.elements)
+        return  MetaSet.Set(other) in MetaSet.Set(self.elements)
 
     # override "+" operator, e.g.,: self + other
     def __add__(self, other):
-        return MetaSignature.Set(self.elements) + MetaSignature.Set(other)
+        return MetaSet.Set(self.elements) + MetaSet.Set(other)
 
     # override "-" operator, e.g.,: self - other
     def __sub__(self, other):
-        return MetaSignature.Set(self.elements) - MetaSignature.Set(other)
+        return MetaSet.Set(self.elements) - MetaSet.Set(other)
 
-class Relation:
+    # override "*" operator as cartesian product
+    def __mul__(self, other) -> set(tuple):
+        return MetaSet.Set(self.elements) * MetaSet.Set(other)
+
+
+class Relation(metaclass = MetaSet):
     def __init__(self, name, types, values=set()):
         """
         Used by state variables
@@ -251,18 +269,34 @@ class Relation:
         self.values = values
 
     @classmethod
-    def possible_tuples(cls):
+    def possible_tuples(cls) -> set:
         domain_elements = [type.objects() for type in cls.types]
-        return [tup for tup in itertools.product(*domain_elements)]
+        return set([tup for tup in itertools.product(*domain_elements)])
+
+    def __repr__(self):
+        return f"{self.__class__.__name__} - {self.name} : {self.values}" if self.values else f"{self.__class__.__name__} - {self.name} : Empty"
+
+    # override "in" operator, e.g.,: other in self
+    def __contains__(self, other):
+        return  MetaSet.Set(other) in MetaSet.Set(self.values)
+
+    # override "+" operator, e.g.,: self + other
+    def __add__(self, other):
+        return MetaSet.Set(self.values) + MetaSet.Set(other)
+
+    # override "-" operator, e.g.,: self - other
+    def __sub__(self, other):
+        return MetaSet.Set(self.values) - MetaSet.Set(other)
+
 
 #end
-class Snapshot:
+class VariableTracker:
     """
-    A snapshot of the current status of the system. It contains all state variables.
-    It also maintains a history of all the snapshots that have happened so far.
+    A system variable state tracker. All dynamic variables are tracked here.
+    It also maintains a history of all dynamic variable snapshots that have occurred so far.
     """
     def __init__(self):
-        # --- Snapshot metadata ---
+        # --- Snapshots metadata ---
         self.history_of_changes = deque()   # History used for backtracking.
         self.changes = dict()               # Changes made in this snapshot.
         # TODO: [Code] Need to record the transitions taken. To avoid making the same transition twice during backtracking.
@@ -271,10 +305,15 @@ class Snapshot:
         self.activeEvents = set()
 
     def __setattr__(self, name, value):
-        if name in self.__dict__:       # Record the variables for current snapshot.
+        if name in self.__dict__:
             self.changes[name] = self.__dict__[name]
-            logging.log(VARLOG,f"Variable [{name}] changed from \"{self.changes[name]}\" to \"{value}\".")
-        self.__dict__[name] = value     # Set the value.
+            if isinstance(self.changes[name], Relation):
+                self.__dict__[name].values = value
+            else: # Assume only Relation and Signature instances are used.
+                self.__dict__[name].elements = value
+            logging.log(VARLOG,f"Variable [{name}] changed from \"{self.changes[name]}\" to \"{self.__dict__[name]}\".")
+        else:
+            self.__dict__[name] = value     # Initialization of variables.
 
     # TODO: delete this comment.
     # Call this when a big step is made.
@@ -292,16 +331,20 @@ class Snapshot:
             self.__dict__[name] = value
 
 
-# --- Snapshot ---
-SS = Snapshot()
+# --- Variable Tracker Initialization ---
+# TODO: [Code] Consider changing the variable name SS.
+SS = VariableTracker()
 
 #if($signatures)
 # --- Signatures ---
 
 #foreach($sig in $signatures)
 class ${sig.Name}(Signature):
+        #if(${sig.getObjectNames()})
     atoms = {${sig.getObjectNames()}}
-
+        #else
+    atoms = set()
+        #end
 
     #end
 
@@ -400,12 +443,12 @@ $padding            return False
 $padding        if not ($trans.getGuardConditions().get(0)):
 $padding            return False
                 #else
-$padding        if not ($trans.getGuardConditions().get(0) and
+$padding        if not $trans.getGuardConditions().get(0)
                     #set($lastIndex = ${trans.getGuardConditions().size()} - 1)
                     #foreach($guardCondition in ${trans.getGuardConditions().subList(1, $lastIndex)})
-$padding                ${guardCondition} and
+$padding                ${guardCondition}
                     #end
-$padding                ${trans.getGuardConditions().get($lastIndex)}):
+$padding                ${trans.getGuardConditions().get($lastIndex)}:
 $padding            return False
                 #end
             #end
@@ -418,12 +461,15 @@ $padding        # TODO: global variables (signatures used in this state)
                 #foreach($globalVar in $globalVariables)
 $padding        global ${globalVar}
                 #end#end
-$padding        print(Blue + "Taking transition " + "${trans.getTransName()}" + Reset)
-            #if($trans.getActions())
+$padding        print(Blue + "Taking transition ${trans.getTransName()}" + Reset)
+            #if(!$trans.getActions().isEmpty())
                 #foreach($action in $trans.getActions())
 $padding        ${action}
-            #end#end
-$padding        #if(${trans.getTriggerEvent()})SS.activeEvents.add("${trans.getTriggerEvent()}") #end
+                #end
+            #end
+            #if(${trans.getTriggerEvent()})
+$padding        SS.activeEvents.add("${trans.getTriggerEvent()}")
+            #end
 $padding        # Apply State Activeness Changes
                 #if($trans.getNonActiveStatesAfterTrans().size() > 0)
 $padding        # size = $trans.getNonActiveStatesAfterTrans().size()
@@ -439,7 +485,7 @@ $padding            state.is_active = True
                 #end
                 #if(${trans.getTriggerEvent()})
 $padding        SS.activeEvents.add("${trans.getTriggerEvent()}")
-$padding        print(Cyan + "Sending event " + "${trans.getTriggerEvent()}" + Reset)
+$padding        print(Cyan + "Sending event ${trans.getTriggerEvent()}" + Reset)
                 #end
 
             #end
@@ -464,14 +510,14 @@ class CentralController:
         #else
         self.possibleEvents = {}
         #end
-    
+
     def handle_event(self):
         unused_conc_states = {self.concState#foreach($value in $allStates)#if($value.getIsConc() && !$value.isRootState()), $value.getPythonVariableName()#end#end} # set of conc states that haven't taken a transition in this big step
         conc_state_to_active_child = dict() # dictionary that maps each conc state to its active child at the start of this big step
         for conc_state in unused_conc_states:
             conc_state_to_active_child[conc_state] = conc_state.get_active_child_state()
         prev_num_unused_conc_states = -1
-        
+
         while len(unused_conc_states) > 0 and prev_num_unused_conc_states != len(unused_conc_states):
             prev_num_unused_conc_states = len(unused_conc_states)
             state_queue = [self.concState]
@@ -499,7 +545,7 @@ class CentralController:
                 # add cur_state's active state to queue
                 elif cur_state.get_active_child_state() is not None:
                     state_queue.append(cur_state.get_active_child_state())
-    
+
     def run(self) -> None:
         self.concState.print_tree()
         self.printHelp()
