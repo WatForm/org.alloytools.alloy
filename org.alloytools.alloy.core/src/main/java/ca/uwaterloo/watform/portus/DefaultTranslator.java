@@ -27,6 +27,7 @@ import fortress.msfol.Var;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -66,9 +67,9 @@ final class DefaultTranslator extends AbstractTranslator {
         this.scopeAxiomStrategy = scopeAxiomStrategy;
     }
 
-    /** Translate a PrimSig declaration. */
+    /** Translate a signature declaration. */
     @Override
-    public Term translate(Sig.PrimSig sig, TranslationContext context) {
+    public Term translate(Sig sig, TranslationContext context) {
         if (sigMemberPredicates.containsKey(sig)) {
             throw new ErrorFatal("Internal error: seen sig " + sig.label + " before");
         }
@@ -89,27 +90,39 @@ final class DefaultTranslator extends AbstractTranslator {
         });
         context.addFunctionDeclaration(FuncDecl.mkFuncDecl(memPredName, sigSort, Sort.Bool()));
 
-        // Translate all its children so we can translate membership in them
-        for (Sig.PrimSig child : sig.children()) {
-            recursivelyTranslate(child, context);
-        }
+        if (sig instanceof Sig.PrimSig) {
+            Sig.PrimSig primSig = (Sig.PrimSig) sig;
 
-        // Add axioms for membership
-        for (Sig.PrimSig child : sig.children()) {
-            context.addAxiom(makeSubsetAxiom(sig, child, context));
-        }
-
-        // Add axioms for disjointness between each pair of subsigs
-        for (int i = 0; i < sig.children().size(); i++) {
-            for (int j = i + 1; j < sig.children().size(); j++) {
-                context.addAxiom(makeDisjointnessAxiom(
-                        sig.children().get(i), sig.children().get(j), context));
+            // Translate all its children so we can translate membership in them
+            for (Sig.PrimSig child : primSig.children()) {
+                recursivelyTranslate(child, context);
             }
-        }
 
-        // Abstract sigs: add axiom that children cover sig
-        if (sig.isAbstract != null) {
-            context.addAxiom(makeCoverAxiom(sig, context));
+            // Add axioms for membership
+            for (Sig.PrimSig child : primSig.children()) {
+                context.addAxiom(makeSubsetAxiom(Collections.singletonList(primSig), child, context));
+            }
+
+            // Add axioms for disjointness between each pair of subsigs
+            for (int i = 0; i < primSig.children().size(); i++) {
+                for (int j = i + 1; j < primSig.children().size(); j++) {
+                    context.addAxiom(makeDisjointnessAxiom(
+                            primSig.children().get(i), primSig.children().get(j), context));
+                }
+            }
+
+            // Abstract sigs: add axiom that children cover sig
+            if (sig.isAbstract != null) {
+                context.addAxiom(makeCoverAxiom(primSig, context));
+            }
+        } else if (sig instanceof Sig.SubsetSig) {
+            Sig.SubsetSig subsetSig = (Sig.SubsetSig) sig;
+
+            // Assert the sig is a subset of its parents (or exactly its parents if exact)
+            // Note: subsetSig.exact will be true iff it's declared like "sig C = A + B {}" (valid Alloy!)
+            context.addAxiom(makeSubsetAxiom(subsetSig.parents, subsetSig, subsetSig.exact, context));
+        } else {
+            throw new ErrorFatal("Unsupported sig type!");
         }
 
         // Generate scope constraints
@@ -124,14 +137,23 @@ final class DefaultTranslator extends AbstractTranslator {
         return Term.mkTop();
     }
 
-    /** Create an axiom that child is a subset of parent. */
-    private Term makeSubsetAxiom(Sig parent, Sig child, TranslationContext context) {
+    /** Create an axiom that child is a subset of the union of parents. If exact, declare it equal instead. */
+    private Term makeSubsetAxiom(List<Sig> parents, Expr child, boolean exact, TranslationContext context) {
         // express in Alloy so we can translate to Fortress recursively
         // without assumptions on implementation of the translation
-        // Alloy: "all x: child | x in parent" (KT 4.2)
-        Decl x = child.oneOf("x");
-        Expr subsetAxiom = x.get().in(parent).forAll(x);
+        // Alloy: "child in parent1 + parent2 + ... + parentn", no need to overcomplicate things
+        // If exact, instead "child = parent1 + parent2 + ... + parentn"
+        Expr union = parents.stream()
+                .map(sig -> (Expr) sig) // annoying casting step necessary to satisfy the whims of Java generics
+                .reduce(Expr::plus)
+                .orElseThrow(() -> new ErrorFatal("Internal Portus error: subset axiom with no parents!"));
+        Expr subsetAxiom = exact ? child.equal(union) : child.in(union);
         return recursivelyTranslate(subsetAxiom, context);
+    }
+
+    /** Default for convenience: not exact. */
+    private Term makeSubsetAxiom(List<Sig> parents, Expr child, TranslationContext context) {
+        return makeSubsetAxiom(parents, child, false, context);
     }
 
     /** Create an axiom that sig1 and sig2 are disjoint. */

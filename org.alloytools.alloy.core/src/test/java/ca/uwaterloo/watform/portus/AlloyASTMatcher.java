@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.IntStream;
 
@@ -267,11 +268,11 @@ public class AlloyASTMatcher extends TypeSafeMatcher<Expr> {
 
                 // make sure parents are mapped to each other
                 // we can't just call equivalent() because we should have already mapped the parents
+                // if the parents aren't mapped, assume we're translating only the subset sigs for efficiency and say ok
                 for (int i = 0; i < subsetX.parents.size(); i++) {
                     String parentXLabel = subsetX.parents.get(i).label;
                     String parentYLabel = subsetY.parents.get(i).label;
-                    if (freeVarMap.get(parentXLabel) == null
-                            || !freeVarMap.get(parentXLabel).equals(parentYLabel)) {
+                    if (!Objects.equals(freeVarMap.get(parentXLabel), freeVarMap.get(parentYLabel))) {
                         return false;
                     }
                 }

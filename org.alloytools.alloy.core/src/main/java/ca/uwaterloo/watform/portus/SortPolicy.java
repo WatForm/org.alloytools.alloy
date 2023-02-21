@@ -133,6 +133,7 @@ public abstract class SortPolicy {
             if (sibling == sig) {
                 break;
             }
+            // TODO: sig2scope returns -1 when the input sig is invalid, like univ or none
             domainElementStart += scoper.sig2scope(sibling);
         }
 

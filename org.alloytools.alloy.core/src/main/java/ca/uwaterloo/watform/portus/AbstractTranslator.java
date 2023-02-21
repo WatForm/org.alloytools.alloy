@@ -149,19 +149,11 @@ abstract class AbstractTranslator implements Translator {
     }
 
     /**
-     * Translate an Alloy primitive signature declaration.
+     * Translate an Alloy signature declaration.
      * For sig declarations and other Exprs that do not have values, the return value should be
      * Top if successful, and the context should be updated.
      */
-    public Term translate(Sig.PrimSig sig, TranslationContext context) {
-        return null;
-    }
-
-    /**
-     * Translate an Alloy subset signature declaration.
-     * Again, return Top and update the context if successful.
-     */
-    public Term translate(Sig.SubsetSig sig, TranslationContext context) {
+    public Term translate(Sig sig, TranslationContext context) {
         return null;
     }
 
@@ -292,13 +284,7 @@ abstract class AbstractTranslator implements Translator {
         }
 
         @Override
-        public Term visit(Sig.PrimSig expr) throws Err {
-            // assume it's a declaration
-            return translate(expr, context);
-        }
-
-        @Override
-        public Term visit(Sig.SubsetSig expr) throws Err {
+        public Term visit(Sig expr) throws Err {
             // assume it's a declaration
             return translate(expr, context);
         }

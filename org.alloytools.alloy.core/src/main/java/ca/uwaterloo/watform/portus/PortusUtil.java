@@ -40,6 +40,7 @@ final class PortusUtil {
 
     /** Convert a java.util.Map to a scala.collection.immutable.Map. */
     public static <A, B> scala.collection.immutable.Map<A, B> toScalaMap(Map<A, B> map) {
+        //noinspection unchecked
         return scala.collection.immutable.Map.from(CollectionConverters.asScala(map));
     }
 
@@ -169,7 +170,8 @@ final class PortusUtil {
         }
 
         // TODO: can we use FastSubstituter in some cases?
-        NameGenerator nameGen = new IntSuffixNameGenerator(new HashSet<>(), 0);
+        //noinspection unchecked
+        NameGenerator nameGen = new IntSuffixNameGenerator(new HashSet<String>(), 0);
         for (int i = 0; i < a.size(); i++) {
             Var from = a.get(i).variable();
             Term to = b.get(i);

@@ -22,13 +22,13 @@ import java.util.List;
 final class OrderingModuleOptTranslator extends AbstractTranslator {
 
     private static final class OrderInfo {
-        private final Sig.PrimSig ordSig;
+        private final Sig ordSig;
         private final Sig sig;
         private final Sig.Field first;
         private final Sig.Field next;
         private final String nextFuncName;
 
-        public OrderInfo(Sig.PrimSig ordSig, Sig sig, Sig.Field first, Sig.Field next, TranslationContext context) {
+        public OrderInfo(Sig ordSig, Sig sig, Sig.Field first, Sig.Field next, TranslationContext context) {
             this.ordSig = ordSig;
             this.sig = sig;
             this.first = first;
@@ -156,7 +156,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator {
     }
 
     @Override
-    public Term translate(Sig.PrimSig sig, TranslationContext context) {
+    public Term translate(Sig sig, TranslationContext context) {
         // Parse a "totalOrder" ExprList making up a fact.
         // We do this instead of just translating total orders normally to ensure we find all
         // ordering module uses before parsing the rest of the AST.
@@ -170,7 +170,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator {
         return null; // parse the actual sig by another translator
     }
 
-    private void parseTotalOrder(Sig.PrimSig ordSig, ExprList expr, TranslationContext context) {
+    private void parseTotalOrder(Sig ordSig, ExprList expr, TranslationContext context) {
         // NOTE: we treat pred/totalOrder as an assertion that a sig is totally ordered.
         // Technically, since the Alloy AST isn't in NNF, this isn't necessarily true.
         // We ignore this for now since pred/totalOrder is probably only ever really used in ordering.als.
@@ -196,7 +196,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator {
         orders.add(new OrderInfo(ordSig, orderedSig, first, next, context));
     }
 
-    private static Sig.Field extractDottedField(Sig.PrimSig ordSig, Expr expr, boolean shouldError) {
+    private static Sig.Field extractDottedField(Sig ordSig, Expr expr, boolean shouldError) {
         if (!(expr instanceof ExprBinary) || ((ExprBinary) expr).op != ExprBinary.Op.JOIN) {
             if (shouldError) {
                 throw new ErrorFatal("Expected join expression for second/third parameters of pred/totalOrder");
