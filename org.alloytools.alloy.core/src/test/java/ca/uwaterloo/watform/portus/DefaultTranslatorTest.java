@@ -552,6 +552,105 @@ public class DefaultTranslatorTest {
     }
 
     @Test
+    public void testTranslate_subsetSigEquals_oneParentExactScope() {
+        // subset signature "sig B = A {}" where A is a top-level primitive signature
+        Sig.PrimSig parent = new Sig.PrimSig("Parent");
+        when(mockScoper.sig2scope(parent)).thenReturn(2);
+        when(mockScoper.isExact(parent)).thenReturn(true);
+        Sig.SubsetSig sig = new Sig.SubsetSig(
+                null, "SubsetSig", null, Collections.singletonList(parent), Attr.EXACT);
+        when(mockScoper.sig2scope(sig)).thenReturn(1);
+        when(mockScoper.isExact(sig)).thenReturn(true);
+
+        // mock out the subset axiom's [[child = parent]]
+        Term subsetFlag = makeFlagConstant("subset");
+        Expr subsetAxiom = sig.equal(parent);
+        when(mockRoot.translate(argThat(isAlphaEquivalent(subsetAxiom)), any()))
+                .thenReturn(subsetFlag);
+
+        // mock out [[y \in sig]] from the exact scope axiom
+        Var y = Term.mkVar("y");
+        Term inSigFlag = makeFlagConstant("inSig");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(y.of(univ), sig))), any()))
+                .thenReturn(inSigFlag);
+
+        // create the expected exact scope axiom for the child
+        // scope 1: "exists x: univ . forall y: univ . [[y \in sig]] <=> y = x"
+        Var x = Term.mkVar("x");
+        Term exactScopeAxiom = Term.mkExists(x.of(univ),
+                Term.mkForall(y.of(univ), Term.mkIff(
+                        inSigFlag, Term.mkEq(y, x))));
+
+        // actually translate
+        Term result = translator.translate(sig, context);
+        assertThat(result, is(notNullValue()));
+
+        // should have exactly the subset and exact scope axioms
+        //noinspection unchecked
+        Set<Term> axioms = CollectionConverters.<Term>asJava(context.getTheory().axioms());
+        //noinspection unchecked
+        assertThat(axioms, containsInAnyOrder(
+                is(subsetFlag),
+                isAlphaEquivalentTerm(exactScopeAxiom)));
+
+        // should have the membership predicate
+        assertThat(context.getTheory().functionDeclarations().size(), is(1));
+        FuncDecl inSigPred = context.getTheory().functionDeclarations().head();
+        assertIsMembershipPredicate(inSigPred, "inSubsetSig");
+    }
+
+    @Test
+    public void testTranslate_subsetSigEqual_twoParentsExactScope() {
+        // subset signature "sig C = A + B {}" where A and B are top-level primitive signature
+        Sig.PrimSig parent1 = new Sig.PrimSig("Parent1");
+        when(mockScoper.sig2scope(parent1)).thenReturn(2);
+        when(mockScoper.isExact(parent1)).thenReturn(true);
+        Sig.PrimSig parent2 = new Sig.PrimSig("Parent2");
+        when(mockScoper.sig2scope(parent2)).thenReturn(2);
+        when(mockScoper.isExact(parent2)).thenReturn(true);
+        Sig.SubsetSig sig = new Sig.SubsetSig(
+                null, "SubsetSig", null, Arrays.asList(parent1, parent2), Attr.EXACT);
+        when(mockScoper.sig2scope(sig)).thenReturn(1);
+        when(mockScoper.isExact(sig)).thenReturn(true);
+
+        // mock out the subset axiom's [[child in parent1 + parent2]]
+        Term subsetFlag = makeFlagConstant("subset");
+        Expr subsetAxiom = sig.equal(parent1.plus(parent2));
+        when(mockRoot.translate(argThat(isAlphaEquivalent(subsetAxiom)), any()))
+                .thenReturn(subsetFlag);
+
+        // mock out [[y \in sig]] from the exact scope axiom
+        Var y = Term.mkVar("y");
+        Term inSigFlag = makeFlagConstant("inSig");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(y.of(univ), sig))), any()))
+                .thenReturn(inSigFlag);
+
+        // create the expected exact scope axiom for the child
+        // scope 1: "exists x: univ . forall y: univ . [[y \in sig]] <=> y = x"
+        Var x = Term.mkVar("x");
+        Term exactScopeAxiom = Term.mkExists(x.of(univ),
+                Term.mkForall(y.of(univ), Term.mkIff(
+                        inSigFlag, Term.mkEq(y, x))));
+
+        // actually translate
+        Term result = translator.translate(sig, context);
+        assertThat(result, is(notNullValue()));
+
+        // should have exactly the subset and exact scope axioms
+        //noinspection unchecked
+        Set<Term> axioms = CollectionConverters.<Term>asJava(context.getTheory().axioms());
+        //noinspection unchecked
+        assertThat(axioms, containsInAnyOrder(
+                is(subsetFlag),
+                isAlphaEquivalentTerm(exactScopeAxiom)));
+
+        // should have the membership predicate
+        assertThat(context.getTheory().functionDeclarations().size(), is(1));
+        FuncDecl inSigPred = context.getTheory().functionDeclarations().head();
+        assertIsMembershipPredicate(inSigPred, "inSubsetSig");
+    }
+
+    @Test
     public void testTranslate_inSig() {
         // test [[v \in Sig]] := inSig(v) where inSig is the membership predicate for Sig
         Sig.PrimSig sig = new Sig.PrimSig("Sig");
