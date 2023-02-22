@@ -3,6 +3,8 @@ from abc import ABC
 from operator import methodcaller
 from typing import List
 from collections import deque
+from copy import deepcopy
+from ast import literal_eval
 
 import itertools
 import logging
@@ -227,7 +229,7 @@ class Signature(metaclass = MetaSet):
         return True
 
     # returns true if successfully set the new set of elements for this state variable
-    def update_elements(self, new_elements) -> bool:
+    def update_value(self, new_elements) -> bool:
         if(self.is_valid(new_elements)):
             self.elements = new_elements
             return True
@@ -273,6 +275,23 @@ class Relation(metaclass = MetaSet):
         domain_elements = [type.objects() for type in cls.types]
         return set([tup for tup in itertools.product(*domain_elements)])
 
+    # Returns true if the new set of tuples is valid for its types
+    def is_valid(self, values) -> bool:
+        for v in values:
+            if len(self.types) != len(v):
+                return False
+            for t, e in zip(self.types, v):
+                if e not in t:
+                    return False
+        return True
+
+    # returns true if successfully set the new set of tuples for this state variable
+    def update_value(self, new_values) -> bool:
+        if (self.is_valid(new_values)):
+            self.values = new_values
+            return True
+        return False
+
     def __repr__(self):
         return f"{self.__class__.__name__} - {self.name} : {self.values}" if self.values else f"{self.__class__.__name__} - {self.name} : Empty"
 
@@ -306,7 +325,7 @@ class VariableTracker:
 
     def __setattr__(self, name, value):
         if name in self.__dict__:
-            self.changes[name] = self.__dict__[name]
+            self.changes[name] = deepcopy(self.__dict__[name])
             if isinstance(self.changes[name], Relation):
                 self.__dict__[name].values = value
             else: # Assume only Relation and Signature instances are used.
@@ -428,6 +447,16 @@ $padding        # initialize state transition dictionary
 $padding        self.transitions[self._trans_${trans.getTransName()}_guard] = self._trans_${trans.getTransName()}
         #end
     #end
+
+        #if($concState.getEnvVarInputs())
+$padding    def input_env_variables(self):
+            #foreach($envVarInput in $concState.getEnvVarInputs())
+$padding        while True:
+$padding            if $envVarInput:
+$padding                break
+$padding            print("Invalid Value! Try again.")
+            #end
+        #end
 
         #if($concState.getTransitions())
 $padding    # transitions
@@ -564,6 +593,7 @@ class CentralController:
             elif eventName != "":
                 print("Invalid event name")
 
+            self.concState.input_env_variables()
             eventName = input("Please enter an event to be processed by the model. Type \"help\" for a list of possible events\n")
             while eventName == "":
                 eventName = input()
