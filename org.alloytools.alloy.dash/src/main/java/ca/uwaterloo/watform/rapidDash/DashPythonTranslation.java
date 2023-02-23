@@ -26,6 +26,7 @@ public class DashPythonTranslation {
     public List<Signature> signatures;
     public List<Relation> relations;
     public List<Event> allEnvEvents = new ArrayList<Event>();
+    private HashSet<String> envEventNames = new HashSet<String>();
     public State rootState = null;
     private Map<String, State> statesMap;
 
@@ -422,7 +423,16 @@ public class DashPythonTranslation {
         return "";
     }
 
+    private void addEventToLists(DashEvent event, DashSuperState state) {
+        Event newEvent = new Event(event.getRawName(), event.getFullyQualName(), event.getType(), this.statesMap.get(state.getFullyQualName()));
+        if(newEvent.isEnvEvent && !envEventNames.contains(newEvent.getModifiedName())) {
+            envEventNames.add(newEvent.getModifiedName());
+            allEnvEvents.add(newEvent);
+        }
+    }
+
     public class Event {
+
     	private String name;
     	private String modifiedName;
     	private boolean isEnvEvent;
@@ -540,11 +550,7 @@ public class DashPythonTranslation {
 
         	// add state events
         	for(DashEvent event: state.getEvents()) {
-        		Event newEvent = new Event(event.getRawName(), event.getFullyQualName(), event.getType(), this.statesMap.get(state.getFullyQualName()));
-        		this.statesMap.get(newEvent);
-        		if(newEvent.isEnvEvent) {
-        			allEnvEvents.add(newEvent);
-        		}
+                addEventToLists(event, state);
         	}
 
             // add sub-states
@@ -565,6 +571,11 @@ public class DashPythonTranslation {
         for(DashState state: dashModule.getORStates().values()) {
             // add state variable declarations (decls)
             addVariableDeclarations(state);
+
+            // add state events
+            for(DashEvent event: state.getEvents()) {
+                addEventToLists(event, state);
+            }
 
             // add sub-states
             for(DashConcState substate: state.getInnerConcStates()) {
