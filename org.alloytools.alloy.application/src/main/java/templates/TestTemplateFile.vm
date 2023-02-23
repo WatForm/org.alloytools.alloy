@@ -506,7 +506,7 @@ class CentralController:
         self.concState.default_initialize()
         self.commands = {"help": self.printHelp, "execute": self.execute}
         #if(${allEnvEvents.size()}> 0)
-        self.possibleEvents = {"${allEnvEvents.get(0).getModifiedName()}"#foreach($event in ${allEnvEvents.subList(1, ${allEncEvents.size()})}), "$!{event.getModifiedName()}"#end}
+        self.possibleEvents = {"${allEnvEvents.get(0).getModifiedName()}"#foreach($event in ${allEnvEvents.subList(1, ${allEnvEvents.size()})}), "$!{event.getModifiedName()}"#end}
         #else
         self.possibleEvents = {}
         #end
@@ -533,7 +533,10 @@ class CentralController:
                 if possible_transitions:
                     chosen_transition = random.randint(0, len(possible_transitions) - 1)
                     possible_transitions[chosen_transition]()
-                    # if conc_state's active state changed (i.e. conc_state took a transition), prevent additional transitions (big step maximality)
+                    # prevent the current state from taking additional transitions if it is conc (big step maximality)
+                    if cur_state.is_conc:
+                        unused_conc_states.remove(cur_state)
+                    # if any other conc_state's active state changed (i.e. the conc_state took a transition), prevent additional transitions
                     for conc_state in unused_conc_states.copy():
                         if conc_state.get_active_child_state() != conc_state_to_active_child[conc_state]:
                             unused_conc_states.remove(conc_state)
