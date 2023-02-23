@@ -133,7 +133,15 @@ public abstract class SortPolicy {
             if (sibling == sig) {
                 break;
             }
-            // TODO: sig2scope returns -1 when the input sig is invalid, like univ or none
+            if (sibling == Sig.STRING) {
+                // We can't handle strings yet. So assert that there are no strings and then ignore them.
+                // sig2scope will return -1 if the scope isn't specified, but we're OK with an explicit scope of 0 too.
+                if (scoper.sig2scope(Sig.STRING) > 0) {
+                    throw new ErrorFatal("Portus doesn't support strings yet!");
+                }
+                continue;
+            }
+
             domainElementStart += scoper.sig2scope(sibling);
         }
 

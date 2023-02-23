@@ -20,6 +20,7 @@ import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -179,7 +180,7 @@ public class SortPolicyTest {
         when(policy.getSort(sig)).thenReturn(sort);
         when(scoper.isExact(sig)).thenReturn(false);
         when(scoper.sig2scope(sig)).thenReturn(3);
-        assertEquals(new Pair<>(1, 0), policy.getDomainElementRange(sig, scoper));
+        assertRange(1, 0, policy.getDomainElementRange(sig, scoper));
     }
 
     @Test
@@ -198,8 +199,8 @@ public class SortPolicyTest {
         when(policy.getSort(child)).thenReturn(sort);
         when(scoper.isExact(child)).thenReturn(true);
         when(scoper.sig2scope(child)).thenReturn(3);
-        assertEquals(new Pair<>(1, 3), policy.getDomainElementRange(child, scoper));
-        assertEquals(new Pair<>(1, 3), policy.getDomainElementRange(parent, scoper));
+        assertRange(1, 3, policy.getDomainElementRange(child, scoper));
+        assertRange(1, 3, policy.getDomainElementRange(parent, scoper));
     }
 
     @Test
@@ -214,6 +215,26 @@ public class SortPolicyTest {
         Sig parent = new Sig.PrimSig("Parent");
         Sig sig = new Sig.SubsetSig(null, "S", null, Collections.singletonList(parent));
         assertNull(policy.getDomainElementRange(sig, scoper));
+    }
+
+    @Test
+    public void testGetDomainElementRange_siblingsIncludeBuiltins() {
+        // test we don't mess up if the builtin sigs are counted as siblings like they are in reality
+        // in particular, we don't support strings but shouldn't return an invalid answer if Sig.STRING is a sibling
+        Sig sig = new Sig.PrimSig("sig");
+        Sort univSort = Sort.mkSortConst("univ");
+        policy = mock(SortPolicy.class, withSettings()
+                .useConstructor(Arrays.asList(sig, Sig.UNIV, Sig.SIGINT, Sig.SEQIDX, Sig.STRING, Sig.NONE))
+                .defaultAnswer(CALLS_REAL_METHODS));
+        when(policy.getSort(any())).thenReturn(univSort);
+        when(policy.getSort(Sig.SIGINT)).thenReturn(Sort.Int());
+        when(policy.getSort(Sig.SEQIDX)).thenReturn(Sort.Int());
+        when(scoper.isExact(any())).thenReturn(true);
+        when(scoper.sig2scope(any())).thenReturn(-1); // this is returned by sig2scope when not set
+        when(scoper.sig2scope(sig)).thenReturn(3);
+
+        Pair<Integer, Integer> result = policy.getDomainElementRange(sig, scoper);
+        assertRange(1, 3, result);
     }
 
     private void assertSorts(List<Sort> actual, Sort... expected) {
