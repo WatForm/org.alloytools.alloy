@@ -1443,8 +1443,9 @@ final class DefaultTranslator extends AbstractTranslator {
                         "to have definite and well-defined Portus sorts!";
                 List<Sort> exprSorts = context.sortPolicy.getMinimalExprSorts(declExpr, definiteSortsError, context);
                 if (exprSorts.size() != 1) {
-                    // Shouldn't happen since Alloy typechecking should catch this case
-                    throw new ErrorFatal("Quantifier declaration expressions should be unary!");
+                    // Could happen for cases Kodkod skolemizes, like e.g. "some s: one A->B | ..."
+                    // Also occurs e.g. with "pred foo[s: A->B] {...}; run foo" since that runs "some s: A->B | foo[s]"
+                    throw new ErrorFatal("Portus doesn't support quantifying over tuples!");
                 }
                 SortPolicy.requireAllSortsDefinite(exprSorts, definiteSortsError);
                 Sort varSort = exprSorts.get(0);
