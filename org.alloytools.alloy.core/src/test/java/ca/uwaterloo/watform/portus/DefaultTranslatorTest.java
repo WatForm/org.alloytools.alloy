@@ -3436,6 +3436,46 @@ public class DefaultTranslatorTest {
     }
 
     @Test
+    public void testTranslate_comprehension_varRefInBound() {
+        // test [[(x1, x2) \in {y1: e, y2: y1 | f}]] := [[x1 \in e]] && [[x2 \in y1]] && [[f]]
+        // where y1 is mapped to x1 (during [[x2 \in y1]]) and y2 is mapped to x2
+        Var x1 = Term.mkVar("x1");
+        Var x2 = Term.mkVar("x2");
+        ExprVar e = makeTestVariable("e");
+        Decl y1 = e.oneOf("y1");
+        Decl y2 = y1.get().oneOf("y2");
+        ExprVar f = makeTestFormulaVar("f");
+
+        // mock out [[x1 \in e]] and [[x2 \in y1]], where in the latter y1 is mapped to x1
+        Var flagInE = makeFlagConstant("inE"), flagInY1 = makeFlagConstant("inE2");
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(x1.of(univ), e))), any()))
+                .thenReturn(flagInE);
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(x2.of(univ), y1.get()))), any())).then(ctx -> {
+            TranslationContext context = ctx.getArgument(1);
+            assertTrue(context.hasVarMapping("y1"));
+            assertFalse(context.hasVarMapping("y2")); // no y2 yet, we're too early
+            assertEquals(x1, Objects.requireNonNull(context.getVarMapping("y1")).variable());
+            return flagInY1;
+        });
+
+        // mock out [[f]] where y1 is mapped to x1, y2 is mapped to x2
+        Var flagMappedF = makeFlagConstant("mappedF");
+        when(mockRoot.translate(eq(f), any())).then(ctx -> {
+            TranslationContext context = ctx.getArgument(1);
+            assertTrue(context.hasVarMapping("y1"));
+            assertTrue(context.hasVarMapping("y2"));
+            assertEquals(x1, Objects.requireNonNull(context.getVarMapping("y1")).variable());
+            assertEquals(x2, Objects.requireNonNull(context.getVarMapping("y2")).variable());
+            return flagMappedF;
+        });
+
+        Expr comprehension = ExprElementOf.make(new VarTuple(x1.of(univ), x2.of(univ)), f.comprehensionOver(y1, y2));
+        Term result = translator.translate(comprehension, context);
+        assertEquals(Term.mkAnd(flagInE, flagInY1, flagMappedF), result);
+        assertContextEmpty(); // should clear context
+    }
+
+    @Test
     public void testTranslate_someExpr() {
         // test [[some e]] := exists x: univ | [[x \in e]] && true
         Sig.PrimSig sig = new Sig.PrimSig("S");

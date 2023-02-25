@@ -1139,7 +1139,9 @@ final class DefaultTranslator extends AbstractTranslator {
     /** Translate "tuple \in expr", where expr is a comprehension ExprQt. */
     private Term translateComprehension(VarTuple tuple, ExprQt expr, TranslationContext context) {
         // [[(x1,...,xn) \in {y1: e1, ..., yn: en | f(y1,...,yn)}]] :=
-        // [[x1 \in e1]] && ... && [[xn \in en]] && [[f(y1,...,yn)]] where yi is mapped to xi
+        // [[x1 \in e1 and (let y1=x1 | x2 \in e2 and (let y2=x2 | ... (let yn=xn | f(y1,...,yn))))]]
+        // But we translate more like [[x1 \in e1]] && ... && [[xn \in en]] && [[f(y1,...,yn)]]
+        // and do the let mappings manually.
         // First, check the arity is correct
         if (tuple.size() != expr.count()) {
             throw new ErrorSyntax("Mismatched arity for comprehension expression!");
@@ -1162,6 +1164,7 @@ final class DefaultTranslator extends AbstractTranslator {
         for (Pair<AnnotatedVar, Pair<Decl, ExprHasName>> varAndDecl : varsAndDecls) {
             AnnotatedVar var = varAndDecl.a;
             Decl decl = varAndDecl.b.a;
+            ExprHasName name = varAndDecl.b.b;
             // Unwrap the expression from its multiplicity (and any NOOPs)
             Expr declExpr = decl.expr.deNOP();
             if (declExpr.mult == 1) {
@@ -1172,14 +1175,18 @@ final class DefaultTranslator extends AbstractTranslator {
             }
             Expr conjunct = ExprElementOf.make(new VarTuple(var), declExpr);
             conjuncts.add(recursivelyTranslate(conjunct, context));
-        }
 
-        // Map each yi to xi - do this after generating conjuncts to avoid any interference
-        for (Pair<AnnotatedVar, Pair<Decl, ExprHasName>> varAndDecl : varsAndDecls) {
-            AnnotatedVar var = varAndDecl.a;
-            ExprHasName name = varAndDecl.b.b;
+            // Map yi to xi for subsequent translations and the f(y1,...,yn) translation
+            // We do this here because yi could appear in subsequent ei's and should be mapped to xi
             context.addVarMapping(name.label, var);
         }
+//
+//        // Map each yi to xi - do this after generating conjuncts to avoid any interference
+//        for (Pair<AnnotatedVar, Pair<Decl, ExprHasName>> varAndDecl : varsAndDecls) {
+//            AnnotatedVar var = varAndDecl.a;
+//            ExprHasName name = varAndDecl.b.b;
+//            context.addVarMapping(name.label, var);
+//        }
 
         // Map [[f(y1,...,yn)]]
         try {
