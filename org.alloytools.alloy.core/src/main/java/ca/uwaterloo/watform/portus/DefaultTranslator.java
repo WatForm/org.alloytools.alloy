@@ -1180,13 +1180,6 @@ final class DefaultTranslator extends AbstractTranslator {
             // We do this here because yi could appear in subsequent ei's and should be mapped to xi
             context.addVarMapping(name.label, var);
         }
-//
-//        // Map each yi to xi - do this after generating conjuncts to avoid any interference
-//        for (Pair<AnnotatedVar, Pair<Decl, ExprHasName>> varAndDecl : varsAndDecls) {
-//            AnnotatedVar var = varAndDecl.a;
-//            ExprHasName name = varAndDecl.b.b;
-//            context.addVarMapping(name.label, var);
-//        }
 
         // Map [[f(y1,...,yn)]]
         try {
