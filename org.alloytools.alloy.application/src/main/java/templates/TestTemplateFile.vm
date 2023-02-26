@@ -107,6 +107,15 @@ class State(ABC):
 
 #end
 #if($signatures)
+
+def random_subset(s):
+    out = set()
+    for el in s:
+        # random coin flip
+        if random.randint(0, 1) == 0:
+            out.add(el)
+    return out
+
 class MetaSet(type):
     """
     Used by variables to make operations consistent.
@@ -235,6 +244,23 @@ class Signature(metaclass = MetaSet):
             return True
         return False
 
+    def generate_random_value(self):
+        if self.multiplicity  == 0:  # Lone
+            if len(self.atoms) == 0 or random.randint(0, 1) == 0:
+                return set()
+            else:
+                return set(random.sample(sorted(self.atoms), 1))
+        elif self.multiplicity == 1: # One
+            return set(random.sample(sorted(self.atoms), 1))
+        elif self.multiplicity == 2: # Some
+            if len(self.atoms) == 0:
+                print("Exception, empty signature cannot support some multiplicity")
+                exit(1)
+            while True:
+                ret = random_subset(self.atoms)
+                if len(ret):
+                    return ret
+
     def __repr__(self):
         return f"{self.__class__.__name__} - {self.name} : {self.elements}" if self.elements else f"{self.__class__.__name__} - {self.name} : Empty"
 
@@ -274,6 +300,13 @@ class Relation(metaclass = MetaSet):
     def possible_tuples(cls) -> set:
         domain_elements = [type.objects() for type in cls.types]
         return set([tup for tup in itertools.product(*domain_elements)])
+
+    def possible_tuples_instance_method(self) -> set:
+        domain_elements = [type.objects() for type in self.types]
+        return set([tup for tup in itertools.product(*domain_elements)])
+
+    def generate_random_value(self):
+        return random_subset(self.possible_tuples_instance_method())
 
     # Returns true if the new set of tuples is valid for its types
     def is_valid(self, values) -> bool:
@@ -449,12 +482,24 @@ $padding        self.transitions[self._trans_${trans.getTransName()}_guard] = se
     #end
 
         #if($concState.getEnvVarInputs())
-$padding    def input_env_variables(self):
-            #foreach($envVarInput in $concState.getEnvVarInputs())
+$padding    def input_env_var(self, env_var, prompt):
 $padding        while True:
-$padding            if $envVarInput:
-$padding                break
+$padding            input_value = input(prompt)
+$padding            # empty input, generate random value
+$padding            if not input_value:
+$padding                new_value = env_var.generate_random_value()
+$padding                print("Randonly generated value: " + str(new_value))
+$padding                if not env_var.update_value(new_value):
+$padding                    print("Exception, unexpected state")
+$padding                return
+$padding            if env_var.update_value(literal_eval(input_value)):
+$padding                return
 $padding            print("Invalid Value! Try again.")
+
+$padding    def input_env_variables(self):
+$padding        print("You can leave the following fields empty to generate random values.")
+            #foreach($envVarInput in $concState.getEnvVarInputs())
+$padding        self.input_env_var($envVarInput)
             #end
         #end
 
