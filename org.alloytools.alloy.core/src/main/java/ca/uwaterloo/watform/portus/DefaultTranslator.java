@@ -18,7 +18,7 @@ import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Sig;
 import fortress.msfol.AnnotatedVar;
-import fortress.msfol.DomainElement;
+import fortress.msfol.EnumValue;
 import fortress.msfol.FuncDecl;
 import fortress.msfol.IntegerLiteral;
 import fortress.msfol.Sort;
@@ -1105,9 +1105,12 @@ final class DefaultTranslator extends AbstractTranslator {
         Term result = null;
         do {
             // substitute with the domain elements for each combination
-            List<DomainElement> domainElements = IntStream.range(0, vars.size())
-                    .mapToObj(i -> DomainElement.apply(currentIdxs.get(i), sorts.get(i)))
+            List<EnumValue> domainElements = IntStream.range(0, vars.size())
+                    .mapToObj(i -> context.sortPolicy.getSortEnumValue(sorts.get(i), currentIdxs.get(i)))
                     .collect(Collectors.toList());
+//            List<DomainElement> domainElements = IntStream.range(0, vars.size())
+//                    .mapToObj(i -> DomainElement.apply(currentIdxs.get(i), sorts.get(i)))
+//                    .collect(Collectors.toList());
             Term domElemCondition = PortusUtil.substitute(vars, domainElements, condition);
             Term domElemSub = PortusUtil.substitute(vars, domainElements, sub);
 

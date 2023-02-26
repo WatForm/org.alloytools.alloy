@@ -7,7 +7,7 @@ import edu.mit.csail.sdg.ast.ExprBinary;
 import edu.mit.csail.sdg.ast.ExprList;
 import edu.mit.csail.sdg.ast.Sig;
 import fortress.msfol.AnnotatedVar;
-import fortress.msfol.DomainElement;
+import fortress.msfol.EnumValue;
 import fortress.msfol.FuncDecl;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
@@ -99,8 +99,10 @@ final class OrderingModuleOptTranslator extends AbstractTranslator {
 
             // use the first in the range of domain elements
             Pair<Integer, Integer> range = context.sortPolicy.getDomainElementRange(sig, context.scoper);
-            DomainElement firstDE = DomainElement.apply(range.a, sort);
-            return Term.mkEq(var.variable(), firstDE);
+            EnumValue firstEV = context.sortPolicy.getSortEnumValue(sort, range.a);
+            return Term.mkEq(var.variable(), firstEV);
+//            DomainElement firstDE = DomainElement.apply(range.a, sort);
+//            return Term.mkEq(var.variable(), firstDE);
         }
 
         public Term translateNext(VarTuple tuple, TranslationContext context) {
@@ -120,9 +122,11 @@ final class OrderingModuleOptTranslator extends AbstractTranslator {
             // Translate [[(x,y) \in next]] := [[x != last && next(x) = y]]
             // We check x != last because next(last) is left undefined
             Pair<Integer, Integer> range = context.sortPolicy.getDomainElementRange(sig, context.scoper);
-            DomainElement lastDE = DomainElement.apply(range.b, sort);
+            EnumValue lastEV = context.sortPolicy.getSortEnumValue(sort, range.b);
+//            DomainElement lastDE = DomainElement.apply(range.b, sort);
             return Term.mkAnd(
-                    Term.mkNot(Term.mkEq(tuple.getVar(0), lastDE)),
+//                    Term.mkNot(Term.mkEq(tuple.getVar(0), lastDE)),
+                    Term.mkNot(Term.mkEq(tuple.getVar(0), lastEV)),
                     Term.mkEq(Term.mkApp(nextFuncName, tuple.getVar(0)), tuple.getVar(1)));
         }
 
@@ -141,9 +145,12 @@ final class OrderingModuleOptTranslator extends AbstractTranslator {
             Pair<Integer, Integer> deRange = context.sortPolicy.getDomainElementRange(sig, context.scoper);
             for (int de = deRange.a; de < deRange.b; de++) {
                 // "next(_@de) = _@(de+1)"
+//                Term axiom = Term.mkEq(
+//                        Term.mkApp(nextFuncName, DomainElement.apply(de, sort)),
+//                        DomainElement.apply(de + 1, sort));
                 Term axiom = Term.mkEq(
-                        Term.mkApp(nextFuncName, DomainElement.apply(de, sort)),
-                        DomainElement.apply(de + 1, sort));
+                        Term.mkApp(nextFuncName, context.sortPolicy.getSortEnumValue(sort, de)),
+                        context.sortPolicy.getSortEnumValue(sort, de + 1));
                 context.addAxiom(axiom);
             }
         }

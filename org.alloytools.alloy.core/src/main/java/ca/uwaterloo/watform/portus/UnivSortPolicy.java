@@ -73,7 +73,7 @@ final class UnivSortPolicy extends SortPolicy {
 
     @Override
     public Theory addSortsToTheory(Theory theory) {
-        return theory.withSort(univ);
+        return theory.withEnumSort(univ, getSortEnumValues(univ));
     }
 
     @Override

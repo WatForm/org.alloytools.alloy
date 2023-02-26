@@ -23,6 +23,7 @@ import edu.mit.csail.sdg.parser.Macro;
 import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.modelfind.ModelFinder;
 import fortress.msfol.AnnotatedVar;
+import fortress.msfol.EnumValue;
 import fortress.msfol.Sort;
 import fortress.msfol.Theory;
 import fortress.problemstate.Scope;
@@ -62,6 +63,20 @@ public abstract class SortPolicy {
      */
     public abstract int getSortScope(Sort sort);
 
+    public final List<EnumValue> getSortEnumValues(Sort sort) {
+        return IntStream.range(1, getSortScope(sort) + 1)
+                .mapToObj(num -> getSortEnumValue(sort, num))
+                .collect(Collectors.toList());
+    }
+
+    public final EnumValue getSortEnumValue(Sort sort, int num) {
+        if (num < 1 || num > getSortScope(sort)) {
+            throw new ErrorFatal("Invalid enum value number " + num + " for sort " + sort
+                    + ", must be between 1 and " + getSortScope(sort) + " inclusive");
+        }
+        return EnumValue.apply(sort + "!" + num);
+    }
+
     /** Return a theory with the sorts assigned by the policy added. */
     public abstract Theory addSortsToTheory(Theory theory);
 
@@ -90,7 +105,7 @@ public abstract class SortPolicy {
      * range of size 2 for A.) This result should not be relied upon except to find the domain element ranges of those
      * children with exact scopes - check if sig is exact before using this function.
      */
-    public Pair<Integer, Integer> getDomainElementRange(Sig sig, ScopeComputer scoper) {
+    public final Pair<Integer, Integer> getDomainElementRange(Sig sig, ScopeComputer scoper) {
         if (!(sig instanceof Sig.PrimSig)) {
             // TODO: can we support subset sigs?
             return null;
