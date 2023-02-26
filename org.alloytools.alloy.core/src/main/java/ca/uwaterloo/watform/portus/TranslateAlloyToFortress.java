@@ -53,6 +53,9 @@ import java.util.Set;
  */
 public final class TranslateAlloyToFortress implements CommandRunner {
 
+    /**
+     * Execute a command. Throws {@link TimeoutException} if the solver times out.
+     */
     @Override
     public AlloySolution executeCommand(
             A4Reporter reporter, Iterable<Sig> sigs, Command command, A4Options options) {
@@ -67,6 +70,9 @@ public final class TranslateAlloyToFortress implements CommandRunner {
             return solution;
         } catch (IOException e) {
             throw new ErrorFatal("IOException in Fortress translation", e);
+        } catch (TimeoutException e) {
+            // Rethrow timeout exceptions as-is, don't wrap in ErrorFatal
+            throw e;
         } catch (Throwable e) {
             // Alloy will catch it anyways, so rethrow as ErrorFatal for a more helpful debug message.
             throw new ErrorFatal(e.getMessage(), e);
@@ -111,9 +117,8 @@ public final class TranslateAlloyToFortress implements CommandRunner {
             if (result instanceof ErrorResult) {
                 throw new ErrorFatal("Fortress error: " + ((ErrorResult) result).message());
             }
-            // TODO: handle timeouts better, there's not much Alloy infrastructure for it
             if (result == ModelFinderResult.Timeout()) {
-                throw new ErrorFatal("SMT solver timeout.");
+                throw new TimeoutException();
             }
 
             Interpretation interpretation = (result == ModelFinderResult.Sat()) ? finder.viewModel() : null;

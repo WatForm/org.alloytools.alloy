@@ -1,6 +1,7 @@
 package ca.uwaterloo.watform.portus.cli;
 
 import ca.uwaterloo.watform.portus.SortPolicy;
+import ca.uwaterloo.watform.portus.TimeoutException;
 import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.alloy4.Util;
@@ -79,6 +80,8 @@ public final class PortusCLI {
             System.out.println("Running with processor: " + processor.displayName());
             try {
                 processor.process(world.getAllReachableSigs(), command, alloyOptions);
+            } catch (TimeoutException e) {
+                System.out.println("  SMT solver timeout!");
             } catch (Exception e) {
                 System.out.println("  EXCEPTION:");
                 e.printStackTrace();
