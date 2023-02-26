@@ -12,7 +12,12 @@ import edu.mit.csail.sdg.translator.A4Options;
 import edu.mit.csail.sdg.translator.ScopeComputer;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * A CLI for testing Portus.
@@ -81,10 +86,33 @@ public final class PortusCLI {
         }
     }
 
+    // specifier format: filename [: command_name [, command_name]*]
+    private static final Pattern SPECIFIER_PATTERN = Pattern.compile(
+            "(?<filename>[^:]*)(:(?<commands>.*))?");
+
+    private static Pair<String, String[]> splitSpecifier(String specifier) {
+        Matcher matcher = SPECIFIER_PATTERN.matcher(specifier);
+        if (!matcher.matches()) {
+            // shouldn't be possible
+            throw new IllegalArgumentException("Invalid specifier " + specifier + " (this shouldn't be possible)");
+        }
+
+        String filename = matcher.group("filename");
+        String commandNamesRaw = matcher.group("commands");
+        String[] commandNames = commandNamesRaw == null ? new String[0] : commandNamesRaw.split(",");
+        return new Pair<>(filename, commandNames);
+    }
+
     /** Process all the commands in an Alloy file. */
-    private static void processAlloyFile(String alloyFilename, PortusCLIOptions options,
+    private static void processSpecifier(String specifier, PortusCLIOptions options,
                                          List<CommandProcessor> processors) {
-        System.out.println("Processing " + alloyFilename + "...");
+        System.out.println("Processing " + specifier + "...");
+
+        Pair<String, String[]> split = splitSpecifier(specifier);
+        String alloyFilename = split.a;
+        Set<String> commandNames = new HashSet<>(Arrays.asList(split.b));
+        boolean runAllCommands = commandNames.isEmpty();
+
         try {
             Module world = CompUtil.parseEverything_fromFile(null, null, alloyFilename);
             List<Command> commands = world.getAllCommands();
@@ -93,7 +121,9 @@ public final class PortusCLI {
             alloyOptions.originalFilename = alloyFilename;
 
             for (Command command : commands) {
-                processCommand(world, command, alloyOptions, options, processors);
+                if (runAllCommands || commandNames.contains(command.label)) {
+                    processCommand(world, command, alloyOptions, options, processors);
+                }
             }
         } catch (Exception e) {
             System.err.println("EXCEPTION:");
@@ -123,8 +153,8 @@ public final class PortusCLI {
             return;
         }
 
-        if (options.alloyFilenames.isEmpty()) {
-            System.err.println("Error: no Alloy files specified");
+        if (options.specifiers.isEmpty()) {
+            System.err.println("Error: no Alloy filenames/specifiers specified");
             options.printHelp(PROGRAM_NAME);
             return;
         }
@@ -136,8 +166,8 @@ public final class PortusCLI {
             return;
         }
 
-        for (String alloyFilename : options.alloyFilenames) {
-            processAlloyFile(alloyFilename, options, processors);
+        for (String specifier : options.specifiers) {
+            processSpecifier(specifier, options, processors);
         }
     }
 

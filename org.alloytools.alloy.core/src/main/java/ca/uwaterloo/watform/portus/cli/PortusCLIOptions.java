@@ -24,21 +24,24 @@ final class PortusCLIOptions {
             help, adjustBitwidth, useCorrectnessProcessor, useOutputPreSmtlibProcessor, useOutputPostSmtlibProcessor,
     };
 
-    // The positional arguments - a list of Alloy filenames.
-    public final List<String> alloyFilenames;
+    // The positional arguments - a list of Alloy command specifiers.
+    public final List<String> specifiers;
 
     private final List<String> args;
 
     public PortusCLIOptions(String[] args) {
         this.args = Arrays.asList(args);
         // filter out all the options
-        this.alloyFilenames = this.args.stream()
+        this.specifiers = this.args.stream()
                 .filter(arg -> Arrays.stream(allOptions).noneMatch(option -> option.name.equals(arg)))
                 .collect(Collectors.toList());
     }
 
     public void printHelp(String programName) {
-        System.err.println("Usage: " + programName + " [flags] <Alloy files...>");
+        System.err.println("Usage: " + programName + " [flags] <Alloy filenames/specifiers>");
+        System.err.println("A specifier consists of an Alloy filename, optionally followed by a colon and a");
+        System.err.println("comma-separated list of command names to run. For example:");
+        System.err.println("  test.als:command1,command2,command3");
         System.err.println("Options:");
         for (Option option : allOptions) {
             System.err.println("\t" + option.displayName() + "\t" + option.help);
