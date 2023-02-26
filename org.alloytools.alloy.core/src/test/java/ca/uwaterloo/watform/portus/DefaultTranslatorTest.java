@@ -471,30 +471,14 @@ public class DefaultTranslatorTest {
         when(mockRoot.translate(argThat(isAlphaEquivalent(subsetAxiom)), any()))
                 .thenReturn(subsetFlag);
 
-        // mock out [[y \in sig]] from the exact scope axiom
-        Var y = Term.mkVar("y");
-        Term inSigFlag = makeFlagConstant("inSig");
-        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(y.of(univ), sig))), any()))
-                .thenReturn(inSigFlag);
-
-        // create the expected exact scope axiom for the child
-        // scope 1: "exists x: univ . forall y: univ . [[y \in sig]] <=> y = x"
-        Var x = Term.mkVar("x");
-        Term exactScopeAxiom = Term.mkExists(x.of(univ),
-                Term.mkForall(y.of(univ), Term.mkIff(
-                        inSigFlag, Term.mkEq(y, x))));
-
         // actually translate
         Term result = translator.translate(sig, context);
         assertThat(result, is(notNullValue()));
 
-        // should have exactly the subset and exact scope axioms
+        // should have just the subset axiom (subset sigs have no scope axioms)
         //noinspection unchecked
         Set<Term> axioms = CollectionConverters.<Term>asJava(context.getTheory().axioms());
-        //noinspection unchecked
-        assertThat(axioms, containsInAnyOrder(
-                is(subsetFlag),
-                isAlphaEquivalentTerm(exactScopeAxiom)));
+        assertThat(axioms, contains(is(subsetFlag)));
 
         // should have the membership predicate
         assertThat(context.getTheory().functionDeclarations().size(), is(1));
@@ -521,30 +505,14 @@ public class DefaultTranslatorTest {
         when(mockRoot.translate(argThat(isAlphaEquivalent(subsetAxiom)), any()))
                 .thenReturn(subsetFlag);
 
-        // mock out [[y \in sig]] from the exact scope axiom
-        Var y = Term.mkVar("y");
-        Term inSigFlag = makeFlagConstant("inSig");
-        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(y.of(univ), sig))), any()))
-                .thenReturn(inSigFlag);
-
-        // create the expected exact scope axiom for the child
-        // scope 1: "exists x: univ . forall y: univ . [[y \in sig]] <=> y = x"
-        Var x = Term.mkVar("x");
-        Term exactScopeAxiom = Term.mkExists(x.of(univ),
-                Term.mkForall(y.of(univ), Term.mkIff(
-                        inSigFlag, Term.mkEq(y, x))));
-
         // actually translate
         Term result = translator.translate(sig, context);
         assertThat(result, is(notNullValue()));
 
-        // should have exactly the subset and exact scope axioms
+        // should have just the subset axiom (subset sigs have no scope axioms)
         //noinspection unchecked
         Set<Term> axioms = CollectionConverters.<Term>asJava(context.getTheory().axioms());
-        //noinspection unchecked
-        assertThat(axioms, containsInAnyOrder(
-                is(subsetFlag),
-                isAlphaEquivalentTerm(exactScopeAxiom)));
+        assertThat(axioms, contains(is(subsetFlag)));
 
         // should have the membership predicate
         assertThat(context.getTheory().functionDeclarations().size(), is(1));
@@ -569,30 +537,14 @@ public class DefaultTranslatorTest {
         when(mockRoot.translate(argThat(isAlphaEquivalent(subsetAxiom)), any()))
                 .thenReturn(subsetFlag);
 
-        // mock out [[y \in sig]] from the exact scope axiom
-        Var y = Term.mkVar("y");
-        Term inSigFlag = makeFlagConstant("inSig");
-        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(y.of(univ), sig))), any()))
-                .thenReturn(inSigFlag);
-
-        // create the expected exact scope axiom for the child
-        // scope 1: "exists x: univ . forall y: univ . [[y \in sig]] <=> y = x"
-        Var x = Term.mkVar("x");
-        Term exactScopeAxiom = Term.mkExists(x.of(univ),
-                Term.mkForall(y.of(univ), Term.mkIff(
-                        inSigFlag, Term.mkEq(y, x))));
-
         // actually translate
         Term result = translator.translate(sig, context);
         assertThat(result, is(notNullValue()));
 
-        // should have exactly the subset and exact scope axioms
+        // should have just the subset axiom (subset sigs have no scope axioms)
         //noinspection unchecked
         Set<Term> axioms = CollectionConverters.<Term>asJava(context.getTheory().axioms());
-        //noinspection unchecked
-        assertThat(axioms, containsInAnyOrder(
-                is(subsetFlag),
-                isAlphaEquivalentTerm(exactScopeAxiom)));
+        assertThat(axioms, contains(is(subsetFlag)));
 
         // should have the membership predicate
         assertThat(context.getTheory().functionDeclarations().size(), is(1));
@@ -620,30 +572,14 @@ public class DefaultTranslatorTest {
         when(mockRoot.translate(argThat(isAlphaEquivalent(subsetAxiom)), any()))
                 .thenReturn(subsetFlag);
 
-        // mock out [[y \in sig]] from the exact scope axiom
-        Var y = Term.mkVar("y");
-        Term inSigFlag = makeFlagConstant("inSig");
-        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(y.of(univ), sig))), any()))
-                .thenReturn(inSigFlag);
-
-        // create the expected exact scope axiom for the child
-        // scope 1: "exists x: univ . forall y: univ . [[y \in sig]] <=> y = x"
-        Var x = Term.mkVar("x");
-        Term exactScopeAxiom = Term.mkExists(x.of(univ),
-                Term.mkForall(y.of(univ), Term.mkIff(
-                        inSigFlag, Term.mkEq(y, x))));
-
         // actually translate
         Term result = translator.translate(sig, context);
         assertThat(result, is(notNullValue()));
 
-        // should have exactly the subset and exact scope axioms
+        // should have just the subset axiom (subset sigs have no scope axioms)
         //noinspection unchecked
         Set<Term> axioms = CollectionConverters.<Term>asJava(context.getTheory().axioms());
-        //noinspection unchecked
-        assertThat(axioms, containsInAnyOrder(
-                is(subsetFlag),
-                isAlphaEquivalentTerm(exactScopeAxiom)));
+        assertThat(axioms, contains(is(subsetFlag)));
 
         // should have the membership predicate
         assertThat(context.getTheory().functionDeclarations().size(), is(1));

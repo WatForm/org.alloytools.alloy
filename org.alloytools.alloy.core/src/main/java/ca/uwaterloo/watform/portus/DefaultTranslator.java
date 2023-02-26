@@ -115,6 +115,18 @@ final class DefaultTranslator extends AbstractTranslator {
             if (sig.isAbstract != null) {
                 context.addAxiom(makeCoverAxiom(primSig, context));
             }
+
+            // Generate scope constraints - note that subset sigs have no scope constraints
+            int scope = context.scoper.sig2scope(sig);
+            if (scope == -1) {
+                // -1 is returned when scoper doesn't know the correct scope - fail loudly instead of silently
+                throw new ErrorFatal("Cannot generate scope axiom for sig " + sig.label + " because scope is unknown");
+            }
+            if (context.scoper.isExact(sig)) {
+                context.addAxiom(scopeAxiomStrategy.makeExactScopeAxiom(sig, scope, topLevelTranslator, context));
+            } else {
+                context.addAxiom(scopeAxiomStrategy.makeNonExactScopeAxiom(sig, scope, topLevelTranslator, context));
+            }
         } else if (sig instanceof Sig.SubsetSig) {
             Sig.SubsetSig subsetSig = (Sig.SubsetSig) sig;
 
@@ -123,14 +135,6 @@ final class DefaultTranslator extends AbstractTranslator {
             context.addAxiom(makeSubsetAxiom(subsetSig.parents, subsetSig, subsetSig.exact, context));
         } else {
             throw new ErrorFatal("Unsupported sig type!");
-        }
-
-        // Generate scope constraints
-        int scope = context.scoper.sig2scope(sig);
-        if (context.scoper.isExact(sig)) {
-            context.addAxiom(scopeAxiomStrategy.makeExactScopeAxiom(sig, scope, topLevelTranslator, context));
-        } else {
-            context.addAxiom(scopeAxiomStrategy.makeNonExactScopeAxiom(sig, scope, topLevelTranslator, context));
         }
 
         // return Top because the returned Term doesn't matter for a Sig
