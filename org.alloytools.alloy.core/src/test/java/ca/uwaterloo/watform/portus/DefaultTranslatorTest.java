@@ -4201,6 +4201,15 @@ public class DefaultTranslatorTest {
     }
 
     @Test
+    public void testTranslate_none() {
+        // test [[x \in none]] := false
+        Var x = Term.mkVar("x");
+        Term result = translator.translate(ExprElementOf.make(x.of(univ), Sig.NONE), context);
+        assertEquals(Term.mkBottom(), result);
+        assertContextEmpty();
+    }
+
+    @Test
     public void testTranslate_iden() {
         // test [[(x1, x2) \in iden] := x1 = x2
         Var x1 = Term.mkVar("x1"), x2 = Term.mkVar("x2");

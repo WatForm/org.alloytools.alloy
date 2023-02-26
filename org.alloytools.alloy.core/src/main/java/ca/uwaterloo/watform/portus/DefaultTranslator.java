@@ -189,6 +189,9 @@ final class DefaultTranslator extends AbstractTranslator {
             if (sig.equals(Sig.UNIV)) {
                 // "var \in univ" is always true
                 return Term.mkTop();
+            } else if (sig.equals(Sig.NONE)) {
+                // "var \in none" is always false
+                return Term.mkBottom();
             } else if (sig.equals(Sig.SIGINT)) {
                 // it's an int iff its sort is int - evaluate at compile time using var's type
                 return var.sort().equals(Sort.Int()) ? Term.mkTop() : Term.mkBottom();
