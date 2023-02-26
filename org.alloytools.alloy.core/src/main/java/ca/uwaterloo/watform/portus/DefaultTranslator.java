@@ -884,11 +884,15 @@ final class DefaultTranslator extends AbstractTranslator {
         auxRelSorts.add(sort);
         auxRelSorts.addAll(freeVars.stream().map(AnnotatedVar::sort).collect(Collectors.toList()));
 
+        // Use this as the key to compare previous expr/sort combos so that we don't get confused by lets
+        // (without this otherwise e.g. with "fun f[x] { ^x }", we'd use the same aux function for all arguments x)
+        Expr expandedExpr = PortusUtil.expandLets(expr, context);
+
         // Have we already translated this expr/sort combo? If so, use its name.
         for (Pair<Pair<Expr, List<Sort>>, String> exprAndClosureName : auxClosureRelationNames) {
             Expr prevExpr = exprAndClosureName.a.a;
             List<Sort> prevSorts = exprAndClosureName.a.b;
-            if (auxRelSorts.equals(prevSorts) && expr.isSame(prevExpr)) {
+            if (auxRelSorts.equals(prevSorts) && expandedExpr.isSame(prevExpr)) {
                 return exprAndClosureName.b;
             }
         }
@@ -900,7 +904,7 @@ final class DefaultTranslator extends AbstractTranslator {
         // Introduce an auxiliary relation f(x,y) = [[(x,y) \in expr]] of type sort->sort
         // Also include any free variables in the term as extra arguments.
         String auxRelationName = context.nameGenerator.freshName("closureAux_" + sort.name());
-        auxClosureRelationNames.add(new Pair<>(new Pair<>(expr, auxRelSorts), auxRelationName));
+        auxClosureRelationNames.add(new Pair<>(new Pair<>(expandedExpr, auxRelSorts), auxRelationName));
         FuncDecl auxDecl = FuncDecl.mkFuncDecl(auxRelationName, auxRelSorts, Sort.Bool());
         context.addFunctionDeclaration(auxDecl);
 

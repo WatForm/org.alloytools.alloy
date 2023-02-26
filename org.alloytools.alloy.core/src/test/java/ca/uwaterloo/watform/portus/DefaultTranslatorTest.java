@@ -8,6 +8,7 @@ import edu.mit.csail.sdg.ast.Attr;
 import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprBinary;
+import edu.mit.csail.sdg.ast.ExprCall;
 import edu.mit.csail.sdg.ast.ExprConstant;
 import edu.mit.csail.sdg.ast.ExprLet;
 import edu.mit.csail.sdg.ast.ExprList;
@@ -2650,6 +2651,35 @@ public class DefaultTranslatorTest {
                         Term.mkIff(
                                 Term.mkApp(noFreeVarsRel.name(), x, y),
                                 Term.mkAnd(Term.mkTop(), Term.mkTop()))))); // [[(x,y) \in univ->univ]]
+    }
+
+    @Test
+    public void testTranslate_transitiveClosure_letsAreDisambiguated() {
+        // Test that two different auxiliary functions are generated in the following:
+        //   sig A { a: set A, b: set A }
+        //   pred f[x: A->A] { no ^x }
+        //   run { f[a] and f[b] } // both should get different auxiliary functions
+        delegateToRealTranslator();
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        when(mockScoper.sig2scope(sig)).thenReturn(2);
+        when(mockScoper.isExact(sig)).thenReturn(false);
+        Sig.Field a = sig.addField("a", sig.setOf());
+        Sig.Field b = sig.addField("b", sig.setOf());
+        ExprVar x = ExprVar.make(null, "x", Type.make(sig).product(Type.make(sig)));
+        Decl xDecl = new Decl(null, null, null, null, Collections.singletonList(x), sig.product(sig));
+        Expr fBody = x.closure().no();
+        Func f = new Func(null, null, "f", Collections.singletonList(xDecl), null, fBody);
+        Expr runBody = ExprCall.make(null, null, f, Collections.singletonList(a), 0)
+                .and(ExprCall.make(null, null, f, Collections.singletonList(b), 0));
+
+        // Translate the sig, fields, and the run statement, just make sure they don't return null
+        assertNotNull(translator.translate(sig, context));
+        assertNotNull(translator.translate(a, context));
+        assertNotNull(translator.translate(b, context));
+        assertNotNull(translator.translate(runBody, context));
+
+        // We should have five predicates: inA, two for a and b, and two auxiliary functions
+        assertEquals(5, context.getTheory().functionDeclarations().size());
     }
 
     @Test

@@ -3,10 +3,12 @@ package ca.uwaterloo.watform.portus;
 import edu.mit.csail.sdg.alloy4.Err;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.ast.Assert;
+import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprBinary;
 import edu.mit.csail.sdg.ast.ExprCall;
 import edu.mit.csail.sdg.ast.ExprConstant;
+import edu.mit.csail.sdg.ast.ExprHasName;
 import edu.mit.csail.sdg.ast.ExprITE;
 import edu.mit.csail.sdg.ast.ExprLet;
 import edu.mit.csail.sdg.ast.ExprList;
@@ -19,6 +21,7 @@ import edu.mit.csail.sdg.parser.Macro;
 import fortress.data.IntSuffixNameGenerator;
 import fortress.data.NameGenerator;
 import fortress.msfol.AnnotatedVar;
+import fortress.msfol.Sort;
 import fortress.msfol.Term;
 import fortress.msfol.Var;
 import fortress.operations.Substituter;
@@ -235,7 +238,7 @@ final class PortusUtil {
      * Get a list of the variables which are free in the translation of expr, with sorts determined by the context
      * (which should assign a Fortress var for each free Alloy var).
      */
-    public static List<AnnotatedVar> computeFreeVariables(Expr expr, TranslationContext inContext) {
+    public static List<AnnotatedVar> computeFreeVariables(Expr expr, final TranslationContext inContext) {
         // make a copy just in case
         TranslationContext context = new TranslationContext(inContext);
 
@@ -360,6 +363,131 @@ final class PortusUtil {
 
             @Override
             public List<AnnotatedVar> visit(Macro macro) throws Err {
+                throw new ErrorFatal("Visiting Macro isn't supported!");
+            }
+        });
+    }
+
+    /**
+     * Expand all the 'let's in an expression, for use when disambiguating expressions.
+     */
+    public static Expr expandLets(Expr expr, final TranslationContext originalContext) {
+        // Make a copy just to be safe
+        TranslationContext context = new TranslationContext(originalContext);
+
+        // note: this is vulnerable to exponential blowup in cases like
+        // let x1=A+A | let x2=x1+x1 | let x3=x2+x2 | ... | let x64=x63+x63 | f[x64]
+        // which will cause us to generate a union of 2^64 A's (!!)
+        // but let's assume our users aren't evil enough to do that, eh?
+        return expr.accept(new FortressVisitReturn<Expr>() {
+            @Override
+            public Expr visit(ExprBinary x) throws Err {
+                return x.op.make(null, null, visitThis(x.left), visitThis(x.right));
+            }
+
+            @Override
+            public Expr visit(ExprList x) throws Err {
+                return ExprList.make(null, null, x.op, x.args.stream()
+                        .map(this::visitThis)
+                        .collect(Collectors.toList()));
+            }
+
+            @Override
+            public Expr visit(ExprCall x) throws Err {
+                // Don't expand ExprCalls for now - this might cause us to generate some duplicate auxiliary
+                // functions when translating closure, e.g.
+                //   ^x   and    ^f[x] where fun f[y] { ^y }
+                // will generate two different auxiliary functions, but that's okay
+                return ExprCall.make(null, null, x.fun, x.args.stream()
+                        .map(this::visitThis)
+                        .collect(Collectors.toList()), x.extraWeight);
+            }
+
+            @Override
+            public Expr visit(ExprConstant x) throws Err {
+                return x;
+            }
+
+            @Override
+            public Expr visit(ExprITE x) throws Err {
+                return ExprITE.make(null, visitThis(x.cond), visitThis(x.left), visitThis(x.right));
+            }
+
+            @Override
+            public Expr visit(ExprLet x) throws Err {
+                return visitThis(x.sub);
+            }
+
+            @Override
+            public Expr visit(ExprQt x) throws Err {
+                // add var mappings for the quantified variables as we move into the quantifier
+                for (Decl decl : x.decls) {
+                    for (ExprHasName name : decl.names) {
+                        // the actual variable doesn't matter for us, make one up
+                        context.addVarMapping(name.label, Term.mkVar("x").of(Sort.Int()));
+                    }
+                }
+                try {
+                    return visitThis(x.sub);
+                } finally {
+                    // remove the var mappings
+                    for (Decl decl : x.decls) {
+                        for (ExprHasName name : decl.names) {
+                            context.removeMapping(name.label);
+                        }
+                    }
+                }
+            }
+
+            @Override
+            public Expr visit(ExprUnary x) throws Err {
+                return visitThis(x.sub);
+            }
+
+            @Override
+            public Expr visit(ExprVar x) throws Err {
+                // Expand the let mapping if it has it
+                if (context.hasLetMapping(x.label)) {
+                    TranslationContext.LetContext letContext = context.getLetMapping(x.label);
+                    assert letContext != null;
+                    try {
+                        letContext.useLetMapping(context);
+                        return visitThis(letContext.getExpr());
+                    } finally {
+                        letContext.resetMapping();
+                    }
+                } else {
+                    return x;
+                }
+            }
+
+            @Override
+            public Expr visit(Sig sig) throws Err {
+                return sig;
+            }
+
+            @Override
+            public Expr visit(Sig.Field x) throws Err {
+                return x;
+            }
+
+            @Override
+            public Expr visit(ExprElementOf x) throws Err {
+                return ExprElementOf.make(x.tuple, visitThis(x.sub));
+            }
+
+            @Override
+            public Expr visit(Func x) throws Err {
+                throw new ErrorFatal("Visiting Func isn't supported!");
+            }
+
+            @Override
+            public Expr visit(Assert x) throws Err {
+                throw new ErrorFatal("Visiting Assert isn't supported!");
+            }
+
+            @Override
+            public Expr visit(Macro macro) throws Err {
                 throw new ErrorFatal("Visiting Macro isn't supported!");
             }
         });
