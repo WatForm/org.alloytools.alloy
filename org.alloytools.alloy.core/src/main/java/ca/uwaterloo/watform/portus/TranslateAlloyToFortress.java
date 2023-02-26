@@ -111,6 +111,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
         // TODO: choose a solver based on options
         try (ModelFinder finder = createModelFinder(Z3CliInterface$.MODULE$)) {
             context.configureModelFinder(finder);
+            finder.setTimeout(Milliseconds.apply(options.portusOptions.timeoutMillis));
             finder.addLogger(logger);
             ModelFinderResult result = finder.checkSat();
 

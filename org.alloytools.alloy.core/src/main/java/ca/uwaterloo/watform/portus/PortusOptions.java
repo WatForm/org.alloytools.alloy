@@ -44,6 +44,9 @@ public final class PortusOptions implements Serializable {
     /** Ensure we can serialize correctly. */
     private static final long serialVersionUID = 0L;
 
+    // The timeout for the SMT solver in milliseconds, by default 5 minutes.
+    public int timeoutMillis = 5 * 60 * 1000;
+
     // The directory to be used for any output files (e.g. for SMTLIB+ or MSFOL dumps).
     // By default, a temporary directory.
     public String outputDirectory = System.getProperty("java.io.tmpdir");
