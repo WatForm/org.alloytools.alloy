@@ -697,7 +697,7 @@ public class DashPythonTranslation {
                     throw new ErrorFatal("Cannot find env variable " + stateName + "_" + variableName + " in the solution");
                 }
             }
-            statesMap.get(stateName).addEnvVarInput("SS." + envName + ".update_value(literal_eval(input(\"Please enter value for environment variable SS." + envName + "(" + envExprs.getValue() + ")" + ": \")))");
+            statesMap.get(stateName).addEnvVarInput("SS." + envName + ", \"Please enter value for environment variable SS." + envName + "(" + envExprs.getValue() + ")" + ": \"");
         }
     }
 

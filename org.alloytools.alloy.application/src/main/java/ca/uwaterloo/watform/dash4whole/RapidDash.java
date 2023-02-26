@@ -8,7 +8,6 @@ import ca.uwaterloo.watform.transform.CoreDashToElectrum;
 import ca.uwaterloo.watform.transform.CoreDashToPython;
 import ca.uwaterloo.watform.transform.DashToCoreDash;
 import edu.mit.csail.sdg.alloy4.A4Reporter;
-import edu.mit.csail.sdg.alloy4viz.VizGUI;
 import edu.mit.csail.sdg.ast.Command;
 import edu.mit.csail.sdg.parser.CompModule;
 import edu.mit.csail.sdg.parser.CompUtil;
@@ -16,9 +15,15 @@ import edu.mit.csail.sdg.translator.A4Options;
 import edu.mit.csail.sdg.translator.A4Solution;
 import edu.mit.csail.sdg.translator.TranslateAlloyToKodkod;
 
+import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.Scanner;
+
+import static java.lang.System.exit;
 
 public class RapidDash {
 
@@ -63,16 +68,50 @@ public class RapidDash {
             System.out.println("=========== Parsing+Typechecking " + fileName + " =============");
 
             // Solve the Dash module first to get initial values
-            DashModule dash = DashUtil.parseEverything_fromFileDash(rep, null, actual);
+            DashModule dash;
+            String addCommand = "";
+            try {
+                try {
+                    System.out.println("You can specify the scopes in a Dash command, for example, \"run {} for exactly 4 Medication, exactly 4 Patient\".");
+                    System.out.println("Please specify the command you want to run with the Dash model(leave it blank to run the default command):");
+                    addCommand = sc.nextLine().trim();
+                    if (!addCommand.endsWith("\n")) {
+                        addCommand += "\n";
+                    }
+                    Files.write(path, addCommand.getBytes(), StandardOpenOption.APPEND);
+                } catch (IOException e) {
+                    System.err.println("File does not exist.");
+                    exit(1);
+                }
+                dash = DashUtil.parseEverything_fromFileDash(rep, null, actual);
+            } finally {
+                // Remove the added command
+                RandomAccessFile f = new RandomAccessFile(actual, "rw");
+                long length = f.length() - 1;
+                byte b;
+                do {
+                    length -= 1;
+                    f.seek(length);
+                    b = f.readByte();
+                } while (b != 10);
+                f.setLength(length + 1);
+                f.close();
+            }
             DashValidation.validateDashModel(dash);
             DashModule coreDash = new DashToCoreDash().transformToCoreDash(dash, fileName.toString(), "");
             DashModule alloy = DashOptions.isElectrum ? new CoreDashToElectrum().convertToElectrumAST(coreDash, "", "") : new CoreDashToAlloy().convertToAlloyAST(coreDash, "", "");
             alloy = DashModule.resolveAll(rep == null ? A4Reporter.NOP : rep, alloy);
             String alloyString = new DashModuleToString(true).getString(alloy);
-            System.out.println(alloyString);
+            // Change default Alloy command to "run init"
+            if (!addCommand.equals("\n")) {
+                StringBuilder alloyStringBuilder = new StringBuilder(alloyString);
+                int index = alloyStringBuilder.lastIndexOf("runDefault1");
+                alloyStringBuilder.replace(index, "runDefault1".length() + index, "init");
+                alloyString = alloyStringBuilder.toString();
+            } else {
+                alloyString += "run init";
+            }
             CompModule alloyComp = CompUtil.parseEverything_fromString(rep, alloyString);
-
-            VizGUI viz = null;
 
             A4Options options = new A4Options();
 
