@@ -25,10 +25,11 @@ public class DashPythonTranslation {
 
     public List<Signature> signatures;
     public List<Relation> relations;
+    public List<Invariant> invariants;
     public List<Event> allEnvEvents = new ArrayList<Event>();
     private HashSet<String> envEventNames = new HashSet<String>();
     public State rootState = null;
-    private Map<String, State> statesMap;
+    private Map<String, State> statesMap;               // maps state names to state objects
 
     private Map<String, String> variable2StateNameMap;  // maps variable names to state names or prefixes
     private Map<String, String> envVariable2VarNameMap; // maps env variable names to variable names
@@ -547,7 +548,6 @@ public class DashPythonTranslation {
                 }
             }
 
-
         	// add state events
         	for(DashEvent event: state.getEvents()) {
                 addEventToLists(event, state);
@@ -586,6 +586,13 @@ public class DashPythonTranslation {
         		this.statesMap.get(state.getFullyQualName()).addSubstate(this.statesMap.get(substate.getFullyQualName()));
         		this.statesMap.get(substate.getFullyQualName()).parent = statesMap.get(state.getFullyQualName());
         	}
+        }
+
+        // generate invariants
+        invariants = new ArrayList<>();
+        for(DashInvariant dashInv : dashModule.getInvariants().values()){
+            Invariant inv = new Invariant(dashInv);
+            invariants.add(inv);
         }
 
         // generate transitions
@@ -990,6 +997,26 @@ public class DashPythonTranslation {
         public String getActiveStatesAfterTransPythonStr() {
             return getStatesAfterTransPythonStr(activeStatesAfterTrans);
         }
+    }
 
+    public class Invariant{
+        private String invariantName = "";                      // invariant name
+        private List<String> conditions = new ArrayList<>();    // the logic for this invariant to be executed
+        private Set<String> relatedVariables = new HashSet<>(); // the variables that are related to this invariant
+
+        public Invariant(DashInvariant dashInvariant){
+            // set default invariant information
+            this.invariantName = "Inv_" + dashInvariant.getRawName();
+
+            // determines the invariant condition
+            if(dashInvariant.getExpr() != null){
+                DashExprToPython dashExprTranslator = new DashExprToPython<>(dashInvariant.getExpr(), variable2StateNameMap, true);
+                this.conditions = dashExprTranslator.toList();
+                this.relatedVariables = dashExprTranslator.getRelatedDynamicVars();
+            }
+        }
+        public String getName(){return invariantName;}
+        public List<String> getConditions(){return conditions;}
+        public Set<String> getRelatedVariables(){return relatedVariables;}
     }
 }

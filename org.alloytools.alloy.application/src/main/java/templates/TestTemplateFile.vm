@@ -358,8 +358,26 @@ class ${relation.Name}(Relation):
     values = ${relation.Values}
 
     #end
-#end
 
+#end
+#if($invariants)
+# --- Invariants ---
+    #foreach($inv in $invariants)
+def ${inv.getName()}() -> bool:
+    #if($inv.getConditions().size() == 1)
+    return ($inv.getConditions().get(0))
+    #else
+    return $inv.getConditions().get(0)
+        #set($lastIndex = ${inv.getConditions().size()} - 1)
+        #foreach($guardCondition in ${inv.getConditions().subList(1, $lastIndex)})
+        ${guardCondition}
+        #end
+        ${inv.getConditions().get($lastIndex)}
+    #end
+
+    #end
+
+#end
 # --- References to States  ---
 #foreach($value in $allStates)
 $value.getPythonVariableName(): State = None
