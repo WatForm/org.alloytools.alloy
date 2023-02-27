@@ -63,8 +63,10 @@ public class DashExprToPython<ExprType> {
                 continue;
             }
             // Concatenate to the previous expression.
-            if (expr.charAt(0) == ')' || expr.toString().equals(" or") || expr.toString().equals(" and")){
-                result.set(result.size() - 1, result.get(result.size() - 1).concat(expr.toString()));
+            if (expr.charAt(0) == ')') {
+                result.set(result.size() - 1, result.get(result.size() - 1).concat(expr.toString().trim()));
+            }else if(expr.toString().trim().equals("or") || expr.toString().trim().equals("and")){
+                result.set(result.size() - 1, result.get(result.size() - 1).concat(" " + expr.toString().trim()));
             }else{
                 result.add(expr.toString().trim());
             }
