@@ -159,36 +159,45 @@ public class DashExprToPython<ExprType> {
             // Expression with quantifiers
             ExprQt qtNode = (ExprQt) node;
 
-            // Get the quantifier for list comprehension
-            String quantifier;
-            switch (qtNode.op) {
-                case ONE:
-                    quantifier = "any([";
-                    break;
-                default:
-                case ALL:
-                    quantifier = "all([";
-                    break;
-            }
+            // format: quantifier variable:type | formula
 
-            // Get declaration of the quantified variable
-            // TODO: assume only 1 declaration
+            // Get type/declaration of the quantified variable
+            // TODO: assume only 1 declaration or type
             String quantifiedDecl = genExpr(qtNode.decls.get(0).expr, 1);
 
             // Use a stack of local variables to keep track of the quantified variable names
             // TODO: not exactly sure if this will always work
             localVarStack.clear();
 
-            // Get the body of the quantifier
+            // Get the formula/condition of the quantified expression
             // TODO: assume only 1 expression and it is an eval statement
-            String quantifiedBody = genExpr(qtNode.sub, 1);
+            String quantifiedCondition = genExpr(qtNode.sub, 1);
 
             String quantifiedVariable = "x";
             if (!localVarStack.isEmpty()){
-//                quantifiedVariable = localVarStack.peekLast();
+                quantifiedVariable = localVarStack.peekLast();
             }
 
-            return quantifier + String.format("%s for %s in %s", quantifiedBody, quantifiedVariable, quantifiedDecl) + "])";
+            String quantifiedSource = String.format("for %s in %s", quantifiedVariable, quantifiedDecl);;
+
+            // Get the quantifier for list comprehension
+            switch (qtNode.op) {
+                case ALL:   // All true
+                    return String.format("all([%s %s])", quantifiedCondition, quantifiedSource);
+                case NO:    // No true
+                    return String.format("not any([%s %s])", quantifiedCondition, quantifiedSource);
+                case LONE:  // one or no true
+                    return String.format("(1 >= [%s %s].count(True))", quantifiedCondition, quantifiedSource);
+                case ONE:   // exactly one true
+                    return String.format("(1 == [%s %s].count(True))", quantifiedCondition, quantifiedSource);
+                case SOME:  // at least one true
+                    return String.format("any([%s %s])", quantifiedCondition, quantifiedSource);
+                case SUM:   // sum of values
+                    return String.format("sum([%s if %s else set() %s])", quantifiedVariable, quantifiedCondition, quantifiedSource);
+                case COMPREHENSION: // list comprehension
+                    return String.format("[%s if %s else set() %s]", quantifiedVariable, quantifiedCondition, quantifiedSource);
+            }
+            // TODO: not sure if SUM and COMPREHENSION are correct
         } else {
             // under development, use this to catch more types that could be useful
             System.out.println("[Warning] Need more types: " + node.getClass());

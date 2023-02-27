@@ -132,6 +132,8 @@ class MetaSet(type):
                 self._set = {initvalue}
             elif isinstance(initvalue, str):
                 self._set = {initvalue}
+            elif isinstance(initvalue, dict):
+                self._set = {initvalue.values()}
             elif isinstance(initvalue, int):
                 self._set = {initvalue}
             else:
