@@ -25,6 +25,7 @@ public class DashPythonTranslation {
 
     public List<Signature> signatures;
     public List<Relation> relations;
+    public List<EnvVarInput> envVarInputs = new ArrayList<EnvVarInput>();;
     public List<Event> allEnvEvents = new ArrayList<Event>();
     private HashSet<String> envEventNames = new HashSet<String>();
     public State rootState = null;
@@ -408,6 +409,25 @@ public class DashPythonTranslation {
         }
     }
 
+    public class EnvVarInput {
+
+        private String name;
+        private String hint;
+
+        public EnvVarInput(String name, String hint) {
+            this.name = name;
+            this.hint = hint;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public String getHint() {
+            return hint;
+        }
+    }
+
     private String fieldDeclExprToString(Expr expr) {
         if (expr instanceof ExprVar) {
             return ((ExprVar) expr).label;
@@ -697,7 +717,8 @@ public class DashPythonTranslation {
                     throw new ErrorFatal("Cannot find env variable " + stateName + "_" + variableName + " in the solution");
                 }
             }
-            statesMap.get(stateName).addEnvVarInput("SS." + envName + ", \"Please enter value for environment variable SS." + envName + "(" + envExprs.getValue() + ")" + ": \"");
+            EnvVarInput envVarInput = new EnvVarInput(envName, envExprs.getValue().toString());
+            envVarInputs.add(envVarInput);
         }
     }
 
@@ -811,7 +832,6 @@ public class DashPythonTranslation {
         private List<String> decls;
         private List<String> inits;
         private List<String> init_constraints;
-        private List<String> envVarInputs;
         private boolean isConc;
         private List<Event> events;
         public State parent = null;
@@ -823,7 +843,6 @@ public class DashPythonTranslation {
             this.decls = new ArrayList<String>();
             this.inits = new ArrayList<String>();
             this.init_constraints = new ArrayList<String>();
-            this.envVarInputs = new ArrayList<String>();
             this.isConc = isConc;
         }
         public void addTransition(Transition transition){
@@ -837,7 +856,6 @@ public class DashPythonTranslation {
         public List<String> getInits() { return inits.stream().collect(Collectors.toList()); }
         public List<String> getInitConstraints() { return init_constraints.stream().collect(Collectors.toList()); }
         public List<Event> getEvents() { return events.stream().collect(Collectors.toList()); }
-        public List<String> getEnvVarInputs() { return envVarInputs.stream().collect(Collectors.toList()); }
         public boolean getIsConc() {return isConc;}
 
         public boolean isRootState() { return parent == null; }
@@ -847,7 +865,6 @@ public class DashPythonTranslation {
         public void addInit(String s) { inits.add(s); }
         public void addInitConstraint(String s) { init_constraints.add(s); }
         public void addEvent(Event e) { events.add(e); }
-        public void addEnvVarInput(String s) { envVarInputs.add(s); }
         public State getDefaultSubstate() {
         	return defaultSubstate != null ? defaultSubstate : substates.get(0);
         }
