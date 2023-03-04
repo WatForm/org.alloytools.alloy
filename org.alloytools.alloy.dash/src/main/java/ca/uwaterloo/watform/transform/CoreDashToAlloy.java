@@ -250,7 +250,7 @@ public class CoreDashToAlloy extends TranslationFromCoreDash {
 
     	// Consider OR-States
     	concState.getInnerORStates().parallelStream().filter(x -> (x.getInnerORStates().size() + x.getInnerConcStates().size()) > 0).forEach(ORState -> {
-    		addSigAST(module, ORState.getFullyQualName(), ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, concState.getFullyQualName()))), new ArrayList<Decl>(), null, null, new Pos("one", 0, 0), null, null);
+    		addSigAST(module, ORState.getFullyQualName(), ExprVar.make(null, "extends"), new ArrayList<ExprVar>(Arrays.asList(ExprVar.make(null, concState.getFullyQualName()))), new ArrayList<Decl>(), new Pos("abstract", 0, 0), null, null, null, null);
     		createChildStateAST(ORState, module);
     	});
 
