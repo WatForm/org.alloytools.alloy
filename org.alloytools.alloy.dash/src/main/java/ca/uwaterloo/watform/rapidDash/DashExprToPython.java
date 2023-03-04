@@ -28,8 +28,9 @@ public class DashExprToPython<ExprType> {
     // only used for invariants
     private Set<String> relatedDynamicVars;
     private List<String> assignableVars;
+    private Set<String> reservedVarNames;
 
-    public DashExprToPython(ExprType specialExpr, Map<String, String> variable2StateNameMap, String varName, List<DashPythonTranslation.Relation> relations, ExprTypeE exprType){
+    public DashExprToPython(ExprType specialExpr, Map<String, String> variable2StateNameMap, String varName, List<DashPythonTranslation.Relation> relations, ExprTypeE exprType, Set<String> reservedVarNames){
         this.specialExpr = specialExpr;
         this.localVarStack = new LinkedList<>();
         this.sbs = new LinkedList<>();
@@ -40,21 +41,22 @@ public class DashExprToPython<ExprType> {
         this.exprType = exprType;
         this.relatedDynamicVars = new HashSet<>();
         this.assignableVars = new LinkedList<>();
+        this.reservedVarNames = reservedVarNames;
 
         // TODO: currently only support DashWhenExpr
         this.parseExpr();
     }
 
     public DashExprToPython(ExprType specialExpr, Map<String, String> variable2StateNameMap, String varName, List<DashPythonTranslation.Relation> relations){
-        this(specialExpr, variable2StateNameMap, varName, relations, ExprTypeE.DEFAULT);
+        this(specialExpr, variable2StateNameMap, varName, relations, ExprTypeE.DEFAULT, new HashSet<>());
     }
 
-    public DashExprToPython(ExprType specialExpr, Map<String, String> variable2StateNameMap, ExprTypeE exprType){
-        this(specialExpr, variable2StateNameMap, "", null, exprType);
+    public DashExprToPython(ExprType specialExpr, Map<String, String> variable2StateNameMap, ExprTypeE exprType, Set<String> reservedVarNames){
+        this(specialExpr, variable2StateNameMap, "", null, exprType, reservedVarNames);
     }
 
     public DashExprToPython(ExprType specialExpr, Map<String, String> variable2StateNameMap){
-        this(specialExpr, variable2StateNameMap, "", null, ExprTypeE.DEFAULT);
+        this(specialExpr, variable2StateNameMap, "", null, ExprTypeE.DEFAULT, new HashSet<>());
     }
 
     @Override
@@ -521,7 +523,9 @@ public class DashExprToPython<ExprType> {
             relatedDynamicVars.add(varName);
             return varTrackerName + variable2StateNameMap.get(varName) + "_" + varName;
         }
-        localVarStack.addLast(varName);
+        if (!reservedVarNames.contains(varName)){
+            localVarStack.addLast(varName);
+        }
     	return varName;
     }
 }

@@ -588,16 +588,21 @@ public class DashPythonTranslation {
         	}
         }
 
+        // gather the names of all relations and signatures
+        Set<String> reservedNames = new HashSet<>();
+        signatures.forEach(sig -> reservedNames.add(sig.getName()));
+        relations.forEach(rel -> reservedNames.add(rel.getName()));
+
         // generate invariants
         invariants = new ArrayList<>();
         for(DashInvariant dashInv : dashModule.getInvariants().values()){
-            Invariant inv = new Invariant(dashInv);
+            Invariant inv = new Invariant(dashInv, reservedNames);
             invariants.add(inv);
         }
 
         // generate transitions
         for(DashTrans dashTrans : dashModule.getTransitions().values()){
-            Transition trans = new Transition(dashTrans, invariants);
+            Transition trans = new Transition(dashTrans, invariants, reservedNames);
             this.statesMap.get(trans.getStateName()).addTransition(trans);
             this.setTransStateActivenessChange(trans);
         }
@@ -936,7 +941,7 @@ public class DashPythonTranslation {
         public HashSet<State> nonActiveStatesAfterTrans = new HashSet<State>();
         public HashSet<State> activeStatesAfterTrans = new HashSet<State>();
 
-        public Transition(DashTrans dashTrans, List<Invariant> invariantList){
+        public Transition(DashTrans dashTrans, List<Invariant> invariantList, Set<String> reservedNames){
             // set default transition information
             this.transName = dashTrans.getRawName();
             if (dashTrans.getParent() instanceof DashConcState) {
@@ -953,15 +958,12 @@ public class DashPythonTranslation {
                 this.eventCondition = dashTrans.getTriggerEvent().getRawName();
             }
             if(dashTrans.getCondition() != null){       // determines the guard_condition (if statement)
-                DashExprToPython<DashWhenExpr> dashExprTranslator = new DashExprToPython<>(dashTrans.getCondition(), variable2StateNameMap, DashExprToPython.ExprTypeE.EVAL);
-
-                // set condition
+                DashExprToPython<DashWhenExpr> dashExprTranslator = new DashExprToPython<>(dashTrans.getCondition(), variable2StateNameMap, DashExprToPython.ExprTypeE.EVAL, reservedNames);
                 this.guardConditions = dashExprTranslator.toList();
             }
             if(dashTrans.getAction() != null){  // determines the action
-                DashExprToPython<DashDoExpr> dashExprTranslator = new DashExprToPython<>(dashTrans.getAction(), variable2StateNameMap,DashExprToPython.ExprTypeE.DO);
+                DashExprToPython<DashDoExpr> dashExprTranslator = new DashExprToPython<>(dashTrans.getAction(), variable2StateNameMap,DashExprToPython.ExprTypeE.DO, reservedNames);
 
-                // set actions
                 this.actions = dashExprTranslator.toList();
                 this.assignableVars = dashExprTranslator.getAssignableVars();
                 Set<String> relatedDynamicVars = dashExprTranslator.getRelatedDynamicVars();
@@ -981,10 +983,6 @@ public class DashPythonTranslation {
             if(dashTrans.getTransTemplate() != null){   // TODO: don't know what this does
                 this.transTemplate = "pass\t# <placeholder for Trans Template>";
             }
-        }
-
-        public Transition(DashTrans dashTrans){
-            this(dashTrans, new ArrayList<>());
         }
 
         public String getTransName(){return transName;}
@@ -1021,13 +1019,13 @@ public class DashPythonTranslation {
         private List<String> conditions = new ArrayList<>();    // the logic for this invariant to be executed
         private Set<String> relatedVariables = new HashSet<>(); // the variables that are related to this invariant
 
-        public Invariant(DashInvariant dashInvariant){
+        public Invariant(DashInvariant dashInvariant, Set<String> reservedVarNames){
             // set default invariant information
             this.invariantName = "Inv_" + dashInvariant.getRawName();
 
             // determines the invariant condition
             if(dashInvariant.getExpr() != null){
-                DashExprToPython<Expr> dashExprTranslator = new DashExprToPython<>(dashInvariant.getExpr(), variable2StateNameMap, DashExprToPython.ExprTypeE.EVAL);
+                DashExprToPython<Expr> dashExprTranslator = new DashExprToPython<>(dashInvariant.getExpr(), variable2StateNameMap, DashExprToPython.ExprTypeE.EVAL, reservedVarNames);
                 this.conditions = dashExprTranslator.toList();
                 this.relatedVariables = dashExprTranslator.getRelatedDynamicVars();
             }
