@@ -326,7 +326,7 @@ class VariableTracker:
 
     # TODO: delete this comment.
     # This only serves as a proof of concept at this moment.
-    def back_track(self):
+    def back_track_big_step(self):
         """Back track to the previous snapshot."""
         changes = self.history_of_changes.pop()
         for name, value in changes.items():
@@ -466,9 +466,9 @@ $padding            return False
 $padding        if not $trans.getGuardConditions().get(0)
                     #set($lastIndex = ${trans.getGuardConditions().size()} - 1)
                     #foreach($guardCondition in ${trans.getGuardConditions().subList(1, $lastIndex)})
-$padding                ${guardCondition}
+$padding            ${guardCondition}
                     #end
-$padding                ${trans.getGuardConditions().get($lastIndex)}:
+$padding            ${trans.getGuardConditions().get($lastIndex)}:
 $padding            return False
                 #end
             #end
@@ -482,9 +482,28 @@ $padding        # TODO: global variables (signatures used in this state)
 $padding        global ${globalVar}
                 #end#end
 $padding        print(Blue + "Taking transition ${trans.getTransName()}" + Reset)
-            #if(!$trans.getActions().isEmpty())
+            #if(!$trans.getActions().isEmpty() && !$trans.getAssignedVarNames().isEmpty())
+                #if(!$trans.getInvariantNames().isEmpty()) #foreach($var in $trans.getAssignedVarNames())
+$padding        ${var}_tmp = SS.${var}
+                #end#end
                 #foreach($action in $trans.getActions())
 $padding        ${action}
+                #end
+                #if($trans.getInvariantNames().size() == 1)
+$padding        if not $trans.getInvariantNames().get(0)():
+                    #foreach($var in $trans.getAssignedVarNames())
+$padding            SS.${var} = ${var}_tmp
+                    #end
+                #elseif($trans.getInvariantNames().size() > 1)
+$padding        if not ($trans.getInvariantNames().get(0)() and
+                    #set($lastIndex = ${trans.getInvariantNames().size()} - 1)
+                    #foreach($invariantName in ${trans.getInvariantNames().subList(1, $lastIndex)})
+$padding            ${invariantName}() and
+                    #end
+$padding            ${trans.getInvariantNames().get($lastIndex)}()):
+                    #foreach($var in $trans.getAssignedVarNames())
+$padding            SS.${var} = ${var}_tmp
+                    #end
                 #end
             #end
             #if(${trans.getTriggerEvent()})
@@ -498,6 +517,7 @@ $padding        for state in states_becoming_non_active:
 $padding            state.is_active = False
                 #end
                 #if($trans.getActiveStatesAfterTrans().size() > 0)
+$padding        # TODO: delete this later. Do we need the line below?
 $padding        # size = $trans.geActiveStatesAfterTrans().size()
 $padding        states_becoming_active = $trans.getActiveStatesAfterTransPythonStr()
 $padding        for state in states_becoming_active:
