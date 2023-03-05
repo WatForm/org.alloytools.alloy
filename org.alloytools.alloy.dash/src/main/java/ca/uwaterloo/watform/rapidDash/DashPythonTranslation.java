@@ -25,6 +25,7 @@ public class DashPythonTranslation {
 
     public List<Signature> signatures;
     public List<Relation> relations;
+    public List<EnvVarInput> envVarInputs = new ArrayList<EnvVarInput>();;
     public List<Event> allEnvEvents = new ArrayList<Event>();
     private HashSet<String> envEventNames = new HashSet<String>();
     public State rootState = null;
@@ -408,6 +409,25 @@ public class DashPythonTranslation {
         }
     }
 
+    public class EnvVarInput {
+
+        private String name;
+        private String hint;
+
+        public EnvVarInput(String name, String hint) {
+            this.name = name;
+            this.hint = hint;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public String getHint() {
+            return hint;
+        }
+    }
+
     private String fieldDeclExprToString(Expr expr) {
         if (expr instanceof ExprVar) {
             return ((ExprVar) expr).label;
@@ -653,13 +673,52 @@ public class DashPythonTranslation {
         }
 
         // add the environmental variable expressions
+        Sig snapshot = null;
+        if (a4Solution != null) {
+            // Find Snapshot signature from a4Solution
+            for (Sig sigIter : a4Solution.getAllReachableSigs()) {
+                if (clean(sigIter.label).equals("Snapshot")) {
+                    snapshot = sigIter;
+                    break;
+                }
+            }
+        }
         for(Map.Entry<String, Expr> envExprs: dashModule.getEnvVarExpresssion().entrySet()) {
             String envName = envExprs.getKey();
             String variableName = envVariable2VarNameMap.get(envName);
             String stateName = variable2StateNameMap.get(envName);
 
-            DashExprToPython dashExprTranslator = new DashExprToPython<>(envExprs.getValue(), variable2StateNameMap, variableName, this.relations);
-            statesMap.get(stateName).addDecl(envName + " = " + dashExprTranslator);
+            if (envExprs.getValue() instanceof ExprUnary) {
+                DashExprToPython dashExprTranslator = new DashExprToPython<>(envExprs.getValue(), variable2StateNameMap, variableName, this.relations);
+                statesMap.get(stateName).addDecl(envName + " = " + dashExprTranslator);
+            } else {
+                if (a4Solution == null) {
+                    throw new ErrorFatal("Does not support env relation  " + stateName + "_" + variableName);
+                }
+                boolean found = false;
+                for (Sig.Field f : snapshot.getFields()) {
+                    if (f.label.equals(stateName + "_" + variableName)) {
+                        String className = "Relation";
+                        String multiplicityOrTypes = "";
+                        for (Type.ProductType type : f.type()) {
+                            // Relation
+                            List<String> typeStrings = new ArrayList<String>();
+                            for (int i = 1; i < type.arity(); i++) {
+                                typeStrings.add(clean(type.get(i).label));
+                            }
+                            multiplicityOrTypes = "[" + String.join(", ", typeStrings) + "]";
+                        }
+                        statesMap.get(stateName).addDecl(stateName + "_" + variableName + " = " + className + "('" + variableName + "', " + multiplicityOrTypes + ")");
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    throw new ErrorFatal("Cannot find env variable " + stateName + "_" + variableName + " in the solution");
+                }
+            }
+            EnvVarInput envVarInput = new EnvVarInput(envName, envExprs.getValue().toString());
+            envVarInputs.add(envVarInput);
         }
     }
 
@@ -773,7 +832,6 @@ public class DashPythonTranslation {
         private List<String> decls;
         private List<String> inits;
         private List<String> init_constraints;
-
         private boolean isConc;
         private List<Event> events;
         public State parent = null;
@@ -798,7 +856,6 @@ public class DashPythonTranslation {
         public List<String> getInits() { return inits.stream().collect(Collectors.toList()); }
         public List<String> getInitConstraints() { return init_constraints.stream().collect(Collectors.toList()); }
         public List<Event> getEvents() { return events.stream().collect(Collectors.toList()); }
-
         public boolean getIsConc() {return isConc;}
 
         public boolean isRootState() { return parent == null; }
