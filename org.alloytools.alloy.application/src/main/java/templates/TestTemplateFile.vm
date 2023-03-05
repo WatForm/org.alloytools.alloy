@@ -647,7 +647,9 @@ class CentralController:
             elif eventName != "":
                 print("Invalid event name")
 
+            #if($envVarInputs)
             input_env_variables()
+            #end
             eventName = input("Please enter an event to be processed by the model. Type \"help\" for a list of possible events\n")
             while eventName == "":
                 eventName = input()
