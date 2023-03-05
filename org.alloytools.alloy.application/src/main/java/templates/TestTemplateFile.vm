@@ -109,12 +109,7 @@ class State(ABC):
 #if($signatures)
 
 def random_subset(s):
-    out = set()
-    for el in s:
-        # random coin flip
-        if random.randint(0, 1) == 0:
-            out.add(el)
-    return out
+    return set([e for e in s if random.randint(0, 1) == 0])
 
 class MetaSet(type):
     """
@@ -260,6 +255,8 @@ class Signature(metaclass = MetaSet):
                 ret = random_subset(self.atoms)
                 if len(ret):
                     return ret
+        else: # Set
+            return random_subset(self.atoms)
 
     def __repr__(self):
         return f"{self.__class__.__name__} - {self.name} : {self.elements}" if self.elements else f"{self.__class__.__name__} - {self.name} : Empty"
