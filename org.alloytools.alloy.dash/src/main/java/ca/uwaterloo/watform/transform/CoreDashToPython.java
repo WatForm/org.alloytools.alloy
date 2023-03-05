@@ -64,7 +64,10 @@ public class CoreDashToPython {
         // add states
         vc.put("rootStates", dashPythonTranslation.getRootStates());
         vc.put("allStates", dashPythonTranslation.getAllStates());
-        
+
+        // add environment variables
+        vc.put("envVarInputs", dashPythonTranslation.envVarInputs);
+
         // add events
         vc.put("allEnvEvents", dashPythonTranslation.allEnvEvents);
         

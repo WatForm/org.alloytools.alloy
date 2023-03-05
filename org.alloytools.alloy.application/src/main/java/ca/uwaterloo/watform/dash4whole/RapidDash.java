@@ -8,7 +8,6 @@ import ca.uwaterloo.watform.transform.CoreDashToElectrum;
 import ca.uwaterloo.watform.transform.CoreDashToPython;
 import ca.uwaterloo.watform.transform.DashToCoreDash;
 import edu.mit.csail.sdg.alloy4.A4Reporter;
-import edu.mit.csail.sdg.alloy4viz.VizGUI;
 import edu.mit.csail.sdg.ast.Command;
 import edu.mit.csail.sdg.parser.CompModule;
 import edu.mit.csail.sdg.parser.CompUtil;
@@ -16,15 +15,22 @@ import edu.mit.csail.sdg.translator.A4Options;
 import edu.mit.csail.sdg.translator.A4Solution;
 import edu.mit.csail.sdg.translator.TranslateAlloyToKodkod;
 
+import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.Scanner;
+
+import static java.lang.System.exit;
 
 public class RapidDash {
 
     @SuppressWarnings("resource" )
     public static void main(String args[]) throws Exception {
 
+        System.out.println("Please remove any existing commands in the dash file. Only one command can be added to specify the scopes. If there is no command, the default scope 3 is used.");
         System.out.println("Please specify the .dsh file path:");
         Scanner sc = new Scanner(System.in);
         String actual = sc.nextLine();
@@ -69,10 +75,16 @@ public class RapidDash {
             DashModule alloy = DashOptions.isElectrum ? new CoreDashToElectrum().convertToElectrumAST(coreDash, "", "") : new CoreDashToAlloy().convertToAlloyAST(coreDash, "", "");
             alloy = DashModule.resolveAll(rep == null ? A4Reporter.NOP : rep, alloy);
             String alloyString = new DashModuleToString(true).getString(alloy);
-            System.out.println(alloyString);
+            // Change default Alloy command to "run init"
+            StringBuilder alloyStringBuilder = new StringBuilder(alloyString);
+            if (alloyStringBuilder.lastIndexOf("run runDefault1") > 0) {
+                int index = alloyStringBuilder.lastIndexOf("run runDefault1");
+                alloyStringBuilder.replace(index, "run runDefault1".length() + index, "run init");
+                alloyString = alloyStringBuilder.toString();
+            } else {
+                alloyString += "run init";
+            }
             CompModule alloyComp = CompUtil.parseEverything_fromString(rep, alloyString);
-
-            VizGUI viz = null;
 
             A4Options options = new A4Options();
 

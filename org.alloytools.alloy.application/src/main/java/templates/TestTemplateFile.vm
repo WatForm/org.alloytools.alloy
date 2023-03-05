@@ -3,6 +3,8 @@ from abc import ABC
 from operator import methodcaller
 from typing import List
 from collections import deque
+from copy import deepcopy
+from ast import literal_eval
 
 import itertools
 import logging
@@ -105,6 +107,10 @@ class State(ABC):
 
 #end
 #if($signatures)
+
+def random_subset(s):
+    return set([e for e in s if random.randint(0, 1) == 0])
+
 class MetaSet(type):
     """
     Used by variables to make operations consistent.
@@ -211,7 +217,7 @@ class Signature(metaclass = MetaSet):
         # Note: state variables are not implemented yet, this only aims to help in the future implementation of state variables
 
     # Return elements
-    def get_elements(self) -> set:
+    def get_values(self) -> set:
         return self.elements
 
     # Returns true if the new set of elements is valid for its multiplicity
@@ -229,11 +235,30 @@ class Signature(metaclass = MetaSet):
         return True
 
     # returns true if successfully set the new set of elements for this state variable
-    def update_elements(self, new_elements) -> bool:
+    def update_value(self, new_elements) -> bool:
         if(self.is_valid(new_elements)):
             self.elements = new_elements
             return True
         return False
+
+    def generate_random_value(self):
+        if self.multiplicity  == 0:  # Lone
+            if len(self.atoms) == 0 or random.randint(0, 1) == 0:
+                return set()
+            else:
+                return set(random.sample(sorted(self.atoms), 1))
+        elif self.multiplicity == 1: # One
+            return set(random.sample(sorted(self.atoms), 1))
+        elif self.multiplicity == 2: # Some
+            if len(self.atoms) == 0:
+                print("Exception, empty signature cannot support some multiplicity")
+                exit(1)
+            while True:
+                ret = random_subset(self.atoms)
+                if len(ret):
+                    return ret
+        else: # Set
+            return random_subset(self.atoms)
 
     def __repr__(self):
         return f"{self.__class__.__name__} - {self.name} : {self.elements}" if self.elements else f"{self.__class__.__name__} - {self.name} : Empty"
@@ -275,6 +300,33 @@ class Relation(metaclass = MetaSet):
         domain_elements = [type.objects() for type in cls.types]
         return set([tup for tup in itertools.product(*domain_elements)])
 
+    def possible_tuples_instance_method(self) -> set:
+        domain_elements = [type.objects() for type in self.types]
+        return set([tup for tup in itertools.product(*domain_elements)])
+
+    def get_values(self) -> set:
+        return self.values
+
+    def generate_random_value(self):
+        return random_subset(self.possible_tuples_instance_method())
+
+    # Returns true if the new set of tuples is valid for its types
+    def is_valid(self, values) -> bool:
+        for v in values:
+            if len(self.types) != len(v):
+                return False
+            for t, e in zip(self.types, v):
+                if e not in t:
+                    return False
+        return True
+
+    # returns true if successfully set the new set of tuples for this state variable
+    def update_value(self, new_values) -> bool:
+        if (self.is_valid(new_values)):
+            self.values = new_values
+            return True
+        return False
+
     def __repr__(self):
         return f"{self.__class__.__name__} - {self.name} : {self.values}" if self.values else f"{self.__class__.__name__} - {self.name} : Empty"
 
@@ -308,7 +360,7 @@ class VariableTracker:
 
     def __setattr__(self, name, value):
         if name in self.__dict__:
-            self.changes[name] = self.__dict__[name]
+            self.changes[name] = deepcopy(self.__dict__[name])
             if isinstance(self.changes[name], Relation):
                 self.__dict__[name].values = value
             else: # Assume only Relation and Signature instances are used.
@@ -539,6 +591,37 @@ $padding        return True
 #foreach($rootState in $rootStates)
 	#generateState($rootState "")
 #end
+
+#if($envVarInputs)
+# --- Input Environment Variables ---
+
+def input_env_var(env_var, var_name, hint):
+    while True:
+        print(f'Environment variable {var_name}({hint}) currently has value {env_var.get_values()}.')
+        input_value = input(f'Please enter new value for environment variable {var_name}:')
+        # leave value unchanged
+        if input_value == "unchanged":
+            return
+        # generate random values
+        if input_value == "random":
+            new_value = env_var.generate_random_value()
+            print("Randomly generated value: " + str(new_value))
+            if not env_var.update_value(new_value):
+                print("Exception, unexpected state")
+                exit(1)
+            return
+        # update values
+        if env_var.update_value(literal_eval(input_value)):
+            return
+        print("Invalid Value! Try again.")
+
+def input_env_variables():
+    print("Please enter values for environmental variables, \"random\" to use randomly generated value, \"unchanged\" to leave them unchanged.")
+    #foreach($envVarInput in $envVarInputs)
+    input_env_var(SS.${envVarInput.name}, "SS.${envVarInput.name}", "${envVarInput.hint}n")
+    #end
+#end
+
 #if($rootState)
 # --- Central Controller ---
 
@@ -613,6 +696,9 @@ class CentralController:
             elif eventName != "":
                 print("Invalid event name")
 
+            #if($envVarInputs)
+            input_env_variables()
+            #end
             eventName = input("Please enter an event to be processed by the model. Type \"help\" for a list of possible events\n")
             while eventName == "":
                 eventName = input()
