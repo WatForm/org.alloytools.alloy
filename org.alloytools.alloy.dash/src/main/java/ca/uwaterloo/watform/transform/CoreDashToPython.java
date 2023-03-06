@@ -70,6 +70,8 @@ public class CoreDashToPython {
 
         // add events
         vc.put("allEnvEvents", dashPythonTranslation.allEnvEvents);
+        vc.put("orthogonalPairs", dashPythonTranslation.getOrthogonalPairs());
+        vc.put("allTransitions", dashPythonTranslation.getAllTransitions());
         
         vc.put("rootState", dashPythonTranslation.rootState);
 

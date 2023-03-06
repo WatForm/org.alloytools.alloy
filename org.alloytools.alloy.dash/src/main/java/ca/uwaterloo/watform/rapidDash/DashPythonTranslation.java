@@ -671,6 +671,38 @@ public class DashPythonTranslation {
         return states;
     }
 
+    public List<Transition> getAllTransitions() {
+        List<Transition> transitions = new ArrayList<>();
+
+        for(State state: statesMap.values()) {
+            for(Transition t: state.transitions) {
+                transitions.add(t);
+            }
+        }
+        return transitions;
+    }
+
+    public List<OrthogonalTransitionPair> getOrthogonalPairs() {
+        List<OrthogonalTransitionPair> orthogonalTransitionPairs = new ArrayList<>();
+        List<Transition> transitions = getAllTransitions();
+
+        for(int t1Index = 0; t1Index < transitions.size(); t1Index++) {
+            Transition t1 = transitions.get(t1Index);
+            for(int t2Index = t1Index+1; t2Index < transitions.size(); t2Index++) {
+                Transition t2 = transitions.get(t2Index);
+                State t1Src = this.statesMap.get(t1.fromStateName.replace("/", "_"));
+                State t1Dest = this.statesMap.get(t1.toStateName.replace("/", "_"));
+                State t2Src = this.statesMap.get(t2.fromStateName.replace("/", "_"));
+                State t2Dest = this.statesMap.get(t2.toStateName.replace("/", "_"));
+
+                if(rootState.LCA(rootState.LCA(t1Src, t1Dest), rootState.LCA(t2Src, t2Dest)).isChildrenConc()) {
+                    orthogonalTransitionPairs.add(new OrthogonalTransitionPair(t1.transName, t2.transName, t1.getPythonVariableStateName(), t2.getPythonVariableStateName()));
+                }
+            }
+        }
+        return orthogonalTransitionPairs;
+    }
+
     // Declare state variables and add them into the map.
     private void addEnvVariableDeclarations() {
 
@@ -837,6 +869,36 @@ public class DashPythonTranslation {
         return signaturesSortedList;
     }
 
+    public class OrthogonalTransitionPair {
+        private String firstTransition;
+        private String secondTransition;
+        private String firstTransitionState;
+        private String secondTransitionState;
+
+        public OrthogonalTransitionPair(String f, String s, String fts, String sts) {
+            this.firstTransition = f;
+            this.secondTransition = s;
+            this.firstTransitionState = fts;
+            this.secondTransitionState = sts;
+        }
+
+        public String getFirstTrans() {
+            return firstTransition;
+        }
+
+        public String getSecondTrans() {
+            return secondTransition;
+        }
+
+        public String getFirstTransStateName() {
+            return firstTransitionState;
+        }
+
+        public String getSecondTransStateName() {
+            return secondTransitionState;
+        }
+    }
+
     public class State{
         private String stateName;                       // state name
         private List<Transition>  transitions;   // store the translated code for transitions
@@ -879,6 +941,10 @@ public class DashPythonTranslation {
         public void addEvent(Event e) { events.add(e); }
         public State getDefaultSubstate() {
         	return defaultSubstate != null ? defaultSubstate : substates.get(0);
+        }
+
+        public Boolean isChildrenConc() {
+            return substates.size() > 0 ? substates.get(0).getIsConc() : false;
         }
 
         /**
@@ -1044,6 +1110,7 @@ public class DashPythonTranslation {
 
         public String getTransName(){return transName;}
         public String getStateName(){return stateName;}
+        public String getPythonVariableStateName() {return "ref_" + stateName.toLowerCase();}
         public List<String> getGuardConditions(){return guardConditions;}
         public List<String> getActions(){return actions;}
         public List<String> getInvariantNames(){return invariants;}
