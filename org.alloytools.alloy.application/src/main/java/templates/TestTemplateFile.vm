@@ -644,21 +644,46 @@ class CentralController:
         #end
 
     def handle_event(self):
-        unused_conc_states = {self.concState#foreach($value in $allStates)#if($value.getIsConc() && !$value.isRootState()), $value.getPythonVariableName()#end#end} # set of conc states that haven't taken a transition in this big step
-        conc_state_to_active_child = dict() # dictionary that maps each conc state to its active child at the start of this big step
-        for conc_state in unused_conc_states:
-            conc_state_to_active_child[conc_state] = conc_state.get_active_child_state()
-        prev_num_unused_conc_states = -1
+        # set of transitions that can still be taken in this big step
+        #if(${allTransitions.size()} > 0)
+        remaining_legal_transitions = {
+            #foreach($trans in ${allTransitions.subList(0, ${allTransitions.size()} - 1)})
+            ${trans.getPythonVariableStateName()}._trans_${trans.getTransName()},
+            #end
+            #if($allTransitions.size() > 0)
+            #set($lastTrans = ${allTransitions.get(${allTransitions.size()} - 1)})
+            ${lastTrans.getPythonVariableStateName()}._trans_${lastTrans.getTransName()}
+            #end
+        }
+        #else
+        remaining_legal_transitions = set()
+        #end
+        # set of pairs of transitions that are orthogonal to each other
+        # the two transitions in each pair can both be taken in a big step
+        #if(${orthogonalPairs.size()} > 0)
+        orthogonal_transition_pairs = {
+        #foreach($pair in ${orthogonalPairs.subList(0, ${orthogonalPairs.size()} - 1)})
+            (${pair.getFirstTransStateName()}._trans_${pair.getFirstTrans()}, ${pair.getSecondTransStateName()}._trans_${pair.getSecondTrans()}),
+            #end
+            #if($orthogonalPairs.size() > 0)
+            #set($lastPair = ${orthogonalPairs.get(${orthogonalPairs.size()} - 1)})
+            (${lastPair.getFirstTransStateName()}._trans_${lastPair.getFirstTrans()}, ${lastPair.getSecondTransStateName()}._trans_${lastPair.getSecondTrans()})
+            #end
+        }
+        #else
+        orthogonal_transition_pairs = set()
+        #end
+        prev_remaining_legal_transitions = -1
 
-        while len(unused_conc_states) > 0 and prev_num_unused_conc_states != len(unused_conc_states):
-            prev_num_unused_conc_states = len(unused_conc_states)
+        while len(remaining_legal_transitions) > 0 and prev_remaining_legal_transitions != len(remaining_legal_transitions):
+            prev_remaining_legal_transitions = len(remaining_legal_transitions)
             state_queue = [self.concState]
             while state_queue:
                 cur_state = state_queue.pop(0)
 
                 possible_transitions = []
                 for k, v in cur_state.transitions.items():
-                    if k():
+                    if v in remaining_legal_transitions and k():
                         possible_transitions.append(v)
 
                 # pick a random transition that satisfy the invariants
@@ -670,19 +695,17 @@ class CentralController:
                         break
 
                 # if any transitions are possible, take one at random
-                if has_valid_transitions:
-                    # prevent the current state from taking additional transitions if it is conc (big step maximality)
-                    if cur_state.is_conc:
-                        unused_conc_states.remove(cur_state)
-                    # if any other conc_state's active state changed (i.e. the conc_state took a transition), prevent additional transitions
-                    for conc_state in unused_conc_states.copy():
-                        if conc_state.get_active_child_state() != conc_state_to_active_child[conc_state]:
-                            unused_conc_states.remove(conc_state)
+                if possible_transitions:
+                    chosen_transition = possible_transitions[random.randint(0, len(possible_transitions) - 1)]
+                    chosen_transition()
+                    remaining_legal_transitions.remove(chosen_transition)
+                    for transition in remaining_legal_transitions.copy():
+                        if (chosen_transition, transition) not in orthogonal_transition_pairs and (transition, chosen_transition) not in orthogonal_transition_pairs:
+                            remaining_legal_transitions.remove(transition)
                 # add cur_state's conc state children to queue
                 elif cur_state._is_children_conc:
                     for conc_state in cur_state._children:
-                        if conc_state in unused_conc_states:
-                            state_queue.append(conc_state)
+                        state_queue.append(conc_state)
                 # add cur_state's active state to queue
                 elif cur_state.get_active_child_state() is not None:
                     state_queue.append(cur_state.get_active_child_state())
