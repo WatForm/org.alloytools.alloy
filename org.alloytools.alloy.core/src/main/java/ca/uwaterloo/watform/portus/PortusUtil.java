@@ -296,15 +296,33 @@ final class PortusUtil {
 
             @Override
             public List<AnnotatedVar> visit(ExprQt x) throws Err {
-                // the quantified variables aren't free - remove them from the list
-                List<AnnotatedVar> subFreeVars = visitThis(x.sub);
-                List<String> quantifiedVarNames = x.decls.stream()
-                        .flatMap(decl -> decl.names.stream())
-                        .map(name -> name.label)
-                        .collect(Collectors.toList());
-                return subFreeVars.stream()
-                        .filter(var -> !quantifiedVarNames.contains(var.name()))
-                        .collect(Collectors.toList());
+                // Add each quantified variable to the context and map bound variables being declared.
+                // We map each of them to this constant so we can easily remove it from the list of free vars later.
+                // Use a nonexistant sort and special characters in the names so we don't collide with user vars.
+                final Sort nonexistantSort = Sort.mkSortConst("%NonexistantSort");
+                final AnnotatedVar boundPlaceholderVar = Term.mkVar("%boundPlaceholderVar").of(nonexistantSort);
+                List<AnnotatedVar> freeVars = new ArrayList<>();
+                for (Decl decl : x.decls) {
+                    for (ExprHasName name : decl.names) {
+                        freeVars = union(freeVars, visitThis(decl.expr));
+                        context.addVarMapping(name.label, boundPlaceholderVar);
+                    }
+                }
+
+                try {
+                    // the special bound variable represents vars that aren't free - remove it from the list
+                    List<AnnotatedVar> subFreeVars = visitThis(x.sub);
+                    return union(freeVars, subFreeVars.stream()
+                            .filter(var -> !var.equals(boundPlaceholderVar))
+                            .collect(Collectors.toList()));
+                } finally {
+                    // remove each quantified variable from the context
+                    for (Decl decl : x.decls) {
+                        for (ExprHasName name : decl.names) {
+                            context.removeMapping(name.label);
+                        }
+                    }
+                }
             }
 
             @Override
