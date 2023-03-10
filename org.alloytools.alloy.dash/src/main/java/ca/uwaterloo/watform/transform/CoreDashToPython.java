@@ -58,6 +58,9 @@ public class CoreDashToPython {
         // add relations
         vc.put("relations", dashPythonTranslation.relations);
 
+        // add invariants
+        vc.put("invariants", dashPythonTranslation.invariants);
+
         // add states
         vc.put("rootStates", dashPythonTranslation.getRootStates());
         vc.put("allStates", dashPythonTranslation.getAllStates());
