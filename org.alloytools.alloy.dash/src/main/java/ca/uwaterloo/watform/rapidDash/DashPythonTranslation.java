@@ -690,10 +690,10 @@ public class DashPythonTranslation {
             Transition t1 = transitions.get(t1Index);
             for(int t2Index = t1Index+1; t2Index < transitions.size(); t2Index++) {
                 Transition t2 = transitions.get(t2Index);
-                State t1Src = this.statesMap.get(t1.fromStateName.replace("/", "_"));
-                State t1Dest = this.statesMap.get(t1.toStateName.replace("/", "_"));
-                State t2Src = this.statesMap.get(t2.fromStateName.replace("/", "_"));
-                State t2Dest = this.statesMap.get(t2.toStateName.replace("/", "_"));
+                State t1Src = this.statesMap.get(t1.fromStateName);
+                State t1Dest = this.statesMap.get(t1.toStateName);
+                State t2Src = this.statesMap.get(t2.fromStateName);
+                State t2Dest = this.statesMap.get(t2.toStateName);
 
                 if(rootState.LCA(rootState.LCA(t1Src, t1Dest), rootState.LCA(t2Src, t2Dest)).isChildrenConc()) {
                     orthogonalTransitionPairs.add(new OrthogonalTransitionPair(t1.transName, t2.transName, t1.getPythonVariableStateName(), t2.getPythonVariableStateName()));
@@ -1075,7 +1075,7 @@ public class DashPythonTranslation {
 
             // check keywords
             if(dashTrans.getOrigin() != null){    // determines which state this transition belongs to
-                this.fromStateName = dashTrans.getOrigin().getAllOrigins().get(0);
+                this.fromStateName = dashTrans.getOrigin().getAllOrigins().get(0).replace("/", "_");
             }
             if(dashTrans.getTriggerEvent() != null){    // determines the trigger event
                 this.eventCondition = dashTrans.getTriggerEvent().getRawName();
