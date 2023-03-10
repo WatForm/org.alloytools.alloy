@@ -25,11 +25,12 @@ public class DashPythonTranslation {
 
     public List<Signature> signatures;
     public List<Relation> relations;
+    public List<Invariant> invariants;
     public List<EnvVarInput> envVarInputs = new ArrayList<EnvVarInput>();;
     public List<Event> allEnvEvents = new ArrayList<Event>();
     private HashSet<String> envEventNames = new HashSet<String>();
     public State rootState = null;
-    private Map<String, State> statesMap;
+    private Map<String, State> statesMap;               // maps state names to state objects
 
     private Map<String, String> variable2StateNameMap;  // maps variable names to state names or prefixes
     private Map<String, String> envVariable2VarNameMap; // maps env variable names to variable names
@@ -567,7 +568,6 @@ public class DashPythonTranslation {
                 }
             }
 
-
         	// add state events
         	for(DashEvent event: state.getEvents()) {
                 addEventToLists(event, state);
@@ -608,9 +608,21 @@ public class DashPythonTranslation {
         	}
         }
 
+        // gather the names of all relations and signatures
+        Set<String> reservedNames = new HashSet<>();
+        signatures.forEach(sig -> reservedNames.add(sig.getName()));
+        relations.forEach(rel -> reservedNames.add(rel.getName()));
+
+        // generate invariants
+        invariants = new ArrayList<>();
+        for(DashInvariant dashInv : dashModule.getInvariants().values()){
+            Invariant inv = new Invariant(dashInv, reservedNames);
+            invariants.add(inv);
+        }
+
         // generate transitions
         for(DashTrans dashTrans : dashModule.getTransitions().values()){
-            Transition trans = new Transition(dashTrans);
+            Transition trans = new Transition(dashTrans, invariants, reservedNames);
             this.statesMap.get(trans.getStateName()).addTransition(trans);
             this.setTransStateActivenessChange(trans);
         }
@@ -976,6 +988,8 @@ public class DashPythonTranslation {
         private String toStateName = "";
         private String transName = "";                       // transition name
         private List<String> actions = new ArrayList<>();    // the logic for this transition to be executed
+        private final List<String> invariants = new ArrayList<>();    // the logic for this transition to be executed
+        private List<String> assignableVars;
         private List<String> guardConditions = new ArrayList<>();   // the guard conditions of this transition
         private String eventCondition = "";
         private String triggerEvent = "";
@@ -984,7 +998,7 @@ public class DashPythonTranslation {
         public HashSet<State> nonActiveStatesAfterTrans = new HashSet<State>();
         public HashSet<State> activeStatesAfterTrans = new HashSet<State>();
 
-        public Transition(DashTrans dashTrans){
+        public Transition(DashTrans dashTrans, List<Invariant> invariantList, Set<String> reservedNames){
             // set default transition information
             this.transName = dashTrans.getRawName();
             if (dashTrans.getParent() instanceof DashConcState) {
@@ -997,35 +1011,43 @@ public class DashPythonTranslation {
             if(dashTrans.getOrigin() != null){    // determines which state this transition belongs to
                 this.fromStateName = dashTrans.getOrigin().getAllOrigins().get(0);
             }
-            if(dashTrans.getTriggerEvent() != null){      // determines the trigger event
+            if(dashTrans.getTriggerEvent() != null){    // determines the trigger event
                 this.eventCondition = dashTrans.getTriggerEvent().getRawName();
             }
-            if(dashTrans.getCondition() != null){    // determines the guard_condition (if statement)
-                DashExprToPython dashExprTranslator = new DashExprToPython<>(dashTrans.getCondition(), variable2StateNameMap, true);
-
-                // set condition
+            if(dashTrans.getCondition() != null){       // determines the guard_condition (if statement)
+                DashExprToPython<DashWhenExpr> dashExprTranslator = new DashExprToPython<>(dashTrans.getCondition(), variable2StateNameMap, DashExprToPython.ExprTypeE.EVAL, reservedNames);
                 this.guardConditions = dashExprTranslator.toList();
             }
-            if(dashTrans.getAction() != null){      // determines the action
-                DashExprToPython dashExprTranslator = new DashExprToPython<>(dashTrans.getAction(), variable2StateNameMap);
+            if(dashTrans.getAction() != null){  // determines the action
+                DashExprToPython<DashDoExpr> dashExprTranslator = new DashExprToPython<>(dashTrans.getAction(), variable2StateNameMap,DashExprToPython.ExprTypeE.DO, reservedNames);
 
-                // set actions
                 this.actions = dashExprTranslator.toList();
+                this.assignableVars = dashExprTranslator.getAssignableVars();
+                Set<String> relatedDynamicVars = dashExprTranslator.getRelatedDynamicVars();
+
+                invariantList.forEach(inv -> {
+                    if(!Collections.disjoint(relatedDynamicVars, inv.getRelatedVariables())){
+                        this.invariants.add(inv.getName());
+                    }
+                });
             }
-            if(dashTrans.getDestination() != null){    // determine the next state
+            if(dashTrans.getDestination() != null){     // determine the next state
                 this.toStateName = dashTrans.getDestination().getAllDestinations().get(0).replace("/", "_");
             }
-            if(dashTrans.getEventsTriggered() != null){    // determines the event to send
+            if(dashTrans.getEventsTriggered() != null){ // determines the event to send
                 this.triggerEvent = dashTrans.getEventsTriggered().getRawName();
             }
             if(dashTrans.getTransTemplate() != null){   // TODO: don't know what this does
                 this.transTemplate = "pass\t# <placeholder for Trans Template>";
             }
         }
+
         public String getTransName(){return transName;}
         public String getStateName(){return stateName;}
         public List<String> getGuardConditions(){return guardConditions;}
         public List<String> getActions(){return actions;}
+        public List<String> getInvariantNames(){return invariants;}
+        public List<String> getAssignedVarNames(){return assignableVars;}
         public String getEventCondition() {return eventCondition;}
         public String getFromStateName() {return fromStateName;}
         public String getToStateName() {return toStateName;}
@@ -1047,6 +1069,26 @@ public class DashPythonTranslation {
         public String getActiveStatesAfterTransPythonStr() {
             return getStatesAfterTransPythonStr(activeStatesAfterTrans);
         }
+    }
 
+    public class Invariant{
+        private String invariantName = "";                      // invariant name
+        private List<String> conditions = new ArrayList<>();    // the logic for this invariant to be executed
+        private Set<String> relatedVariables = new HashSet<>(); // the variables that are related to this invariant
+
+        public Invariant(DashInvariant dashInvariant, Set<String> reservedVarNames){
+            // set default invariant information
+            this.invariantName = "Inv_" + dashInvariant.getRawName();
+
+            // determines the invariant condition
+            if(dashInvariant.getExpr() != null){
+                DashExprToPython<Expr> dashExprTranslator = new DashExprToPython<>(dashInvariant.getExpr(), variable2StateNameMap, DashExprToPython.ExprTypeE.EVAL, reservedVarNames);
+                this.conditions = dashExprTranslator.toList();
+                this.relatedVariables = dashExprTranslator.getRelatedDynamicVars();
+            }
+        }
+        public String getName(){return invariantName;}
+        public List<String> getConditions(){return conditions;}
+        public Set<String> getRelatedVariables(){return relatedVariables;}
     }
 }
