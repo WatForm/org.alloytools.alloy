@@ -539,7 +539,6 @@ $padding        # TODO: global variables (signatures used in this state)
                 #foreach($globalVar in $globalVariables)
 $padding        global ${globalVar}
                 #end#end
-$padding        print(Blue + "Taking transition ${trans.getTransName()}" + Reset)
             #if(!$trans.getActions().isEmpty() && !$trans.getAssignedVarNames().isEmpty())
                 #if(!$trans.getInvariantNames().isEmpty()) #foreach($var in $trans.getAssignedVarNames())
 $padding        ${var}_tmp = SS.${var}
@@ -566,9 +565,7 @@ $padding            return False
                     #end
                 #end
             #end
-            #if(${trans.getTriggerEvent()})
-$padding        SS.activeEvents.add("${trans.getTriggerEvent()}")
-            #end
+$padding        print(Blue + "Taking transition ${trans.getTransName()}" + Reset)
 $padding        # Apply State Activeness Changes
                 #if($trans.getNonActiveStatesAfterTrans().size() > 0)
 $padding        # size = $trans.getNonActiveStatesAfterTrans().size()
@@ -686,18 +683,18 @@ class CentralController:
                     if v in remaining_legal_transitions and k():
                         possible_transitions.append(v)
 
-                # pick a random transition that satisfy the invariants
+                # pick a random transition that satisfies the invariants
                 random.shuffle(possible_transitions)
-                has_valid_transitions = False
+                chosen_transition = None
+                took_a_transition = False
                 for trans in possible_transitions:
                     if trans():
-                        has_valid_transitions = True
+                        chosen_transition = trans
+                        took_a_transition = True
                         break
 
-                # if any transitions are possible, take one at random
-                if possible_transitions:
-                    chosen_transition = possible_transitions[random.randint(0, len(possible_transitions) - 1)]
-                    chosen_transition()
+                # If a transition was taken, update the remaining legal transitions
+                if took_a_transition:
                     remaining_legal_transitions.remove(chosen_transition)
                     for transition in remaining_legal_transitions.copy():
                         if (chosen_transition, transition) not in orthogonal_transition_pairs and (transition, chosen_transition) not in orthogonal_transition_pairs:
