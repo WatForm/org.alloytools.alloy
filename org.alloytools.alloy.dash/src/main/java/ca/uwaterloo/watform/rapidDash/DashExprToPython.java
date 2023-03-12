@@ -23,16 +23,13 @@ public class DashExprToPython<ExprType> {
     private List<DashPythonTranslation.Relation> relations;
     public boolean isDecl = false;
     public boolean isInit = false;
-    private Deque<String> localVarStack;
     // used to store the dynamic variables that are related to the current expression
     // only used for invariants
     private Set<String> relatedDynamicVars;
     private List<String> assignableVars;
-    private Set<String> reservedVarNames;
 
-    public DashExprToPython(ExprType specialExpr, Map<String, String> variable2StateNameMap, String varName, List<DashPythonTranslation.Relation> relations, ExprTypeE exprType, Set<String> reservedVarNames){
+    public DashExprToPython(ExprType specialExpr, Map<String, String> variable2StateNameMap, String varName, List<DashPythonTranslation.Relation> relations, ExprTypeE exprType){
         this.specialExpr = specialExpr;
-        this.localVarStack = new LinkedList<>();
         this.sbs = new LinkedList<>();
         this.sbs.addLast(new StringBuilder());
         this.variable2StateNameMap = variable2StateNameMap;
@@ -41,22 +38,21 @@ public class DashExprToPython<ExprType> {
         this.exprType = exprType;
         this.relatedDynamicVars = new HashSet<>();
         this.assignableVars = new LinkedList<>();
-        this.reservedVarNames = reservedVarNames;
 
         // TODO: currently only support DashWhenExpr
         this.parseExpr();
     }
 
     public DashExprToPython(ExprType specialExpr, Map<String, String> variable2StateNameMap, String varName, List<DashPythonTranslation.Relation> relations){
-        this(specialExpr, variable2StateNameMap, varName, relations, ExprTypeE.DEFAULT, new HashSet<>());
+        this(specialExpr, variable2StateNameMap, varName, relations, ExprTypeE.DEFAULT);
     }
 
-    public DashExprToPython(ExprType specialExpr, Map<String, String> variable2StateNameMap, ExprTypeE exprType, Set<String> reservedVarNames){
-        this(specialExpr, variable2StateNameMap, "", null, exprType, reservedVarNames);
+    public DashExprToPython(ExprType specialExpr, Map<String, String> variable2StateNameMap, ExprTypeE exprType){
+        this(specialExpr, variable2StateNameMap, "", null, exprType);
     }
 
     public DashExprToPython(ExprType specialExpr, Map<String, String> variable2StateNameMap){
-        this(specialExpr, variable2StateNameMap, "", null, ExprTypeE.DEFAULT, new HashSet<>());
+        this(specialExpr, variable2StateNameMap, "", null, ExprTypeE.DEFAULT);
     }
 
     @Override
@@ -189,46 +185,51 @@ public class DashExprToPython<ExprType> {
         } else if (node instanceof ExprQt) {
             // Expression with quantifiers
             ExprQt qtNode = (ExprQt) node;
+            StringBuilder quantifiedSource = new StringBuilder();
 
             // format: quantifier variable:type | formula
 
-            // Get type/declaration of the quantified variable
-            // TODO: assume only 1 declaration or type
-            String quantifiedDecl = genExpr(qtNode.decls.get(0).expr, 1);
+            for(Decl decl : qtNode.decls){
+                // Get type/declaration of the quantified variables
+                String quantifiedDecl = genExpr(decl.expr, 1);
 
-            // Use a stack of local variables to keep track of the quantified variable names
-            // TODO: not exactly sure if this will always work
-            localVarStack.clear();
-
-            // Get the formula/condition of the quantified expression
-            // TODO: assume only 1 expression and it is an predicate statement
-            String quantifiedCondition = genExpr(qtNode.sub, 1);
-
-            String quantifiedVariable = "x";
-            if (!localVarStack.isEmpty()){
-                quantifiedVariable = localVarStack.peekLast();
+                // Get the quantified variables
+                for (ExprHasName variable : decl.names) {
+                    if (quantifiedSource.length() > 0){
+                        quantifiedSource.append(" ");
+                    }
+                    quantifiedSource.append(String.format("for %s in %s", genExpr(variable, 1), quantifiedDecl));
+                }
             }
+            // Get the formula of the quantified expression
+            Deque<StringBuilder> sbsTemp = sbs;
+            this.sbs = new LinkedList<>();
+            this.sbs.addLast(new StringBuilder());
+            String quantifiedFormula = genExpr(qtNode.sub, 1);
+            // Meaning there are several statements in the quantified formula
+            if(!sbs.getFirst().toString().isEmpty()){
+                quantifiedFormula = String.join(" ", toList());
+            }
+            sbs = sbsTemp;
 
-            String quantifiedSource = String.format("for %s in %s", quantifiedVariable, quantifiedDecl);;
-
+            // TODO: SUM and COMPREHENSION needs further implementation, currently only support them with one variable
             // Get the quantifier for list comprehension
             switch (qtNode.op) {
                 case ALL:   // All true
-                    return String.format("all([%s %s])", quantifiedCondition, quantifiedSource);
+                    return String.format("all([%s %s])", quantifiedFormula, quantifiedSource);
                 case NO:    // No true
-                    return String.format("not any([%s %s])", quantifiedCondition, quantifiedSource);
+                    return String.format("not any([%s %s])", quantifiedFormula, quantifiedSource);
                 case LONE:  // one or no true
-                    return String.format("(1 >= [%s %s].count(True))", quantifiedCondition, quantifiedSource);
+                    return String.format("(1 >= [%s %s].count(True))", quantifiedFormula, quantifiedSource);
                 case ONE:   // exactly one true
-                    return String.format("(1 == [%s %s].count(True))", quantifiedCondition, quantifiedSource);
+                    return String.format("(1 == [%s %s].count(True))", quantifiedFormula, quantifiedSource);
                 case SOME:  // at least one true
-                    return String.format("any([%s %s])", quantifiedCondition, quantifiedSource);
+                    return String.format("any([%s %s])", quantifiedFormula, quantifiedSource);
                 case SUM:   // sum of values
-                    return String.format("sum([%s if %s else set() %s])", quantifiedVariable, quantifiedCondition, quantifiedSource);
+                    return String.format("sum([%s %s if %s])", qtNode.decls.get(0).names.get(0).toString(), quantifiedSource, quantifiedFormula);
                 case COMPREHENSION: // list comprehension
-                    return String.format("[%s if %s else set() %s]", quantifiedVariable, quantifiedCondition, quantifiedSource);
+                    return String.format("[%s %s if %s]", qtNode.decls.get(0).names.get(0).toString(), quantifiedSource, quantifiedFormula);
             }
-            // TODO: not sure if SUM and COMPREHENSION are correct
         } else {
             // under development, use this to catch more types that could be useful
             System.out.println("[Warning] Need more types: " + node.getClass());
@@ -488,7 +489,7 @@ public class DashExprToPython<ExprType> {
                 res = "(" + this.genExpr(node.left, 1) + ") or ";
                 break;
             case IFF:
-                res = " ";
+                res = "(" + this.genExpr(node.left, 1) + ") == ";
                 break;
             case UNTIL:
                 res = " ";
@@ -524,9 +525,6 @@ public class DashExprToPython<ExprType> {
         if (variable2StateNameMap.containsKey(varName)){
             relatedDynamicVars.add(varName);
             return varTrackerName + variable2StateNameMap.get(varName) + "_" + varName;
-        }
-        if (!reservedVarNames.contains(varName)){
-            localVarStack.addLast(varName);
         }
     	return varName;
     }
