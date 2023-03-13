@@ -222,4 +222,74 @@ public class CoreDashToPythonTest {
             assert (output.contains(trans));
         }
     }
+
+    @Test
+    public void test_EqualSign_ConditionsAndActions_Correct() throws IOException {
+        String dashModel = "sig Medication {} conc state S {" +
+                "    env in_m1, in_m2: lone Medication" +
+                "    env in_m3: set Medication" +
+                "    m2, m1, m4: set Medication" +
+                "    m3: lone Medication" +
+                "    init {no in_m1 no in_m2 no in_m3 no m1 no m2 no m3 no m4}" +
+                "    invariant equal {in_m1 = in_m2 or m1 = m2 and in_m1 = in_m2 and in_m3 = in_m2}" +
+                "    trans t1 {when {in_m1 = in_m2 or" +
+                "            m1 = m2 and in_m1 = in_m2}" +
+                "        do{in_m1 = in_m2 + in_m1" +
+                "            m1' = m2 + m1 + m4}}" +
+                "    trans t2 {when {in_m1 + in_m3 = in_m2\n" +
+                "            m4 + m1 = m2 + m3} do{in_m2 = in_m1 + in_m2" +
+                "            m2' = m1}}}";
+
+        DashModule dashModule = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
+        dashModule = new DashToCoreDash().transformToCoreDash(dashModule, null, "");
+        DashPythonTranslation translation = new DashPythonTranslation(dashModule, null);
+
+        List<String> expectedTranslation = Arrays.asList(
+                "SS.S_in_m1 = Medication",  // Equal sign in init
+                "SS.S_m2 = Medication",
+                "SS.S_in_m1 == SS.S_in_m2 or",  // Equal sign in guard 1
+                "(SS.S_m1 == SS.S_m2 and",
+                "SS.S_in_m1 == SS.S_in_m2))",
+                "SS.S_in_m1 = SS.S_in_m2 + SS.S_in_m1",  // Equal sign in action 1
+                "SS.S_m1 = SS.S_m2 + SS.S_m1 + SS.S_m4"
+        );
+
+        String output = CoreDashToPython.convert2String(translation);
+
+        for(String trans : expectedTranslation){
+            assert (output.contains(trans));
+        }
+    }
+
+    @Test
+    public void test_QuantifiedExpressions_Correct() throws IOException {
+        String dashModel = "sig Patient {} sig Medication {} conc state EHealthSystem { medications: set Medication " +
+                "patients: set Patient prescriptions: Patient -> set Medication interactions: Medication -> set Medication " +
+                "invariant I_2_Types_1 { all m1, m2: medications, p: patients | m1 -> m2 in interactions and p in Patient}" +
+                "invariant I_2_Same_Type { all m1, m2: Medication | m1 -> m2 in interactions}" +
+                "invariant I_3_Same_type { all m1, m2, m3: Medication | m1 -> m2 in interactions and m2 -> m3 in interactions}" +
+                "invariant I_symmetry { all m1, m2: Medication | m1 -> m2  in interactions iff m2 -> m1 in interactions }" +
+                "invariant I_no_statement {all m: medications | not (m -> m in interactions)}" +
+                "invariant I_2_Types_2 { all m1, m2: medications, p: patients | m1 -> m2 in interactions => !((p -> m1 in prescriptions) and (p -> m2 in prescriptions))}" +
+                "trans add_interaction {do interactions' = interactions} init {no medications no prescriptions no patients no interactions}}";
+
+        DashModule dashModule = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
+        dashModule = new DashToCoreDash().transformToCoreDash(dashModule, null, "");
+        DashPythonTranslation translation = new DashPythonTranslation(dashModule, null);
+
+        List<String> expectedTranslation = Arrays.asList(
+            "(all([(m1 * m2 in SS.EHealthSystem_interactions and p in Patient) for m1 in SS.EHealthSystem_medications for m2 in SS.EHealthSystem_medications for p in SS.EHealthSystem_patients]))",
+            "(all([m1 * m2 in SS.EHealthSystem_interactions for m1 in Medication for m2 in Medication]))",
+            "(all([(m1 * m2 in SS.EHealthSystem_interactions and m2 * m3 in SS.EHealthSystem_interactions) for m1 in Medication for m2 in Medication for m3 in Medication]))",
+            "(all([(m1 * m2 in SS.EHealthSystem_interactions) == (m2 * m1 in SS.EHealthSystem_interactions) for m1 in Medication for m2 in Medication]))",
+            "(all([not(m * m in SS.EHealthSystem_interactions) for m in SS.EHealthSystem_medications]))",
+            "(all([(p * m1 in SS.EHealthSystem_prescriptions and p * m2 in SS.EHealthSystem_prescriptions) for m1 in SS.EHealthSystem_medications for m2 in SS.EHealthSystem_medications for p in SS.EHealthSystem_patients]))"
+            );
+
+        String output = CoreDashToPython.convert2String(translation);
+
+        for(String trans : expectedTranslation){
+            assert (output.contains(trans));
+        }
+    }
 }

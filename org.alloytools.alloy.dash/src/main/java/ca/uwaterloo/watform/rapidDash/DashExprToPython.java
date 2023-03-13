@@ -12,7 +12,7 @@ import java.util.*;
  */
 public class DashExprToPython<ExprType> {
     enum ExprTypeE {
-        DO, EVAL, DEFAULT
+        DO, PRED, DEFAULT
     }
     private final String varTrackerName = "SS.";
     private ExprTypeE exprType;
@@ -23,16 +23,13 @@ public class DashExprToPython<ExprType> {
     private List<DashPythonTranslation.Relation> relations;
     public boolean isDecl = false;
     public boolean isInit = false;
-    private Deque<String> localVarStack;
     // used to store the dynamic variables that are related to the current expression
     // only used for invariants
     private Set<String> relatedDynamicVars;
     private List<String> assignableVars;
-    private Set<String> reservedVarNames;
 
-    public DashExprToPython(ExprType specialExpr, Map<String, String> variable2StateNameMap, String varName, List<DashPythonTranslation.Relation> relations, ExprTypeE exprType, Set<String> reservedVarNames){
+    public DashExprToPython(ExprType specialExpr, Map<String, String> variable2StateNameMap, String varName, List<DashPythonTranslation.Relation> relations, ExprTypeE exprType){
         this.specialExpr = specialExpr;
-        this.localVarStack = new LinkedList<>();
         this.sbs = new LinkedList<>();
         this.sbs.addLast(new StringBuilder());
         this.variable2StateNameMap = variable2StateNameMap;
@@ -41,22 +38,21 @@ public class DashExprToPython<ExprType> {
         this.exprType = exprType;
         this.relatedDynamicVars = new HashSet<>();
         this.assignableVars = new LinkedList<>();
-        this.reservedVarNames = reservedVarNames;
 
         // TODO: currently only support DashWhenExpr
         this.parseExpr();
     }
 
     public DashExprToPython(ExprType specialExpr, Map<String, String> variable2StateNameMap, String varName, List<DashPythonTranslation.Relation> relations){
-        this(specialExpr, variable2StateNameMap, varName, relations, ExprTypeE.DEFAULT, new HashSet<>());
+        this(specialExpr, variable2StateNameMap, varName, relations, ExprTypeE.DEFAULT);
     }
 
-    public DashExprToPython(ExprType specialExpr, Map<String, String> variable2StateNameMap, ExprTypeE exprType, Set<String> reservedVarNames){
-        this(specialExpr, variable2StateNameMap, "", null, exprType, reservedVarNames);
+    public DashExprToPython(ExprType specialExpr, Map<String, String> variable2StateNameMap, ExprTypeE exprType){
+        this(specialExpr, variable2StateNameMap, "", null, exprType);
     }
 
     public DashExprToPython(ExprType specialExpr, Map<String, String> variable2StateNameMap){
-        this(specialExpr, variable2StateNameMap, "", null, ExprTypeE.DEFAULT, new HashSet<>());
+        this(specialExpr, variable2StateNameMap, "", null, ExprTypeE.DEFAULT);
     }
 
     @Override
@@ -72,8 +68,8 @@ public class DashExprToPython<ExprType> {
                 continue;
             }
             // Concatenate to the previous expression.
-            if(ExprTypeE.EVAL == exprType){
-                // Format the evaluation expression.
+            if(ExprTypeE.PRED == exprType){
+                // Format the predicate.
                 if (expr.charAt(0) == ')') {
                     result.set(result.size() - 1, result.get(result.size() - 1).concat(trimmedExpr));
                 }else if(trimmedExpr.equals("or") || trimmedExpr.equals("and")){
@@ -104,7 +100,6 @@ public class DashExprToPython<ExprType> {
             DashWhenExpr exp = (DashWhenExpr)this.specialExpr;
             sbs.getLast().append(genExpr(exp.getExpr(), exp.getAllExpressions().size()));
         } else if (specialExpr instanceof DashDoExpr){
-            // TODO: Do expr should be different since actions are needed, not just evaluation statements
             DashDoExpr exp = (DashDoExpr)this.specialExpr;
             sbs.getLast().append(genExpr(exp.getExpr(), exp.getAllExpression().size()));
         } else {
@@ -128,8 +123,8 @@ public class DashExprToPython<ExprType> {
                 return "";
             }
 
-            // evaluation expr need to be wrapped in () and must be linked with and/or operators
-            if (ExprTypeE.EVAL == exprType) {
+            // predicates need to be wrapped in () and must be linked with and/or operators
+            if (ExprTypeE.PRED == exprType) {
                 sbs.getLast().append("(");
                 while (subNode.hasNext()) {
                     sbs.getLast().append(genExpr(subNode.next(), exprList.args.size()));
@@ -190,46 +185,51 @@ public class DashExprToPython<ExprType> {
         } else if (node instanceof ExprQt) {
             // Expression with quantifiers
             ExprQt qtNode = (ExprQt) node;
+            StringBuilder quantifiedSource = new StringBuilder();
 
             // format: quantifier variable:type | formula
 
-            // Get type/declaration of the quantified variable
-            // TODO: assume only 1 declaration or type
-            String quantifiedDecl = genExpr(qtNode.decls.get(0).expr, 1);
+            for(Decl decl : qtNode.decls){
+                // Get type/declaration of the quantified variables
+                String quantifiedDecl = genExpr(decl.expr, 1);
 
-            // Use a stack of local variables to keep track of the quantified variable names
-            // TODO: not exactly sure if this will always work
-            localVarStack.clear();
-
-            // Get the formula/condition of the quantified expression
-            // TODO: assume only 1 expression and it is an eval statement
-            String quantifiedCondition = genExpr(qtNode.sub, 1);
-
-            String quantifiedVariable = "x";
-            if (!localVarStack.isEmpty()){
-                quantifiedVariable = localVarStack.peekLast();
+                // Get the quantified variables
+                for (ExprHasName variable : decl.names) {
+                    if (quantifiedSource.length() > 0){
+                        quantifiedSource.append(" ");
+                    }
+                    quantifiedSource.append(String.format("for %s in %s", genExpr(variable, 1), quantifiedDecl));
+                }
             }
+            // Get the formula of the quantified expression
+            Deque<StringBuilder> sbsTemp = sbs;
+            this.sbs = new LinkedList<>();
+            this.sbs.addLast(new StringBuilder());
+            String quantifiedFormula = genExpr(qtNode.sub, 1);
+            // Meaning there are several statements in the quantified formula
+            if(!sbs.getFirst().toString().isEmpty()){
+                quantifiedFormula = String.join(" ", toList());
+            }
+            sbs = sbsTemp;
 
-            String quantifiedSource = String.format("for %s in %s", quantifiedVariable, quantifiedDecl);;
-
+            // TODO: SUM and COMPREHENSION needs further implementation, currently only support them with one variable
             // Get the quantifier for list comprehension
             switch (qtNode.op) {
                 case ALL:   // All true
-                    return String.format("all([%s %s])", quantifiedCondition, quantifiedSource);
+                    return String.format("all([%s %s])", quantifiedFormula, quantifiedSource);
                 case NO:    // No true
-                    return String.format("not any([%s %s])", quantifiedCondition, quantifiedSource);
+                    return String.format("not any([%s %s])", quantifiedFormula, quantifiedSource);
                 case LONE:  // one or no true
-                    return String.format("(1 >= [%s %s].count(True))", quantifiedCondition, quantifiedSource);
+                    return String.format("(1 >= [%s %s].count(True))", quantifiedFormula, quantifiedSource);
                 case ONE:   // exactly one true
-                    return String.format("(1 == [%s %s].count(True))", quantifiedCondition, quantifiedSource);
+                    return String.format("(1 == [%s %s].count(True))", quantifiedFormula, quantifiedSource);
                 case SOME:  // at least one true
-                    return String.format("any([%s %s])", quantifiedCondition, quantifiedSource);
+                    return String.format("any([%s %s])", quantifiedFormula, quantifiedSource);
                 case SUM:   // sum of values
-                    return String.format("sum([%s if %s else set() %s])", quantifiedVariable, quantifiedCondition, quantifiedSource);
+                    return String.format("sum([%s %s if %s])", qtNode.decls.get(0).names.get(0).toString(), quantifiedSource, quantifiedFormula);
                 case COMPREHENSION: // list comprehension
-                    return String.format("[%s if %s else set() %s]", quantifiedVariable, quantifiedCondition, quantifiedSource);
+                    return String.format("[%s %s if %s]", qtNode.decls.get(0).names.get(0).toString(), quantifiedSource, quantifiedFormula);
             }
-            // TODO: not sure if SUM and COMPREHENSION are correct
         } else {
             // under development, use this to catch more types that could be useful
             System.out.println("[Warning] Need more types: " + node.getClass());
@@ -320,7 +320,7 @@ public class DashExprToPython<ExprType> {
     // translate Binary operation, also returns the empty space
     private String BinaryOp2PythonOp(ExprBinary node){
         String res = " ";
-        boolean addParanthesis = node.right instanceof ExprBinary;
+        boolean shouldDddParenthesis = node.right instanceof ExprBinary;
         boolean rightConsumed = false;  // if the right expression is already parsed
         switch(node.op){
             case ARROW:     // State relation declaration
@@ -330,6 +330,7 @@ public class DashExprToPython<ExprType> {
                 // Generate new relation name and add it to the list of relations.
                 res = getVarName(node.left.toString()) + " * " + getVarName(node.right.toString());
 
+                // TODO: we assume the model can always be solved by Alloy Solver
                 /* [Deprecated]: now the Alloy Solver will handle the initialization of relations
                     String type = "[" + node.left + ", " + node.right  + "]";
                     DashPythonTranslation.Relation newRelation = new DashPythonTranslation.Relation(newRelationName, type);
@@ -424,17 +425,17 @@ public class DashExprToPython<ExprType> {
                 res = " ";
                 break;
             case EQUALS:        // this part assumes inner expression is a signature instances and are comparable
-            	if(isInit) {    // TODO: this should be deprecated
+            	if(isInit) {    // TODO: this should be deprecated if we assume the Alloy Solver can always handle the initialization
             		res = this.genExpr(node.left, 1) + " = " + this.genExpr(node.right, 1).toLowerCase();
-            	} else {
-                    // Assumption: this is an assignment
+            	} else if (ExprTypeE.DO == exprType){
+                    // TODO: Assumption: actions only include simple assignments
                     String left = this.genExpr(node.left, 1).substring(varTrackerName.length());
+                    assignableVars.add(left);
             		res = varTrackerName + left + " = ";
-                    if(ExprTypeE.DO == exprType){
-                        assignableVars.add(left);
-                    }
-            	}
-                addParanthesis = false;
+            	} else {        // predicates
+                    res = this.genExpr(node.left, 1) + " == ";
+                }
+                shouldDddParenthesis = false;
                 break;
             case NOT_EQUALS:    // this part assumes inner expression is a signature instances and are comparable
                 res = this.genExpr(node.left, 1) + " != ";
@@ -488,7 +489,7 @@ public class DashExprToPython<ExprType> {
                 res = "(" + this.genExpr(node.left, 1) + ") or ";
                 break;
             case IFF:
-                res = " ";
+                res = "(" + this.genExpr(node.left, 1) + ") == ";
                 break;
             case UNTIL:
                 res = " ";
@@ -504,11 +505,13 @@ public class DashExprToPython<ExprType> {
                 break;
         }
 
-        // add paranthesis for right node
-        if(addParanthesis){
-            res += "(" + this.genExpr(node.right, 1) + ")";
-        }else if (!rightConsumed){
-            res += this.genExpr(node.right, 1);
+        // add the right expression node
+        if (!rightConsumed){
+            if(shouldDddParenthesis) {
+                res += "(" + this.genExpr(node.right, 1) + ")";
+            }else{
+                res += this.genExpr(node.right, 1);
+            }
         }
         return res;
     }
@@ -522,9 +525,6 @@ public class DashExprToPython<ExprType> {
         if (variable2StateNameMap.containsKey(varName)){
             relatedDynamicVars.add(varName);
             return varTrackerName + variable2StateNameMap.get(varName) + "_" + varName;
-        }
-        if (!reservedVarNames.contains(varName)){
-            localVarStack.addLast(varName);
         }
     	return varName;
     }

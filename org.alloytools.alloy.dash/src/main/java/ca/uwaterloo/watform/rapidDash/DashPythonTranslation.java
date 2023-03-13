@@ -541,6 +541,7 @@ public class DashPythonTranslation {
         	// add state variable declarations (decls)
             addVariableDeclarations(state);
 
+            // TODO: this should be deprecated if we assume the Alloy Solver can always handle the initialization
         	// add state variable initializations and constraints (inits and init_constraints)
             if (a4Solution == null) {
                 for(DashInit init: state.getInitialConds()) {
@@ -608,21 +609,16 @@ public class DashPythonTranslation {
         	}
         }
 
-        // gather the names of all relations and signatures
-        Set<String> reservedNames = new HashSet<>();
-        signatures.forEach(sig -> reservedNames.add(sig.getName()));
-        relations.forEach(rel -> reservedNames.add(rel.getName()));
-
         // generate invariants
         invariants = new ArrayList<>();
         for(DashInvariant dashInv : dashModule.getInvariants().values()){
-            Invariant inv = new Invariant(dashInv, reservedNames);
+            Invariant inv = new Invariant(dashInv);
             invariants.add(inv);
         }
 
         // generate transitions
         for(DashTrans dashTrans : dashModule.getTransitions().values()){
-            Transition trans = new Transition(dashTrans, invariants, reservedNames);
+            Transition trans = new Transition(dashTrans, invariants);
             this.statesMap.get(trans.getStateName()).addTransition(trans);
             this.setTransStateActivenessChange(trans);
         }
@@ -778,67 +774,70 @@ public class DashPythonTranslation {
                 }
             }
         }
+
+        // add the state variables
         for(Decl decl: state.getVariables()) {
+            for (ExprHasName var : decl.names) {
+                String stateName = state.getFullyQualName();
+                String variableName = var.toString();
+                variable2StateNameMap.put(variableName, stateName);
 
-            String stateName = state.getFullyQualName();
-            String variableName = decl.get().toString();
-            variable2StateNameMap.put(variableName, stateName);
-
-            if (a4Solution != null) {
-                // Find Snapshot signature from a4Solution
-                boolean found = false;
-                for (Sig.Field f : snapshot.getFields()) {
-                    if (f.label.equals(stateName + "_" + variableName)) {
-                        String className = "Signature";
-                        String multiplicityOrTypes = "3";
-                        String values = "{}";
-                        for (Type.ProductType type : f.type()) {
-                            if (type.arity() == 2) {
-                                // Signature
-                                className = clean(type.get(1).label);
-                                List<String> atoms = new ArrayList<String>();
-                                for (A4Tuple atom: a4Solution.eval(f,0)) {
-                                    if (atom.atom(0).equals("Snapshot$0")) {
-                                        atoms.add("\"" + atom.atom(1) + "\"");
-                                    }
-                                }
-                                values = "{" + String.join(", ", atoms) + "}";
-                            } else {
-                                // Relation
-                                className = "Relation";
-                                List<String> typeStrings = new ArrayList<String>();
-                                for (int i = 1; i < type.arity(); i++) {
-                                    typeStrings.add(clean(type.get(i).label));
-                                }
-                                multiplicityOrTypes = "[" + String.join(", ", typeStrings) + "]";
-                                List<String> atoms = new ArrayList<String>();
-                                for (A4Tuple atom : a4Solution.eval(f, 0)) {
-                                    if (atom.atom(0).equals("Snapshot$0")) {
-                                        List<String> tuple = new ArrayList<String>();
-                                        for (int i = 1; i < atom.arity(); i++) {
-                                            tuple.add("\"" + atom.atom(i) + "\"");
+                if (a4Solution != null) {
+                    // Find Snapshot signature from a4Solution
+                    boolean found = false;
+                    for (Sig.Field f : snapshot.getFields()) {
+                        if (f.label.equals(stateName + "_" + variableName)) {
+                            String className = "Signature";
+                            String multiplicityOrTypes = "3";
+                            String values = "{}";
+                            for (Type.ProductType type : f.type()) {
+                                if (type.arity() == 2) {
+                                    // Signature
+                                    className = clean(type.get(1).label);
+                                    List<String> atoms = new ArrayList<String>();
+                                    for (A4Tuple atom : a4Solution.eval(f, 0)) {
+                                        if (atom.atom(0).equals("Snapshot$0")) {
+                                            atoms.add("\"" + atom.atom(1) + "\"");
                                         }
-                                        atoms.add("(" + String.join(", ", tuple) + ")");
                                     }
+                                    values = "{" + String.join(", ", atoms) + "}";
+                                } else {
+                                    // Relation
+                                    className = "Relation";
+                                    List<String> typeStrings = new ArrayList<String>();
+                                    for (int i = 1; i < type.arity(); i++) {
+                                        typeStrings.add(clean(type.get(i).label));
+                                    }
+                                    multiplicityOrTypes = "[" + String.join(", ", typeStrings) + "]";
+                                    List<String> atoms = new ArrayList<String>();
+                                    for (A4Tuple atom : a4Solution.eval(f, 0)) {
+                                        if (atom.atom(0).equals("Snapshot$0")) {
+                                            List<String> tuple = new ArrayList<String>();
+                                            for (int i = 1; i < atom.arity(); i++) {
+                                                tuple.add("\"" + atom.atom(i) + "\"");
+                                            }
+                                            atoms.add("(" + String.join(", ", tuple) + ")");
+                                        }
+                                    }
+                                    values = "{" + String.join(", ", atoms) + "}";
                                 }
-                                values = "{" + String.join(", ", atoms) + "}";
                             }
+                            if (values.equals("{}")) {
+                                values = "set()";
+                            }
+                            statesMap.get(stateName).addDecl(stateName + "_" + variableName + " = " + className + "('" + variableName + "', " + multiplicityOrTypes + ", " + values + ")");
+                            found = true;
+                            break;
                         }
-                        if (values.equals("{}")) {
-                            values = "set()";
-                        }
-                        statesMap.get(stateName).addDecl(stateName + "_" + variableName + " = " + className + "('" + variableName + "', " + multiplicityOrTypes + ", " + values + ")");
-                        found = true;
-                        break;
                     }
+                    if (!found) {
+                        throw new ErrorFatal("Cannot find state variable " + stateName + "_" + variableName + " in the solution");
+                    }
+                } else {
+                    DashExprToPython dashExprTranslator = new DashExprToPython<>(decl.expr, variable2StateNameMap, variableName, this.relations);
+                    dashExprTranslator.isDecl = true;
+                    statesMap.get(stateName).addDecl(stateName + "_" + variableName + " = " + dashExprTranslator);
                 }
-                if (!found) {
-                    throw new ErrorFatal("Cannot find state variable " + stateName + "_" + variableName + " in the solution");
-                }
-            } else {
-                DashExprToPython dashExprTranslator = new DashExprToPython<>(decl.expr, variable2StateNameMap, variableName, this.relations);
-                dashExprTranslator.isDecl = true;
-                statesMap.get(stateName).addDecl(stateName + "_" + variableName + " = " + dashExprTranslator);
             }
         }
     }
@@ -1064,7 +1063,7 @@ public class DashPythonTranslation {
         public HashSet<State> nonActiveStatesAfterTrans = new HashSet<State>();
         public HashSet<State> activeStatesAfterTrans = new HashSet<State>();
 
-        public Transition(DashTrans dashTrans, List<Invariant> invariantList, Set<String> reservedNames){
+        public Transition(DashTrans dashTrans, List<Invariant> invariantList){
             // set default transition information
             this.transName = dashTrans.getRawName();
             if (dashTrans.getParent() instanceof DashConcState) {
@@ -1081,11 +1080,11 @@ public class DashPythonTranslation {
                 this.eventCondition = dashTrans.getTriggerEvent().getRawName();
             }
             if(dashTrans.getCondition() != null){       // determines the guard_condition (if statement)
-                DashExprToPython<DashWhenExpr> dashExprTranslator = new DashExprToPython<>(dashTrans.getCondition(), variable2StateNameMap, DashExprToPython.ExprTypeE.EVAL, reservedNames);
+                DashExprToPython<DashWhenExpr> dashExprTranslator = new DashExprToPython<>(dashTrans.getCondition(), variable2StateNameMap, DashExprToPython.ExprTypeE.PRED);
                 this.guardConditions = dashExprTranslator.toList();
             }
             if(dashTrans.getAction() != null){  // determines the action
-                DashExprToPython<DashDoExpr> dashExprTranslator = new DashExprToPython<>(dashTrans.getAction(), variable2StateNameMap,DashExprToPython.ExprTypeE.DO, reservedNames);
+                DashExprToPython<DashDoExpr> dashExprTranslator = new DashExprToPython<>(dashTrans.getAction(), variable2StateNameMap,DashExprToPython.ExprTypeE.DO);
 
                 this.actions = dashExprTranslator.toList();
                 this.assignableVars = dashExprTranslator.getAssignableVars();
@@ -1143,13 +1142,13 @@ public class DashPythonTranslation {
         private List<String> conditions = new ArrayList<>();    // the logic for this invariant to be executed
         private Set<String> relatedVariables = new HashSet<>(); // the variables that are related to this invariant
 
-        public Invariant(DashInvariant dashInvariant, Set<String> reservedVarNames){
+        public Invariant(DashInvariant dashInvariant){
             // set default invariant information
             this.invariantName = "Inv_" + dashInvariant.getRawName();
 
             // determines the invariant condition
             if(dashInvariant.getExpr() != null){
-                DashExprToPython<Expr> dashExprTranslator = new DashExprToPython<>(dashInvariant.getExpr(), variable2StateNameMap, DashExprToPython.ExprTypeE.EVAL, reservedVarNames);
+                DashExprToPython<Expr> dashExprTranslator = new DashExprToPython<>(dashInvariant.getExpr(), variable2StateNameMap, DashExprToPython.ExprTypeE.PRED);
                 this.conditions = dashExprTranslator.toList();
                 this.relatedVariables = dashExprTranslator.getRelatedDynamicVars();
             }

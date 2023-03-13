@@ -550,8 +550,8 @@ $padding        ${action}
 $padding        if not $trans.getInvariantNames().get(0)():
                     #foreach($var in $trans.getAssignedVarNames())
 $padding            SS.${var} = ${var}_tmp
-$padding            return False
                     #end
+$padding            return False
                 #elseif($trans.getInvariantNames().size() > 1)
 $padding        if not ($trans.getInvariantNames().get(0)() and
                     #set($lastIndex = ${trans.getInvariantNames().size()} - 1)
@@ -561,8 +561,8 @@ $padding            ${invariantName}() and
 $padding            ${trans.getInvariantNames().get($lastIndex)}()):
                     #foreach($var in $trans.getAssignedVarNames())
 $padding            SS.${var} = ${var}_tmp
-$padding            return False
                     #end
+$padding            return False
                 #end
             #end
 $padding        print(Blue + "Taking transition ${trans.getTransName()}" + Reset)
