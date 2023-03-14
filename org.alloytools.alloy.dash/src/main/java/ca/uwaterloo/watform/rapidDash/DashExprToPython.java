@@ -160,8 +160,9 @@ public class DashExprToPython<ExprType> {
             return BinaryOp2PythonOp((ExprBinary) node);
         } else if (node instanceof ExprVar || node instanceof ExprConstant){
             String varName = node.toString();
-            if('\'' == node.toString().charAt(node.toString().length() - 1)){
-                varName = node.toString().substring(0, node.toString().length() - 1);
+            if('\'' == varName.charAt(varName.length() - 1)){   // primed variable
+                varName = varName.substring(0, varName.length() - 1);
+                assignableVars.add(varName);
             }
 			return getVarName(varName);
         } else if (node instanceof ExprBadJoin) {
@@ -278,21 +279,22 @@ public class DashExprToPython<ExprType> {
                 res = " ";
                 break;
             case NO:        // this part assumes the inner expression is a signature instance that is an object
-                res = this.genExpr(node,1) + " is None";
+                res = "not bool(" + this.genExpr(node,1) + ")";
                 break;
             case SOME:      // this part assumes the inner expression is a signature instance that is an object
-                res = this.genExpr(node,1) + " is not None";
+                res = "bool(" + this.genExpr(node,1) + ")";
                 break;
             case LONE:
-                res = " ";
+                res = "(1 >= len(" + this.genExpr(node,1) + "))";
                 break;
             case ONE:
-                res = " ";
+                res = "(1 == len(" + this.genExpr(node,1) + "))";
                 break;
             case TRANSPOSE:
                 res = " ";
                 break;
             case PRIME:
+                // TODO: don't think we need this
                 res = " ";
                 break;
             case RCLOSURE:
@@ -428,10 +430,8 @@ public class DashExprToPython<ExprType> {
             	if(isInit) {    // TODO: this should be deprecated if we assume the Alloy Solver can always handle the initialization
             		res = this.genExpr(node.left, 1) + " = " + this.genExpr(node.right, 1).toLowerCase();
             	} else if (ExprTypeE.DO == exprType){
-                    // TODO: Assumption: actions only include simple assignments
-                    String left = this.genExpr(node.left, 1).substring(varTrackerName.length());
-                    assignableVars.add(left);
-            		res = varTrackerName + left + " = ";
+                    // TODO: delete this part if we assume the Alloy Solver can always handle the initialization
+            		res = varTrackerName + this.genExpr(node.left, 1).substring(varTrackerName.length()) + " = ";
             	} else {        // predicates
                     res = this.genExpr(node.left, 1) + " == ";
                 }

@@ -145,6 +145,9 @@ class MetaSet(type):
             else:
                 print("Exception, unsupported type in MetaSet::Set: %s", type(initvalue))
 
+        def __len__(self):
+            return len(self._set)
+
         def __iter__(self):
             return iter(self._set)
 
@@ -172,6 +175,9 @@ class MetaSet(type):
         # override "*" operator as cartesian product
         def __mul__(cls, other) -> set(tuple):
             return set(itertools.product(cls._set, other._set))
+
+    def __len__(cls):
+        return len(cls.objects())
 
     def __iter__(cls):
         return iter(cls.objects())
@@ -260,6 +266,9 @@ class Signature(metaclass = MetaSet):
         else: # Set
             return random_subset(self.atoms)
 
+    def __len__(self) -> int:
+        return len(self.elements)
+
     def __iter__(self) -> iter:
         return iter(self.elements)
 
@@ -329,6 +338,9 @@ class Relation(metaclass = MetaSet):
             self.values = new_values
             return True
         return False
+
+    def __len__(self) -> int:
+        return len(self.values)
 
     def __iter__(self) -> iter:
         return iter(self.values)
