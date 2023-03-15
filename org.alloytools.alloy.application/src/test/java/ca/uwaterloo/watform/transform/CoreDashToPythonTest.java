@@ -292,4 +292,44 @@ public class CoreDashToPythonTest {
             assert (output.contains(trans));
         }
     }
+
+    @Test
+    public void test_Quantifers_Correct() throws IOException {
+        String dashModel = "sig Patient {} sig Medication {} conc state EHealthSystem {patients: set Patient\ninteractions: Medication -> set Medication\n" +
+                "trans interaction_test_1 {\n" +
+                "when{no interactions\n" +
+                "some interactions\n" +
+                "lone interactions\n" +
+                "one interactions}\n" +
+                "do interactions' = interactions}" +
+                "trans interaction_test_2 {\n" +
+                "when{no patients\n" +
+                "some patients\n" +
+                "lone patients\n" +
+                "one patients}\n" +
+                "do interactions' = interactions}}";
+
+        DashModule dashModule = DashUtil.parseEverything_fromStringDash(A4Reporter.NOP, dashModel);
+        dashModule = new DashToCoreDash().transformToCoreDash(dashModule, null, "");
+        DashPythonTranslation translation = new DashPythonTranslation(dashModule, null);
+
+        List<String> expectedTranslation = Arrays.asList(
+                "not bool(SS.EHealthSystem_interactions)",
+                "bool(SS.EHealthSystem_interactions)",
+                "(1 >= len(SS.EHealthSystem_interactions))",
+                "(1 == len(SS.EHealthSystem_interactions))",
+                "not bool(SS.EHealthSystem_patients)",
+                "bool(SS.EHealthSystem_patients)",
+                "(1 >= len(SS.EHealthSystem_patients))",
+                "(1 == len(SS.EHealthSystem_patients))"
+        );
+
+
+        String output = CoreDashToPython.convert2String(translation);
+        System.out.println(output);
+
+        for(String trans : expectedTranslation){
+            assert (output.contains(trans));
+        }
+    }
 }
