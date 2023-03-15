@@ -279,10 +279,10 @@ public class DashExprToPython<ExprType> {
                 res = " ";
                 break;
             case NO:        // this part assumes the inner expression is a signature instance that is an object
-                res = "not bool(" + this.genExpr(node,1) + ")";
+                res = "not any(" + this.genExpr(node,1) + ")";
                 break;
             case SOME:      // this part assumes the inner expression is a signature instance that is an object
-                res = "bool(" + this.genExpr(node,1) + ")";
+                res = "any(" + this.genExpr(node,1) + ")";
                 break;
             case LONE:
                 res = "(1 >= len(" + this.genExpr(node,1) + "))";
@@ -304,7 +304,7 @@ public class DashExprToPython<ExprType> {
                 res = " ";
                 break;
             case CARDINALITY:
-                res = "len(self." + node.toString() + ")";
+                res = "len(" + this.genExpr(node,1) + ")";
                 break;
             case CAST2INT:
                 res = " ";
@@ -444,28 +444,20 @@ public class DashExprToPython<ExprType> {
                 res = " ";
                 break;
             case LT:         // this part assumes inner expression are a signature instances and are comparable
+            case NOT_GTE:
                 res = this.genExpr(node.left, 1) + " < ";
                 break;
             case LTE:        // this part assumes inner expression are a signature instances and are comparable
+            case NOT_GT:
                 res = this.genExpr(node.left, 1) + " <= ";
                 break;
             case GT:         // this part assumes inner expression are a signature instances and are comparable
+            case NOT_LTE:
                 res = this.genExpr(node.left, 1) + " > ";
                 break;
             case GTE:        // this part assumes inner expression are a signature instances and are comparable
+            case NOT_LT:
                 res = this.genExpr(node.left, 1) + " >= ";
-                break;
-            case NOT_LT:     // this part assumes inner expression are a signature instances and are comparable
-                res = this.genExpr(node.left, 1) + " >= ";
-                break;
-            case NOT_LTE:    // this part assumes inner expression are a signature instances and are comparable
-                res = this.genExpr(node.left, 1) + " > ";
-                break;
-            case NOT_GT:     // this part assumes inner expression are a signature instances and are comparable
-                res = this.genExpr(node.left, 1) + " <= ";
-                break;
-            case NOT_GTE:    // this part assumes inner expression are a signature instances and are comparable
-                res = this.genExpr(node.left, 1) + " < ";
                 break;
             case SHL:
                 res = " ";

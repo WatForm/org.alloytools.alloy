@@ -314,12 +314,12 @@ public class CoreDashToPythonTest {
         DashPythonTranslation translation = new DashPythonTranslation(dashModule, null);
 
         List<String> expectedTranslation = Arrays.asList(
-                "not bool(SS.EHealthSystem_interactions)",
-                "bool(SS.EHealthSystem_interactions)",
+                "not any(SS.EHealthSystem_interactions)",
+                "any(SS.EHealthSystem_interactions)",
                 "(1 >= len(SS.EHealthSystem_interactions))",
                 "(1 == len(SS.EHealthSystem_interactions))",
-                "not bool(SS.EHealthSystem_patients)",
-                "bool(SS.EHealthSystem_patients)",
+                "not any(SS.EHealthSystem_patients)",
+                "any(SS.EHealthSystem_patients)",
                 "(1 >= len(SS.EHealthSystem_patients))",
                 "(1 == len(SS.EHealthSystem_patients))"
         );
