@@ -5,6 +5,7 @@ from typing import List
 from collections import deque
 from copy import deepcopy
 from ast import literal_eval
+from enum import Enum
 
 import itertools
 import logging
@@ -111,6 +112,15 @@ class State(ABC):
 def random_subset(s):
     return set([e for e in s if random.randint(0, 1) == 0])
 
+def powerset(iterable):
+    s = list(iterable)
+    return set(itertools.chain.from_iterable(itertools.combinations(s, r) for r in range(len(s)+1)))
+
+class MultiLevelExit(Exception):
+    "Exception type used to perform multi level exit"
+    pass
+
+
 class MetaSet(type):
     """
     Used by variables to make operations consistent.
@@ -205,6 +215,13 @@ class MetaSet(type):
         return cls.atoms                    # Signature
 
 
+class Multiplicity(Enum):
+    Lone = 0
+    One = 1
+    Some = 2
+    Set = 3
+
+
 class Signature(metaclass = MetaSet):
     def __init__(self, name, multiplicity, elements=set()):
         """
@@ -212,7 +229,7 @@ class Signature(metaclass = MetaSet):
         - the member variables and functions will be used by state variables
 
         :param str name: the name of this state variable
-        :param int multiplicity: the multiplicity type of this state variable
+        :param enum multiplicity: the multiplicity type of this state variable
         :member set elements: all the elements in this instance (state variable)
         """
         # for state variables:
@@ -229,13 +246,13 @@ class Signature(metaclass = MetaSet):
     # Returns true if the new set of elements is valid for its multiplicity
     def is_valid(self, new_elements) -> bool:
         length = len(new_elements)
-        if self.multiplicity  == 0:  # Lone
+        if self.multiplicity == Multiplicity.Lone:
             if(length != 0 and length != 1):
                 return False
-        elif self.multiplicity == 1: # One
+        elif self.multiplicity == Multiplicity.One:
             if(length != 1):
                 return False
-        elif self.multiplicity == 2: # Some
+        elif self.multiplicity == Multiplicity.Some:
             if(length == 0):
                 return False
         return True
@@ -248,14 +265,14 @@ class Signature(metaclass = MetaSet):
         return False
 
     def generate_random_value(self):
-        if self.multiplicity  == 0:  # Lone
+        if self.multiplicity == Multiplicity.Lone:
             if len(self.atoms) == 0 or random.randint(0, 1) == 0:
                 return set()
             else:
                 return set(random.sample(sorted(self.atoms), 1))
-        elif self.multiplicity == 1: # One
+        elif self.multiplicity == Multiplicity.One:
             return set(random.sample(sorted(self.atoms), 1))
-        elif self.multiplicity == 2: # Some
+        elif self.multiplicity == Multiplicity.Some:
             if len(self.atoms) == 0:
                 print("Exception, empty signature cannot support some multiplicity")
                 exit(1)
@@ -265,6 +282,19 @@ class Signature(metaclass = MetaSet):
                     return ret
         else: # Set
             return random_subset(self.atoms)
+
+    def possible_next_values(self):
+        ret = []
+        if self.multiplicity == Multiplicity.Lone:
+            ret = [set(i) for i in self.atoms] + [set()]
+        elif self.multiplicity == Multiplicity.One:
+            ret = [set(i) for i in self.atoms]
+        elif self.multiplicity == Multiplicity.Some:
+            ret = list(powerset(self.atoms) - set(set()))
+        else: # Set
+            ret = list(powerset(self.atoms))
+        random.shuffle(ret)
+        return ret
 
     def __len__(self) -> int:
         return len(self.elements)
@@ -321,6 +351,11 @@ class Relation(metaclass = MetaSet):
 
     def generate_random_value(self):
         return random_subset(self.possible_tuples_instance_method())
+
+    def possible_next_values(self):
+        ret = list(powerset(self.possible_tuples_instance_method()))
+        random.shuffle(ret)
+        return ret
 
     # Returns true if the new set of tuples is valid for its types
     def is_valid(self, values) -> bool:
@@ -551,7 +586,7 @@ $padding        # TODO: global variables (signatures used in this state)
                 #foreach($globalVar in $globalVariables)
 $padding        global ${globalVar}
                 #end#end
-            #if(!$trans.getActions().isEmpty() && !$trans.getAssignedVarNames().isEmpty())
+            #if($trans.getIsSimpleAssignment() && !$trans.getActions().isEmpty() && !$trans.getAssignedVarNames().isEmpty())
                 #if(!$trans.getInvariantNames().isEmpty()) #foreach($var in $trans.getAssignedVarNames())
 $padding        ${var}_tmp = SS.${var}
                 #end#end
@@ -576,6 +611,34 @@ $padding            SS.${var} = ${var}_tmp
                     #end
 $padding            return False
                 #end
+            #elseif(!$trans.getIsSimpleAssignment() && !$trans.getActions().isEmpty() && !$trans.getAssignedVarNames().isEmpty())
+                #set($tab = "    ")
+                #set($oldpadding = "$padding")
+$padding        try:
+                #foreach($var in $trans.getAssignedVarNames())
+                    #set($padding = "$padding$tab")
+$padding        for ${var}_updated in SS.${var}.possible_next_values():
+                #end
+                #if($trans.getActions().size() == 1)
+$padding            if $trans.getActions().get(0):
+                #elseif($trans.getActions().size() > 1)
+$padding            if $trans.getActions().get(0)
+                    #set($lastIndex = ${trans.getActions().size()} - 1)
+                    #foreach($action in ${trans.getActions().subList(1, $lastIndex)})
+$padding                ${action}
+                    #end
+$padding                ${trans.getActions().get($lastIndex)}:
+                #end
+$padding                    raise MultiLevelExit
+                #set($padding = "$oldpadding")
+$padding        except MultiLevelExit:
+                #foreach($var in $trans.getAssignedVarNames())
+$padding            SS.${var} = ${var}_updated
+                #end
+$padding        else:
+$padding            # TODO backtrack to earlier steps
+$padding            print("No possible next state values")
+$padding            exit(1)
             #end
 $padding        print(Blue + "Taking transition ${trans.getTransName()}" + Reset)
 $padding        # Apply State Activeness Changes
@@ -633,7 +696,7 @@ def input_env_var(env_var, var_name, hint):
 def input_env_variables():
     print("Please enter values for environmental variables, \"random\" to use randomly generated value, \"unchanged\" to leave them unchanged.")
     #foreach($envVarInput in $envVarInputs)
-    input_env_var(SS.${envVarInput.name}, "SS.${envVarInput.name}", "${envVarInput.hint}n")
+    input_env_var(SS.${envVarInput.name}, "SS.${envVarInput.name}", "${envVarInput.hint}")
     #end
 #end
 
