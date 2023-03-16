@@ -22,7 +22,6 @@ public class DashPythonTranslation {
 
     private DashModule dashModule;
     private A4Solution a4Solution;
-
     public List<Signature> signatures;
     public List<Relation> relations;
     public List<Invariant> invariants;
@@ -788,12 +787,28 @@ public class DashPythonTranslation {
                     for (Sig.Field f : snapshot.getFields()) {
                         if (f.label.equals(stateName + "_" + variableName)) {
                             String className = "Signature";
-                            String multiplicityOrTypes = "3";
+                            String multiplicityOrTypes = "Multiplicity.Set";
                             String values = "{}";
                             for (Type.ProductType type : f.type()) {
                                 if (type.arity() == 2) {
                                     // Signature
                                     className = clean(type.get(1).label);
+                                    if (decl.expr instanceof ExprUnary) {
+                                        switch (((ExprUnary) decl.expr).op){
+                                            case LONEOF:
+                                                multiplicityOrTypes = "Multiplicity.Lone";
+                                                break;
+                                            case ONEOF:
+                                                multiplicityOrTypes = "Multiplicity.One";
+                                                break;
+                                            case SOMEOF:
+                                                multiplicityOrTypes = "Multiplicity.Some";
+                                                break;
+                                            case SETOF:
+                                                multiplicityOrTypes = "Multiplicity.Set";
+                                                break;
+                                        }
+                                    }
                                     List<String> atoms = new ArrayList<String>();
                                     for (A4Tuple atom : a4Solution.eval(f, 0)) {
                                         if (atom.atom(0).equals("Snapshot$0")) {
@@ -1062,7 +1077,9 @@ public class DashPythonTranslation {
 
         public HashSet<State> nonActiveStatesAfterTrans = new HashSet<State>();
         public HashSet<State> activeStatesAfterTrans = new HashSet<State>();
-
+        // Use this flag to turn on simple assignment
+        // The formula engine should be able to cover all simple assignment scenarios, but still need to add invariant into the action expressions
+        public boolean isSimpleAssignment = false;
         public Transition(DashTrans dashTrans, List<Invariant> invariantList){
             // set default transition information
             this.transName = dashTrans.getRawName();
@@ -1084,7 +1101,7 @@ public class DashPythonTranslation {
                 this.guardConditions = dashExprTranslator.toList();
             }
             if(dashTrans.getAction() != null){  // determines the action
-                DashExprToPython<DashDoExpr> dashExprTranslator = new DashExprToPython<>(dashTrans.getAction(), variable2StateNameMap,DashExprToPython.ExprTypeE.DO);
+                DashExprToPython<DashDoExpr> dashExprTranslator = new DashExprToPython<>(dashTrans.getAction(), variable2StateNameMap,DashExprToPython.ExprTypeE.PRED);
 
                 this.actions = dashExprTranslator.toList();
                 this.assignableVars = dashExprTranslator.getAssignableVars();

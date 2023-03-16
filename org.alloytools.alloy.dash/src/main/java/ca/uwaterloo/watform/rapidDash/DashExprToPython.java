@@ -26,7 +26,7 @@ public class DashExprToPython<ExprType> {
     // used to store the dynamic variables that are related to the current expression
     // only used for invariants
     private Set<String> relatedDynamicVars;
-    private List<String> assignableVars;
+    private Set<String> assignableVars;
 
     public DashExprToPython(ExprType specialExpr, Map<String, String> variable2StateNameMap, String varName, List<DashPythonTranslation.Relation> relations, ExprTypeE exprType){
         this.specialExpr = specialExpr;
@@ -37,7 +37,7 @@ public class DashExprToPython<ExprType> {
         this.relations = relations;
         this.exprType = exprType;
         this.relatedDynamicVars = new HashSet<>();
-        this.assignableVars = new LinkedList<>();
+        this.assignableVars = new HashSet<>();
 
         // TODO: currently only support DashWhenExpr
         this.parseExpr();
@@ -85,7 +85,7 @@ public class DashExprToPython<ExprType> {
     }
 
     public Set<String> getRelatedDynamicVars() {return relatedDynamicVars;}
-    public List<String> getAssignableVars() {return assignableVars;}
+    public List<String> getAssignableVars() {return new ArrayList<>(assignableVars);}
 
     public void reparseExpr() {
         sbs.removeLast();
@@ -162,7 +162,7 @@ public class DashExprToPython<ExprType> {
             String varName = node.toString();
             if('\'' == varName.charAt(varName.length() - 1)){   // primed variable
                 varName = varName.substring(0, varName.length() - 1);
-                assignableVars.add(varName);
+                assignableVars.add(getVarName(varName).substring(varTrackerName.length()));
             }
 			return getVarName(varName);
         } else if (node instanceof ExprBadJoin) {
@@ -243,16 +243,16 @@ public class DashExprToPython<ExprType> {
         String res = " ";
         switch (op){
             case LONEOF:    // State variable declaration
-                res = node.toString() + "('" + varName + "', 0)";
+                res = node.toString() + "('" + varName + "', Multiplicity.Lone)";
                 break;
             case ONEOF:     // State variable declaration
-                res = node.toString() + "('" + varName + "', 1)";
+                res = node.toString() + "('" + varName + "', Multiplicity.One)";
                 break;
             case SOMEOF:    // State variable declaration
-                res = node.toString() + "('" + varName + "', 2)";
+                res = node.toString() + "('" + varName + "', Multiplicity.Some)";
                 break;
             case SETOF:     // State variable declaration
-                res = node.toString() + "('" + varName + "', 3)";
+                res = node.toString() + "('" + varName + "', Multiplicity.Set)";
                 break;
             case EXACTLYOF:
                 res = " ";
