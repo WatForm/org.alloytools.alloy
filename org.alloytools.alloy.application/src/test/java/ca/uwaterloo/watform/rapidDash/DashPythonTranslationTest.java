@@ -400,17 +400,17 @@ public class DashPythonTranslationTest {
 
         List<String> expectedString = Arrays.asList(
                 "SS.StateA_far == SS.StateA_far",
-                "SS.StateA_far == SS.StateA_far",
-                "SS.StateA_far == SS.StateA_far",
-                "SS.StateA_far == SS.StateA_far + SigA",
-                "SS.StateA_far == SS.StateA_far + SigA + SigB",
-                "SS.StateA_far == SS.StateA_far + SigA + SigB",
-                "SS.StateA_far == SS.StateA_far + (SigB + SigA)",
-                "SS.StateA_far == SS.StateA_far - SigA",
-                "SS.StateA_far == SS.StateA_far - SigA - SigB",
-                "SS.StateA_far == SS.StateA_far - SigA - SigB",
-                "SS.StateA_far == SS.StateA_far - (SigA - SigB)",
-                "SS.StateA_far == SS.StateA_far + SigA - (SigB - SS.StateA_far)");
+                "StateA_far_updated == SS.StateA_far",
+                "StateA_far_updated == SS.StateA_far",
+                "StateA_far_updated == SS.StateA_far + SigA",
+                "StateA_far_updated == SS.StateA_far + SigA + SigB",
+                "StateA_far_updated == SS.StateA_far + SigA + SigB",
+                "StateA_far_updated == SS.StateA_far + (SigB + SigA)",
+                "StateA_far_updated == SS.StateA_far - SigA",
+                "StateA_far_updated == SS.StateA_far - SigA - SigB",
+                "StateA_far_updated == SS.StateA_far - SigA - SigB",
+                "StateA_far_updated == SS.StateA_far - (SigA - SigB)",
+                "StateA_far_updated == SS.StateA_far + SigA - (SigB - SS.StateA_far)");
 
         for (int index = 0; index < transitions.size(); index++) {
             assertEquals(expectedString.get(index), transitions.get(index).getActions().get(0));

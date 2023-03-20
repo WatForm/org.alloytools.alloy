@@ -251,10 +251,12 @@ public class CoreDashToPythonTest {
                 "(SS.S_m1 == SS.S_m2 and",
                 "SS.S_in_m1 == SS.S_in_m2))",
                 "SS.S_in_m1 == SS.S_in_m2 + SS.S_in_m1",  // Equal sign in action 1
-                "SS.S_m1 == SS.S_m2 + SS.S_m1 + SS.S_m4"
+                "S_m1_updated == SS.S_m2 + SS.S_m1 + SS.S_m4"
         );
 
         String output = CoreDashToPython.convert2String(translation);
+
+        System.out.println(output);
 
         for(String trans : expectedTranslation){
             assert (output.contains(trans));
