@@ -1165,7 +1165,7 @@ public class DashPythonTranslation {
 
             // determines the invariant condition
             if(dashInvariant.getExpr() != null){
-                DashExprToPython<Expr> dashExprTranslator = new DashExprToPython<>(dashInvariant.getExpr(), variable2StateNameMap, DashExprToPython.ExprTypeE.DEFAULT);
+                DashExprToPython<Expr> dashExprTranslator = new DashExprToPython<>(dashInvariant.getExpr(), variable2StateNameMap);
                 this.conditions = dashExprTranslator.toList();
                 this.relatedVariables = dashExprTranslator.getRelatedDynamicVars();
             }

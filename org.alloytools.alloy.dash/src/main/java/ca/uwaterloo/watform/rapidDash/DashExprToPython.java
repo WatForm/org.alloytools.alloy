@@ -166,9 +166,7 @@ public class DashExprToPython<ExprType> {
                 return UnaryOp2PythonOp(cardinality.op, cardinality.sub) + operation + badNode.left.toString();
             } else if (badNode.right instanceof ExprVar){
                 // Join operation (e.g., A.B => A ^ B)
-                String nodeLeft = genExpr(badNode.left, 1);
-                String nodeRight = genExpr(badNode.right, 1);
-                return "(" + nodeLeft + " ^ " + nodeRight + ")";
+                return "(" + genExpr(badNode.left, 1) + " ^ " + genExpr(badNode.right, 1) + ")";
             } else {
                 System.out.println("[Warning] BadNode needs more types: " + node.getClass());
             }
