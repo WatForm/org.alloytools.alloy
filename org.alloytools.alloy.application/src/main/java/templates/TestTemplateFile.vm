@@ -652,7 +652,7 @@ $padding        try:
                 #foreach($var in $trans.getAssignedVarNames())
                     #set($padding = "$padding$tab")
 $padding        for ${var}_updated in SS.${var}.possible_next_values():
-$padding            ${var}_updated = MetaSet.Set(${var}_updated)
+$padding            ${var}_updated = MetaSet.Set(set(${var}_updated))
                 #end
                 #if($trans.getActions().size() == 1)
 $padding            if $trans.getActions().get(0):
