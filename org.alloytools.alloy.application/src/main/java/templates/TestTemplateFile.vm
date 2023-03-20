@@ -159,7 +159,7 @@ class MetaSet(type):
             return len(cls._set)
 
         def __iter__(cls):
-            return iter(cls._set)
+            return iter([MetaSet.Set(set(x)) for x in cls._set])
 
         def __repr__(cls):
             return str(cls._set)
@@ -213,7 +213,7 @@ class MetaSet(type):
         return len(cls.objects())
 
     def __iter__(cls):
-        return iter(cls.objects())
+        return iter(MetaSet.Set(cls.objects()))
 
     def __repr__(cls) -> str:
         return f"{cls.__name__}: " + f"{cls.objects()}" if cls.objects() else "Empty"
@@ -324,13 +324,13 @@ class Signature(metaclass = MetaSet):
         else: # Set
             ret = list(powerset(self.atoms))
         random.shuffle(ret)
-        return ret
+        return MetaSet.Set(ret)
 
     def __len__(self) -> int:
         return len(self.elements)
 
     def __iter__(self) -> iter:
-        return iter(self.elements)
+        return iter(MetaSet.Set(self.elements))
 
     def __repr__(self):
         return f"{self.__class__.__name__} - {self.name} : " + f"{self.elements}" if self.elements else "Empty"
@@ -386,7 +386,7 @@ class Relation(metaclass = MetaSet):
     def possible_next_values(self):
         ret = list(powerset(self.possible_tuples()))
         random.shuffle(ret)
-        return ret
+        return MetaSet.Set(ret)
 
     # Returns true if the new set of tuples is valid for its types
     def is_valid(self, values) -> bool:
@@ -409,7 +409,7 @@ class Relation(metaclass = MetaSet):
         return len(self.values)
 
     def __iter__(self) -> iter:
-        return iter(self.values)
+        return iter(MetaSet.Set(self.values))
 
     def __repr__(self):
         return f"{self.__class__.__name__} - {self.name} : " + f"{self.values}" if self.values else "Empty"
