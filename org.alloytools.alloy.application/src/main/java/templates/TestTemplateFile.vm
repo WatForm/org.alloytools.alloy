@@ -114,7 +114,7 @@ def random_subset(s):
 
 def powerset(iterable):
     s = list(iterable)
-    return MetaSet.Set(itertools.chain.from_iterable(itertools.combinations(s, r) for r in range(len(s)+1)))
+    return MetaSet.Set(list(itertools.chain.from_iterable(itertools.combinations(s, r) for r in range(len(s)+1))))
 
 class MultiLevelExit(Exception):
     "Exception type used to perform multi level exit"
@@ -320,9 +320,9 @@ class Signature(metaclass = MetaSet):
         elif self.multiplicity == Multiplicity.One:
             ret = [set(i) for i in self.atoms]
         elif self.multiplicity == Multiplicity.Some:
-            ret = list(powerset(self.atoms) - set(set()))
+            ret = powerset(self.atoms) - set(set())
         else: # Set
-            ret = list(powerset(self.atoms))
+            ret = powerset(self.atoms)
         return MetaSet.Set(ret)
 
     def __len__(self) -> int:
@@ -383,7 +383,7 @@ class Relation(metaclass = MetaSet):
         return random_subset(self.possible_tuples())
 
     def possible_next_values(self):
-        return MetaSet.Set(powerset(self.possible_tuples()))
+        return powerset(self.possible_tuples())
 
     # Returns true if the new set of tuples is valid for its types
     def is_valid(self, values) -> bool:
