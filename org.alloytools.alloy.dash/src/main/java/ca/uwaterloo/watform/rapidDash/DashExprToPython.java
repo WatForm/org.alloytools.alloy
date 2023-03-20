@@ -175,11 +175,10 @@ public class DashExprToPython<ExprType> {
                 String operation = type.equals("plus") ? " + " : " - ";
                 return UnaryOp2PythonOp(cardinality.op, cardinality.sub) + operation + badNode.left.toString();
             } else if (badNode.right instanceof ExprVar){
-                // This probably means it's a map (e.g., A.B => A[B])
-                // TODO: this is a hack and did not handle the case, only to prevent exceptions, need to fix
+                // Join operation (e.g., A.B => A ^ B)
                 String nodeLeft = genExpr(badNode.left, 1);
                 String nodeRight = genExpr(badNode.right, 1);
-                return nodeLeft + "." + nodeRight;
+                return nodeLeft + " ^ " + nodeRight;
             } else {
                 System.out.println("[Warning] BadNode needs more types: " + node.getClass());
             }
@@ -391,7 +390,7 @@ public class DashExprToPython<ExprType> {
                 res = " ";
                 break;
             case JOIN:
-                res = " ";
+                res = this.genExpr(node.left, 1) + " ^ ";
                 break;
             case DOMAIN:
                 res = " ";

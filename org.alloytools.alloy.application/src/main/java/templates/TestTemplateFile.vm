@@ -141,7 +141,7 @@ class MetaSet(type):
             elif isinstance(initvalue, MetaSet):
                 self._set = initvalue.objects()
             elif isinstance(initvalue, Signature):
-                self._set = initvalue.elements
+                self._set = set(initvalue.elements)
             elif isinstance(initvalue, Relation):
                 self._set = initvalue.values
             elif isinstance(initvalue, tuple):
@@ -149,20 +149,25 @@ class MetaSet(type):
             elif isinstance(initvalue, str):
                 self._set = {initvalue}
             elif isinstance(initvalue, dict):
-                self._set = {initvalue.values()}
+                self._set = set(initvalue.values())
             elif isinstance(initvalue, int):
                 self._set = {initvalue}
             else:
                 print("Exception, unsupported type in MetaSet::Set: %s", type(initvalue))
 
-        def __len__(self):
-            return len(self._set)
+        def __len__(cls):
+            return len(cls._set)
 
-        def __iter__(self):
-            return iter(self._set)
+        def __iter__(cls):
+            return iter(cls._set)
 
-        def __repr__(self):
-            return str(self._set)
+        def __repr__(cls):
+            return str(cls._set)
+
+        def __eq__(cls, other):
+            if not isinstance(other, MetaSet.Set):
+                return cls == MetaSet.Set(other)
+            return cls._set == other._set
 
         # override "in" operator, e.g.,: other in cls
         def __contains__(cls, other) -> bool:
@@ -186,11 +191,32 @@ class MetaSet(type):
         def __mul__(cls, other) -> set(tuple):
             return set(itertools.product(cls._set, other._set))
 
+        # override "^" operator as join
+        def __xor__(cls, other) -> set(tuple):
+            if not isinstance(other, MetaSet.Set):
+                return cls ^ MetaSet.Set(other)
+            ret = set()
+            for i in cls._set:
+                for j in other._set:
+                    if isinstance(i, str):
+                        i = tuple([i])
+                    if isinstance(j, str):
+                        j = tuple([j])
+                    if len(i) + len(j) > 2 and i[-1] == j[0]:
+                        if len(i[:-1] + j[1:]) == 1:
+                            ret.add((i[:-1] + j[1:])[0])
+                        else:
+                            ret.add(i[:-1] + j[1:])
+            return MetaSet.Set(ret)
+
     def __len__(cls):
         return len(cls.objects())
 
     def __iter__(cls):
         return iter(cls.objects())
+
+    def __repr__(cls) -> str:
+        return f"{cls.__name__}: " + f"{cls.objects()}" if cls.objects() else "Empty"
 
     # override "in" operator, e.g.,: other in cls
     def __contains__(cls, other):
@@ -208,11 +234,15 @@ class MetaSet(type):
     def __mul__(cls, other) -> set(tuple):
         return MetaSet.Set(cls.objects()) * MetaSet.Set(other)
 
+    # override "^" operator as join
+    def __xor__(cls, other) -> set(tuple):
+        return MetaSet.Set(cls.objects()) ^ MetaSet.Set(other)
+
     # all objects in this static variable
     def objects(cls) -> set:
-        if hasattr(cls, 'possible_tuples'):
-            return cls.possible_tuples()    # Relation
-        return cls.atoms                    # Signature
+        if hasattr(cls, 'values'): # Relation
+            return cls.values
+        return cls.atoms           # Signature
 
 
 class Multiplicity(Enum):
@@ -303,7 +333,10 @@ class Signature(metaclass = MetaSet):
         return iter(self.elements)
 
     def __repr__(self):
-        return f"{self.__class__.__name__} - {self.name} : {self.elements}" if self.elements else f"{self.__class__.__name__} - {self.name} : Empty"
+        return f"{self.__class__.__name__} - {self.name} : " + f"{self.elements}" if self.elements else "Empty"
+
+    def __eq__(self, other: object) -> bool:
+        return MetaSet.Set(other) == MetaSet.Set(self.elements)
 
     # override "in" operator, e.g.,: other in self
     def __contains__(self, other):
@@ -321,6 +354,9 @@ class Signature(metaclass = MetaSet):
     def __mul__(self, other) -> set(tuple):
         return MetaSet.Set(self.elements) * MetaSet.Set(other)
 
+    # override "^" operator as join
+    def __xor__(self, other) -> set(tuple):
+        return MetaSet.Set(self.elements) ^ MetaSet.Set(other)
 
 class Relation(metaclass = MetaSet):
     def __init__(self, name, types, values=set()):
@@ -337,12 +373,7 @@ class Relation(metaclass = MetaSet):
         self.types = types
         self.values = values
 
-    @classmethod
-    def possible_tuples(cls) -> set:
-        domain_elements = [type.objects() for type in cls.types]
-        return set([tup for tup in itertools.product(*domain_elements)])
-
-    def possible_tuples_instance_method(self) -> set:
+    def possible_tuples(self) -> set:
         domain_elements = [type.objects() for type in self.types]
         return set([tup for tup in itertools.product(*domain_elements)])
 
@@ -350,10 +381,10 @@ class Relation(metaclass = MetaSet):
         return self.values
 
     def generate_random_value(self):
-        return random_subset(self.possible_tuples_instance_method())
+        return random_subset(self.possible_tuples())
 
     def possible_next_values(self):
-        ret = list(powerset(self.possible_tuples_instance_method()))
+        ret = list(powerset(self.possible_tuples()))
         random.shuffle(ret)
         return ret
 
@@ -381,7 +412,7 @@ class Relation(metaclass = MetaSet):
         return iter(self.values)
 
     def __repr__(self):
-        return f"{self.__class__.__name__} - {self.name} : {self.values}" if self.values else f"{self.__class__.__name__} - {self.name} : Empty"
+        return f"{self.__class__.__name__} - {self.name} : " + f"{self.values}" if self.values else "Empty"
 
     # override "in" operator, e.g.,: other in self
     def __contains__(self, other):
@@ -395,6 +426,9 @@ class Relation(metaclass = MetaSet):
     def __sub__(self, other):
         return MetaSet.Set(self.values) - MetaSet.Set(other)
 
+    # override "^" operator as join
+    def __xor__(self, other) -> set(tuple):
+        return MetaSet.Set(self.values) ^ MetaSet.Set(other)
 
 #end
 class VariableTracker:
@@ -636,21 +670,17 @@ $padding        except MultiLevelExit:
 $padding            SS.${var} = ${var}_updated
                 #end
 $padding        else:
-$padding            # TODO backtrack to earlier steps
 $padding            print("No possible next state values")
 $padding            exit(1)
             #end
 $padding        print(Blue + "Taking transition ${trans.getTransName()}" + Reset)
 $padding        # Apply State Activeness Changes
                 #if($trans.getNonActiveStatesAfterTrans().size() > 0)
-$padding        # size = $trans.getNonActiveStatesAfterTrans().size()
 $padding        states_becoming_non_active = $trans.getNonActiveStatesAfterTransPythonStr()
 $padding        for state in states_becoming_non_active:
 $padding            state.is_active = False
                 #end
                 #if($trans.getActiveStatesAfterTrans().size() > 0)
-$padding        # TODO: delete this later. Do we need the line below?
-$padding        # size = $trans.geActiveStatesAfterTrans().size()
 $padding        states_becoming_active = $trans.getActiveStatesAfterTransPythonStr()
 $padding        for state in states_becoming_active:
 $padding            state.is_active = True
@@ -665,7 +695,6 @@ $padding        return True
         #end
     #end
 #end
-
 #foreach($rootState in $rootStates)
 	#generateState($rootState "")
 #end

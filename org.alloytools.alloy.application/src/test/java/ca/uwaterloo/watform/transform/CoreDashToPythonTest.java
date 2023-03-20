@@ -250,8 +250,8 @@ public class CoreDashToPythonTest {
                 "SS.S_in_m1 == SS.S_in_m2 or",  // Equal sign in guard 1
                 "(SS.S_m1 == SS.S_m2 and",
                 "SS.S_in_m1 == SS.S_in_m2))",
-                "SS.S_in_m1 = SS.S_in_m2 + SS.S_in_m1",  // Equal sign in action 1
-                "SS.S_m1 = SS.S_m2 + SS.S_m1 + SS.S_m4"
+                "SS.S_in_m1 == SS.S_in_m2 + SS.S_in_m1",  // Equal sign in action 1
+                "SS.S_m1 == SS.S_m2 + SS.S_m1 + SS.S_m4"
         );
 
         String output = CoreDashToPython.convert2String(translation);

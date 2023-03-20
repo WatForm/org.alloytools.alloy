@@ -89,8 +89,10 @@ public class DashPythonTranslationTest {
             assertTrue(decl.contains("="));
         }
 
-        assertTrue(gameState.getDecls().contains("Game_active_players = Player('active_players', 3)"));
-        assertTrue(gameState.getDecls().contains("Game_active_chairs = Chair('active_chairs', 3)"));
+        System.out.println(gameState.getDecls());
+
+        assertTrue(gameState.getDecls().contains("Game_active_players = Player('active_players', Multiplicity.Set)"));
+        assertTrue(gameState.getDecls().contains("Game_active_chairs = Chair('active_chairs', Multiplicity.Set)"));
         assertTrue(gameState.getDecls().contains("Game_occupied = Chair * Player"));
 
         for (String init : gameState.getInits()) {
@@ -397,18 +399,18 @@ public class DashPythonTranslationTest {
         assertEquals(12, transitions.size());
 
         List<String> expectedString = Arrays.asList(
-                "SS.StateA_far = SS.StateA_far",
-                "SS.StateA_far = SS.StateA_far",
-                "SS.StateA_far = SS.StateA_far",
-                "SS.StateA_far = SS.StateA_far + SigA",
-                "SS.StateA_far = SS.StateA_far + SigA + SigB",
-                "SS.StateA_far = SS.StateA_far + SigA + SigB",
-                "SS.StateA_far = SS.StateA_far + (SigB + SigA)",
-                "SS.StateA_far = SS.StateA_far - SigA",
-                "SS.StateA_far = SS.StateA_far - SigA - SigB",
-                "SS.StateA_far = SS.StateA_far - SigA - SigB",
-                "SS.StateA_far = SS.StateA_far - (SigA - SigB)",
-                "SS.StateA_far = SS.StateA_far + SigA - (SigB - SS.StateA_far)");
+                "SS.StateA_far == SS.StateA_far",
+                "SS.StateA_far == SS.StateA_far",
+                "SS.StateA_far == SS.StateA_far",
+                "SS.StateA_far == SS.StateA_far + SigA",
+                "SS.StateA_far == SS.StateA_far + SigA + SigB",
+                "SS.StateA_far == SS.StateA_far + SigA + SigB",
+                "SS.StateA_far == SS.StateA_far + (SigB + SigA)",
+                "SS.StateA_far == SS.StateA_far - SigA",
+                "SS.StateA_far == SS.StateA_far - SigA - SigB",
+                "SS.StateA_far == SS.StateA_far - SigA - SigB",
+                "SS.StateA_far == SS.StateA_far - (SigA - SigB)",
+                "SS.StateA_far == SS.StateA_far + SigA - (SigB - SS.StateA_far)");
 
         for (int index = 0; index < transitions.size(); index++) {
             assertEquals(expectedString.get(index), transitions.get(index).getActions().get(0));
