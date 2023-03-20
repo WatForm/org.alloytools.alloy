@@ -114,7 +114,7 @@ def random_subset(s):
 
 def powerset(iterable):
     s = list(iterable)
-    return MetaSet.Set(list(itertools.chain.from_iterable(itertools.combinations(s, r) for r in range(len(s)+1))))
+    return set(itertools.chain.from_iterable(itertools.combinations(s, r) for r in range(len(s)+1)))
 
 class MultiLevelExit(Exception):
     "Exception type used to perform multi level exit"
@@ -159,7 +159,7 @@ class MetaSet(type):
             return len(cls._set)
 
         def __iter__(cls):
-            return iter([MetaSet.Set(set(x)) for x in cls._set])
+            return iter(cls._set)
 
         def __repr__(cls):
             return str(cls._set)
@@ -320,10 +320,11 @@ class Signature(metaclass = MetaSet):
         elif self.multiplicity == Multiplicity.One:
             ret = [set(i) for i in self.atoms]
         elif self.multiplicity == Multiplicity.Some:
-            ret = powerset(self.atoms) - set(set())
+            ret = list(powerset(self.atoms) - set(set()))
         else: # Set
-            ret = powerset(self.atoms)
-        return MetaSet.Set(ret)
+            ret = list(powerset(self.atoms))
+        random.shuffle(ret)
+        return ret
 
     def __len__(self) -> int:
         return len(self.elements)
@@ -383,7 +384,9 @@ class Relation(metaclass = MetaSet):
         return random_subset(self.possible_tuples())
 
     def possible_next_values(self):
-        return powerset(self.possible_tuples())
+        ret = list(powerset(self.possible_tuples_instance_method()))
+        random.shuffle(ret)
+        return ret
 
     # Returns true if the new set of tuples is valid for its types
     def is_valid(self, values) -> bool:
@@ -649,6 +652,7 @@ $padding        try:
                 #foreach($var in $trans.getAssignedVarNames())
                     #set($padding = "$padding$tab")
 $padding        for ${var}_updated in SS.${var}.possible_next_values():
+$padding            ${var}_updated = MetaSet.Set(${var}_updated)
                 #end
                 #if($trans.getActions().size() == 1)
 $padding            if $trans.getActions().get(0):
