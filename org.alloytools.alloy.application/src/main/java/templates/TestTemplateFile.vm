@@ -326,6 +326,9 @@ class Signature(metaclass = MetaSet):
         random.shuffle(ret)
         return ret
 
+    # Alias for possible_next_values
+    pnv = possible_next_values
+
     def __len__(self) -> int:
         return len(self.elements)
 
@@ -384,9 +387,12 @@ class Relation(metaclass = MetaSet):
         return random_subset(self.possible_tuples())
 
     def possible_next_values(self):
-        ret = list(powerset(self.possible_tuples_instance_method()))
+        ret = list(powerset(self.possible_tuples()))
         random.shuffle(ret)
         return ret
+
+    # Alias for possible_next_values
+    pnv = possible_next_values
 
     # Returns true if the new set of tuples is valid for its types
     def is_valid(self, values) -> bool:
@@ -651,7 +657,7 @@ $padding            return False
 $padding        try:
                 #foreach($var in $trans.getAssignedVarNames())
                     #set($padding = "$padding$tab")
-$padding        for ${var}_updated in SS.${var}.possible_next_values():
+$padding        for ${var}_updated in SS.${var}.pnv():
 $padding            ${var}_updated = MetaSet.Set(set(${var}_updated))
                 #end
                 #if(!$trans.getInvariantNames().isEmpty())
