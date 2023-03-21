@@ -1105,7 +1105,7 @@ public class DashPythonTranslation {
                 DashExprToPython<DashDoExpr> dashExprTranslator = new DashExprToPython<>(dashTrans.getAction(), variable2StateNameMap,DashExprToPython.ExprTypeE.DO);
 
                 this.actions = dashExprTranslator.toList();
-                this.assignableVarsFullNames = dashExprTranslator.getAssignableVars().getFullNames();
+                this.assignableVarsFullNames = dashExprTranslator.getAssignableVars().getFullNames().stream().sorted().collect(Collectors.toList());
 
                 invariantList.forEach(inv -> {
                     if(inv.getRelatedVariables().checkIntersection(dashExprTranslator.getAssignableVars())){
