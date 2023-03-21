@@ -204,6 +204,103 @@ public class SortPolicyTest {
     }
 
     @Test
+    public void testGetDomainElementRange_nonExactTwoChildrenOneExactOneNonExact() {
+        // test that the exact child is ignored in the domain element range calculation
+        Sort sort = Sort.mkSortConst("sort");
+        Sig.PrimSig parent = new Sig.PrimSig("S");
+        Sig.PrimSig childNonExact = new Sig.PrimSig(null, "S1", new Pos("", 0, 0), parent);
+        // put the exact child later in the alphabet to ensure it would be sorted last
+        Sig.PrimSig childExact = new Sig.PrimSig(null, "S2", new Pos("", 0, 0), parent);
+        policy = mock(SortPolicy.class, withSettings()
+                .useConstructor(Arrays.asList(parent, childExact, childNonExact))
+                .defaultAnswer(CALLS_REAL_METHODS));
+        when(policy.getSort(parent)).thenReturn(sort);
+        when(scoper.isExact(parent)).thenReturn(false);
+        when(scoper.sig2scope(parent)).thenReturn(4);
+        when(policy.getSort(childNonExact)).thenReturn(sort);
+        when(scoper.isExact(childExact)).thenReturn(false);
+        when(scoper.sig2scope(childNonExact)).thenReturn(2);
+        when(policy.getSort(childExact)).thenReturn(sort);
+        when(scoper.isExact(childExact)).thenReturn(true);
+        when(scoper.sig2scope(childExact)).thenReturn(3);
+        assertRange(1, 3, policy.getDomainElementRange(childExact, scoper));
+        assertRange(1, 3, policy.getDomainElementRange(parent, scoper));
+        // don't check childNonExact because getDomainElementRange is explicitly not accurate for it
+    }
+
+    @Test
+    public void testGetDomainElementRange_veryComplexHierarchy1() {
+        // Given this hierarchy, where sigs marked with <= are non-exact and those with = are exact:
+        //         A,<=
+        //       /   \
+        //     B,=  C,<=
+        //           |
+        //          D,=
+        // ensure that the domain element ranges put B and D's ranges together and in that order
+        // (due to alphabetical sorting of B and C).
+        Sort sort = Sort.mkSortConst("sort");
+        Sig.PrimSig sigA = new Sig.PrimSig("A");
+        Sig.PrimSig sigB = new Sig.PrimSig(null, "B", new Pos("", 0, 0), sigA);
+        Sig.PrimSig sigC = new Sig.PrimSig(null, "C", new Pos("", 0, 0), sigA);
+        Sig.PrimSig sigD = new Sig.PrimSig(null, "D", new Pos("", 0, 0), sigC);
+        policy = mock(SortPolicy.class, withSettings()
+                .useConstructor(Arrays.asList(sigA, sigB, sigC, sigD))
+                .defaultAnswer(CALLS_REAL_METHODS));
+        when(policy.getSort(sigA)).thenReturn(sort);
+        when(scoper.isExact(sigA)).thenReturn(false);
+        when(scoper.sig2scope(sigA)).thenReturn(4);
+        when(policy.getSort(sigB)).thenReturn(sort);
+        when(scoper.isExact(sigB)).thenReturn(true);
+        when(scoper.sig2scope(sigB)).thenReturn(2);
+        when(policy.getSort(sigC)).thenReturn(sort);
+        when(scoper.isExact(sigC)).thenReturn(false);
+        when(scoper.sig2scope(sigC)).thenReturn(4);
+        when(policy.getSort(sigD)).thenReturn(sort);
+        when(scoper.isExact(sigD)).thenReturn(true);
+        when(scoper.sig2scope(sigD)).thenReturn(1);
+        assertRange(1, 2, policy.getDomainElementRange(sigB, scoper));
+        assertRange(3, 3, policy.getDomainElementRange(sigD, scoper));
+        assertRange(3, 3, policy.getDomainElementRange(sigC, scoper));
+        assertRange(1, 3, policy.getDomainElementRange(sigA, scoper));
+    }
+
+    @Test
+    public void testGetDomainElementRange_veryComplexHierarchy2() {
+        // Given this hierarchy, where sigs marked with <= are non-exact and those with = are exact:
+        //         A,<=
+        //       /   \
+        //     B,<=  C,=
+        //     |
+        //    D,=
+        // ensure that the domain element ranges put D and C's ranges together and in that order
+        // (due to alphabetical sorting of B and C).
+        Sort sort = Sort.mkSortConst("sort");
+        Sig.PrimSig sigA = new Sig.PrimSig("A");
+        Sig.PrimSig sigB = new Sig.PrimSig(null, "B", new Pos("", 0, 0), sigA);
+        Sig.PrimSig sigC = new Sig.PrimSig(null, "C", new Pos("", 0, 0), sigA);
+        Sig.PrimSig sigD = new Sig.PrimSig(null, "D", new Pos("", 0, 0), sigB);
+        policy = mock(SortPolicy.class, withSettings()
+                .useConstructor(Arrays.asList(sigA, sigB, sigC, sigD))
+                .defaultAnswer(CALLS_REAL_METHODS));
+        when(policy.getSort(sigA)).thenReturn(sort);
+        when(scoper.isExact(sigA)).thenReturn(false);
+        when(scoper.sig2scope(sigA)).thenReturn(4);
+        when(policy.getSort(sigB)).thenReturn(sort);
+        when(scoper.isExact(sigB)).thenReturn(false);
+        when(scoper.sig2scope(sigB)).thenReturn(3);
+        when(policy.getSort(sigC)).thenReturn(sort);
+        when(scoper.isExact(sigC)).thenReturn(true);
+        when(scoper.sig2scope(sigC)).thenReturn(1);
+        when(policy.getSort(sigD)).thenReturn(sort);
+        when(scoper.isExact(sigD)).thenReturn(true);
+        when(scoper.sig2scope(sigD)).thenReturn(2);
+        assertRange(1, 2, policy.getDomainElementRange(sigD, scoper));
+        assertRange(1, 2, policy.getDomainElementRange(sigB, scoper));
+        assertRange(3, 3, policy.getDomainElementRange(sigC, scoper));
+        assertRange(1, 3, policy.getDomainElementRange(sigA, scoper));
+    }
+
+    @Test
     public void testGetDomainElementRange_int() {
         // we don't support DE ranges for SIGINT because that's an annoying special case that will never happen
         assertNull(policy.getDomainElementRange(Sig.SIGINT, scoper));
