@@ -2,6 +2,7 @@ package ca.uwaterloo.watform.rapidDash;
 
 import ca.uwaterloo.watform.ast.*;
 import ca.uwaterloo.watform.parser.DashModule;
+import ca.uwaterloo.watform.rapidDash.DashExprToPython.VariableSet;
 import com.google.gson.*;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.ast.*;
@@ -265,7 +266,7 @@ public class DashPythonTranslation {
 
     private void initSignatures(List<Sig> signaturesSortedList){
         br = new BufferedReader(new InputStreamReader(System.in));
-        useSignatureConfig = false;
+        useSignatureConfig = true;      // TODO: clean up, currently set to true so it won't ask for using config file, also need to clean up the inputs in unit tests
         hasPromptedSigConfig = false;
         needToUpdateConfigFile = false;
         signatureJSONConfig = new JsonObject();
@@ -1068,8 +1069,8 @@ public class DashPythonTranslation {
         private String toStateName = "";
         private String transName = "";                       // transition name
         private List<String> actions = new ArrayList<>();    // the logic for this transition to be executed
-        private final List<String> invariants = new ArrayList<>();    // the logic for this transition to be executed
-        private List<String> assignableVars;
+        private final List<String> invariantNames = new ArrayList<>();    // the logic for this transition to be executed
+        private List<String> assignableVarsFullNames;
         private List<String> guardConditions = new ArrayList<>();   // the guard conditions of this transition
         private String eventCondition = "";
         private String triggerEvent = "";
@@ -1104,12 +1105,11 @@ public class DashPythonTranslation {
                 DashExprToPython<DashDoExpr> dashExprTranslator = new DashExprToPython<>(dashTrans.getAction(), variable2StateNameMap,DashExprToPython.ExprTypeE.DO);
 
                 this.actions = dashExprTranslator.toList();
-                this.assignableVars = dashExprTranslator.getAssignableVars();
-                Set<String> relatedDynamicVars = dashExprTranslator.getRelatedDynamicVars();
+                this.assignableVarsFullNames = dashExprTranslator.getAssignableVars().getFullNames().stream().sorted().collect(Collectors.toList());
 
                 invariantList.forEach(inv -> {
-                    if(!Collections.disjoint(relatedDynamicVars, inv.getRelatedVariables())){
-                        this.invariants.add(inv.getName());
+                    if(inv.getRelatedVariables().checkIntersection(dashExprTranslator.getAssignableVars())){
+                        this.invariantNames.add(inv.getInvariantCallName(dashExprTranslator.getAssignableVars()));
                     }
                 });
             }
@@ -1129,8 +1129,8 @@ public class DashPythonTranslation {
         public String getPythonVariableStateName() {return "ref_" + stateName.toLowerCase();}
         public List<String> getGuardConditions(){return guardConditions;}
         public List<String> getActions(){return actions;}
-        public List<String> getInvariantNames(){return invariants;}
-        public List<String> getAssignedVarNames(){return assignableVars;}
+        public List<String> getInvariantNames(){return invariantNames;}
+        public List<String> getAssignedVarNames(){return assignableVarsFullNames;}
         public String getEventCondition() {return eventCondition;}
         public String getFromStateName() {return fromStateName;}
         public String getToStateName() {return toStateName;}
@@ -1157,7 +1157,7 @@ public class DashPythonTranslation {
     public class Invariant{
         private String invariantName = "";                      // invariant name
         private List<String> conditions = new ArrayList<>();    // the logic for this invariant to be executed
-        private Set<String> relatedVariables = new HashSet<>(); // the variables that are related to this invariant
+        private VariableSet relatedVariables = new VariableSet(); // the variables that are related to this invariant
 
         public Invariant(DashInvariant dashInvariant){
             // set default invariant information
@@ -1165,13 +1165,22 @@ public class DashPythonTranslation {
 
             // determines the invariant condition
             if(dashInvariant.getExpr() != null){
-                DashExprToPython<Expr> dashExprTranslator = new DashExprToPython<>(dashInvariant.getExpr(), variable2StateNameMap);
+                DashExprToPython<Expr> dashExprTranslator = new DashExprToPython<>(dashInvariant.getExpr(), variable2StateNameMap, DashExprToPython.ExprTypeE.INV);
                 this.conditions = dashExprTranslator.toList();
                 this.relatedVariables = dashExprTranslator.getRelatedDynamicVars();
             }
         }
-        public String getName(){return invariantName;}
+        public String getInvariantName(){return invariantName + "(" + String.join(", ", relatedVariables.getNames()) + ")";}
         public List<String> getConditions(){return conditions;}
-        public Set<String> getRelatedVariables(){return relatedVariables;}
+        public VariableSet getRelatedVariables(){return relatedVariables;}
+        public String getInvariantCallName(VariableSet assignableVars){
+            // Put in the parameters according to the related variables given by the actions
+            List<String> list = new ArrayList<>();
+
+            // For each parameter in the parameters list, get the corresponding variable name
+            // if the variable is assigned in the actions, use the local name; otherwise, use the qualified name
+            relatedVariables.forEach(var -> list.add((assignableVars.contains(var)) ? var.getLocalName() : var.getQualName()));
+            return invariantName + "(" + String.join(", ", list) + ")";
+        }
     }
 }

@@ -5,16 +5,18 @@ import ca.uwaterloo.watform.ast.DashWhenExpr;
 import edu.mit.csail.sdg.ast.*;
 
 import java.util.*;
-
+import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 /*
     a class used to translate expressions to Python code
  */
 public class DashExprToPython<ExprType> {
     enum ExprTypeE {
-        DO, DEFAULT
+        INV, DO, DEFAULT
     }
-    private final String varTrackerName = "SS.";
+    public static final String VarTrackerName = "SS.";
+    public static final String VarLocalSuffix = "_updated";
     private ExprTypeE exprType;
     private ExprType specialExpr;
     private Deque<StringBuilder> sbs;
@@ -25,8 +27,9 @@ public class DashExprToPython<ExprType> {
     public boolean isInit = false;
     // used to store the dynamic variables that are related to the current expression
     // only used for invariants
-    private Set<String> relatedDynamicVars;
-    private Set<String> assignableVars;
+
+    private final VariableSet relatedDynamicVars;      // All related variables, including the ones that are not assignable
+    private final VariableSet assignableVars;          // All assignable variables
 
     public DashExprToPython(ExprType specialExpr, Map<String, String> variable2StateNameMap, String varName, List<DashPythonTranslation.Relation> relations, ExprTypeE exprType){
         this.specialExpr = specialExpr;
@@ -36,8 +39,8 @@ public class DashExprToPython<ExprType> {
         this.varName = varName;
         this.relations = relations;
         this.exprType = exprType;
-        this.relatedDynamicVars = new HashSet<>();
-        this.assignableVars = new HashSet<>();
+        this.relatedDynamicVars = new VariableSet();
+        this.assignableVars = new VariableSet();
 
         // TODO: currently only support DashWhenExpr
         this.parseExpr();
@@ -79,8 +82,8 @@ public class DashExprToPython<ExprType> {
         return result;
     }
 
-    public Set<String> getRelatedDynamicVars() {return relatedDynamicVars;}
-    public List<String> getAssignableVars() {return new ArrayList<>(assignableVars);}
+    public VariableSet getRelatedDynamicVars() {return relatedDynamicVars;}
+    public VariableSet getAssignableVars() {return assignableVars;}
 
     public void reparseExpr() {
         sbs.removeLast();
@@ -93,17 +96,17 @@ public class DashExprToPython<ExprType> {
         // TODO: need to handle predicates with multiple lines
         if(specialExpr instanceof DashWhenExpr){
             DashWhenExpr exp = (DashWhenExpr)this.specialExpr;
-            sbs.getLast().append(genExpr(exp.getExpr(), exp.getAllExpressions().size()));
+            sbs.getLast().append(genExpr(exp.getExpr()));
         } else if (specialExpr instanceof DashDoExpr){
             DashDoExpr exp = (DashDoExpr)this.specialExpr;
-            sbs.getLast().append(genExpr(exp.getExpr(), exp.getAllExpression().size()));
+            sbs.getLast().append(genExpr(exp.getExpr()));
         } else {
-            sbs.getLast().append(genExpr((Expr)specialExpr, 1));
+            sbs.getLast().append(genExpr((Expr)specialExpr));
         }
     }
 
     // print the expr tree using pre-order
-    private String genExpr(Expr node, int size) {
+    private String genExpr(Expr node) {
         // TODO: currently, the second parameter is redundant
 
         // check type, there are two types of expr
@@ -113,7 +116,7 @@ public class DashExprToPython<ExprType> {
             Iterator<Expr> subNode = exprList.args.iterator();
 
             if (1 == exprList.args.size()){
-                sbs.getLast().append(genExpr(subNode.next(), exprList.args.size()));
+                sbs.getLast().append(genExpr(subNode.next()));
                 sbs.addLast(new StringBuilder());
                 return "";
             }
@@ -121,7 +124,7 @@ public class DashExprToPython<ExprType> {
             // predicates need to be wrapped in () and must be linked with and/or operators
             sbs.getLast().append("(");
             while (subNode.hasNext()) {
-                sbs.getLast().append(genExpr(subNode.next(), exprList.args.size()));
+                sbs.getLast().append(genExpr(subNode.next()));
                 // linkOperators
                 if (subNode.hasNext()) {
                     if (exprList.op == ExprList.Op.AND) {
@@ -142,19 +145,26 @@ public class DashExprToPython<ExprType> {
             ExprUnary unaryNode = (ExprUnary) node;
             return UnaryOp2PythonOp(unaryNode.op, unaryNode.sub);
         } else if (node instanceof ExprBinary) {
-            // TODO: will BinaryExpr have sub nodes?
-
-            // TODO: will need to replace left and right with signature names
             return BinaryOp2PythonOp((ExprBinary) node);
         } else if (node instanceof ExprVar || node instanceof ExprConstant){
             String varName = node.toString();
-            // Prime variables will have a suffix "_updated"
-            if(ExprTypeE.DO == exprType && '\'' == varName.charAt(varName.length() - 1)){
-                varName = getVarName(varName.substring(0, varName.length() - 1)).substring(varTrackerName.length());
-                assignableVars.add(varName);
-                return varName + "_updated";
+            Variable var;
+            switch(exprType){
+                case INV:   // Invariant variables will be parameterized, so no change to the names
+                    var = getVarName(varName);
+                    return var.getName();
+                case DO:    // Prime variables will have a suffix in the actions
+                    if('\'' == varName.charAt(varName.length() - 1)){
+                        var = getVarName(varName.substring(0, varName.length() - 1));
+                        var.setHasSuffix(true);
+                        assignableVars.add(var);
+                        return var.getLocalName();
+                    }
+                    break;
+                default:
+                    break;
             }
-			return getVarName(varName);
+			return getVarName(varName).getQualName();
         } else if (node instanceof ExprBadJoin) {
             // this assumes the expr is in the form (#STATE_VARIABLE).PLUS/MINUS[CONSTANT]
             ExprBadJoin badNode = (ExprBadJoin) node;
@@ -166,7 +176,7 @@ public class DashExprToPython<ExprType> {
                 return UnaryOp2PythonOp(cardinality.op, cardinality.sub) + operation + badNode.left.toString();
             } else if (badNode.right instanceof ExprVar){
                 // Join operation (e.g., A.B => A ^ B)
-                return "(" + genExpr(badNode.left, 1) + " ^ " + genExpr(badNode.right, 1) + ")";
+                return "(" + genExpr(badNode.left) + " ^ " + genExpr(badNode.right) + ")";
             } else {
                 System.out.println("[Warning] BadNode needs more types: " + node.getClass());
             }
@@ -179,21 +189,21 @@ public class DashExprToPython<ExprType> {
 
             for(Decl decl : qtNode.decls){
                 // Get type/declaration of the quantified variables
-                String quantifiedDecl = genExpr(decl.expr, 1);
+                String quantifiedDecl = genExpr(decl.expr);
 
                 // Get the quantified variables
                 for (ExprHasName variable : decl.names) {
                     if (quantifiedSource.length() > 0){
                         quantifiedSource.append(" ");
                     }
-                    quantifiedSource.append(String.format("for %s in %s", genExpr(variable, 1), quantifiedDecl));
+                    quantifiedSource.append(String.format("for %s in %s", genExpr(variable), quantifiedDecl));
                 }
             }
             // Get the formula of the quantified expression
             Deque<StringBuilder> sbsTemp = sbs;
             this.sbs = new LinkedList<>();
             this.sbs.addLast(new StringBuilder());
-            String quantifiedFormula = genExpr(qtNode.sub, 1);
+            String quantifiedFormula = genExpr(qtNode.sub);
             // Meaning there are several statements in the quantified formula
             if(!sbs.getFirst().toString().isEmpty()){
                 quantifiedFormula = String.join(" ", toList());
@@ -245,7 +255,7 @@ public class DashExprToPython<ExprType> {
                 res = " ";
                 break;
             case NOT:        // this part assumes the inner expression is a statement that evaluates to true or false
-                res = "not(" + this.genExpr(node,1) + ")";
+                res = "not(" + this.genExpr(node) + ")";
                 break;
             case AFTER:
                 res = " ";
@@ -266,16 +276,16 @@ public class DashExprToPython<ExprType> {
                 res = " ";
                 break;
             case NO:        // this part assumes the inner expression is a signature instance that is an object
-                res = "not any(" + this.genExpr(node,1) + ")";
+                res = "not any(" + this.genExpr(node) + ")";
                 break;
             case SOME:      // this part assumes the inner expression is a signature instance that is an object
-                res = "any(" + this.genExpr(node,1) + ")";
+                res = "any(" + this.genExpr(node) + ")";
                 break;
             case LONE:
-                res = "(1 >= len(" + this.genExpr(node,1) + "))";
+                res = "(1 >= len(" + this.genExpr(node) + "))";
                 break;
             case ONE:
-                res = "(1 == len(" + this.genExpr(node,1) + "))";
+                res = "(1 == len(" + this.genExpr(node) + "))";
                 break;
             case TRANSPOSE:
                 res = " ";
@@ -291,7 +301,7 @@ public class DashExprToPython<ExprType> {
                 res = " ";
                 break;
             case CARDINALITY:
-                res = "len(" + this.genExpr(node,1) + ")";
+                res = "len(" + this.genExpr(node) + ")";
                 break;
             case CAST2INT:
                 res = " ";
@@ -300,7 +310,7 @@ public class DashExprToPython<ExprType> {
                 res = " ";
                 break;
             case NOOP:
-                res = this.genExpr(node, 1);
+                res = this.genExpr(node);
                 break;
         }
         return res;
@@ -312,22 +322,8 @@ public class DashExprToPython<ExprType> {
         boolean shouldAddParenthesis = node.right instanceof ExprBinary;
         boolean rightConsumed = false;  // if the right expression is already parsed
         switch(node.op){
-            case ARROW:     // State relation declaration
-                // TODO: should apply this to other relation types.
-            	// TODO: currently only support relation for exactly 2 types
-
-                // Generate new relation name and add it to the list of relations.
-                res = getVarName(node.left.toString()) + " * " + getVarName(node.right.toString());
-
-                // TODO: we assume the model can always be solved by Alloy Solver
-                /* [Deprecated]: now the Alloy Solver will handle the initialization of relations
-                    String type = "[" + node.left + ", " + node.right  + "]";
-                    DashPythonTranslation.Relation newRelation = new DashPythonTranslation.Relation(newRelationName, type);
-                    if (relations != null && !relations.contains(newRelation)){ relations.add(newRelation); }
-                    res = newRelationName + "()";
-                 */
-
-                rightConsumed = true;
+            case ARROW: // Cartesian product
+                res = this.genExpr(node.left) + " * ";
                 break;
             case ANY_ARROW_SOME:
                 res = " ";
@@ -378,7 +374,7 @@ public class DashExprToPython<ExprType> {
                 res = " ";
                 break;
             case JOIN:
-                res = this.genExpr(node.left, 1) + " ^ ";
+                res = this.genExpr(node.left) + " ^ ";
                 shouldAddParenthesis = true;
                 break;
             case DOMAIN:
@@ -394,13 +390,13 @@ public class DashExprToPython<ExprType> {
                 res = " ";
                 break;
             case PLUS:        // this part assumes inner expression are a signature instances and are sets
-                res = this.genExpr(node.left, 1) + " + ";
+                res = this.genExpr(node.left) + " + ";
                 break;
             case IPLUS:
                 res = " ";
                 break;
             case MINUS:        // this part assumes inner expression are a signature instances and are sets
-                res = this.genExpr(node.left, 1) + " - ";
+                res = this.genExpr(node.left) + " - ";
                 break;
             case IMINUS:
                 res = " ";
@@ -416,33 +412,33 @@ public class DashExprToPython<ExprType> {
                 break;
             case EQUALS:        // this part assumes inner expression is a signature instances and are comparable
             	if(isInit) {    // TODO: this should be deprecated if we assume the Alloy Solver can always handle the initialization
-            		res = this.genExpr(node.left, 1) + " = " + this.genExpr(node.right, 1).toLowerCase();
+            		res = this.genExpr(node.left) + " = " + this.genExpr(node.right).toLowerCase();
             	} else {        // predicates
-                    res = this.genExpr(node.left, 1) + " == ";
+                    res = this.genExpr(node.left) + " == ";
                 }
                 shouldAddParenthesis = false;
                 break;
             case NOT_EQUALS:    // this part assumes inner expression is a signature instances and are comparable
-                res = this.genExpr(node.left, 1) + " != ";
+                res = this.genExpr(node.left) + " != ";
                 break;
             case IMPLIES:
                 res = " ";
                 break;
             case LT:         // this part assumes inner expression are a signature instances and are comparable
             case NOT_GTE:
-                res = this.genExpr(node.left, 1) + " < ";
+                res = this.genExpr(node.left) + " < ";
                 break;
             case LTE:        // this part assumes inner expression are a signature instances and are comparable
             case NOT_GT:
-                res = this.genExpr(node.left, 1) + " <= ";
+                res = this.genExpr(node.left) + " <= ";
                 break;
             case GT:         // this part assumes inner expression are a signature instances and are comparable
             case NOT_LTE:
-                res = this.genExpr(node.left, 1) + " > ";
+                res = this.genExpr(node.left) + " > ";
                 break;
             case GTE:        // this part assumes inner expression are a signature instances and are comparable
             case NOT_LT:
-                res = this.genExpr(node.left, 1) + " >= ";
+                res = this.genExpr(node.left) + " >= ";
                 break;
             case SHL:
                 res = " ";
@@ -454,19 +450,19 @@ public class DashExprToPython<ExprType> {
                 res = " ";
                 break;
             case IN:            // this part assumes inner expression are a signature instances and are sets
-                res = this.genExpr(node.left, 1) + " in ";
+                res = this.genExpr(node.left) + " in ";
                 break;
             case NOT_IN:        // this part assumes inner expression are a signature instances and are sets
-                res = this.genExpr(node.left, 1) + " not in ";
+                res = this.genExpr(node.left) + " not in ";
                 break;
             case AND:           // this part assumes the inner expression is a statement that evaluates to true or false
-                res = "(" + this.genExpr(node.left, 1) + ") and ";
+                res = "(" + this.genExpr(node.left) + ") and ";
                 break;
             case OR:            // this part assumes the inner expression is a statement that evaluates to true or false
-                res = "(" + this.genExpr(node.left, 1) + ") or ";
+                res = "(" + this.genExpr(node.left) + ") or ";
                 break;
             case IFF:
-                res = "(" + this.genExpr(node.left, 1) + ") == ";
+                res = "(" + this.genExpr(node.left) + ") == ";
                 break;
             case UNTIL:
                 res = " ";
@@ -485,24 +481,76 @@ public class DashExprToPython<ExprType> {
         // add the right expression node
         if (!rightConsumed){
             if(shouldAddParenthesis) {
-                res += "(" + this.genExpr(node.right, 1) + ")";
+                res += "(" + this.genExpr(node.right) + ")";
             }else{
-                res += this.genExpr(node.right, 1);
+                res += this.genExpr(node.right);
             }
         }
         return res;
     }
 
-    private String getVarName(String varName){
+    private Variable getVarName(String varName) {
+        Variable var = new Variable(varName);
         if (varName.contains("/")){
             String[] parts = varName.split("/");
-            relatedDynamicVars.add(parts[parts.length - 1]);
-            return varTrackerName + varName.replace("/", "_");
+            var.setGlobal(true);
+            var.setName(parts[parts.length - 1]);
+            varName = varName.replace("/", "_");
+            var.setPrefix(varName.substring(0, varName.lastIndexOf("_") + 1));
+            relatedDynamicVars.add(var);
+        } else if (variable2StateNameMap.containsKey(varName)){
+            var.setGlobal(true);
+            var.setPrefix(variable2StateNameMap.get(varName) + "_");
+            relatedDynamicVars.add(var);
         }
-        if (variable2StateNameMap.containsKey(varName)){
-            relatedDynamicVars.add(varName);
-            return varTrackerName + variable2StateNameMap.get(varName) + "_" + varName;
+        return var;
+    }
+
+    // "SS." + "<State Name>" + "<Name>" + "_updated"
+    public static class Variable{
+        private boolean isGlobal = false;   // Add VarTrackerName if it is global
+        private boolean hasSuffix = false;  // Add VarLocalSuffix if it is local
+        private String prefix = "";
+        private String name = "";
+
+        public Variable(){}
+        public Variable(String name){ this.name = name;}
+        public String toString(){ return ((isGlobal)? VarTrackerName : "") + prefix + name + ((hasSuffix)? VarLocalSuffix : "");}
+        public String getQualName(){ return this.toString(); }
+        public String getName(){ return name; }
+        public String getFullName(){ return prefix + name; }
+        public String getLocalName(){ return prefix + name + VarLocalSuffix; }
+        public void setPrefix(String prefix){this.prefix = prefix;}
+        public void setName(String name){this.name = name;}
+        public void setHasSuffix(boolean hasSuffix){this.hasSuffix = hasSuffix;}
+        public void setGlobal(boolean isGlobal){this.isGlobal = isGlobal;}
+        @Override
+        public int hashCode() { return Objects.hash(prefix, name); }
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) { return true; }
+            if (o == null || getClass() != o.getClass()) { return false; }
+            Variable variable = (Variable) o;
+            return Objects.equals(prefix, variable.prefix) &&
+                    Objects.equals(name, variable.name);
         }
-    	return varName;
+    }
+
+    public static class VariableSet implements Iterable<Variable> {
+        private final LinkedHashSet<Variable> vars = new LinkedHashSet<>();
+        public VariableSet(){}
+        public void add(Variable var){ vars.add(var); }
+        public boolean checkIntersection(VariableSet other){return !Collections.disjoint(getFullNamesSet(), other.getFullNamesSet());}
+        public List<String> getNames(){return vars.stream().map(Variable::getName).distinct().collect(Collectors.toList());}
+
+        public List<String> getFullNames(){ return vars.stream().map(Variable::getFullName).distinct().collect(Collectors.toList()); }
+        public Set<String> getFullNamesSet(){ return vars.stream().map(Variable::getFullName).collect(Collectors.toSet()); }
+
+        @Override
+        public Iterator<Variable> iterator() { return vars.iterator(); }
+        @Override
+        public void forEach(Consumer<? super Variable> action) { vars.forEach(action); }
+
+        public boolean contains(Variable var) { return vars.contains(var); }
     }
 }

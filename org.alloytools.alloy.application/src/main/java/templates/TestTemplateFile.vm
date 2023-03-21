@@ -158,8 +158,10 @@ class MetaSet(type):
         def __len__(cls):
             return len(cls._set)
 
-        def __iter__(cls):
-            return iter(cls._set)
+        def __iter__(cls) -> iter:
+            _list = list(cls._set)
+            random.shuffle(_list)
+            return iter([MetaSet.Set(e) for e in _list])
 
         def __repr__(cls):
             return str(cls._set)
@@ -212,7 +214,7 @@ class MetaSet(type):
     def __len__(cls):
         return len(cls.objects())
 
-    def __iter__(cls):
+    def __iter__(cls) -> iter:
         return iter(MetaSet.Set(cls.objects()))
 
     def __repr__(cls) -> str:
@@ -384,7 +386,7 @@ class Relation(metaclass = MetaSet):
         return random_subset(self.possible_tuples())
 
     def possible_next_values(self):
-        ret = list(powerset(self.possible_tuples_instance_method()))
+        ret = list(powerset(self.possible_tuples()))
         random.shuffle(ret)
         return ret
 
@@ -502,7 +504,7 @@ class ${relation.Name}(Relation):
 #if($invariants)
 # --- Invariants ---
     #foreach($inv in $invariants)
-def ${inv.getName()}() -> bool:
+def ${inv.getInvariantName()} -> bool:
     #if($inv.getConditions().size() == 1)
     return ($inv.getConditions().get(0))
     #else
@@ -628,18 +630,18 @@ $padding        ${var}_tmp = SS.${var}
 $padding        ${action}
                 #end
                 #if($trans.getInvariantNames().size() == 1)
-$padding        if not $trans.getInvariantNames().get(0)():
+$padding        if not $trans.getInvariantNames().get(0):
                     #foreach($var in $trans.getAssignedVarNames())
 $padding            SS.${var} = ${var}_tmp
                     #end
 $padding            return False
                 #elseif($trans.getInvariantNames().size() > 1)
-$padding        if not ($trans.getInvariantNames().get(0)() and
+$padding        if not ($trans.getInvariantNames().get(0) and
                     #set($lastIndex = ${trans.getInvariantNames().size()} - 1)
                     #foreach($invariantName in ${trans.getInvariantNames().subList(1, $lastIndex)})
-$padding            ${invariantName}() and
+$padding            ${invariantName} and
                     #end
-$padding            ${trans.getInvariantNames().get($lastIndex)}()):
+$padding            ${trans.getInvariantNames().get($lastIndex)}):
                     #foreach($var in $trans.getAssignedVarNames())
 $padding            SS.${var} = ${var}_tmp
                     #end
@@ -654,17 +656,32 @@ $padding        try:
 $padding        for ${var}_updated in SS.${var}.possible_next_values():
 $padding            ${var}_updated = MetaSet.Set(set(${var}_updated))
                 #end
-                #if($trans.getActions().size() == 1)
-$padding            if $trans.getActions().get(0):
-                #elseif($trans.getActions().size() > 1)
-$padding            if $trans.getActions().get(0)
-                    #set($lastIndex = ${trans.getActions().size()} - 1)
-                    #foreach($action in ${trans.getActions().subList(1, $lastIndex)})
-$padding                ${action}
+                #if(!$trans.getInvariantNames().isEmpty())
+                    #if($trans.getInvariantNames().size() == 1)
+$padding            if not $trans.getInvariantNames().get(0):
+                    #elseif($trans.getInvariantNames().size() > 1)
+$padding            if not ($trans.getInvariantNames().get(0) and
+                        #set($lastIndex = ${trans.getInvariantNames().size()} - 1)
+                        #foreach($invariantName in ${trans.getInvariantNames().subList(1, $lastIndex)})
+$padding                ${invariantName} and
+                        #end
+$padding                ${trans.getInvariantNames().get($lastIndex)}):
                     #end
-$padding                ${trans.getActions().get($lastIndex)}:
+$padding                continue
                 #end
-$padding                    raise MultiLevelExit
+                #if(!$trans.getActions().isEmpty())
+                    #if($trans.getActions().size() == 1)
+$padding            if $trans.getActions().get(0):
+                    #elseif($trans.getActions().size() > 1)
+$padding            if $trans.getActions().get(0)
+                        #set($lastIndex = ${trans.getActions().size()} - 1)
+                        #foreach($action in ${trans.getActions().subList(1, $lastIndex)})
+$padding                ${action}
+                        #end
+$padding                ${trans.getActions().get($lastIndex)}:
+                    #end
+                #end
+$padding                raise MultiLevelExit
                 #set($padding = "$oldpadding")
 $padding        except MultiLevelExit:
                 #foreach($var in $trans.getAssignedVarNames())
