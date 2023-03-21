@@ -266,7 +266,7 @@ public class DashPythonTranslation {
 
     private void initSignatures(List<Sig> signaturesSortedList){
         br = new BufferedReader(new InputStreamReader(System.in));
-        useSignatureConfig = false;
+        useSignatureConfig = true;      // TODO: clean up, currently set to true so it won't ask for using config file, also need to clean up the inputs in unit tests
         hasPromptedSigConfig = false;
         needToUpdateConfigFile = false;
         signatureJSONConfig = new JsonObject();
