@@ -12,7 +12,7 @@ import java.util.*;
  */
 public class DashExprToPython<ExprType> {
     enum ExprTypeE {
-        DO, PRED, DEFAULT
+        DO, DEFAULT
     }
     private final String varTrackerName = "SS.";
     private ExprTypeE exprType;
@@ -68,15 +68,10 @@ public class DashExprToPython<ExprType> {
                 continue;
             }
             // Concatenate to the previous expression.
-            if(ExprTypeE.PRED == exprType){
-                // Format the predicate.
-                if (expr.charAt(0) == ')') {
-                    result.set(result.size() - 1, result.get(result.size() - 1).concat(trimmedExpr));
-                }else if(trimmedExpr.equals("or") || trimmedExpr.equals("and")){
-                    result.set(result.size() - 1, result.get(result.size() - 1).concat(" " + trimmedExpr));
-                }else{
-                    result.add(trimmedExpr);
-                }
+            if (expr.charAt(0) == ')') {
+                result.set(result.size() - 1, result.get(result.size() - 1).concat(trimmedExpr));
+            }else if(trimmedExpr.equals("or") || trimmedExpr.equals("and")){
+                result.set(result.size() - 1, result.get(result.size() - 1).concat(" " + trimmedExpr));
             }else{
                 result.add(trimmedExpr);
             }
@@ -124,27 +119,20 @@ public class DashExprToPython<ExprType> {
             }
 
             // predicates need to be wrapped in () and must be linked with and/or operators
-            if (ExprTypeE.PRED == exprType) {
-                sbs.getLast().append("(");
-                while (subNode.hasNext()) {
-                    sbs.getLast().append(genExpr(subNode.next(), exprList.args.size()));
-                    // linkOperators
-                    if (subNode.hasNext()) {
-                        if (exprList.op == ExprList.Op.AND) {
-                            sbs.getLast().append(" and ");
-                        } else if (exprList.op == ExprList.Op.OR) {
-                            sbs.getLast().append(" or ");
-                        }
-                    } else {
-                        sbs.getLast().append(")");
+            sbs.getLast().append("(");
+            while (subNode.hasNext()) {
+                sbs.getLast().append(genExpr(subNode.next(), exprList.args.size()));
+                // linkOperators
+                if (subNode.hasNext()) {
+                    if (exprList.op == ExprList.Op.AND) {
+                        sbs.getLast().append(" and ");
+                    } else if (exprList.op == ExprList.Op.OR) {
+                        sbs.getLast().append(" or ");
                     }
-                    sbs.addLast(new StringBuilder());
+                } else {
+                    sbs.getLast().append(")");
                 }
-            } else {
-                while (subNode.hasNext()) {
-                    sbs.getLast().append(genExpr(subNode.next(), exprList.args.size()));
-                    sbs.addLast(new StringBuilder());
-                }
+                sbs.addLast(new StringBuilder());
             }
 
             return "";
@@ -160,9 +148,11 @@ public class DashExprToPython<ExprType> {
             return BinaryOp2PythonOp((ExprBinary) node);
         } else if (node instanceof ExprVar || node instanceof ExprConstant){
             String varName = node.toString();
-            if('\'' == varName.charAt(varName.length() - 1)){   // primed variable
-                varName = varName.substring(0, varName.length() - 1);
-                assignableVars.add(getVarName(varName).substring(varTrackerName.length()));
+            // Prime variables will have a suffix "_updated"
+            if(ExprTypeE.DO == exprType && '\'' == varName.charAt(varName.length() - 1)){
+                varName = getVarName(varName.substring(0, varName.length() - 1)).substring(varTrackerName.length());
+                assignableVars.add(varName);
+                return varName + "_updated";
             }
 			return getVarName(varName);
         } else if (node instanceof ExprBadJoin) {
@@ -175,11 +165,8 @@ public class DashExprToPython<ExprType> {
                 String operation = type.equals("plus") ? " + " : " - ";
                 return UnaryOp2PythonOp(cardinality.op, cardinality.sub) + operation + badNode.left.toString();
             } else if (badNode.right instanceof ExprVar){
-                // This probably means it's a map (e.g., A.B => A[B])
-                // TODO: this is a hack and did not handle the case, only to prevent exceptions, need to fix
-                String nodeLeft = genExpr(badNode.left, 1);
-                String nodeRight = genExpr(badNode.right, 1);
-                return nodeLeft + "." + nodeRight;
+                // Join operation (e.g., A.B => A ^ B)
+                return "(" + genExpr(badNode.left, 1) + " ^ " + genExpr(badNode.right, 1) + ")";
             } else {
                 System.out.println("[Warning] BadNode needs more types: " + node.getClass());
             }
@@ -322,7 +309,7 @@ public class DashExprToPython<ExprType> {
     // translate Binary operation, also returns the empty space
     private String BinaryOp2PythonOp(ExprBinary node){
         String res = " ";
-        boolean shouldDddParenthesis = node.right instanceof ExprBinary;
+        boolean shouldAddParenthesis = node.right instanceof ExprBinary;
         boolean rightConsumed = false;  // if the right expression is already parsed
         switch(node.op){
             case ARROW:     // State relation declaration
@@ -391,7 +378,8 @@ public class DashExprToPython<ExprType> {
                 res = " ";
                 break;
             case JOIN:
-                res = " ";
+                res = this.genExpr(node.left, 1) + " ^ ";
+                shouldAddParenthesis = true;
                 break;
             case DOMAIN:
                 res = " ";
@@ -429,13 +417,10 @@ public class DashExprToPython<ExprType> {
             case EQUALS:        // this part assumes inner expression is a signature instances and are comparable
             	if(isInit) {    // TODO: this should be deprecated if we assume the Alloy Solver can always handle the initialization
             		res = this.genExpr(node.left, 1) + " = " + this.genExpr(node.right, 1).toLowerCase();
-            	} else if (ExprTypeE.DO == exprType){
-                    // TODO: delete this part if we assume the Alloy Solver can always handle the initialization
-            		res = varTrackerName + this.genExpr(node.left, 1).substring(varTrackerName.length()) + " = ";
             	} else {        // predicates
                     res = this.genExpr(node.left, 1) + " == ";
                 }
-                shouldDddParenthesis = false;
+                shouldAddParenthesis = false;
                 break;
             case NOT_EQUALS:    // this part assumes inner expression is a signature instances and are comparable
                 res = this.genExpr(node.left, 1) + " != ";
@@ -499,7 +484,7 @@ public class DashExprToPython<ExprType> {
 
         // add the right expression node
         if (!rightConsumed){
-            if(shouldDddParenthesis) {
+            if(shouldAddParenthesis) {
                 res += "(" + this.genExpr(node.right, 1) + ")";
             }else{
                 res += this.genExpr(node.right, 1);
