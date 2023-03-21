@@ -256,15 +256,13 @@ public class CoreDashToPythonTest {
 
         String output = CoreDashToPython.convert2String(translation);
 
-        System.out.println(output);
-
         for(String trans : expectedTranslation){
             assert (output.contains(trans));
         }
     }
 
     @Test
-    public void test_QuantifiedExpressions_Correct() throws IOException {
+    public void test_QuantifiedExpressions_InInvariants_Correct() throws IOException {
         String dashModel = "sig Patient {} sig Medication {} conc state EHealthSystem { medications: set Medication " +
                 "patients: set Patient prescriptions: Patient -> set Medication interactions: Medication -> set Medication " +
                 "invariant I_2_Types_1 { all m1, m2: medications, p: patients | m1 -> m2 in interactions and p in Patient}" +
@@ -280,13 +278,19 @@ public class CoreDashToPythonTest {
         DashPythonTranslation translation = new DashPythonTranslation(dashModule, null);
 
         List<String> expectedTranslation = Arrays.asList(
-            "(all([(m1 * m2 in SS.EHealthSystem_interactions and p in Patient) for m1 in SS.EHealthSystem_medications for m2 in SS.EHealthSystem_medications for p in SS.EHealthSystem_patients]))",
-            "(all([m1 * m2 in SS.EHealthSystem_interactions for m1 in Medication for m2 in Medication]))",
-            "(all([(m1 * m2 in SS.EHealthSystem_interactions and m2 * m3 in SS.EHealthSystem_interactions) for m1 in Medication for m2 in Medication for m3 in Medication]))",
-            "(all([(m1 * m2 in SS.EHealthSystem_interactions) == (m2 * m1 in SS.EHealthSystem_interactions) for m1 in Medication for m2 in Medication]))",
-            "(all([not(m * m in SS.EHealthSystem_interactions) for m in SS.EHealthSystem_medications]))",
-            "(all([(p * m1 in SS.EHealthSystem_prescriptions and p * m2 in SS.EHealthSystem_prescriptions) for m1 in SS.EHealthSystem_medications for m2 in SS.EHealthSystem_medications for p in SS.EHealthSystem_patients]))"
-            );
+            "def Inv_I_2_Types_1(medications, patients, interactions) -> bool:",
+            "return (all([(m1 * m2 in interactions and p in Patient) for m1 in medications for m2 in medications for p in patients]))",
+            "def Inv_I_2_Same_Type(interactions) -> bool:",
+            "return (all([m1 * m2 in interactions for m1 in Medication for m2 in Medication]))",
+            "def Inv_I_3_Same_type(interactions) -> bool:",
+            "return (all([(m1 * m2 in interactions and m2 * m3 in interactions) for m1 in Medication for m2 in Medication for m3 in Medication]))",
+            "def Inv_I_symmetry(interactions) -> bool:",
+            "return (all([(m1 * m2 in interactions) == (m2 * m1 in interactions) for m1 in Medication for m2 in Medication]))",
+            "def Inv_I_no_statement(medications, interactions) -> bool:",
+            "return (all([not(m * m in interactions) for m in medications]))",
+            "def Inv_I_2_Types_2(medications, patients, prescriptions) -> bool:",
+            "return (all([(p * m1 in prescriptions and p * m2 in prescriptions) for m1 in medications for m2 in medications for p in patients]))"
+        );
 
         String output = CoreDashToPython.convert2String(translation);
 
@@ -326,9 +330,7 @@ public class CoreDashToPythonTest {
                 "(1 == len(SS.EHealthSystem_patients))"
         );
 
-
         String output = CoreDashToPython.convert2String(translation);
-        System.out.println(output);
 
         for(String trans : expectedTranslation){
             assert (output.contains(trans));
