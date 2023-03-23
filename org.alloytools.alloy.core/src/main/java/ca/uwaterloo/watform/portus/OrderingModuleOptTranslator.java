@@ -28,6 +28,9 @@ final class OrderingModuleOptTranslator extends AbstractTranslator {
         private final Sig.Field next;
         private final String nextFuncName;
 
+        // The domain element corresponding to the one sig's only atom.
+        private final DomainElement ordDE;
+
         public OrderInfo(Sig ordSig, Sig sig, Sig.Field first, Sig.Field next, TranslationContext context) {
             this.ordSig = ordSig;
             this.sig = sig;
@@ -35,6 +38,8 @@ final class OrderingModuleOptTranslator extends AbstractTranslator {
             this.next = next;
             this.nextFuncName = generateNextFuncName();
             validate(context);
+
+            this.ordDE = PortusUtil.getOneSigDomainElement(ordSig, context.sortPolicy, context.scoper);
         }
 
         private String generateNextFuncName() {
@@ -73,6 +78,11 @@ final class OrderingModuleOptTranslator extends AbstractTranslator {
 
         public boolean matchesNextField(Sig.Field candidateNext) {
             return next.isSame(candidateNext);
+        }
+
+        // Return a term saying that `term` matches the Ord one sig's single domain element.
+        public Term getMatchesOrdDETerm(Term term) {
+            return Term.mkEq(term, ordDE);
         }
 
         public boolean matchesFirstUsage(Expr candidateFirst) {
@@ -251,12 +261,14 @@ final class OrderingModuleOptTranslator extends AbstractTranslator {
     @Override
     public Term translate(VarTuple tuple, Sig.Field field, TranslationContext context) {
         // For visualization/XML, when First and Next are used outside "Ord.First"/"Ord.Next" expressions,
-        // translate them directly by stripping the first element of the tuple (since that's the Ord one-sig)
+        // translate them directly by stripping the first element of the tuple (since that's the Ord one-sig),
+        // and also check that the first element of the tuple is the Ord sig's one atom
         for (OrderInfo order : orders) {
+            Term matchesOrdDE = order.getMatchesOrdDETerm(tuple.getVar(0));
             if (order.matchesFirstField(field)) {
-                return order.translateFirst(tuple.slice(1, tuple.size()), context);
+                return Term.mkAnd(matchesOrdDE, order.translateFirst(tuple.slice(1, tuple.size()), context));
             } else if (order.matchesNextField(field)) {
-                return order.translateNext(tuple.slice(1, tuple.size()), context);
+                return Term.mkAnd(matchesOrdDE, order.translateNext(tuple.slice(1, tuple.size()), context));
             }
         }
         return null;

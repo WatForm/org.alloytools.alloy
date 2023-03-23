@@ -2,6 +2,7 @@ package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.Err;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
+import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.ast.Assert;
 import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
@@ -18,9 +19,11 @@ import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Func;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.parser.Macro;
+import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.data.IntSuffixNameGenerator;
 import fortress.data.NameGenerator;
 import fortress.msfol.AnnotatedVar;
+import fortress.msfol.DomainElement;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
 import fortress.msfol.Var;
@@ -32,6 +35,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -153,6 +157,26 @@ final class PortusUtil {
         if (!arrow.op.isArrow) return arrow;
         // recurse to strip nested multiplicities
         return stripArrowMultiplicities(arrow.left).product(stripArrowMultiplicities(arrow.right));
+    }
+
+    /**
+     * Given a one sig, return the domain element corresponding to its single atom. The sort policy and scoper are used
+     * to assign the domain element, which is the first/only one in its domain element range.
+     */
+    public static DomainElement getOneSigDomainElement(Sig sig, SortPolicy policy, ScopeComputer scoper) {
+        if (sig.isOne == null) {
+            throw new IllegalArgumentException("getOneSigDomainElement expects a one sig");
+        }
+        Pair<Integer, Integer> deRange = policy.getDomainElementRange(sig, scoper);
+        Sort sort = policy.getSort(sig);
+        if (deRange == null || sort == null) {
+            throw new ErrorFatal("Portus error: one sig " + sig + " has null domain element range or sort");
+        }
+        if (!Objects.equals(deRange.a, deRange.b)) {
+            throw new ErrorFatal(
+                    "Internal Portus error: one sig " + sig + " has non-one range " + deRange.a + "," + deRange.b);
+        }
+        return Term.mkDomainElement(deRange.a, sort);
     }
 
     /**

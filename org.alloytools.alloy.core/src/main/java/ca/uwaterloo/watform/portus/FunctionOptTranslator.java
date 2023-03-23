@@ -342,17 +342,9 @@ final class FunctionOptTranslator extends AbstractTranslator {
             Sig sig = (Sig) expr;
             if (sig.isOne != null) {
                 // use its first/only domain element as the term
-                Pair<Integer, Integer> domElemRange = context.sortPolicy.getDomainElementRange(sig, context.scoper);
-                Sort sort = context.sortPolicy.getSort(sig);
-                if (domElemRange == null || sort == null) {
-                    // some special sort of sig we don't want to deal with
-                    throw new ErrorFatal(
-                            sort + " on the left side of a join used as an integer expression is not supported");
-                }
-                int domainElementIdx = domElemRange.a;
-                Term domainElement = Term.mkDomainElement(domainElementIdx, sort);
+                Term domainElement = PortusUtil.getOneSigDomainElement(sig, context.sortPolicy, context.scoper);
                 // no guard on the domain element usage is needed
-                return new Pair<>(domainElement, new Pair<>(Term.mkTop(), sort));
+                return new Pair<>(domainElement, new Pair<>(Term.mkTop(), context.sortPolicy.getSort(sig)));
             }
         } else if (expr instanceof ExprBinary) {
             ExprBinary binExpr = (ExprBinary) expr;

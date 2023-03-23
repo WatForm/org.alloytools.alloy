@@ -23,6 +23,7 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -52,10 +53,13 @@ public class OrderingModuleOptTranslatorTest {
 
         orderedSig = new Sig.PrimSig("Ordered");
         orderedSigSort = Sort.mkSortConst("OrderedSort");
-        when(policy.addSortsToTheory(any())).thenReturn(Theory.empty().withSort(orderedSigSort));
         when(scoper.isExact(orderedSig)).thenReturn(true);
         when(policy.getSort(orderedSig)).thenReturn(orderedSigSort);
         ordSig = new Sig.PrimSig("Ord", Attr.ONE);
+        Sort ordSigSort = Sort.mkSortConst("OrdSort");
+        when(policy.addSortsToTheory(any())).thenReturn(Theory.empty().withSort(orderedSigSort).withSort(ordSigSort));
+        when(policy.getSort(ordSig)).thenReturn(ordSigSort);
+        when(policy.getDomainElementRange(eq(ordSig), any())).thenReturn(new Pair<>(1, 1));
         firstField = ordSig.addField("First", orderedSig.setOf());
         nextField = ordSig.addField("Next", orderedSig.product(orderedSig));
         ordSig.addFact(ExprList.makeTOTALORDER(null, null, Arrays.asList(
