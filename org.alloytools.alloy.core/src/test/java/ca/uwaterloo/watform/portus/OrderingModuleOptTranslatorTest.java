@@ -29,7 +29,7 @@ import static org.mockito.Mockito.when;
 
 public class OrderingModuleOptTranslatorTest {
 
-    private SortPolicy policy;
+    private RangeAssigner rangeAssigner;
     private ScopeComputer scoper;
     private TranslationContext context;
     private Translator translator;
@@ -43,7 +43,8 @@ public class OrderingModuleOptTranslatorTest {
 
     @Before
     public void setUp() {
-        policy = mock(SortPolicy.class);
+        SortPolicy policy = mock(SortPolicy.class);
+        rangeAssigner = mock(RangeAssigner.class);
         scoper = mock(ScopeComputer.class);
         translator = new OrderingModuleOptTranslator((expr, ctx) -> {
             // we don't expect this translator to recurse at all
@@ -59,20 +60,20 @@ public class OrderingModuleOptTranslatorTest {
         Sort ordSigSort = Sort.mkSortConst("OrdSort");
         when(policy.addSortsToTheory(any())).thenReturn(Theory.empty().withSort(orderedSigSort).withSort(ordSigSort));
         when(policy.getSort(ordSig)).thenReturn(ordSigSort);
-        when(policy.getDomainElementRange(eq(ordSig), any())).thenReturn(new Pair<>(1, 1));
+        when(rangeAssigner.getDomainElementRange(eq(ordSig), any())).thenReturn(new Pair<>(1, 1));
         firstField = ordSig.addField("First", orderedSig.setOf());
         nextField = ordSig.addField("Next", orderedSig.product(orderedSig));
         ordSig.addFact(ExprList.makeTOTALORDER(null, null, Arrays.asList(
                 orderedSig, ordSig.join(firstField), ordSig.join(nextField))));
 
-        context = new TranslationContext(new PortusOptions(), scoper, policy);
+        context = new TranslationContext(new PortusOptions(), scoper, policy, rangeAssigner);
     }
 
     @Test
     public void testTranslate_orderedSig_lazy() {
         // nothing is generated before next is translated
         when(scoper.sig2scope(orderedSig)).thenReturn(3);
-        when(policy.getDomainElementRange(orderedSig, scoper)).thenReturn(new Pair<>(1, 3));
+        when(rangeAssigner.getDomainElementRange(orderedSig, context)).thenReturn(new Pair<>(1, 3));
         translator.translate(ordSig, context);
         assertEquals(0, context.getTheory().axioms().size());
         assertEquals(0, context.getTheory().functionDeclarations().size());
@@ -82,7 +83,7 @@ public class OrderingModuleOptTranslatorTest {
     public void testTranslate_orderedSig_first_simple() {
         // first is hardcoded as the first DE in the range: [[x \in first]] := x = @_(first)
         when(scoper.sig2scope(orderedSig)).thenReturn(3);
-        when(policy.getDomainElementRange(orderedSig, scoper)).thenReturn(new Pair<>(1, 3));
+        when(rangeAssigner.getDomainElementRange(orderedSig, context)).thenReturn(new Pair<>(1, 3));
         translator.translate(ordSig, context);
         Var x = Term.mkVar("x");
         Term result = translator.translate(ExprElementOf.make(
@@ -98,7 +99,7 @@ public class OrderingModuleOptTranslatorTest {
     public void testTranslate_orderedSig_first_notDE1() {
         // first is hardcoded as the first DE in the range: [[x \in first]] := x = @_(first)
         when(scoper.sig2scope(orderedSig)).thenReturn(10);
-        when(policy.getDomainElementRange(orderedSig, scoper)).thenReturn(new Pair<>(5, 10));
+        when(rangeAssigner.getDomainElementRange(orderedSig, context)).thenReturn(new Pair<>(5, 10));
         translator.translate(ordSig, context);
         Var x = Term.mkVar("x");
         Term result = translator.translate(ExprElementOf.make(
@@ -116,7 +117,7 @@ public class OrderingModuleOptTranslatorTest {
         // next(@_1) = @_2, next(@_2) = @_3, but next(@_3) is left undefined
         // and [[(x,y) \in next]] := x != @_3 && next(x) = y
         when(scoper.sig2scope(orderedSig)).thenReturn(3);
-        when(policy.getDomainElementRange(orderedSig, scoper)).thenReturn(new Pair<>(1, 3));
+        when(rangeAssigner.getDomainElementRange(orderedSig, context)).thenReturn(new Pair<>(1, 3));
         translator.translate(ordSig, context);
 
         Var x = Term.mkVar("x"), y = Term.mkVar("y");
@@ -155,7 +156,7 @@ public class OrderingModuleOptTranslatorTest {
         // next(@_3) = @_4, next(@_4) = @_5, next(@_5) = @_6, but next(@_6) is left undefined
         // and [[(x,y) \in next]] := x != @_6 && next(x) = y
         when(scoper.sig2scope(orderedSig)).thenReturn(4);
-        when(policy.getDomainElementRange(orderedSig, scoper)).thenReturn(new Pair<>(3, 6));
+        when(rangeAssigner.getDomainElementRange(orderedSig, context)).thenReturn(new Pair<>(3, 6));
         translator.translate(ordSig, context);
 
         Var x = Term.mkVar("x"), y = Term.mkVar("y");
@@ -196,7 +197,7 @@ public class OrderingModuleOptTranslatorTest {
         // edge case: what happens when the scope is 1?
         // no axioms and [[(x,y) \in next]] := x != @_1 && next(x) = y
         when(scoper.sig2scope(orderedSig)).thenReturn(1);
-        when(policy.getDomainElementRange(orderedSig, scoper)).thenReturn(new Pair<>(1, 1));
+        when(rangeAssigner.getDomainElementRange(orderedSig, context)).thenReturn(new Pair<>(1, 1));
         translator.translate(ordSig, context);
 
         Var x = Term.mkVar("x"), y = Term.mkVar("y");

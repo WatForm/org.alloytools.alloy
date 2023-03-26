@@ -95,6 +95,9 @@ final class TranslationContext {
     // The policy for how we should assign Alloy sigs to Fortress sorts.
     public final SortPolicy sortPolicy;
 
+    // In charge of assigning ranges of Fortress domain elements in sigs to sorts when necessary.
+    public final RangeAssigner rangeAssigner;
+
     // Conveniently generate globally (to this context) unique names.
     public final NameGenerator nameGenerator;
 
@@ -113,10 +116,12 @@ final class TranslationContext {
     // represents the same problem.
     private final Set<Sort> unchangingSorts;
 
-    public TranslationContext(PortusOptions options, ScopeComputer scoper, SortPolicy sortPolicy) {
+    public TranslationContext(
+            PortusOptions options, ScopeComputer scoper, SortPolicy sortPolicy, RangeAssigner rangeAssigner) {
         this.options = options;
         this.scoper = scoper;
         this.sortPolicy = sortPolicy;
+        this.rangeAssigner = rangeAssigner;
         this.alloyVarMapping = new Env<>();
         this.theory = sortPolicy.addSortsToTheory(Theory.empty());
         this.nameGenerator = new IntSuffixNameGenerator(
@@ -134,6 +139,7 @@ final class TranslationContext {
         this.scoper = context.scoper;
         this.theory = context.theory; // theory is immutable
         this.sortPolicy = context.sortPolicy;
+        this.rangeAssigner = new RangeAssigner(context.rangeAssigner); // deep-copy state
         this.alloyVarMapping = context.alloyVarMapping.dup();
         this.nameGenerator = context.nameGenerator;
         this.unchangingSorts = new HashSet<>(context.unchangingSorts);

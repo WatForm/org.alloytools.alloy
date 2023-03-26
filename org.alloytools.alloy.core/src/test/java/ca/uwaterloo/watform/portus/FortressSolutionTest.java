@@ -42,9 +42,11 @@ public class FortressSolutionTest {
     @Before
     public void setUp() {
         Sort univ = Sort.mkSortConst("testUniv");
+        RangeAssigner mockRangeAssigner = mock(RangeAssigner.class);
         ScopeComputer mockScoper = mock(ScopeComputer.class);
         SortPolicy sortPolicy = new UnivSortPolicy(univ, new ArrayList<>(), mockScoper);
-        TranslationContext context = new TranslationContext(new PortusOptions(), mockScoper, sortPolicy);
+        TranslationContext context = new TranslationContext(
+                new PortusOptions(), mockScoper, sortPolicy, mockRangeAssigner);
 
         Map<Sort, Seq<Value>> sorts = new HashMap<>();
         List<Value> elems = new ArrayList<>();

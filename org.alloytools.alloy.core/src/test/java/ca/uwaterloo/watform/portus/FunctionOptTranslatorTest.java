@@ -37,6 +37,7 @@ public class FunctionOptTranslatorTest {
     private Translator mockRoot;
 
     private SortPolicy mockSortPolicy;
+    private RangeAssigner mockRangeAssigner;
     private TranslationContext context;
 
     /** For use in Mockito then() with a translate() call: map (x1,...,xn) \in expr to funcName(x1,...,xn). */
@@ -56,8 +57,9 @@ public class FunctionOptTranslatorTest {
         mockSortPolicy = mock(SortPolicy.class);
         when(mockSortPolicy.addSortsToTheory(any())).thenReturn(
                 Theory.empty().withSort(sortA).withSort(sortB).withSort(Sort.Int()));
+        mockRangeAssigner = mock(RangeAssigner.class);
         ScopeComputer mockScoper = mock(ScopeComputer.class);
-        context = new TranslationContext(new PortusOptions(), mockScoper, mockSortPolicy);
+        context = new TranslationContext(new PortusOptions(), mockScoper, mockSortPolicy, mockRangeAssigner);
     }
 
     @Test
@@ -157,7 +159,7 @@ public class FunctionOptTranslatorTest {
         Sig.PrimSig sigA = new Sig.PrimSig("A", Attr.ONE);
         when(mockSortPolicy.getSort(sigA)).thenReturn(sortA);
         when(mockSortPolicy.getSort(Sig.SIGINT)).thenReturn(Sort.Int());
-        when(mockSortPolicy.getDomainElementRange(eq(sigA), any())).thenReturn(new Pair<>(1, 1));
+        when(mockRangeAssigner.getDomainElementRange(eq(sigA), any())).thenReturn(new Pair<>(1, 1));
         Sig.Field intField = sigA.addField("y", Sig.SIGINT.oneOf());
 
         Translator translator = new FunctionOptTranslator(mockRoot, true);

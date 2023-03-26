@@ -1,8 +1,6 @@
 package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
-import edu.mit.csail.sdg.alloy4.Pair;
-import edu.mit.csail.sdg.alloy4.Pos;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprBinary;
 import edu.mit.csail.sdg.ast.ExprConstant;
@@ -13,18 +11,13 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.withSettings;
 
 public class SortPolicyTest {
 
@@ -33,305 +26,12 @@ public class SortPolicyTest {
 
     private SortPolicy policy;
     private TranslationContext context;
-    private ScopeComputer scoper;
 
     @Before
     public void setUp() {
         policy = mock(SortPolicy.class, CALLS_REAL_METHODS);
-        scoper = mock(ScopeComputer.class);
-        context = new TranslationContext(new PortusOptions(), scoper, policy);
-    }
-
-    private void assertRange(int left, int right, Pair<Integer, Integer> range) {
-        assertEquals(left, (int) range.a);
-        assertEquals(right, (int) range.b);
-    }
-
-    @Test
-    public void testGetDomainElementRange_singleTopLevelSig() {
-        // one sig in the sort with no siblings takes the whole DE range
-        Sort sort = Sort.mkSortConst("sort");
-        Sig sig = new Sig.PrimSig("S");
-        // pass the sig to the policy's constructor
-        policy = mock(SortPolicy.class, withSettings()
-                .useConstructor(Collections.singletonList(sig))
-                .defaultAnswer(CALLS_REAL_METHODS));
-
-        when(scoper.isExact(sig)).thenReturn(true);
-        when(scoper.sig2scope(sig)).thenReturn(5);
-        when(policy.getSort(sig)).thenReturn(sort);
-        Pair<Integer, Integer> range = policy.getDomainElementRange(sig, scoper);
-        assertRange(1, 5, range);
-    }
-
-    @Test
-    public void testGetDomainElementRange_twoTopLevelSigs() {
-        // two sigs split the DE range
-        Sort sort = Sort.mkSortConst("sort");
-        Sig sig1 = new Sig.PrimSig("sig1");
-        Sig sig2 = new Sig.PrimSig("sig2");
-        policy = mock(SortPolicy.class, withSettings()
-                .useConstructor(Arrays.asList(sig1, sig2))
-                .defaultAnswer(CALLS_REAL_METHODS));
-
-        when(scoper.isExact(sig1)).thenReturn(true);
-        when(scoper.isExact(sig2)).thenReturn(true);
-        when(scoper.sig2scope(sig1)).thenReturn(3);
-        when(scoper.sig2scope(sig2)).thenReturn(7);
-        when(policy.getSort(sig1)).thenReturn(sort);
-        when(policy.getSort(sig2)).thenReturn(sort);
-
-        Pair<Integer, Integer> range1 = policy.getDomainElementRange(sig1, scoper);
-        assertRange(1, 3, range1);
-        Pair<Integer, Integer> range2 = policy.getDomainElementRange(sig2, scoper);
-        assertRange(4, 10, range2);
-    }
-
-    @Test
-    public void testGetDomainElementRange_parentAndChildSig() {
-        // S1 extends S, they share the DE range
-        Sort sort = Sort.mkSortConst("sort");
-        Sig.PrimSig parent = new Sig.PrimSig("S");
-        Sig.PrimSig child = new Sig.PrimSig(null, "S1", new Pos("", 0, 0), parent);
-        policy = mock(SortPolicy.class, withSettings()
-                .useConstructor(Arrays.asList(parent, child))
-                .defaultAnswer(CALLS_REAL_METHODS));
-
-        when(scoper.isExact(parent)).thenReturn(true);
-        when(scoper.isExact(child)).thenReturn(true);
-        when(scoper.sig2scope(parent)).thenReturn(3);
-        when(scoper.sig2scope(child)).thenReturn(3);
-        when(policy.getSort(parent)).thenReturn(sort);
-        when(policy.getSort(child)).thenReturn(sort);
-
-        Pair<Integer, Integer> range1 = policy.getDomainElementRange(parent, scoper);
-        assertRange(1, 3, range1);
-        Pair<Integer, Integer> range2 = policy.getDomainElementRange(child, scoper);
-        assertRange(1, 3, range2);
-    }
-
-    @Test
-    public void testGetDomainElementRange_parentAndTwoChildrenSig() {
-        // S1, S2 extends S, both children share the DE range owned wholly by parent
-        Sort sort = Sort.mkSortConst("sort");
-        Sig.PrimSig parent = new Sig.PrimSig("S");
-        Sig.PrimSig child1 = new Sig.PrimSig(null, "S1", new Pos("", 0, 0), parent);
-        Sig.PrimSig child2 = new Sig.PrimSig(null, "S2", new Pos("", 0, 0), parent);
-        policy = mock(SortPolicy.class, withSettings()
-                .useConstructor(Arrays.asList(parent, child1, child2))
-                .defaultAnswer(CALLS_REAL_METHODS));
-
-        when(scoper.isExact(parent)).thenReturn(true);
-        when(scoper.isExact(child1)).thenReturn(true);
-        when(scoper.isExact(child2)).thenReturn(true);
-        when(scoper.sig2scope(parent)).thenReturn(8);
-        when(scoper.sig2scope(child1)).thenReturn(5);
-        when(scoper.sig2scope(child2)).thenReturn(3);
-        when(policy.getSort(parent)).thenReturn(sort);
-        when(policy.getSort(child1)).thenReturn(sort);
-        when(policy.getSort(child2)).thenReturn(sort);
-
-        Pair<Integer, Integer> parentRange = policy.getDomainElementRange(parent, scoper);
-        assertRange(1, 8, parentRange);
-        Pair<Integer, Integer> child1Range = policy.getDomainElementRange(child1, scoper);
-        assertRange(1, 5, child1Range);
-        Pair<Integer, Integer> child2Range = policy.getDomainElementRange(child2, scoper);
-        assertRange(6, 8, child2Range);
-    }
-
-    @Test
-    public void testGetDomainElementRange_twoTopLevelOneChild() {
-        // top-level S, T with T1 extends T
-        Sort sort = Sort.mkSortConst("sort");
-        Sig.PrimSig topLevel = new Sig.PrimSig("S");
-        Sig.PrimSig parent = new Sig.PrimSig("T");
-        Sig.PrimSig child = new Sig.PrimSig(null, "T1", new Pos("", 0, 0), parent);
-        policy = mock(SortPolicy.class, withSettings()
-                .useConstructor(Arrays.asList(topLevel, parent, child))
-                .defaultAnswer(CALLS_REAL_METHODS));
-
-        when(scoper.isExact(topLevel)).thenReturn(true);
-        when(scoper.isExact(parent)).thenReturn(true);
-        when(scoper.isExact(child)).thenReturn(true);
-        when(scoper.sig2scope(topLevel)).thenReturn(3);
-        when(scoper.sig2scope(parent)).thenReturn(8);
-        when(scoper.sig2scope(child)).thenReturn(5);
-        when(policy.getSort(topLevel)).thenReturn(sort);
-        when(policy.getSort(parent)).thenReturn(sort);
-        when(policy.getSort(child)).thenReturn(sort);
-
-        Pair<Integer, Integer> topLevelRange = policy.getDomainElementRange(topLevel, scoper);
-        assertRange(1, 3, topLevelRange);
-        Pair<Integer, Integer> parentRange = policy.getDomainElementRange(parent, scoper);
-        assertRange(4, 11, parentRange);
-        Pair<Integer, Integer> childRange = policy.getDomainElementRange(child, scoper);
-        assertRange(4, 8, childRange);
-    }
-
-    @Test
-    public void testGetDomainElementRange_nonExactWithNoChildren() {
-        // for non-exact scopes, we fall back on the sum of the sizes of the children with exact scopes,
-        // which results in ranges of size 0 when no such scopes exist
-        Sig sig = new Sig.PrimSig("S");
-        Sort sort = Sort.mkSortConst("sort");
-        policy = mock(SortPolicy.class, withSettings()
-                .useConstructor(Collections.singletonList(sig))
-                .defaultAnswer(CALLS_REAL_METHODS));
-        when(policy.getSort(sig)).thenReturn(sort);
-        when(scoper.isExact(sig)).thenReturn(false);
-        when(scoper.sig2scope(sig)).thenReturn(3);
-        assertRange(1, 0, policy.getDomainElementRange(sig, scoper));
-    }
-
-    @Test
-    public void testGetDomainElementRange_childOfNonExact() {
-        // an exact-scope child of a sig with a non-exact scope should bump up its domain element range to a minimum
-        // size of the child's exact scope
-        Sort sort = Sort.mkSortConst("sort");
-        Sig.PrimSig parent = new Sig.PrimSig("S");
-        Sig.PrimSig child = new Sig.PrimSig(null, "S1", new Pos("", 0, 0), parent);
-        policy = mock(SortPolicy.class, withSettings()
-                .useConstructor(Arrays.asList(parent, child))
-                .defaultAnswer(CALLS_REAL_METHODS));
-        when(policy.getSort(parent)).thenReturn(sort);
-        when(scoper.isExact(parent)).thenReturn(false);
-        when(scoper.sig2scope(parent)).thenReturn(5);
-        when(policy.getSort(child)).thenReturn(sort);
-        when(scoper.isExact(child)).thenReturn(true);
-        when(scoper.sig2scope(child)).thenReturn(3);
-        assertRange(1, 3, policy.getDomainElementRange(child, scoper));
-        assertRange(1, 3, policy.getDomainElementRange(parent, scoper));
-    }
-
-    @Test
-    public void testGetDomainElementRange_nonExactTwoChildrenOneExactOneNonExact() {
-        // test that the exact child is ignored in the domain element range calculation
-        Sort sort = Sort.mkSortConst("sort");
-        Sig.PrimSig parent = new Sig.PrimSig("S");
-        Sig.PrimSig childNonExact = new Sig.PrimSig(null, "S1", new Pos("", 0, 0), parent);
-        // put the exact child later in the alphabet to ensure it would be sorted last
-        Sig.PrimSig childExact = new Sig.PrimSig(null, "S2", new Pos("", 0, 0), parent);
-        policy = mock(SortPolicy.class, withSettings()
-                .useConstructor(Arrays.asList(parent, childExact, childNonExact))
-                .defaultAnswer(CALLS_REAL_METHODS));
-        when(policy.getSort(parent)).thenReturn(sort);
-        when(scoper.isExact(parent)).thenReturn(false);
-        when(scoper.sig2scope(parent)).thenReturn(4);
-        when(policy.getSort(childNonExact)).thenReturn(sort);
-        when(scoper.isExact(childExact)).thenReturn(false);
-        when(scoper.sig2scope(childNonExact)).thenReturn(2);
-        when(policy.getSort(childExact)).thenReturn(sort);
-        when(scoper.isExact(childExact)).thenReturn(true);
-        when(scoper.sig2scope(childExact)).thenReturn(3);
-        assertRange(1, 3, policy.getDomainElementRange(childExact, scoper));
-        assertRange(1, 3, policy.getDomainElementRange(parent, scoper));
-        // don't check childNonExact because getDomainElementRange is explicitly not accurate for it
-    }
-
-    @Test
-    public void testGetDomainElementRange_veryComplexHierarchy1() {
-        // Given this hierarchy, where sigs marked with <= are non-exact and those with = are exact:
-        //         A,<=
-        //       /   \
-        //     B,=  C,<=
-        //           |
-        //          D,=
-        // ensure that the domain element ranges put B and D's ranges together and in that order
-        // (due to alphabetical sorting of B and C).
-        Sort sort = Sort.mkSortConst("sort");
-        Sig.PrimSig sigA = new Sig.PrimSig("A");
-        Sig.PrimSig sigB = new Sig.PrimSig(null, "B", new Pos("", 0, 0), sigA);
-        Sig.PrimSig sigC = new Sig.PrimSig(null, "C", new Pos("", 0, 0), sigA);
-        Sig.PrimSig sigD = new Sig.PrimSig(null, "D", new Pos("", 0, 0), sigC);
-        policy = mock(SortPolicy.class, withSettings()
-                .useConstructor(Arrays.asList(sigA, sigB, sigC, sigD))
-                .defaultAnswer(CALLS_REAL_METHODS));
-        when(policy.getSort(sigA)).thenReturn(sort);
-        when(scoper.isExact(sigA)).thenReturn(false);
-        when(scoper.sig2scope(sigA)).thenReturn(4);
-        when(policy.getSort(sigB)).thenReturn(sort);
-        when(scoper.isExact(sigB)).thenReturn(true);
-        when(scoper.sig2scope(sigB)).thenReturn(2);
-        when(policy.getSort(sigC)).thenReturn(sort);
-        when(scoper.isExact(sigC)).thenReturn(false);
-        when(scoper.sig2scope(sigC)).thenReturn(4);
-        when(policy.getSort(sigD)).thenReturn(sort);
-        when(scoper.isExact(sigD)).thenReturn(true);
-        when(scoper.sig2scope(sigD)).thenReturn(1);
-        assertRange(1, 2, policy.getDomainElementRange(sigB, scoper));
-        assertRange(3, 3, policy.getDomainElementRange(sigD, scoper));
-        assertRange(3, 3, policy.getDomainElementRange(sigC, scoper));
-        assertRange(1, 3, policy.getDomainElementRange(sigA, scoper));
-    }
-
-    @Test
-    public void testGetDomainElementRange_veryComplexHierarchy2() {
-        // Given this hierarchy, where sigs marked with <= are non-exact and those with = are exact:
-        //         A,<=
-        //       /   \
-        //     B,<=  C,=
-        //     |
-        //    D,=
-        // ensure that the domain element ranges put D and C's ranges together and in that order
-        // (due to alphabetical sorting of B and C).
-        Sort sort = Sort.mkSortConst("sort");
-        Sig.PrimSig sigA = new Sig.PrimSig("A");
-        Sig.PrimSig sigB = new Sig.PrimSig(null, "B", new Pos("", 0, 0), sigA);
-        Sig.PrimSig sigC = new Sig.PrimSig(null, "C", new Pos("", 0, 0), sigA);
-        Sig.PrimSig sigD = new Sig.PrimSig(null, "D", new Pos("", 0, 0), sigB);
-        policy = mock(SortPolicy.class, withSettings()
-                .useConstructor(Arrays.asList(sigA, sigB, sigC, sigD))
-                .defaultAnswer(CALLS_REAL_METHODS));
-        when(policy.getSort(sigA)).thenReturn(sort);
-        when(scoper.isExact(sigA)).thenReturn(false);
-        when(scoper.sig2scope(sigA)).thenReturn(4);
-        when(policy.getSort(sigB)).thenReturn(sort);
-        when(scoper.isExact(sigB)).thenReturn(false);
-        when(scoper.sig2scope(sigB)).thenReturn(3);
-        when(policy.getSort(sigC)).thenReturn(sort);
-        when(scoper.isExact(sigC)).thenReturn(true);
-        when(scoper.sig2scope(sigC)).thenReturn(1);
-        when(policy.getSort(sigD)).thenReturn(sort);
-        when(scoper.isExact(sigD)).thenReturn(true);
-        when(scoper.sig2scope(sigD)).thenReturn(2);
-        assertRange(1, 2, policy.getDomainElementRange(sigD, scoper));
-        assertRange(1, 2, policy.getDomainElementRange(sigB, scoper));
-        assertRange(3, 3, policy.getDomainElementRange(sigC, scoper));
-        assertRange(1, 3, policy.getDomainElementRange(sigA, scoper));
-    }
-
-    @Test
-    public void testGetDomainElementRange_int() {
-        // we don't support DE ranges for SIGINT because that's an annoying special case that will never happen
-        assertNull(policy.getDomainElementRange(Sig.SIGINT, scoper));
-    }
-
-    @Test
-    public void testGetDomainElementRange_subsetSig() {
-        // we only support PrimSigs because we can't assign a definite DE range to subset sigs
-        Sig parent = new Sig.PrimSig("Parent");
-        Sig sig = new Sig.SubsetSig(null, "S", null, Collections.singletonList(parent));
-        assertNull(policy.getDomainElementRange(sig, scoper));
-    }
-
-    @Test
-    public void testGetDomainElementRange_siblingsIncludeBuiltins() {
-        // test we don't mess up if the builtin sigs are counted as siblings like they are in reality
-        // in particular, we don't support strings but shouldn't return an invalid answer if Sig.STRING is a sibling
-        Sig sig = new Sig.PrimSig("sig");
-        Sort univSort = Sort.mkSortConst("univ");
-        policy = mock(SortPolicy.class, withSettings()
-                .useConstructor(Arrays.asList(sig, Sig.UNIV, Sig.SIGINT, Sig.SEQIDX, Sig.STRING, Sig.NONE))
-                .defaultAnswer(CALLS_REAL_METHODS));
-        when(policy.getSort(any())).thenReturn(univSort);
-        when(policy.getSort(Sig.SIGINT)).thenReturn(Sort.Int());
-        when(policy.getSort(Sig.SEQIDX)).thenReturn(Sort.Int());
-        when(scoper.isExact(any())).thenReturn(true);
-        when(scoper.sig2scope(any())).thenReturn(-1); // this is returned by sig2scope when not set
-        when(scoper.sig2scope(sig)).thenReturn(3);
-
-        Pair<Integer, Integer> result = policy.getDomainElementRange(sig, scoper);
-        assertRange(1, 3, result);
+        context = new TranslationContext(
+                new PortusOptions(), mock(ScopeComputer.class), policy, mock(RangeAssigner.class));
     }
 
     private void assertSorts(List<Sort> actual, Sort... expected) {

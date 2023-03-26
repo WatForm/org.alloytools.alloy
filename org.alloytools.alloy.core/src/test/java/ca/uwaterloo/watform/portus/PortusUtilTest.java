@@ -33,7 +33,8 @@ public class PortusUtilTest {
     @Before
     public void setUp() {
         policy = mock(SortPolicy.class, CALLS_REAL_METHODS);
-        context = new TranslationContext(new PortusOptions(), mock(ScopeComputer.class), policy);
+        context = new TranslationContext(
+                new PortusOptions(), mock(ScopeComputer.class), policy, mock(RangeAssigner.class));
     }
 
     private ExprVar makeTestVar(String label) {
@@ -291,8 +292,6 @@ public class PortusUtilTest {
         when(policy.getSort(sig)).thenReturn(sort);
         Decl xDecl = sig.oneOf("x");
         ExprVar x = (ExprVar) xDecl.get();
-        // Name it something different than the Alloy variable so we have to specifically remove the Fortress var's name
-        AnnotatedVar xVar = Var.apply("xFortress").of(sort);
 
         Expr expr = x.equal(x).forAll(xDecl);
         List<AnnotatedVar> result = PortusUtil.computeFreeVariables(expr, context);
@@ -306,8 +305,6 @@ public class PortusUtilTest {
         when(policy.getSort(sig)).thenReturn(sort);
         Decl xDecl = sig.oneOf("x");
         ExprVar x = (ExprVar) xDecl.get();
-        // Name them different than the Alloy variable so we have to specifically remove the Fortress var names
-        AnnotatedVar xVar = Var.apply("xVar").of(sort);
         Decl yDecl = sig.oneOf("y");
         ExprVar y = (ExprVar) yDecl.get();
         AnnotatedVar yVar = Var.apply("yVar").of(sort);

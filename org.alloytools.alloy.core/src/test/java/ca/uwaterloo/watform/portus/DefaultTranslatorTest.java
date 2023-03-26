@@ -82,10 +82,11 @@ public class DefaultTranslatorTest {
     public void setUp() {
         mockRoot = mock(Translator.class);
         translator = new DefaultTranslator(mockRoot, new QuantifierScopeAxiomStrategy());
+        RangeAssigner mockRangeAssigner = mock(RangeAssigner.class);
         mockScoper = mock(ScopeComputer.class);
         mockSortPolicy = mock(SortPolicy.class, delegatesTo(
                 new UnivSortPolicy(univ, Collections.emptyList(), mockScoper)));
-        context = new TranslationContext(new PortusOptions(), mockScoper, mockSortPolicy);
+        context = new TranslationContext(new PortusOptions(), mockScoper, mockSortPolicy, mockRangeAssigner);
     }
 
     // Convience function to make a PrimSig with a (non-null) parent sig.

@@ -39,7 +39,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator {
             this.nextFuncName = generateNextFuncName();
             validate(context);
 
-            this.ordDE = PortusUtil.getOneSigDomainElement(ordSig, context.sortPolicy, context.scoper);
+            this.ordDE = PortusUtil.getOneSigDomainElement(ordSig, context);
         }
 
         private String generateNextFuncName() {
@@ -58,7 +58,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator {
             if (context.sortPolicy.getSort(sig) == null) {
                 throw new ErrorFatal("Sig " + sig.label + " can't be ordered because Portus can't determine a sort");
             }
-            if (context.sortPolicy.getDomainElementRange(sig, context.scoper) == null) {
+            if (context.rangeAssigner.getDomainElementRange(sig, context) == null) {
                 // this probably shouldn't happen
                 throw new ErrorFatal("Sig " + sig.label + " can't be ordered for unknown reasons");
             }
@@ -108,7 +108,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator {
             }
 
             // use the first in the range of domain elements
-            Pair<Integer, Integer> range = context.sortPolicy.getDomainElementRange(sig, context.scoper);
+            Pair<Integer, Integer> range = context.rangeAssigner.getDomainElementRange(sig, context);
             DomainElement firstDE = DomainElement.apply(range.a, sort);
             return Term.mkEq(var.variable(), firstDE);
         }
@@ -129,7 +129,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator {
 
             // Translate [[(x,y) \in next]] := [[x != last && next(x) = y]]
             // We check x != last because next(last) is left undefined
-            Pair<Integer, Integer> range = context.sortPolicy.getDomainElementRange(sig, context.scoper);
+            Pair<Integer, Integer> range = context.rangeAssigner.getDomainElementRange(sig, context);
             DomainElement lastDE = DomainElement.apply(range.b, sort);
             return Term.mkAnd(
                     Term.mkNot(Term.mkEq(tuple.getVar(0), lastDE)),
@@ -148,7 +148,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator {
 
             // Constrain it by hardcoding the order, leaving next(last) undefined
             // Note: deRange is inclusive, so we exclude the last element in the range
-            Pair<Integer, Integer> deRange = context.sortPolicy.getDomainElementRange(sig, context.scoper);
+            Pair<Integer, Integer> deRange = context.rangeAssigner.getDomainElementRange(sig, context);
             for (int de = deRange.a; de < deRange.b; de++) {
                 // "next(_@de) = _@(de+1)"
                 Term axiom = Term.mkEq(
