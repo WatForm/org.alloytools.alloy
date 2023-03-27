@@ -32,8 +32,6 @@ logging.addLevelName(SCLOG, "STATE")
 Reset = "\u001B[0m"
 Red = "\u001b[31m"
 Green = "\u001b[32m"
-Blue = "\u001B[34m"
-Cyan = "\u001B[36m"
 
 # ===== Base Classes =====
 
