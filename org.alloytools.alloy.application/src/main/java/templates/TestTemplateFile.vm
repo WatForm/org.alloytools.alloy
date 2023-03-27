@@ -8,25 +8,7 @@ from ast import literal_eval
 from enum import Enum
 
 import itertools
-import logging
 import random
-
-# ===== logging =====
-
-CALOG = logging.DEBUG+1  # used for feedback on adding called
-SVLOG = logging.DEBUG+2  # used for signature validity check
-GCLOG = logging.INFO+1   # used for guard condition
-ACLOG = logging.INFO+2   # used for action chosen
-VARLOG = logging.INFO+3  # used for variables
-SCLOG = logging.INFO+4   # used for state change
-
-logging.basicConfig(level=logging.INFO)
-logging.addLevelName(CALOG, "CALL")
-logging.addLevelName(SVLOG, "SIG")
-logging.addLevelName(GCLOG, "GUARD")
-logging.addLevelName(ACLOG, "ACTION")
-logging.addLevelName(VARLOG, "VAR")
-logging.addLevelName(SCLOG, "STATE")
 
 # ===== Colors =====
 Reset = "\u001B[0m"
@@ -73,6 +55,8 @@ class State(ABC):
         return id(self)
 
     def print_tree(self, level: int = 0):
+        if level == 0:
+            print("\n-- Current State Hierarchy --")
         if self.is_active:
             color = Green
         else:
@@ -86,11 +70,6 @@ class State(ABC):
 
     def _set_root_state(self, state: State):
         self._root_state = state
-
-    def change_state(self, state: State):
-        if(self._active_state is not None):
-            logging.log(SCLOG, f"State change: {self._active_state} => {state}")
-        self._active_state = state
 
     def __eq__(self, obj):
         return type(self) == type(obj)
@@ -268,8 +247,6 @@ class Signature(metaclass = MetaSet):
         self.name = name
         self.multiplicity = multiplicity
         self.elements = elements
-        # TODO: delete this comment
-        # Note: state variables are not implemented yet, this only aims to help in the future implementation of state variables
 
     # Return elements
     def get_values(self) -> set:
@@ -454,19 +431,15 @@ class VariableTracker:
                 self.__dict__[name].values = value
             else: # Assume only Relation and Signature instances are used.
                 self.__dict__[name].elements = value
-            logging.log(VARLOG,f"Variable [{name}] changed from \"{self.changes[name]}\" to \"{self.__dict__[name]}\".")
+            print(f"Variable [{name}] changed from \"{self.changes[name]}\" to \"{self.__dict__[name]}\".")
         else:
             self.__dict__[name] = value     # Initialization of variables.
 
-    # TODO: delete this comment.
-    # Call this when a big step is made.
     def next_step(self):
         """Save the changes made in this snapshot and start a new snapshot."""
         self.history_of_changes.append(self.changes)
         self.changes = dict()
 
-    # TODO: delete this comment.
-    # This only serves as a proof of concept at this moment.
     def back_track_big_step(self):
         """Back track to the previous snapshot."""
         changes = self.history_of_changes.pop()
@@ -741,7 +714,7 @@ def input_env_var(env_var, var_name, hint):
         print("Invalid Value! Try again.")
 
 def input_env_variables():
-    print("Please enter values for environmental variables, \"random\" to use randomly generated value, \"unchanged\" to leave them unchanged.")
+    print("\nPlease enter values for environmental variables, \"random\" to use randomly generated value, \"unchanged\" to leave them unchanged.")
     #foreach($envVarInput in $envVarInputs)
     input_env_var(SS.${envVarInput.name}, "SS.${envVarInput.name}", "${envVarInput.hint}")
     #end
@@ -831,42 +804,42 @@ class CentralController:
 
     def run(self) -> None:
         self.concState.print_tree()
-        self.printHelp()
-        eventName = ""
+        userInput = ""
         # big step
-        while eventName.lower() != "quit":
-            if eventName in self.possibleEvents:
-                print(Cyan + "Running model with env event " + eventName + Reset)
+        while userInput.lower() != "quit":
+            if userInput in self.possibleEvents:
+                print(Cyan + "Sending event " + userInput + Reset)
                 SS.activeEvents.clear()
-                SS.activeEvents.add(eventName)
+                SS.activeEvents.add(userInput)
                 self.handle_event()
                 self.concState.print_tree()
-            elif eventName != "":
-                print("Invalid event name")
+            elif userInput != "":
+                print(Red + "Invalid event name, please input a command again" + Reset)
 
+            self.printHelp()
             #if($envVarInputs)
             input_env_variables()
             #end
-            eventName = input("Please enter an event to be processed by the model. Type \"help\" for a list of possible events\n")
-            while eventName == "":
-                eventName = input()
+            userInput = input("\nPlease enter a command:\n$")
+            while userInput == "":
+                userInput = input()
 
-            if eventName in self.commands:
-                self.commands[eventName]()
-                eventName = ""
+            print("\n-- Command Execution Logs --")
+            if userInput in self.commands:
+                self.commands[userInput]()
+                userInput = ""
 
     def printHelp(self):
-        print("\n-- Env Events --")
+        print("\n-- Commands --")
         #if(${allEnvEvents.size()}> 0)
-        for x in self.possibleEvents:
-            print(x)
+        for event in self.possibleEvents:
+            print(f"{event}: send {event} event")
         #end
-        print("\n-- Other Commands --")
         print("execute: take a random transition (if possible)")
-        print("quit: terminate the model\n")
+        print("quit: terminate the model")
 
     def execute(self):
-        print(Cyan + "Running model without env event" + Reset)
+        print("Taking a random transition (if possible)")
         SS.activeEvents.clear()
         self.handle_event()
         self.concState.print_tree()
