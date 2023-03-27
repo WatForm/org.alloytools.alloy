@@ -8,25 +8,7 @@ from ast import literal_eval
 from enum import Enum
 
 import itertools
-import logging
 import random
-
-# ===== logging =====
-
-CALOG = logging.DEBUG+1  # used for feedback on adding called
-SVLOG = logging.DEBUG+2  # used for signature validity check
-GCLOG = logging.INFO+1   # used for guard condition
-ACLOG = logging.INFO+2   # used for action chosen
-VARLOG = logging.INFO+3  # used for variables
-SCLOG = logging.INFO+4   # used for state change
-
-logging.basicConfig(level=logging.INFO)
-logging.addLevelName(CALOG, "CALL")
-logging.addLevelName(SVLOG, "SIG")
-logging.addLevelName(GCLOG, "GUARD")
-logging.addLevelName(ACLOG, "ACTION")
-logging.addLevelName(VARLOG, "VAR")
-logging.addLevelName(SCLOG, "STATE")
 
 # ===== Colors =====
 Reset = "\u001B[0m"
@@ -449,7 +431,7 @@ class VariableTracker:
                 self.__dict__[name].values = value
             else: # Assume only Relation and Signature instances are used.
                 self.__dict__[name].elements = value
-            logging.log(VARLOG,f"Variable [{name}] changed from \"{self.changes[name]}\" to \"{self.__dict__[name]}\".")
+            print(f"Variable [{name}] changed from \"{self.changes[name]}\" to \"{self.__dict__[name]}\".")
         else:
             self.__dict__[name] = value     # Initialization of variables.
 
