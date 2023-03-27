@@ -1,4 +1,4 @@
-Main-Class: ca.uwaterloo.watform.dash4whole.Dash
+Main-Class: ca.uwaterloo.watform.dash4whole.RapidDash
 
 -buildpath: \
 	org.alloytools.alloy.application,\
@@ -23,4 +23,9 @@ Main-Class: ca.uwaterloo.watform.dash4whole.Dash
 	@${repo;org.sat4j.core}, \
 	@${repo;org.sat4j.maxsat}, \
 	@${repo;org.sat4j.pb}, \
+	@/Users/jianyanli/Projects/org.alloytools.alloy/cnf/jars/velocity-engine-core-2.3.jar, \
+	@/Users/jianyanli/Projects/org.alloytools.alloy/cnf/jars/gson-2.8.2.jar, \
+	@/Users/jianyanli/Projects/org.alloytools.alloy/cnf/jars/commons-lang3-3.12.0.jar, \
+	@/Users/jianyanli/Projects/org.alloytools.alloy/cnf/jars/slf4j-api-1.7.32.jar, \
+	@/Users/jianyanli/Projects/org.alloytools.alloy/cnf/jars/slf4j-simple-1.7.32.jar, \
 	LICENSES
