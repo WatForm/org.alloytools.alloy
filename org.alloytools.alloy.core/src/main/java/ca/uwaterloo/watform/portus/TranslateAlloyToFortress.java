@@ -4,6 +4,7 @@ import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.ast.Command;
 import edu.mit.csail.sdg.ast.Decl;
+import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprHasName;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.A4Options;
@@ -18,6 +19,7 @@ import fortress.modelfind.CompilationModelFinder;
 import fortress.modelfind.ErrorResult;
 import fortress.modelfind.ModelFinder;
 import fortress.modelfind.ModelFinderResult;
+import fortress.msfol.AnnotatedVar;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
 import fortress.msfol.Theory;
@@ -46,6 +48,8 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 /**
  * The public API for Portus. Translate an Alloy AST to a Fortress theory, then attempt
@@ -94,6 +98,10 @@ public final class TranslateAlloyToFortress implements CommandRunner {
         // We have to do fields after sigs because a field can refer to sigs that come after it.
         translateSigs(sigs, translator, context);
         translateFields(sigs, translator, context);
+
+        // Add extra axioms: the top level sigs are disjoint and complete
+        addDisjointnessAndCoverAxioms(sigs, translator, context);
+
         // TODO: append all the facts and field facts to the formula (copy/abstract makeFacts)
         context.addAxiom(translator.translate(command.formula, context));
         logger.translationFinished(context.getTheory());
@@ -202,6 +210,41 @@ public final class TranslateAlloyToFortress implements CommandRunner {
                 }
             }
         }
+    }
+
+    private void addDisjointnessAndCoverAxioms(Iterable<Sig> sigs, Translator translator, TranslationContext context) {
+        // Add axioms asserting that the top-level sigs in each sort are disjoint and cover the whole sort
+        for (Sort sort : context.getTheory().sortsJava()) {
+            List<Sig> sortTLSigs = StreamSupport.stream(sigs.spliterator(), false)
+                    .filter(sig -> sig.isTopLevel() && context.sortPolicy.getSort(sig) == sort)
+                    .collect(Collectors.toList());
+            if (sortTLSigs.isEmpty()) {
+                return; // no axioms if there are no sigs
+            }
+
+            // the sigs cover the sort
+            context.addAxiom(makeCoverAxiom(sort, sortTLSigs, translator, context));
+
+            // all the sigs are disjoint
+            for (int i = 1; i < sortTLSigs.size(); i++) {
+                for (int j = 0; j < i; j++) {
+                    context.addAxiom(PortusUtil.mkSigsDisjoint(
+                            sortTLSigs.get(i), sortTLSigs.get(j), translator, context));
+                }
+            }
+        }
+    }
+
+    private Term makeCoverAxiom(Sort sort, List<Sig> sortSigs, Translator translator, TranslationContext context) {
+        // TODO can this be merged with the similar method in DefaultTranslator?
+        // forall x: sort . [[x \in sig1]] || [[x \in sig2]] || ... || [[x \in sign]]
+        AnnotatedVar var = Term.mkVar(context.nameGenerator.freshName("x")).of(sort);
+        List<Term> disjuncts = new ArrayList<>();
+        for (Sig sig : sortSigs) {
+            Expr varInSig = ExprElementOf.make(var, sig);
+            disjuncts.add(translator.translate(varInSig, context));
+        }
+        return Term.mkForall(var, Term.mkOr(disjuncts));
     }
 
     private void writeFortressToFile(PortusLogger logger, A4Options options, TranslationContext context)

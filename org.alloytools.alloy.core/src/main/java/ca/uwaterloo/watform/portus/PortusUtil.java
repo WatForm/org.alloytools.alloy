@@ -19,7 +19,6 @@ import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Func;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.parser.Macro;
-import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.data.IntSuffixNameGenerator;
 import fortress.data.NameGenerator;
 import fortress.msfol.AnnotatedVar;
@@ -229,6 +228,17 @@ final class PortusUtil {
             conjuncts.add(Term.mkEq(a.get(i).variable(), b.get(i).variable()));
         }
         return Term.mkAnd(conjuncts);
+    }
+
+    /**
+     * Generate a term asserting that sig1 and sig2 are disjoint.
+     */
+    public static Term mkSigsDisjoint(Sig sig1, Sig sig2, Translator translator, TranslationContext context) {
+        // Alloy: "all x1: child1, x2: child2 | not (x = y)" (KT 4.2)
+        Decl x1 = sig1.oneOf("x1");
+        Decl x2 = sig2.oneOf("x2");
+        Expr disjointnessAxiom = x1.get().equal(x2.get()).not().forAll(x1, x2);
+        return translator.translate(disjointnessAxiom, context);
     }
 
     /**

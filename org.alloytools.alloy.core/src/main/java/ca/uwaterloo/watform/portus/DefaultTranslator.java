@@ -106,8 +106,8 @@ final class DefaultTranslator extends AbstractTranslator {
             // Add axioms for disjointness between each pair of subsigs
             for (int i = 0; i < primSig.children().size(); i++) {
                 for (int j = i + 1; j < primSig.children().size(); j++) {
-                    context.addAxiom(makeDisjointnessAxiom(
-                            primSig.children().get(i), primSig.children().get(j), context));
+                    context.addAxiom(PortusUtil.mkSigsDisjoint(
+                            primSig.children().get(i), primSig.children().get(j), topLevelTranslator, context));
                 }
             }
 
@@ -158,15 +158,6 @@ final class DefaultTranslator extends AbstractTranslator {
     /** Default for convenience: not exact. */
     private Term makeSubsetAxiom(List<Sig> parents, Expr child, TranslationContext context) {
         return makeSubsetAxiom(parents, child, false, context);
-    }
-
-    /** Create an axiom that sig1 and sig2 are disjoint. */
-    private Term makeDisjointnessAxiom(Sig sig1, Sig sig2, TranslationContext context) {
-        // Alloy: "all x1: child1, x2: child2 | not (x = y)" (KT 4.2)
-        Decl x1 = sig1.oneOf("x1");
-        Decl x2 = sig2.oneOf("x2");
-        Expr disjointnessAxiom = x1.get().equal(x2.get()).not().forAll(x1, x2);
-        return recursivelyTranslate(disjointnessAxiom, context);
     }
 
     /** Create an axiom that parent's children cover all elements in the parent. */
