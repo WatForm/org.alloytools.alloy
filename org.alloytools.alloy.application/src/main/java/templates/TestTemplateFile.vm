@@ -73,10 +73,12 @@ class State(ABC):
         return id(self)
 
     def print_tree(self, level: int = 0):
+        if level == 0:
+            print("\n-- Current State Hierarchy --")
         if self.is_active:
             color = Green
         else:
-            color = Red
+            color = ""
         print(color + "\t"*level+self.__repr__() + Reset)
         for s in self._children:
             s.print_tree(level + 1)
@@ -86,11 +88,6 @@ class State(ABC):
 
     def _set_root_state(self, state: State):
         self._root_state = state
-
-    def change_state(self, state: State):
-        if(self._active_state is not None):
-            logging.log(SCLOG, f"State change: {self._active_state} => {state}")
-        self._active_state = state
 
     def __eq__(self, obj):
         return type(self) == type(obj)
@@ -691,7 +688,7 @@ $padding        else:
 $padding            print("No possible next state values")
 $padding            exit(1)
             #end
-$padding        print(Blue + "Taking transition ${trans.getTransName()}" + Reset)
+$padding        print("Taking transition ${trans.getTransName()}")
 $padding        # Apply State Activeness Changes
                 #if($trans.getNonActiveStatesAfterTrans().size() > 0)
 $padding        states_becoming_non_active = $trans.getNonActiveStatesAfterTransPythonStr()
@@ -705,7 +702,7 @@ $padding            state.is_active = True
                 #end
                 #if(${trans.getTriggerEvent()})
 $padding        SS.activeEvents.add("${trans.getTriggerEvent()}")
-$padding        print(Cyan + "Sending event ${trans.getTriggerEvent()}" + Reset)
+$padding        print("Sending event ${trans.getTriggerEvent()}")
                 #end
 $padding        return True
 
@@ -741,7 +738,7 @@ def input_env_var(env_var, var_name, hint):
         print("Invalid Value! Try again.")
 
 def input_env_variables():
-    print("Please enter values for environmental variables, \"random\" to use randomly generated value, \"unchanged\" to leave them unchanged.")
+    print("\nPlease enter values for environmental variables, \"random\" to use randomly generated value, \"unchanged\" to leave them unchanged.")
     #foreach($envVarInput in $envVarInputs)
     input_env_var(SS.${envVarInput.name}, "SS.${envVarInput.name}", "${envVarInput.hint}")
     #end
@@ -831,42 +828,42 @@ class CentralController:
 
     def run(self) -> None:
         self.concState.print_tree()
-        self.printHelp()
-        eventName = ""
+        userInput = ""
         # big step
-        while eventName.lower() != "quit":
-            if eventName in self.possibleEvents:
-                print(Cyan + "Running model with env event " + eventName + Reset)
+        while userInput.lower() != "quit":
+            if userInput in self.possibleEvents:
+                print("Sending event " + userInput)
                 SS.activeEvents.clear()
-                SS.activeEvents.add(eventName)
+                SS.activeEvents.add(userInput)
                 self.handle_event()
                 self.concState.print_tree()
-            elif eventName != "":
-                print("Invalid event name")
+            elif userInput != "":
+                print(Red + "Invalid event name, please input a command again" + Reset)
 
+            self.printHelp()
             #if($envVarInputs)
             input_env_variables()
             #end
-            eventName = input("Please enter an event to be processed by the model. Type \"help\" for a list of possible events\n")
-            while eventName == "":
-                eventName = input()
+            userInput = input("\nPlease enter a command:\n$")
+            while userInput == "":
+                userInput = input()
 
-            if eventName in self.commands:
-                self.commands[eventName]()
-                eventName = ""
+            print("\n-- Command Execution Logs --")
+            if userInput in self.commands:
+                self.commands[userInput]()
+                userInput = ""
 
     def printHelp(self):
-        print("\n-- Env Events --")
+        print("\n-- Commands --")
         #if(${allEnvEvents.size()}> 0)
-        for x in self.possibleEvents:
-            print(x)
+        for event in self.possibleEvents:
+            print(f"{event}: send {event} event")
         #end
-        print("\n-- Other Commands --")
         print("execute: take a random transition (if possible)")
-        print("quit: terminate the model\n")
+        print("quit: terminate the model")
 
     def execute(self):
-        print(Cyan + "Running model without env event" + Reset)
+        print("Taking a random transition (if possible)")
         SS.activeEvents.clear()
         self.handle_event()
         self.concState.print_tree()
