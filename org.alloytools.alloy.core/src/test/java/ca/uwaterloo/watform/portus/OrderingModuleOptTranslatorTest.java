@@ -51,10 +51,13 @@ public class OrderingModuleOptTranslatorTest {
         SortPolicy policy = mock(SortPolicy.class);
         rangeAssigner = mock(RangeAssigner.class, withSettings().useConstructor(new ArrayList<>()));
         scoper = mock(ScopeComputer.class);
-        translator = new OrderingModuleOptTranslator((expr, ctx) -> {
-            // we don't expect this translator to recurse at all
-            fail("No recursive calls expected!");
-            return null;
+        translator = new OrderingModuleOptTranslator((expr, context) -> {
+            // recursive calls should check membership in orderedSig, translate as inOrderedSig(x)
+            if (!(expr instanceof ExprElementOf)) fail();
+            ExprElementOf exprElementOf = (ExprElementOf) expr;
+            if (exprElementOf.sub != orderedSig) fail();
+            if (exprElementOf.tuple.size() != 1 || exprElementOf.tuple.getSort(0) != orderedSigSort) fail();
+            return Term.mkApp("inOrderedSig", exprElementOf.tuple.getVar(0));
         });
 
         orderedSig = new Sig.PrimSig("Ordered");
@@ -128,7 +131,7 @@ public class OrderingModuleOptTranslatorTest {
     public void testTranslate_orderedSig_next() {
         // when we use next, a bunch of axioms get added: with scope 3,
         // next(@_1) = @_2, next(@_2) = @_3, but next(@_3) is left undefined
-        // and [[(x,y) \in next]] := x != @_3 && next(x) = y
+        // and [[(x,y) \in next]] := [[x \in orderedSig]] && x != @_3 && next(x) = y
         when(scoper.sig2scope(orderedSig)).thenReturn(3);
         when(rangeAssigner.getDomainElementRange(orderedSig, context)).thenReturn(new Pair<>(1, 3));
         translator.translate(ordSig, context);
@@ -158,6 +161,7 @@ public class OrderingModuleOptTranslatorTest {
 
         // check that [[(x,y) \in next]] translated correctly
         Term expected = Term.mkAnd(
+                Term.mkApp("inOrderedSig", x),
                 Term.mkNot(Term.mkEq(x, DomainElement.apply(3, orderedSigSort))),
                 Term.mkEq(Term.mkApp(nextFunc.name(), x), y));
         assertEquals(expected, result);
@@ -170,7 +174,7 @@ public class OrderingModuleOptTranslatorTest {
     public void testTranslate_orderedSig_next_notStartingAtDE1() {
         // when we use next, a bunch of axioms get added: with scope 4, offset 3,
         // next(@_3) = @_4, next(@_4) = @_5, next(@_5) = @_6, but next(@_6) is left undefined
-        // and [[(x,y) \in next]] := x != @_6 && next(x) = y
+        // and [[(x,y) \in next]] := [[x \in orderedSig]] && x != @_6 && next(x) = y
         when(scoper.sig2scope(orderedSig)).thenReturn(4);
         when(rangeAssigner.getDomainElementRange(orderedSig, context)).thenReturn(new Pair<>(3, 6));
         translator.translate(ordSig, context);
@@ -203,6 +207,7 @@ public class OrderingModuleOptTranslatorTest {
 
         // check that [[(x,y) \in next]] translated correctly
         Term expected = Term.mkAnd(
+                Term.mkApp("inOrderedSig", x),
                 Term.mkNot(Term.mkEq(x, DomainElement.apply(6, orderedSigSort))),
                 Term.mkEq(Term.mkApp(nextFunc.name(), x), y));
         assertEquals(expected, result);
@@ -214,7 +219,7 @@ public class OrderingModuleOptTranslatorTest {
     @Test
     public void testTranslate_orderedSig_next_scope1() {
         // edge case: what happens when the scope is 1?
-        // no axioms and [[(x,y) \in next]] := x != @_1 && next(x) = y
+        // no axioms and [[(x,y) \in next]] := [[x \in orderedSig]] && x != @_1 && next(x) = y
         when(scoper.sig2scope(orderedSig)).thenReturn(1);
         when(rangeAssigner.getDomainElementRange(orderedSig, context)).thenReturn(new Pair<>(1, 1));
         translator.translate(ordSig, context);
@@ -236,6 +241,7 @@ public class OrderingModuleOptTranslatorTest {
 
         // check that [[(x,y) \in next]] translated correctly
         Term expected = Term.mkAnd(
+                Term.mkApp("inOrderedSig", x),
                 Term.mkNot(Term.mkEq(x, DomainElement.apply(1, orderedSigSort))),
                 Term.mkEq(Term.mkApp(nextFunc.name(), x), y));
         assertEquals(expected, result);

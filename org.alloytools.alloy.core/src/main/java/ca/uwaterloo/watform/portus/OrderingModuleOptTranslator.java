@@ -132,12 +132,13 @@ final class OrderingModuleOptTranslator extends AbstractTranslator {
             // Lazily generate the actual Fortress function in case we don't need it
             ensureNextPredicateAdded(context);
 
-            // Translate [[(x,y) \in next]] := [[x != last && next(x) = y]]
-            // We check x != last because next(last) is left undefined
+            // Translate [[(x,y) \in next]] := [[x \in sig && x != last && next(x) = y]]
+            // We check x != last because next(last) is left undefined, and x \in sig to avoid extraneous entries
             context.rangeAssigner.addRangeAxiom(sig, topLevelTranslator, context); // ensure range is valid
             Pair<Integer, Integer> range = context.rangeAssigner.getDomainElementRange(sig, context);
             DomainElement lastDE = DomainElement.apply(range.b, sort);
             return Term.mkAnd(
+                    recursivelyTranslate(ExprElementOf.make(tuple.getAnnotatedVar(0), sig), context),
                     Term.mkNot(Term.mkEq(tuple.getVar(0), lastDE)),
                     Term.mkEq(Term.mkApp(nextFuncName, tuple.getVar(0)), tuple.getVar(1)));
         }
