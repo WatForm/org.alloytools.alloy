@@ -15,6 +15,7 @@ import org.junit.Before;
 import org.junit.Test;
 import scala.jdk.javaapi.CollectionConverters;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Set;
 
@@ -24,8 +25,12 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
 
 public class OrderingModuleOptTranslatorTest {
 
@@ -44,7 +49,7 @@ public class OrderingModuleOptTranslatorTest {
     @Before
     public void setUp() {
         SortPolicy policy = mock(SortPolicy.class);
-        rangeAssigner = mock(RangeAssigner.class);
+        rangeAssigner = mock(RangeAssigner.class, withSettings().useConstructor(new ArrayList<>()));
         scoper = mock(ScopeComputer.class);
         translator = new OrderingModuleOptTranslator((expr, ctx) -> {
             // we don't expect this translator to recurse at all
@@ -77,6 +82,8 @@ public class OrderingModuleOptTranslatorTest {
         translator.translate(ordSig, context);
         assertEquals(0, context.getTheory().axioms().size());
         assertEquals(0, context.getTheory().functionDeclarations().size());
+        // the range axiom also shouldn't be generated eagerly
+        verify(rangeAssigner, never()).addRangeAxiom(any(), any(), any());
     }
 
     @Test
@@ -93,6 +100,9 @@ public class OrderingModuleOptTranslatorTest {
         // still no next axiom since we didn't use it
         assertEquals(0, context.getTheory().axioms().size());
         assertEquals(0, context.getTheory().functionDeclarations().size());
+
+        // we do have the range axiom for orderedSig
+        verify(rangeAssigner, atLeastOnce()).addRangeAxiom(eq(orderedSig), any(), any());
     }
 
     @Test
@@ -109,6 +119,9 @@ public class OrderingModuleOptTranslatorTest {
         // still no next axiom since we didn't use it
         assertEquals(0, context.getTheory().axioms().size());
         assertEquals(0, context.getTheory().functionDeclarations().size());
+
+        // we do have the range axiom for orderedSig
+        verify(rangeAssigner, atLeastOnce()).addRangeAxiom(eq(orderedSig), any(), any());
     }
 
     @Test
@@ -148,6 +161,9 @@ public class OrderingModuleOptTranslatorTest {
                 Term.mkNot(Term.mkEq(x, DomainElement.apply(3, orderedSigSort))),
                 Term.mkEq(Term.mkApp(nextFunc.name(), x), y));
         assertEquals(expected, result);
+
+        // we have the range axiom
+        verify(rangeAssigner, atLeastOnce()).addRangeAxiom(eq(orderedSig), any(), any());
     }
 
     @Test
@@ -190,6 +206,9 @@ public class OrderingModuleOptTranslatorTest {
                 Term.mkNot(Term.mkEq(x, DomainElement.apply(6, orderedSigSort))),
                 Term.mkEq(Term.mkApp(nextFunc.name(), x), y));
         assertEquals(expected, result);
+
+        // we have the range axiom
+        verify(rangeAssigner, atLeastOnce()).addRangeAxiom(eq(orderedSig), any(), any());
     }
 
     @Test
@@ -220,6 +239,9 @@ public class OrderingModuleOptTranslatorTest {
                 Term.mkNot(Term.mkEq(x, DomainElement.apply(1, orderedSigSort))),
                 Term.mkEq(Term.mkApp(nextFunc.name(), x), y));
         assertEquals(expected, result);
+
+        // we have the range axiom
+        verify(rangeAssigner, atLeastOnce()).addRangeAxiom(eq(orderedSig), any(), any());
     }
 
 }

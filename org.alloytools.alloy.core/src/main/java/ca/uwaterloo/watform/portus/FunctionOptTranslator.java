@@ -342,6 +342,7 @@ final class FunctionOptTranslator extends AbstractTranslator {
             Sig sig = (Sig) expr;
             if (sig.isOne != null) {
                 // use its first/only domain element as the term
+                context.rangeAssigner.addRangeAxiom(sig, topLevelTranslator, context);
                 Term domainElement = PortusUtil.getOneSigDomainElement(sig, context);
                 // no guard on the domain element usage is needed
                 return new Pair<>(domainElement, new Pair<>(Term.mkTop(), context.sortPolicy.getSort(sig)));

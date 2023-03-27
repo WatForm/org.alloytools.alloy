@@ -255,7 +255,6 @@ public final class FortressSolution implements AlloySolution {
             }
 
             boolean inSet = evaluateFormula(formula, interpretation);
-            System.out.println(inExpr + " | " + formula + " | " + inSet);
             if (inSet) {
                 tupleSet.add(tuple);
             }

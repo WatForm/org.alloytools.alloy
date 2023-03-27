@@ -65,6 +65,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
 import static org.mockito.hamcrest.MockitoHamcrest.argThat;
 
 public class DefaultTranslatorTest {
@@ -82,7 +83,8 @@ public class DefaultTranslatorTest {
     public void setUp() {
         mockRoot = mock(Translator.class);
         translator = new DefaultTranslator(mockRoot, new QuantifierScopeAxiomStrategy());
-        RangeAssigner mockRangeAssigner = mock(RangeAssigner.class);
+        // Use the constructor so RangeAssigner's list of sigs isn't null (causes issues with copy constructor)
+        RangeAssigner mockRangeAssigner = mock(RangeAssigner.class, withSettings().useConstructor(new ArrayList<>()));
         mockScoper = mock(ScopeComputer.class);
         mockSortPolicy = mock(SortPolicy.class, delegatesTo(
                 new UnivSortPolicy(univ, Collections.emptyList(), mockScoper)));

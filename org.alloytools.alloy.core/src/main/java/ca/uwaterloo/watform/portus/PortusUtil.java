@@ -162,6 +162,8 @@ final class PortusUtil {
     /**
      * Given a one sig, return the domain element corresponding to its single atom. The context is used
      * to assign the domain element, which is the first/only one in its domain element range.
+     * {@link RangeAssigner#addRangeAxiom(Sig, Translator, TranslationContext)} must still be used to ensure the
+     * domain element is actually assigned to the sig.
      */
     public static DomainElement getOneSigDomainElement(Sig sig, TranslationContext context) {
         if (sig.isOne == null) {

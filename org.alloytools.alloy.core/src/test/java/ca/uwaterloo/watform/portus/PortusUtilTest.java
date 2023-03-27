@@ -13,6 +13,7 @@ import fortress.msfol.Var;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -24,6 +25,7 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
 
 public class PortusUtilTest {
 
@@ -33,8 +35,8 @@ public class PortusUtilTest {
     @Before
     public void setUp() {
         policy = mock(SortPolicy.class, CALLS_REAL_METHODS);
-        context = new TranslationContext(
-                new PortusOptions(), mock(ScopeComputer.class), policy, mock(RangeAssigner.class));
+        RangeAssigner mockRangeAssigner = mock(RangeAssigner.class, withSettings().useConstructor(new ArrayList<>()));
+        context = new TranslationContext(new PortusOptions(), mock(ScopeComputer.class), policy, mockRangeAssigner);
     }
 
     private ExprVar makeTestVar(String label) {

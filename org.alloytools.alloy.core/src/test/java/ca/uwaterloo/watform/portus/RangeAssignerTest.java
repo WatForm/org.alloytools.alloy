@@ -2,9 +2,12 @@ package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.alloy4.Pos;
+import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.msfol.Sort;
+import fortress.msfol.Term;
+import fortress.msfol.Theory;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -14,9 +17,13 @@ import java.util.Collections;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
 
 public class RangeAssignerTest {
 
@@ -27,6 +34,7 @@ public class RangeAssignerTest {
     @Before
     public void setUp() {
         policy = mock(SortPolicy.class);
+        when(policy.addSortsToTheory(any())).thenReturn(Theory.empty());
         scoper = mock(ScopeComputer.class);
         context = new TranslationContext(new PortusOptions(), scoper, policy, new RangeAssigner(new ArrayList<>()));
     }
@@ -302,6 +310,97 @@ public class RangeAssignerTest {
 
         Pair<Integer, Integer> result = rangeAssigner.getDomainElementRange(sig, context);
         assertRange(1, 3, result);
+    }
+
+    @Test
+    public void testAddRangeAxiom_oneElementRange() {
+        Sig sig = new Sig.PrimSig("Sig");
+        Sort sort = Sort.mkSortConst("Sort");
+        when(policy.getSort(sig)).thenReturn(sort);
+
+        RangeAssigner rangeAssigner = mock(RangeAssigner.class, withSettings()
+                .useConstructor(Collections.singletonList(sig))
+                .defaultAnswer(CALLS_REAL_METHODS));
+        when(rangeAssigner.getDomainElementRange(eq(sig), any())).thenReturn(new Pair<>(2, 2));
+
+        Translator mockTranslator = mock(Translator.class);
+        when(mockTranslator.translate(any(), any())).then(args -> {
+            // should be of form "var \in sig", replace with flag(var)
+            Expr expr = args.getArgument(0);
+            if (!(expr instanceof ExprElementOf)) fail();
+            ExprElementOf exprElementOf = (ExprElementOf) expr;
+            if (exprElementOf.tuple.size() != 1 || exprElementOf.sub != sig) fail();
+            return Term.mkApp("flag", exprElementOf.tuple.getVar(0));
+        });
+
+        rangeAssigner.addRangeAxiom(sig, mockTranslator, context);
+
+        // Should have one axiom matching flag(@2)
+        assertEquals(1, context.getTheory().axioms().size());
+        Term expected = Term.mkApp("flag", Term.mkDomainElement(2, sort));
+        assertEquals(expected, context.getTheory().axioms().head());
+    }
+
+    @Test
+    public void testAddRangeAxiom_twoElementRange() {
+        Sig sig = new Sig.PrimSig("Sig");
+        Sort sort = Sort.mkSortConst("Sort");
+        when(policy.getSort(sig)).thenReturn(sort);
+
+        RangeAssigner rangeAssigner = mock(RangeAssigner.class, withSettings()
+                .useConstructor(Collections.singletonList(sig))
+                .defaultAnswer(CALLS_REAL_METHODS));
+        when(rangeAssigner.getDomainElementRange(eq(sig), any())).thenReturn(new Pair<>(1, 2));
+
+        Translator mockTranslator = mock(Translator.class);
+        when(mockTranslator.translate(any(), any())).then(args -> {
+            // should be of form "var \in sig", replace with flag(var)
+            Expr expr = args.getArgument(0);
+            if (!(expr instanceof ExprElementOf)) fail();
+            ExprElementOf exprElementOf = (ExprElementOf) expr;
+            if (exprElementOf.tuple.size() != 1 || exprElementOf.sub != sig) fail();
+            return Term.mkApp("flag", exprElementOf.tuple.getVar(0));
+        });
+
+        rangeAssigner.addRangeAxiom(sig, mockTranslator, context);
+
+        // Should have one axiom matching flag(@1) & flag(@2)
+        assertEquals(1, context.getTheory().axioms().size());
+        Term expected = Term.mkAnd(
+                Term.mkApp("flag", Term.mkDomainElement(1, sort)),
+                Term.mkApp("flag", Term.mkDomainElement(2, sort)));
+        assertEquals(expected, context.getTheory().axioms().head());
+    }
+
+    @Test
+    public void testAddRangeAxiom_noDuplicates() {
+        // Test that if we call addRangeAxiom() on the same sig twice, we don't get more axioms
+        Sig sig = new Sig.PrimSig("Sig");
+        Sort sort = Sort.mkSortConst("Sort");
+        when(policy.getSort(sig)).thenReturn(sort);
+
+        RangeAssigner rangeAssigner = mock(RangeAssigner.class, withSettings()
+                .useConstructor(Collections.singletonList(sig))
+                .defaultAnswer(CALLS_REAL_METHODS));
+        when(rangeAssigner.getDomainElementRange(eq(sig), any())).thenReturn(new Pair<>(2, 2));
+
+        Translator mockTranslator = mock(Translator.class);
+        when(mockTranslator.translate(any(), any())).then(args -> {
+            // should be of form "var \in sig", replace with flag(var)
+            Expr expr = args.getArgument(0);
+            if (!(expr instanceof ExprElementOf)) fail();
+            ExprElementOf exprElementOf = (ExprElementOf) expr;
+            if (exprElementOf.tuple.size() != 1 || exprElementOf.sub != sig) fail();
+            return Term.mkApp("flag", exprElementOf.tuple.getVar(0));
+        });
+
+        rangeAssigner.addRangeAxiom(sig, mockTranslator, context);
+        rangeAssigner.addRangeAxiom(sig, mockTranslator, context);
+
+        // Should have (only) one axiom matching flag(@2)
+        assertEquals(1, context.getTheory().axioms().size());
+        Term expected = Term.mkApp("flag", Term.mkDomainElement(2, sort));
+        assertEquals(expected, context.getTheory().axioms().head());
     }
 
 }

@@ -1,12 +1,18 @@
 package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.Pair;
+import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.ScopeComputer;
+import fortress.msfol.AnnotatedVar;
 import fortress.msfol.Sort;
+import fortress.msfol.Term;
 
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -17,18 +23,25 @@ class RangeAssigner {
 
     private final List<Sig> allSigs;
 
+    // Keep state: which sigs have we added DE axioms for, so we don't add duplicates?
+    private final Set<Sig> sigsWithDEAxioms;
+
     public RangeAssigner(Iterable<Sig> allSigs) {
         this.allSigs = PortusUtil.iterableToList(allSigs);
+        this.sigsWithDEAxioms = new HashSet<>();
     }
 
     public RangeAssigner(RangeAssigner other) {
-        this.allSigs = other.allSigs;
-        // TODO: deep-copy any state
+        // Deep copy so changes in the copy don't affect the original
+        this.allSigs = new ArrayList<>(other.allSigs);
+        this.sigsWithDEAxioms = new HashSet<>(other.sigsWithDEAxioms);
     }
 
     /**
      * Get the inclusive range of domain element indices in the sort spanned by the sig.
      * May be null if an exact domain element range cannot be determined.
+     * To ensure that the domain elements in the range actually are assigned to the sig,
+     * call {@link #addRangeAxiom(Sig, Translator, TranslationContext)}.
      *
      * WARNING: If sig has a non-exact scope, we return a range of the minimum size that is forced by any child with an
      * exact scope. (For example, if A has a non-exact scope but its (only) child A1 has an exact scope of 2, we return
@@ -116,6 +129,50 @@ class RangeAssigner {
             }
             return minSize;
         }
+    }
+
+    /**
+     * Add an axiom to the context stating that the elements of the domain element range for this sig all belong
+     * to this sig. This must be called for any sig for which we rely on the domain element range.
+     * This object handles not adding duplicate axioms.
+     */
+    public void addRangeAxiom(Sig sig, Translator translator, TranslationContext context) {
+        Pair<Integer, Integer> range = getDomainElementRange(sig, context);
+        if (range == null) {
+            return; // Don't bother if we can't assign a range
+        }
+
+        // Don't add duplicate axioms
+        if (sigsWithDEAxioms.contains(sig)) {
+            return;
+        }
+        sigsWithDEAxioms.add(sig);
+
+        // TODO there's some room for optimization here: if a parent and a child both have axioms for their DE
+        // ranges specified, then the parent one is redundant due to the inChild => inParent axiom.
+        // But I don't know if that would save any time in the SMT solver.
+        List<Term> conjuncts = new ArrayList<>();
+        Sort sort = context.sortPolicy.getSort(sig);
+        for (int deIdx = range.a; deIdx <= range.b; deIdx++) {
+            Term deInSig = getDEInSigAxiom(sig, deIdx, sort, translator, context);
+            conjuncts.add(deInSig);
+        }
+
+        if (conjuncts.isEmpty()) {
+            // Just in case they pass an empty range
+            return;
+        }
+        Term axiom = Term.mkAnd(conjuncts);
+        context.addAxiom(axiom);
+    }
+
+    private Term getDEInSigAxiom(Sig sig, int deIdx, Sort sort, Translator translator, TranslationContext context) {
+        // We want [[_@deIdx \in sig]], but ExprElementOf only supports Vars on the LHS, so do this sub hack
+        // Use a fresh name to be safe, but it's probably unnecessary
+        AnnotatedVar subVar = Term.mkVar(context.nameGenerator.freshName("tempSubVar")).of(sort);
+        Expr alloyAxiom = ExprElementOf.make(subVar, sig);
+        Term unsubbedAxiom = translator.translate(alloyAxiom, context);
+        return PortusUtil.substitute(subVar, Term.mkDomainElement(deIdx, sort), unsubbedAxiom);
     }
 
 }

@@ -30,6 +30,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.withSettings;
 
 public class FortressSolutionTest {
 
@@ -42,7 +43,7 @@ public class FortressSolutionTest {
     @Before
     public void setUp() {
         Sort univ = Sort.mkSortConst("testUniv");
-        RangeAssigner mockRangeAssigner = mock(RangeAssigner.class);
+        RangeAssigner mockRangeAssigner = mock(RangeAssigner.class, withSettings().useConstructor(new ArrayList<>()));
         ScopeComputer mockScoper = mock(ScopeComputer.class);
         SortPolicy sortPolicy = new UnivSortPolicy(univ, new ArrayList<>(), mockScoper);
         TranslationContext context = new TranslationContext(

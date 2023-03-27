@@ -14,12 +14,15 @@ import fortress.msfol.Var;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.util.ArrayList;
+
 import static ca.uwaterloo.watform.portus.IsSameMatcher.isSameAs;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
 import static org.mockito.hamcrest.MockitoHamcrest.argThat;
 
 public class JoinOptTranslatorTest {
@@ -38,7 +41,7 @@ public class JoinOptTranslatorTest {
         translator = new JoinOptTranslator(mockRoot);
         mockSortPolicy = mock(SortPolicy.class);
         when(mockSortPolicy.addSortsToTheory(any())).thenReturn(Theory.empty().withSort(testSort));
-        RangeAssigner mockRangeAssigner = mock(RangeAssigner.class);
+        RangeAssigner mockRangeAssigner = mock(RangeAssigner.class, withSettings().useConstructor(new ArrayList<>()));
         ScopeComputer mockScoper = mock(ScopeComputer.class);
         context = new TranslationContext(new PortusOptions(), mockScoper, mockSortPolicy, mockRangeAssigner);
     }

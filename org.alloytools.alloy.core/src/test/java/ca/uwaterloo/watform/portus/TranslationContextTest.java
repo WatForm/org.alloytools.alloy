@@ -10,6 +10,7 @@ import fortress.msfol.Term;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -18,6 +19,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.withSettings;
 
 public class TranslationContextTest {
 
@@ -27,7 +29,8 @@ public class TranslationContextTest {
     public void setUp() {
         ScopeComputer scoper = mock(ScopeComputer.class);
         SortPolicy sortPolicy = mock(SortPolicy.class);
-        context = new TranslationContext(new PortusOptions(), scoper, sortPolicy, mock(RangeAssigner.class));
+        RangeAssigner mockRangeAssigner = mock(RangeAssigner.class, withSettings().useConstructor(new ArrayList<>()));
+        context = new TranslationContext(new PortusOptions(), scoper, sortPolicy, mockRangeAssigner);
     }
 
     @Test

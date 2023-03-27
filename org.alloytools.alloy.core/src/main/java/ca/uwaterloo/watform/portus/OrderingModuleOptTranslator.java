@@ -21,7 +21,7 @@ import java.util.List;
  */
 final class OrderingModuleOptTranslator extends AbstractTranslator {
 
-    private static final class OrderInfo {
+    private final class OrderInfo {
         private final Sig ordSig;
         private final Sig sig;
         private final Sig.Field first;
@@ -81,7 +81,11 @@ final class OrderingModuleOptTranslator extends AbstractTranslator {
         }
 
         // Return a term saying that `term` matches the Ord one sig's single domain element.
-        public Term getMatchesOrdDETerm(Term term) {
+        public Term getMatchesOrdDETerm(Term term, TranslationContext context) {
+            // Add the range axiom here rather than in the constructor because ordSig hasn't been parsed by the
+            // rest of the translators then, so translating [[@de \in ordSig]] will fail.
+            // At this point ordSig has been run through all translators, so this is safe.
+            context.rangeAssigner.addRangeAxiom(ordSig, topLevelTranslator, context);
             return Term.mkEq(term, ordDE);
         }
 
@@ -108,6 +112,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator {
             }
 
             // use the first in the range of domain elements
+            context.rangeAssigner.addRangeAxiom(sig, topLevelTranslator, context); // ensure range is valid
             Pair<Integer, Integer> range = context.rangeAssigner.getDomainElementRange(sig, context);
             DomainElement firstDE = DomainElement.apply(range.a, sort);
             return Term.mkEq(var.variable(), firstDE);
@@ -129,6 +134,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator {
 
             // Translate [[(x,y) \in next]] := [[x != last && next(x) = y]]
             // We check x != last because next(last) is left undefined
+            context.rangeAssigner.addRangeAxiom(sig, topLevelTranslator, context); // ensure range is valid
             Pair<Integer, Integer> range = context.rangeAssigner.getDomainElementRange(sig, context);
             DomainElement lastDE = DomainElement.apply(range.b, sort);
             return Term.mkAnd(
@@ -148,6 +154,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator {
 
             // Constrain it by hardcoding the order, leaving next(last) undefined
             // Note: deRange is inclusive, so we exclude the last element in the range
+            context.rangeAssigner.addRangeAxiom(sig, topLevelTranslator, context); // ensure range is valid
             Pair<Integer, Integer> deRange = context.rangeAssigner.getDomainElementRange(sig, context);
             for (int de = deRange.a; de < deRange.b; de++) {
                 // "next(_@de) = _@(de+1)"
@@ -264,7 +271,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator {
         // translate them directly by stripping the first element of the tuple (since that's the Ord one-sig),
         // and also check that the first element of the tuple is the Ord sig's one atom
         for (OrderInfo order : orders) {
-            Term matchesOrdDE = order.getMatchesOrdDETerm(tuple.getVar(0));
+            Term matchesOrdDE = order.getMatchesOrdDETerm(tuple.getVar(0), context);
             if (order.matchesFirstField(field)) {
                 return Term.mkAnd(matchesOrdDE, order.translateFirst(tuple.slice(1, tuple.size()), context));
             } else if (order.matchesNextField(field)) {
