@@ -32,6 +32,8 @@ logging.addLevelName(SCLOG, "STATE")
 Reset = "\u001B[0m"
 Red = "\u001b[31m"
 Green = "\u001b[32m"
+Blue = "\u001B[34m"
+Cyan = "\u001B[36m"
 
 # ===== Base Classes =====
 
@@ -76,7 +78,7 @@ class State(ABC):
         if self.is_active:
             color = Green
         else:
-            color = ""
+            color = Red
         print(color + "\t"*level+self.__repr__() + Reset)
         for s in self._children:
             s.print_tree(level + 1)
@@ -680,7 +682,7 @@ $padding        else:
 $padding            print("No possible next state values")
 $padding            exit(1)
             #end
-$padding        print("Taking transition ${trans.getTransName()}")
+$padding        print(Blue + "Taking transition ${trans.getTransName()}" + Reset)
 $padding        # Apply State Activeness Changes
                 #if($trans.getNonActiveStatesAfterTrans().size() > 0)
 $padding        states_becoming_non_active = $trans.getNonActiveStatesAfterTransPythonStr()
@@ -694,7 +696,7 @@ $padding            state.is_active = True
                 #end
                 #if(${trans.getTriggerEvent()})
 $padding        SS.activeEvents.add("${trans.getTriggerEvent()}")
-$padding        print("Sending event ${trans.getTriggerEvent()}")
+$padding        print(Cyan + "Sending event ${trans.getTriggerEvent()}" + Reset)
                 #end
 $padding        return True
 
@@ -824,7 +826,7 @@ class CentralController:
         # big step
         while userInput.lower() != "quit":
             if userInput in self.possibleEvents:
-                print("Sending event " + userInput)
+                print(Cyan + "Sending event " + userInput + Reset)
                 SS.activeEvents.clear()
                 SS.activeEvents.add(userInput)
                 self.handle_event()
