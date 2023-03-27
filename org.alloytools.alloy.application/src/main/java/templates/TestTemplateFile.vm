@@ -265,8 +265,6 @@ class Signature(metaclass = MetaSet):
         self.name = name
         self.multiplicity = multiplicity
         self.elements = elements
-        # TODO: delete this comment
-        # Note: state variables are not implemented yet, this only aims to help in the future implementation of state variables
 
     # Return elements
     def get_values(self) -> set:
@@ -455,15 +453,11 @@ class VariableTracker:
         else:
             self.__dict__[name] = value     # Initialization of variables.
 
-    # TODO: delete this comment.
-    # Call this when a big step is made.
     def next_step(self):
         """Save the changes made in this snapshot and start a new snapshot."""
         self.history_of_changes.append(self.changes)
         self.changes = dict()
 
-    # TODO: delete this comment.
-    # This only serves as a proof of concept at this moment.
     def back_track_big_step(self):
         """Back track to the previous snapshot."""
         changes = self.history_of_changes.pop()
