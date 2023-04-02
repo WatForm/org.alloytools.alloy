@@ -27,7 +27,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
@@ -78,15 +77,32 @@ public class OrderingModuleOptTranslatorTest {
     }
 
     @Test
-    public void testTranslate_orderedSig_lazy() {
-        // nothing is generated before next is translated
+    public void testTranslate_orderedSig_notLazy() {
+        // nothing translated, but next is still added
         when(scoper.sig2scope(orderedSig)).thenReturn(3);
         when(rangeAssigner.getDomainElementRange(orderedSig, context)).thenReturn(new Pair<>(1, 3));
         translator.translate(ordSig, context);
-        assertEquals(0, context.getTheory().axioms().size());
-        assertEquals(0, context.getTheory().functionDeclarations().size());
-        // the range axiom also shouldn't be generated eagerly
-        verify(rangeAssigner, never()).addRangeAxiom(any(), any(), any());
+
+        // there should be one function, next: orderedSigSort -> orderedSigSort
+        assertEquals(1, context.getTheory().functionDeclarations().size());
+        FuncDecl nextFunc = context.getTheory().functionDeclarations().head();
+        assertEquals(1, nextFunc.argSorts().size());
+        assertEquals(orderedSigSort, nextFunc.argSorts().head());
+        assertEquals(orderedSigSort, nextFunc.resultSort());
+
+        // there should be two axioms
+        @SuppressWarnings("unchecked") // IntelliJ gives a false positive
+        Set<Term> axioms = CollectionConverters.<Term>asJava(context.getTheory().axioms());
+        assertThat(axioms, containsInAnyOrder(
+                Term.mkEq(
+                        Term.mkApp(nextFunc.name(), DomainElement.apply(1, orderedSigSort)),
+                        DomainElement.apply(2, orderedSigSort)),
+                Term.mkEq(
+                        Term.mkApp(nextFunc.name(), DomainElement.apply(2, orderedSigSort)),
+                        DomainElement.apply(3, orderedSigSort))));
+
+        // the range axiom should also be generated eagerly
+        verify(rangeAssigner, atLeastOnce()).addRangeAxiom(eq(orderedSig), any(), any());
     }
 
     @Test
@@ -99,13 +115,6 @@ public class OrderingModuleOptTranslatorTest {
         Term result = translator.translate(ExprElementOf.make(
                 new VarTuple(x.of(orderedSigSort)), ordSig.join(firstField)), context);
         assertEquals(Term.mkEq(x, DomainElement.apply(1, orderedSigSort)), result);
-
-        // still no next axiom since we didn't use it
-        assertEquals(0, context.getTheory().axioms().size());
-        assertEquals(0, context.getTheory().functionDeclarations().size());
-
-        // we do have the range axiom for orderedSig
-        verify(rangeAssigner, atLeastOnce()).addRangeAxiom(eq(orderedSig), any(), any());
     }
 
     @Test
@@ -118,18 +127,11 @@ public class OrderingModuleOptTranslatorTest {
         Term result = translator.translate(ExprElementOf.make(
                 new VarTuple(x.of(orderedSigSort)), ordSig.join(firstField)), context);
         assertEquals(Term.mkEq(x, DomainElement.apply(5, orderedSigSort)), result);
-
-        // still no next axiom since we didn't use it
-        assertEquals(0, context.getTheory().axioms().size());
-        assertEquals(0, context.getTheory().functionDeclarations().size());
-
-        // we do have the range axiom for orderedSig
-        verify(rangeAssigner, atLeastOnce()).addRangeAxiom(eq(orderedSig), any(), any());
     }
 
     @Test
     public void testTranslate_orderedSig_next() {
-        // when we use next, a bunch of axioms get added: with scope 3,
+        // a bunch of axioms are added for next:
         // next(@_1) = @_2, next(@_2) = @_3, but next(@_3) is left undefined
         // and [[(x,y) \in next]] := [[x \in orderedSig]] && x != @_3 && next(x) = y
         when(scoper.sig2scope(orderedSig)).thenReturn(3);

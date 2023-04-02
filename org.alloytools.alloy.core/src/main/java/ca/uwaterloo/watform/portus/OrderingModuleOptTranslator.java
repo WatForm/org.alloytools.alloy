@@ -40,6 +40,10 @@ final class OrderingModuleOptTranslator extends AbstractTranslator {
             validate(context);
 
             this.ordDE = PortusUtil.getOneSigDomainElement((Sig.PrimSig) ordSig, context);
+
+            // Add the predicate immediately instead of lazily - if we do it lazily and don't end up adding it,
+            // then when we go to evaluate ordering/Ord.Next, we get errors since the predicate doesn't exist.
+            addNextPredicate(context);
         }
 
         private String generateNextFuncName() {
@@ -133,9 +137,6 @@ final class OrderingModuleOptTranslator extends AbstractTranslator {
                 return Term.mkBottom();
             }
 
-            // Lazily generate the actual Fortress function in case we don't need it
-            ensureNextPredicateAdded(context);
-
             // Translate [[(x,y) \in next]] := [[x \in sig && x != last && next(x) = y]]
             // We check x != last because next(last) is left undefined, and x \in sig to avoid extraneous entries
             context.rangeAssigner.addRangeAxiom(sig, topLevelTranslator, context); // ensure range is valid
@@ -147,7 +148,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator {
                     Term.mkEq(Term.mkApp(nextFuncName, tuple.getVar(0)), tuple.getVar(1)));
         }
 
-        private void ensureNextPredicateAdded(TranslationContext context) {
+        private void addNextPredicate(TranslationContext context) {
             if (context.hasFunctionWithName(nextFuncName)) {
                 return; // already exists
             }
