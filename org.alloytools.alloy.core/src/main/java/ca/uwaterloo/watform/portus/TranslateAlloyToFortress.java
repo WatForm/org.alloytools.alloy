@@ -216,6 +216,8 @@ public final class TranslateAlloyToFortress implements CommandRunner {
         // Add axioms asserting that the top-level sigs in each sort are disjoint and cover the whole sort
         for (Sort sort : context.getTheory().sortsJava()) {
             List<Sig> sortTLSigs = StreamSupport.stream(sigs.spliterator(), false)
+                    // Ignore String for now, we don't support it - TODO support Sig.STRING
+                    .filter(sig -> sig != Sig.STRING)
                     .filter(sig -> sig.isTopLevel() && context.sortPolicy.getSort(sig) == sort)
                     .collect(Collectors.toList());
             if (sortTLSigs.isEmpty()) {
