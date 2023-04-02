@@ -41,6 +41,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 public final class FortressSolution implements AlloySolution {
 
@@ -235,7 +236,23 @@ public final class FortressSolution implements AlloySolution {
         List<List<Value>> tupleSet = new ArrayList<>();
         List<Sort> sorts = context.sortPolicy.getAllSorts();
         int arity = expr.type().arity();
-        for (List<Sort> sortCombo : cartesianPower(sorts, arity)) {
+
+        // Optimization: if we can determine that some positions can only have atoms of a certain sort,
+        // only try values from that sort
+        List<Sort> exprSorts = context.sortPolicy.getMinimalExprSorts(expr, context);
+        if (exprSorts == null) {
+            // if we couldn't get the sorts for some reason, just try all sorts
+            exprSorts = Collections.nCopies(arity, null);
+        }
+        if (arity != exprSorts.size()) {
+            throw new ErrorFatal("Evaluating " + expr + ": type arity " + arity + " conflicts with determined arity "
+                + exprSorts.size());
+        }
+        List<List<Sort>> sortsPerPosition = exprSorts.stream()
+                .map(sort -> SortPolicy.isSortDefinite(sort) ? Collections.singletonList(sort) : sorts)
+                .collect(Collectors.toList());
+
+        cartesianProduct(sortsPerPosition).forEach(sortCombo -> {
             // ExprElementOf only takes Vars, so use tricks to get around:
             // for (v1,...,vn) \in expr, make vars x1,...,xn and translate [[(x1,...,xn) \in expr]]
             // and then substitute xi->vi for i=1..n.
@@ -250,7 +267,7 @@ public final class FortressSolution implements AlloySolution {
             List<List<Value>> sortAtoms = sortCombo.stream()
                     .map(sortsToAtoms::get)
                     .collect(Collectors.toList());
-            for (List<Value> tuple : cartesianProduct(sortAtoms)) {
+            cartesianProduct(sortAtoms).forEach(tuple -> {
                 // Substitute for the values we want to evaluate
                 Term substitutedFormula = formula;
                 for (int i = 0; i < tuple.size(); i++) {
@@ -262,8 +279,8 @@ public final class FortressSolution implements AlloySolution {
                 if (inSet) {
                     tupleSet.add(tuple);
                 }
-            }
-        }
+            });
+        });
 
         // A4SolutionWriter/Reader don't process Int normally but instead assume that int literals are represented
         // by actual integers - so make sure that's the case.
@@ -305,32 +322,20 @@ public final class FortressSolution implements AlloySolution {
         return verifier.verifyInterpretation(interpretation);
     }
 
-    // Compute values^n (i.e., all n-tuples of elements of values), n >= 0.
-    private <T> List<List<T>> cartesianPower(List<T> values, int n) {
-        List<List<T>> lists = new ArrayList<>();
-        for (int i = 0; i < n; i++) {
-            lists.add(values);
-        }
-        return cartesianProduct(lists);
-    }
-
-    // Compute the Cartesian product of the lists recursively.
-    private <T> List<List<T>> cartesianProduct(List<List<T>> lists) {
+    // Compute the Cartesian product of the lists recursively and lazily
+    private <T> Stream<? extends List<T>> cartesianProduct(List<List<T>> lists) {
         if (lists.size() == 0) {
             // Singleton list with just ()
-            return Collections.singletonList(new ArrayList<>());
+            return Stream.of(new ArrayList<>());
         } else {
             // Compute product(lists[:-1]) x lists[-1]
-            List<List<T>> prev = cartesianProduct(lists.subList(0, lists.size() - 1));
-            List<List<T>> result = new ArrayList<>();
-            for (List<T> tuple : prev) {
-                for (T value : lists.get(lists.size() - 1)) {
-                    List<T> addedTuple = new ArrayList<>(tuple);
-                    addedTuple.add(value);
-                    result.add(addedTuple);
-                }
-            }
-            return result;
+            Stream<? extends List<T>> prev = cartesianProduct(lists.subList(0, lists.size() - 1));
+            List<T> last = lists.get(lists.size() - 1);
+            return prev.flatMap(tuple -> last.stream().map(value -> {
+                List<T> addedTuple = new ArrayList<>(tuple);
+                addedTuple.add(value);
+                return addedTuple;
+            }));
         }
     }
 
