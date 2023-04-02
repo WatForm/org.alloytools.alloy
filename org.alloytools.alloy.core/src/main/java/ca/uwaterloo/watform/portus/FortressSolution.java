@@ -36,7 +36,6 @@ import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -63,8 +62,8 @@ public final class FortressSolution implements AlloySolution {
     /** Map atoms from Fortress to Alloy. */
     private final Map<Value, ExprVar> fortressToAlloyAtoms = new HashMap<>();
 
-    /** Get the sort of any Fortress atom. */
-    private final Map<Value, Sort> atomsToSorts = new HashMap<>();
+    /** Map sorts to the atoms that belong to them. */
+    private final Map<Sort, List<Value>> sortsToAtoms = new HashMap<>();
 
     /** The single Kodkod universe of atoms - Alloy requires a consistent Universe object. */
     private final Universe universe;
@@ -94,10 +93,10 @@ public final class FortressSolution implements AlloySolution {
             for (Sort sort : sortInterpretations.keySet()) {
                 List<Value> sortAtoms = sortInterpretations.get(sort);
                 fortressAtoms.addAll(sortAtoms);
+                sortsToAtoms.put(sort, sortAtoms);
                 for (Value atom : sortAtoms) {
                     ExprVar alloyAtom = ExprVar.make(null, atom.toString());
                     fortressToAlloyAtoms.put(atom, alloyAtom);
-                    atomsToSorts.put(atom, sort);
                 }
             }
             this.universe = new Universe(sanitizeIntLiteralsForKodkod(fortressAtoms));
@@ -234,29 +233,35 @@ public final class FortressSolution implements AlloySolution {
 
         // It's a tuple set - manually evaluate {(x1,...,xn) : sorts | [[(x1,...,xn) \in expr]]}
         List<List<Value>> tupleSet = new ArrayList<>();
-        Set<Value> atoms = fortressToAlloyAtoms.keySet();
+        List<Sort> sorts = context.sortPolicy.getAllSorts();
         int arity = expr.type().arity();
-        for (List<Value> tuple : cartesianPower(atoms, arity)) {
+        for (List<Sort> sortCombo : cartesianPower(sorts, arity)) {
             // ExprElementOf only takes Vars, so use tricks to get around:
             // for (v1,...,vn) \in expr, make vars x1,...,xn and translate [[(x1,...,xn) \in expr]]
             // and then substitute xi->vi for i=1..n.
-            List<AnnotatedVar> vars = tuple.stream()
-                    .map(atom -> Term.mkVar("var_" + atom).of(atomsToSorts.get(atom)))
+            List<AnnotatedVar> vars = sortCombo.stream()
+                    .map(sort -> Term.mkVar(context.nameGenerator.freshName("var_" + sort)).of(sort))
                     .collect(Collectors.toList());
 
             TranslationContext contextCopy = new TranslationContext(context);
             Expr inExpr = ExprElementOf.make(new VarTuple(vars), expr);
             Term formula = translator.translate(inExpr, contextCopy);
 
-            // Substitute for the values we want to evaluate
-            for (int i = 0; i < tuple.size(); i++) {
-                formula = Substituter.apply(
-                        vars.get(i).variable(), tuple.get(i), formula, contextCopy.nameGenerator);
-            }
+            List<List<Value>> sortAtoms = sortCombo.stream()
+                    .map(sortsToAtoms::get)
+                    .collect(Collectors.toList());
+            for (List<Value> tuple : cartesianProduct(sortAtoms)) {
+                // Substitute for the values we want to evaluate
+                Term substitutedFormula = formula;
+                for (int i = 0; i < tuple.size(); i++) {
+                    substitutedFormula = Substituter.apply(
+                            vars.get(i).variable(), tuple.get(i), substitutedFormula, contextCopy.nameGenerator);
+                }
 
-            boolean inSet = evaluateFormula(formula, interpretation);
-            if (inSet) {
-                tupleSet.add(tuple);
+                boolean inSet = evaluateFormula(substitutedFormula, interpretation);
+                if (inSet) {
+                    tupleSet.add(tuple);
+                }
             }
         }
 
@@ -300,18 +305,27 @@ public final class FortressSolution implements AlloySolution {
         return verifier.verifyInterpretation(interpretation);
     }
 
-    // Compute values^n recursively (i.e., all n-tuples of elements of values), n >= 0.
-    private Set<List<Value>> cartesianPower(Set<Value> values, int n) {
-        if (n == 0) {
+    // Compute values^n (i.e., all n-tuples of elements of values), n >= 0.
+    private <T> List<List<T>> cartesianPower(List<T> values, int n) {
+        List<List<T>> lists = new ArrayList<>();
+        for (int i = 0; i < n; i++) {
+            lists.add(values);
+        }
+        return cartesianProduct(lists);
+    }
+
+    // Compute the Cartesian product of the lists recursively.
+    private <T> List<List<T>> cartesianProduct(List<List<T>> lists) {
+        if (lists.size() == 0) {
             // Singleton list with just ()
-            return Collections.singleton(new ArrayList<>());
+            return Collections.singletonList(new ArrayList<>());
         } else {
-            // Compute (values^{n-1}) x values
-            Set<List<Value>> prev = cartesianPower(values, n-1);
-            Set<List<Value>> result = new HashSet<>();
-            for (List<Value> tuple : prev) {
-                for (Value value : values) {
-                    List<Value> addedTuple = new ArrayList<>(tuple);
+            // Compute product(lists[:-1]) x lists[-1]
+            List<List<T>> prev = cartesianProduct(lists.subList(0, lists.size() - 1));
+            List<List<T>> result = new ArrayList<>();
+            for (List<T> tuple : prev) {
+                for (T value : lists.get(lists.size() - 1)) {
+                    List<T> addedTuple = new ArrayList<>(tuple);
                     addedTuple.add(value);
                     result.add(addedTuple);
                 }

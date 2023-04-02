@@ -12,6 +12,7 @@ import fortress.problemstate.Scope;
 
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -77,12 +78,14 @@ final class UnivSortPolicy extends SortPolicy {
     }
 
     @Override
-    public Map<Sort, Scope> getSortToScopeMap(Set<Sort> unchangingSorts) {
-        // All the sorts we'll ever return.
-        Sort[] sorts = {univ, Sort.Int()};
+    public List<Sort> getAllSorts() {
+        return Arrays.asList(univ, Sort.Int());
+    }
 
+    @Override
+    public Map<Sort, Scope> getSortToScopeMap(Set<Sort> unchangingSorts) {
         // Map each sort to an exact scope with the appropriate scope and unchanging flag.
-        return Arrays.stream(sorts).collect(Collectors.toMap(sort -> sort,
+        return getAllSorts().stream().collect(Collectors.toMap(sort -> sort,
                 sort -> ExactScope.apply(getSortScope(sort), unchangingSorts.contains(sort))));
     }
 

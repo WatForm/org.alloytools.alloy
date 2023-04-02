@@ -76,6 +76,9 @@ public abstract class SortPolicy {
         }
     }
 
+    /** Get the list of all sorts that may be assigned by the policy. */
+    public abstract List<Sort> getAllSorts();
+
     /**
      * Get a map of sorts assigned by the policy to their Fortress scopes.
      * This method is for configuring model finders and dumping. Use getSortScope() for most use-cases.
