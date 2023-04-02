@@ -3,7 +3,10 @@ package ca.uwaterloo.watform.portus;
 import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.ast.Attr;
 import edu.mit.csail.sdg.ast.Expr;
+import edu.mit.csail.sdg.ast.ExprConstant;
 import edu.mit.csail.sdg.ast.ExprHasName;
+import edu.mit.csail.sdg.ast.ExprUnary;
+import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.msfol.AnnotatedVar;
@@ -20,6 +23,7 @@ import org.mockito.stubbing.Answer;
 import java.util.ArrayList;
 
 import static ca.uwaterloo.watform.portus.FortressASTMatcher.isAlphaEquivalentTerm;
+import static ca.uwaterloo.watform.portus.IsSameMatcher.isSameAs;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -30,6 +34,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
+import static org.mockito.hamcrest.MockitoHamcrest.argThat;
 
 public class FunctionOptTranslatorTest {
 
@@ -227,6 +232,184 @@ public class FunctionOptTranslatorTest {
                         Term.mkApp("inB", Term.mkApp(funcY.name(), x.variable()))),
                 Term.mkApp(funcZ.name(), Term.mkApp(funcY.name(), x.variable())),
                 IntegerLiteral.apply(0));
+        assertEquals(expected, result);
+    }
+
+    @Test
+    public void testTranslate_optimizedScalarEquals_integer() {
+        // test [[2 = 3]] := true => (true && 2 = 3) else !true
+        // the extraneous trues come from the guard clauses which are unnecessary in this case
+        Term flagTwo = Term.mkVar("two");
+        Term flagThree = Term.mkVar("three");
+        when(mockRoot.translate(argThat(isSameAs(ExprConstant.makeNUMBER(2))), any())).thenReturn(flagTwo);
+        when(mockRoot.translate(argThat(isSameAs(ExprConstant.makeNUMBER(3))), any())).thenReturn(flagThree);
+
+        Translator translator = new FunctionOptTranslator(mockRoot, true);
+        Term result = translator.translate(ExprConstant.makeNUMBER(2).equal(ExprConstant.makeNUMBER(3)), context);
+
+        Term expected = Term.mkIfThenElse(Term.mkTop(),
+                Term.mkAnd(Term.mkTop(), Term.mkEq(flagTwo, flagThree)),
+                Term.mkNot(Term.mkTop()));
+        assertEquals(expected, result);
+    }
+
+    @Test
+    public void testTranslate_optimizedScalarEquals_integerWithNoopWrappers() {
+        // like the above, but wrap 2 and 3 in a variety of noop, cast2int, cast2sigint
+        Term flagTwo = Term.mkVar("two");
+        Term flagThree = Term.mkVar("three");
+        when(mockRoot.translate(argThat(isSameAs(ExprConstant.makeNUMBER(2))), any())).thenReturn(flagTwo);
+        when(mockRoot.translate(argThat(isSameAs(ExprConstant.makeNUMBER(3))), any())).thenReturn(flagThree);
+
+        Translator translator = new FunctionOptTranslator(mockRoot, true);
+        Expr two = ExprUnary.Op.NOOP.make(null, ExprConstant.makeNUMBER(2).cast2int().cast2sigint().cast2int());
+        Expr three = ExprUnary.Op.NOOP.make(null, ExprConstant.makeNUMBER(3)).cast2sigint();
+        Term result = translator.translate(two.equal(three), context);
+
+        Term expected = Term.mkIfThenElse(Term.mkTop(),
+                Term.mkAnd(Term.mkTop(), Term.mkEq(flagTwo, flagThree)),
+                Term.mkNot(Term.mkTop()));
+        assertEquals(expected, result);
+    }
+
+    @Test
+    public void testTranslate_optimizedScalarIn_integer() {
+        // test [[2 = 3]] := true => true && 2 = 3
+        // the extraneous trues come from the guard clauses which are unnecessary in this case
+        Term flagTwo = Term.mkVar("two");
+        Term flagThree = Term.mkVar("three");
+        when(mockRoot.translate(argThat(isSameAs(ExprConstant.makeNUMBER(2))), any())).thenReturn(flagTwo);
+        when(mockRoot.translate(argThat(isSameAs(ExprConstant.makeNUMBER(3))), any())).thenReturn(flagThree);
+
+        Translator translator = new FunctionOptTranslator(mockRoot, true);
+        Term result = translator.translate(ExprConstant.makeNUMBER(2).in(ExprConstant.makeNUMBER(3)), context);
+
+        Term expected = Term.mkImp(Term.mkTop(),
+                Term.mkAnd(Term.mkTop(), Term.mkEq(flagTwo, flagThree)));
+        assertEquals(expected, result);
+    }
+
+    @Test
+    public void testTranslate_optimizedScalarEquals_oneSig() {
+        // test [[A = B]] := true => (true && A = B) else !true where A and B are one sigs
+        // again the extraneous trues are from guard clauses
+        Sig sigA = new Sig.PrimSig("A", Attr.ONE);
+        Sig sigB = new Sig.PrimSig("B", Attr.ONE);
+        when(mockSortPolicy.getSort(sigA)).thenReturn(sortA);
+        when(mockSortPolicy.getSort(sigB)).thenReturn(sortA); // use same sort to not short-circuit
+        when(mockRangeAssigner.getDomainElementRange(eq(sigA), any()))
+                .thenReturn(new Pair<>(2, 2));
+        when(mockRangeAssigner.getDomainElementRange(eq(sigB), any()))
+                .thenReturn(new Pair<>(3, 3));
+
+        Translator translator = new FunctionOptTranslator(mockRoot, true);
+        Term result = translator.translate(sigA.equal(sigB), context);
+
+        Term expected = Term.mkIfThenElse(Term.mkTop(),
+                Term.mkAnd(Term.mkTop(), Term.mkEq(Term.mkDomainElement(2, sortA), Term.mkDomainElement(3, sortA))),
+                Term.mkNot(Term.mkTop()));
+        assertEquals(expected, result);
+    }
+
+    @Test
+    public void testTranslate_optimizedScalarEquals_oneSigShortCircuit() {
+        // test [[A = B]] := false where A and B are one sigs from different sorts
+        Sig sigA = new Sig.PrimSig("A", Attr.ONE);
+        Sig sigB = new Sig.PrimSig("B", Attr.ONE);
+        when(mockSortPolicy.getSort(sigA)).thenReturn(sortA);
+        when(mockSortPolicy.getSort(sigB)).thenReturn(sortB); // use different sort to short-circuit
+        when(mockRangeAssigner.getDomainElementRange(eq(sigA), any()))
+                .thenReturn(new Pair<>(2, 2));
+        when(mockRangeAssigner.getDomainElementRange(eq(sigB), any()))
+                .thenReturn(new Pair<>(3, 3));
+
+        Translator translator = new FunctionOptTranslator(mockRoot, true);
+        Term result = translator.translate(sigA.equal(sigB), context);
+        assertEquals(Term.mkBottom(), result);
+    }
+
+    @Test
+    public void testTranslate_optimizedScalarEquals_boundVar() {
+        // test [[x = y]] := true => (true && x = y) else !true where x and y are scalar variables of the same sort
+        // again the extraneous trues are from guard clauses
+        ExprVar alloyX = ExprVar.make(null, "x");
+        ExprVar alloyY = ExprVar.make(null, "y");
+        Var fortressX = Term.mkVar("x");
+        Var fortressY = Term.mkVar("y");
+        // Use the same sort so we don't short-circuit
+        context.addVarMapping("x", fortressX.of(sortA));
+        context.addVarMapping("y", fortressY.of(sortA));
+
+        Translator translator = new FunctionOptTranslator(mockRoot, true);
+        //noinspection SuspiciousNameCombination
+        Term result = translator.translate(alloyX.equal(alloyY), context);
+
+        Term expected = Term.mkIfThenElse(Term.mkTop(),
+                Term.mkAnd(Term.mkTop(), Term.mkEq(fortressX, fortressY)),
+                Term.mkNot(Term.mkTop()));
+        assertEquals(expected, result);
+    }
+
+    @Test
+    public void testTranslate_optimizedScalarEquals_boundVarShortCircuit() {
+        // test [[x = y]] := false where x and y are scalar variables of different sorts
+        ExprVar alloyX = ExprVar.make(null, "x");
+        ExprVar alloyY = ExprVar.make(null, "y");
+        Var fortressX = Term.mkVar("x");
+        Var fortressY = Term.mkVar("y");
+        // Use different sorts to short-circuit
+        context.addVarMapping("x", fortressX.of(sortA));
+        context.addVarMapping("y", fortressY.of(sortB));
+
+        Translator translator = new FunctionOptTranslator(mockRoot, true);
+        //noinspection SuspiciousNameCombination
+        Term result = translator.translate(alloyX.equal(alloyY), context);
+        assertEquals(Term.mkBottom(), result);
+    }
+
+    @Test
+    public void testTranslate_optimizedScalarEquals_join() {
+        // test [[A.x = B.y]] := (true && inA(@1)) => (true && inB(@2)) && x(@1) = y(@2) else !(true && inB(@2))
+        Sig sigA = new Sig.PrimSig("A", Attr.ONE);
+        Sig sigB = new Sig.PrimSig("B", Attr.ONE);
+        when(mockSortPolicy.getSort(sigA)).thenReturn(sortA);
+        when(mockSortPolicy.getSort(sigB)).thenReturn(sortA); // same sort for simplicity
+        when(mockRangeAssigner.getDomainElementRange(eq(sigA), any()))
+                .thenReturn(new Pair<>(1, 1));
+        when(mockRangeAssigner.getDomainElementRange(eq(sigB), any()))
+                .thenReturn(new Pair<>(2, 2));
+
+        when(mockRoot.translate(any(), any()))
+                .then(useTestFunction("inA", sigA))
+                .then(useTestFunction("inA", sigA))
+                .then(useTestFunction("inB", sigB))
+                .then(useTestFunction("inB", sigB))
+                .then(useTestFunction("inA", sigA))
+                .then(useTestFunction("inB", sigB));
+        Translator translator = new FunctionOptTranslator(mockRoot, true);
+
+        // Translate the x and y fields to prime the context
+        Sig.Field x = sigA.addField("x", sigA.oneOf());
+        Sig.Field y = sigB.addField("y", sigB.oneOf());
+        assertNotNull(translator.translate(x, context));
+        assertNotNull(translator.translate(y, context));
+
+        // Extract the function names for x and y
+        Theory theory = context.getTheory();
+        assertEquals(2, theory.functionDeclarations().size());
+        FuncDecl funcX = theory.functionDeclarations().head();
+        FuncDecl funcY = theory.functionDeclarations().last();
+
+        //noinspection SuspiciousNameCombination
+        Term result = translator.translate(sigA.join(x).equal(sigB.join(y)), context);
+        Term expected = Term.mkIfThenElse(
+                Term.mkAnd(Term.mkTop(), Term.mkApp("inA", Term.mkDomainElement(1, sortA))),
+                Term.mkAnd(
+                        Term.mkAnd(Term.mkTop(), Term.mkApp("inB", Term.mkDomainElement(2, sortA))),
+                        Term.mkEq(
+                                Term.mkApp(funcX.name(), Term.mkDomainElement(1, sortA)),
+                                Term.mkApp(funcY.name(), Term.mkDomainElement(2, sortA)))),
+                Term.mkNot(Term.mkAnd(Term.mkTop(), Term.mkApp("inB", Term.mkDomainElement(2, sortA)))));
         assertEquals(expected, result);
     }
 

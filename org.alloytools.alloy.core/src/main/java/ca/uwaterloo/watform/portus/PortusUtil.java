@@ -164,7 +164,7 @@ final class PortusUtil {
      * {@link RangeAssigner#addRangeAxiom(Sig, Translator, TranslationContext)} must still be used to ensure the
      * domain element is actually assigned to the sig.
      */
-    public static DomainElement getOneSigDomainElement(Sig sig, TranslationContext context) {
+    public static DomainElement getOneSigDomainElement(Sig.PrimSig sig, TranslationContext context) {
         if (sig.isOne == null) {
             throw new IllegalArgumentException("getOneSigDomainElement expects a one sig");
         }

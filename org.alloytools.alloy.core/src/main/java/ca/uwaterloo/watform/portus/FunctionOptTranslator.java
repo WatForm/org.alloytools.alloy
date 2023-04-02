@@ -5,6 +5,7 @@ import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprBinary;
+import edu.mit.csail.sdg.ast.ExprConstant;
 import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Sig;
@@ -41,6 +42,15 @@ final class FunctionOptTranslator extends AbstractTranslator {
             ExprBinary.Op.SOME_ARROW_LONE,
             ExprBinary.Op.ONE_ARROW_LONE,
             ExprBinary.Op.LONE_ARROW_LONE));
+
+    // The list of builtin constants that we can treat like scalars.
+    // TODO: STRING
+    private static final ConstList<ExprConstant.Op> SCALAR_CONSTANTS = ConstList.make(Arrays.asList(
+            ExprConstant.Op.TRUE,
+            ExprConstant.Op.FALSE,
+            ExprConstant.Op.NUMBER,
+            ExprConstant.Op.MIN,
+            ExprConstant.Op.MAX));
 
     // A POJO collecting information about a field subject to this optimization.
     private static final class FieldFuncInfo {
@@ -229,6 +239,12 @@ final class FunctionOptTranslator extends AbstractTranslator {
         int arity = expr.left.type().arity();
         if (expr.right.type().arity() != arity) return null; // default translator can deal with it
 
+        // Try the scalar optimization
+        Term scalarOpt = translateOptimizedScalarEqualsOrIn(expr.op, expr.left, expr.right, context);
+        if (scalarOpt != null) {
+            return scalarOpt;
+        }
+
         boolean leftOptimized = expr.left instanceof Sig.Field
                 && optimizedFieldsInfo.containsKey((Sig.Field) expr.left);
         boolean rightOptimized = expr.right instanceof Sig.Field
@@ -307,7 +323,8 @@ final class FunctionOptTranslator extends AbstractTranslator {
         assert joinExpr.op == ExprBinary.Op.JOIN;
 
         // Offload all the work to castToScalar because it's recursive.
-        Pair<Term, Pair<Term, Sort>> scalarResult = castToScalar(joinExpr, context);
+        Pair<Term, Pair<Term, Sort>> scalarResult = castToScalar(joinExpr, context, true);
+        assert scalarResult != null;
         Term scalar = scalarResult.a;
         Term guard = scalarResult.b.a;
         Sort sort = scalarResult.b.b;
@@ -320,15 +337,70 @@ final class FunctionOptTranslator extends AbstractTranslator {
     }
 
     /**
+     * Translate "x = y" or "x in y" where both x and y are scalars.
+     * Semantically, this *should* be its own optimization, but we require access to the function optimization data
+     * to translate scalars.
+     */
+    private Term translateOptimizedScalarEqualsOrIn(
+            ExprBinary.Op op, Expr left, Expr right, TranslationContext context) {
+        // If both are scalars, just translate [[left = right]] or [[left in right]] as a plain equals
+        Pair<Term, Pair<Term, Sort>> leftScalarData = castToScalar(left, context, false);
+        Pair<Term, Pair<Term, Sort>> rightScalarData = castToScalar(right, context, false);
+        if (leftScalarData == null || rightScalarData == null) {
+            return null;
+        }
+
+        // Short-circuit if the sorts aren't the same
+        Sort leftSort = leftScalarData.b.b;
+        Sort rightSort = rightScalarData.b.b;
+        if (leftSort != rightSort) {
+            return Term.mkBottom();
+        }
+
+        Term guardLeft = leftScalarData.b.a;
+        Term guardRight = rightScalarData.b.a;
+        Term scalarLeft = leftScalarData.a;
+        Term scalarRight = rightScalarData.a;
+        if (op == ExprBinary.Op.EQUALS) {
+            // For equals, either (both guards are false, so both exprs are empty) or (both guards are true, so
+            // both expressions are nonempty, and the expressions are equal).
+            // Express this as guardLeft => guardRight && left = right else !guardRight.
+            return Term.mkIfThenElse(guardLeft,
+                    Term.mkAnd(guardRight, Term.mkEq(scalarLeft, scalarRight)),
+                    Term.mkNot(guardRight));
+        } else { // ExprBinary.Op.IN
+            // For in, the left guard is allowed to be false (empty is in anything), but if it is true then the
+            // right guard must be true and the scalars must be equal.
+            // Express this as guardLeft => guardRight && left = right.
+            return Term.mkImp(guardLeft, Term.mkAnd(guardRight, Term.mkEq(scalarLeft, scalarRight)));
+        }
+    }
+
+    /**
      * Return a pair of a variable or domain element and a pair of a guard and its sort corresponding to the expression,
-     * or throw an exception if expr is not (definitely) a scalar.
-     * Use of the scalar term must be conditioned on the guard (it could be e.g. a domain check).
+     * or either throw an exception (if throwError is true) or return null if expr is not (definitely) a scalar.
+     * Use of the scalar term must be conditioned on the guard (it's a domain check); the guard evaluates to false iff
+     * the expr evaluates to the empty set.
      * The guard will be Top if it is not necessary.
      */
-    private Pair<Term, Pair<Term, Sort>> castToScalar(Expr expr, TranslationContext context) {
-        expr = expr.deNOP();
+    private Pair<Term, Pair<Term, Sort>> castToScalar(Expr expr, TranslationContext context, boolean throwError) {
+        expr = PortusUtil.stripPortusNoops(expr);
 
-        if (expr instanceof ExprVar) {
+        if (expr instanceof ExprConstant) {
+            // it could be a scalar constant
+            ExprConstant.Op op = ((ExprConstant) expr).op;
+            if (SCALAR_CONSTANTS.contains(op)) {
+                // Translate it as an integer/boolean expression and just use that
+                Term scalar = recursivelyTranslate(expr, context);
+                assert scalar != null;
+
+                // Determine the Fortress sort: true, false are boolean, rest are integers
+                Sort sort = (op == ExprConstant.Op.TRUE || op == ExprConstant.Op.FALSE) ? Sort.Bool() : Sort.Int();
+
+                // no guard on usage needed
+                return new Pair<>(scalar, new Pair<>(Term.mkTop(), sort));
+            }
+        } else if (expr instanceof ExprVar) {
             // it could be a variable
             String varName = ((ExprVar) expr).label;
             if (context.hasVarMapping(varName)) {
@@ -339,11 +411,12 @@ final class FunctionOptTranslator extends AbstractTranslator {
             }
         } else if (expr instanceof Sig) {
             // it could be a one sig
+            // subset sigs aren't supported by RangeAssigner, so don't bother since they aren't common
             Sig sig = (Sig) expr;
-            if (sig.isOne != null) {
+            if (sig.isOne != null && sig instanceof Sig.PrimSig) {
                 // use its first/only domain element as the term
                 context.rangeAssigner.addRangeAxiom(sig, topLevelTranslator, context);
-                Term domainElement = PortusUtil.getOneSigDomainElement(sig, context);
+                Term domainElement = PortusUtil.getOneSigDomainElement((Sig.PrimSig) sig, context);
                 // no guard on the domain element usage is needed
                 return new Pair<>(domainElement, new Pair<>(Term.mkTop(), context.sortPolicy.getSort(sig)));
             }
@@ -353,25 +426,30 @@ final class FunctionOptTranslator extends AbstractTranslator {
                 // it could be a join expression that resolves to a scalar
                 // "x.y" is a scalar if (and maybe only if) x is a scalar and y is optimized as a function
                 // then the scalar term is y(x)
-                Pair<Term, Pair<Term, Sort>> leftScalarData = castToScalar(binExpr.left, context);
+                Pair<Term, Pair<Term, Sort>> leftScalarData = castToScalar(binExpr.left, context, throwError);
+                if (leftScalarData == null) {
+                    // throwError must be false because we'd throw otherwise
+                    assert !throwError;
+                    return null;
+                }
                 Term leftScalar = leftScalarData.a;
                 Term leftScalarGuard = leftScalarData.b.a;
                 Sort leftScalarSort = leftScalarData.b.b;
 
                 Expr right = binExpr.right.deNOP();
                 if (!(right instanceof Sig.Field)) {
-                    throw new ErrorFatal(
+                    return throwIfTrue(throwError,
                             "All join operands except the first in an integer join expression must be pure fields");
                 }
                 Sig.Field field = (Sig.Field) right;
                 if (!optimizedFieldsInfo.containsKey(field)) {
-                    throw new ErrorFatal(
+                    return throwIfTrue(throwError,
                             "All join operands except the first in an integer join expression must be functions");
                 }
                 FieldFuncInfo optInfo = optimizedFieldsInfo.get(field);
                 if (optInfo.argSorts.size() != 1) {
                     // this restriction could probably be loosened to allow translating into things like f(g(x),h(y))
-                    throw new ErrorFatal("Functions in an integer join expression must be unary");
+                    return throwIfTrue(throwError, "Functions in an integer join expression must be unary");
                 }
 
                 // We want to express "leftScalar in domain of field", but leftScalar could be an arbitrary Term while
@@ -387,7 +465,17 @@ final class FunctionOptTranslator extends AbstractTranslator {
                 return new Pair<>(scalar, new Pair<>(guard, sort));
             }
         }
-        throw new ErrorFatal("Using join as an integer expression requires a bound variable or one sig on the LHS");
+        return throwIfTrue(throwError,
+                "Using join as an integer expression requires a bound variable or one sig on the LHS");
+    }
+
+    private <T> T throwIfTrue(boolean throwError, String message) {
+        // Helper to avoid repeating this construct above
+        if (throwError) {
+            throw new ErrorFatal(message);
+        } else {
+            return null;
+        }
     }
 
     private VarTuple makeArgVars(FieldFuncInfo info, TranslationContext context) {

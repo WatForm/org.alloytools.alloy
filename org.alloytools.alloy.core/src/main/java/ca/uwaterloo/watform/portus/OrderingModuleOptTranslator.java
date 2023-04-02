@@ -39,7 +39,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator {
             this.nextFuncName = generateNextFuncName();
             validate(context);
 
-            this.ordDE = PortusUtil.getOneSigDomainElement(ordSig, context);
+            this.ordDE = PortusUtil.getOneSigDomainElement((Sig.PrimSig) ordSig, context);
         }
 
         private String generateNextFuncName() {
@@ -54,6 +54,10 @@ final class OrderingModuleOptTranslator extends AbstractTranslator {
             }
             if (sig.builtin) {
                 throw new ErrorFatal("Portus doesn't support ordering builtin signatures: " + sig.label);
+            }
+            if (!(sig instanceof Sig.PrimSig)) {
+                // This should be caught by typechecking anyways
+                throw new ErrorFatal("Only primitive signatures can be ordered.");
             }
             if (context.sortPolicy.getSort(sig) == null) {
                 throw new ErrorFatal("Sig " + sig.label + " can't be ordered because Portus can't determine a sort");
