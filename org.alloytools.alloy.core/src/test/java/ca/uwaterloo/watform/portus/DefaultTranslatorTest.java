@@ -272,6 +272,52 @@ public class DefaultTranslatorTest {
     }
 
     @Test
+    public void testTranslate_primSig_singleNonExactScope_abstractWithNoChildren() {
+        // An abstract signature with no children is not treated as abstract
+        Sig.PrimSig sig = new Sig.PrimSig("TestSig", Attr.ABSTRACT);
+        when(mockScoper.sig2scope(sig)).thenReturn(2);
+        when(mockScoper.isExact(sig)).thenReturn(false);
+
+        // mock out the non-exact scope axiom's [[xi \in sig]]
+        Expr inSig = ExprElementOf.make(Term.mkVar("x").of(univ), sig);
+        when(mockRoot.translate(argThat(isAlphaEquivalent(inSig)), any())).then(
+                ctx -> makeFlagConstant("inFlag_" + ctx.<ExprElementOf>getArgument(0).tuple.getVar(0)));
+
+        Term result = translator.translate(sig, context);
+        assertThat(result, is(notNullValue())); // sig just returns something
+
+        // create the expected non-exact scope axiom
+        // "forall x0, x1, x2: univ . [[x0 \in S]] && [[x1 \in S]] && [[x2 \in S]] =>
+        // x0 = x1 || x0 = x2 || x1 = x2"
+        Var x0 = Term.mkVar("x0");
+        Var x1 = Term.mkVar("x1");
+        Var x2 = Term.mkVar("x2");
+        Term nonExactScopeAxiom = Term.mkForall(
+                Arrays.asList(x0.of(univ), x1.of(univ), x2.of(univ)),
+                Term.mkImp(
+                        Term.mkAnd(
+                                makeFlagConstant("inFlag_x0"),
+                                makeFlagConstant("inFlag_x1"),
+                                makeFlagConstant("inFlag_x2")),
+                        Term.mkOr(
+                                Term.mkEq(x0, x1),
+                                Term.mkEq(x0, x2),
+                                Term.mkEq(x1, x2))));
+
+        // this should be the only axiom
+        //noinspection unchecked
+        Set<Term> axioms = CollectionConverters.<Term>asJava(context.getTheory().axioms());
+        assertThat(axioms, contains(isAlphaEquivalentTerm(nonExactScopeAxiom)));
+
+        // should have no constants, one function for the membership predicate
+        assertThat(context.getTheory().constants().size(), is(0));
+        assertThat(context.getTheory().enumConstants().size(), is(0));
+        assertThat(context.getTheory().functionDeclarations().size(), is(1));
+        FuncDecl func = context.getTheory().functionDeclarations().head();
+        assertIsMembershipPredicate(func, "inTestSig");
+    }
+
+    @Test
     public void testTranslate_primSig_oneSubsigWithExactScope() {
         // signature with subsig with exact scope
         Sig.PrimSig parent = new Sig.PrimSig("Parent");

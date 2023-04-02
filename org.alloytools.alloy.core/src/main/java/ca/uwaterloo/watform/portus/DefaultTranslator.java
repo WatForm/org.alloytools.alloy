@@ -112,7 +112,9 @@ final class DefaultTranslator extends AbstractTranslator {
             }
 
             // Abstract sigs: add axiom that children cover sig
-            if (sig.isAbstract != null) {
+            // Note: abstract sigs are always PrimSigs, and abstracts sigs without children aren't treated as abstract
+            // (see, for example, Kodkod's output given "abstract sig A {}; run {}")
+            if (sig.isAbstract != null && !((Sig.PrimSig) sig).children().isEmpty()) {
                 context.addAxiom(makeCoverAxiom(primSig, context));
             }
 
@@ -169,7 +171,6 @@ final class DefaultTranslator extends AbstractTranslator {
             disjunction = x.get().in(child).or(disjunction);
         }
         if (disjunction == null) {
-            // TODO: possible optimization: abstract sig with no children -> set scope to 0 regardless
             disjunction = ExprConstant.FALSE;
         }
         Expr completenessAxiom = disjunction.forAll(x);
