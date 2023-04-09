@@ -71,14 +71,14 @@ public class JoinOptTranslatorTest {
 
         ExprVar alloyV = ExprVar.make(null, "v");
         AnnotatedVar v = Term.mkVar("v").of(testSort);
-        context.addVarMapping("v", v);
+        context.addTermMapping("v", new AnnotatedTerm(v));
 
         AnnotatedVar x = Term.mkVar("x").of(testSort);
         Var flag = Term.mkVar("flag");
-        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(new VarTuple(v, x), e))), any()))
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(TermTuple.fromVars(v, x), e))), any()))
                 .thenReturn(flag);
 
-        assertEquals(flag, translator.translate(ExprElementOf.make(new VarTuple(x), alloyV.join(e)), context));
+        assertEquals(flag, translator.translate(ExprElementOf.make(TermTuple.fromVars(x), alloyV.join(e)), context));
     }
 
     @Test
@@ -92,14 +92,14 @@ public class JoinOptTranslatorTest {
 
         ExprVar alloyV = ExprVar.make(null, "v");
         AnnotatedVar v = Term.mkVar("v").of(testSort);
-        context.addVarMapping("v", v);
+        context.addTermMapping("v", new AnnotatedTerm(v));
 
         AnnotatedVar x = Term.mkVar("x").of(testSort);
         Var flag = Term.mkVar("flag");
-        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(new VarTuple(x, v), e))), any()))
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(TermTuple.fromVars(x, v), e))), any()))
                 .thenReturn(flag);
 
-        assertEquals(flag, translator.translate(ExprElementOf.make(new VarTuple(x), e.join(alloyV)), context));
+        assertEquals(flag, translator.translate(ExprElementOf.make(TermTuple.fromVars(x), e.join(alloyV)), context));
     }
 
     @Test
@@ -113,15 +113,15 @@ public class JoinOptTranslatorTest {
 
         ExprVar alloyV = ExprVar.make(null, "v");
         AnnotatedVar v = Term.mkVar("v").of(testSort);
-        context.addVarMapping("v", v);
+        context.addTermMapping("v", new AnnotatedTerm(v));
 
         AnnotatedVar x = Term.mkVar("x").of(testSort);
         Var flag = Term.mkVar("flag");
-        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(new VarTuple(v, x), e))), any()))
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(TermTuple.fromVars(v, x), e))), any()))
                 .thenReturn(flag);
 
         Expr noop = ExprUnary.Op.NOOP.make(null, alloyV);
-        assertEquals(flag, translator.translate(ExprElementOf.make(new VarTuple(x), noop.join(e)), context));
+        assertEquals(flag, translator.translate(ExprElementOf.make(TermTuple.fromVars(x), noop.join(e)), context));
     }
 
     @Test
@@ -135,15 +135,15 @@ public class JoinOptTranslatorTest {
 
         ExprVar alloyV = ExprVar.make(null, "v");
         AnnotatedVar v = Term.mkVar("v").of(testSort);
-        context.addVarMapping("v", v);
+        context.addTermMapping("v", new AnnotatedTerm(v));
 
         AnnotatedVar x = Term.mkVar("x").of(testSort);
         Var flag = Term.mkVar("flag");
-        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(new VarTuple(x, v), e))), any()))
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(TermTuple.fromVars(x, v), e))), any()))
                 .thenReturn(flag);
 
         Expr noop = ExprUnary.Op.NOOP.make(null, alloyV);
-        assertEquals(flag, translator.translate(ExprElementOf.make(new VarTuple(x), e.join(noop)), context));
+        assertEquals(flag, translator.translate(ExprElementOf.make(TermTuple.fromVars(x), e.join(noop)), context));
     }
 
     @Test
@@ -158,15 +158,15 @@ public class JoinOptTranslatorTest {
         ExprVar alloyV = ExprVar.make(null, "v");
         ExprVar alloyY = ExprVar.make(null, "y");
         AnnotatedVar v = Term.mkVar("v").of(testSort);
-        context.addVarMapping("v", v);
+        context.addTermMapping("v", new AnnotatedTerm(v));
         context.addLetMapping("y", alloyV);
 
         AnnotatedVar x = Term.mkVar("x").of(testSort);
         Var flag = Term.mkVar("flag");
-        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(new VarTuple(v, x), e))), any()))
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(TermTuple.fromVars(v, x), e))), any()))
                 .thenReturn(flag);
 
-        assertEquals(flag, translator.translate(ExprElementOf.make(new VarTuple(x), alloyY.join(e)), context));
+        assertEquals(flag, translator.translate(ExprElementOf.make(TermTuple.fromVars(x), alloyY.join(e)), context));
     }
 
     @Test
@@ -181,16 +181,16 @@ public class JoinOptTranslatorTest {
         ExprVar alloyV = ExprVar.make(null, "v");
         ExprVar alloyY = ExprVar.make(null, "y");
         AnnotatedVar v = Term.mkVar("v").of(testSort);
-        context.addVarMapping("v", v);
+        context.addTermMapping("v", new AnnotatedTerm(v));
         context.addLetMapping("y", alloyV);
 
         AnnotatedVar x = Term.mkVar("x").of(testSort);
         Var flag = Term.mkVar("flag");
-        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(new VarTuple(x, v), e))), any()))
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(TermTuple.fromVars(x, v), e))), any()))
                 .thenReturn(flag);
 
         //noinspection SuspiciousNameCombination
-        assertEquals(flag, translator.translate(ExprElementOf.make(new VarTuple(x), e.join(alloyY)), context));
+        assertEquals(flag, translator.translate(ExprElementOf.make(TermTuple.fromVars(x), e.join(alloyY)), context));
     }
 
 }

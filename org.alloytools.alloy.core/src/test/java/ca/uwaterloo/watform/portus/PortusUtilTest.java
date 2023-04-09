@@ -156,7 +156,7 @@ public class PortusUtilTest {
         Sort sort = Sort.mkSortConst("S");
         ExprVar expr = makeTestVar("x");
         AnnotatedVar var = Var.apply("x").of(sort);
-        context.addVarMapping("x", var);
+        context.addTermMapping("x", new AnnotatedTerm(var));
 
         List<AnnotatedVar> result = PortusUtil.computeFreeVariables(expr, context);
         assertThat(result, containsInAnyOrder(var));
@@ -167,7 +167,7 @@ public class PortusUtilTest {
         Sort sort = Sort.mkSortConst("S");
         ExprVar expr = makeTestVar("x");
         AnnotatedVar var = Var.apply("x").of(sort);
-        context.addVarMapping("x", var);
+        context.addTermMapping("x", new AnnotatedTerm(var));
 
         // all these should just have var
         List<Expr> unaryOps = Arrays.asList(
@@ -195,10 +195,10 @@ public class PortusUtilTest {
         Sort sort = Sort.mkSortConst("S");
         ExprVar x = makeTestVar("x");
         AnnotatedVar xVar = Var.apply("x").of(sort);
-        context.addVarMapping("x", xVar);
+        context.addTermMapping("x", new AnnotatedTerm(xVar));
         ExprVar y = makeTestVar("y");
         AnnotatedVar yVar = Var.apply("y").of(sort);
-        context.addVarMapping("y", yVar);
+        context.addTermMapping("y", new AnnotatedTerm(yVar));
 
         // all these should have x and y
         @SuppressWarnings("SuspiciousNameCombination")
@@ -239,13 +239,13 @@ public class PortusUtilTest {
         Sort sort = Sort.mkSortConst("S");
         ExprVar x = makeTestVar("x");
         AnnotatedVar xVar = Var.apply("x").of(sort);
-        context.addVarMapping("x", xVar);
+        context.addTermMapping("x", new AnnotatedTerm(xVar));
         ExprVar y = makeTestVar("y");
         AnnotatedVar yVar = Var.apply("y").of(sort);
-        context.addVarMapping("y", yVar);
+        context.addTermMapping("y", new AnnotatedTerm(yVar));
         ExprVar z = makeTestVar("z");
         AnnotatedVar zVar = Var.apply("z").of(sort);
-        context.addVarMapping("z", zVar);
+        context.addTermMapping("z", new AnnotatedTerm(zVar));
 
         @SuppressWarnings("SuspiciousNameCombination")
         Expr expr = x.ite(y, z);
@@ -257,14 +257,14 @@ public class PortusUtilTest {
     public void testComputeFreeVariables_exprElementOf() {
         Sort sort = Sort.mkSortConst("S");
         AnnotatedVar xVar = Var.apply("x").of(sort);
-        context.addVarMapping("x", xVar);
+        context.addTermMapping("x", new AnnotatedTerm(xVar));
         AnnotatedVar yVar = Var.apply("y").of(sort);
-        context.addVarMapping("y", yVar);
+        context.addTermMapping("y", new AnnotatedTerm(yVar));
         ExprVar z = makeTestVar("z");
         AnnotatedVar zVar = Var.apply("z").of(sort);
-        context.addVarMapping("z", zVar);
+        context.addTermMapping("z", new AnnotatedTerm(zVar));
 
-        Expr expr = ExprElementOf.make(new VarTuple(xVar, yVar), z);
+        Expr expr = ExprElementOf.make(TermTuple.fromVars(xVar, yVar), z);
         List<AnnotatedVar> result = PortusUtil.computeFreeVariables(expr, context);
         assertThat(result, containsInAnyOrder(xVar, yVar, zVar));
     }
@@ -275,10 +275,10 @@ public class PortusUtilTest {
         Sort sort = Sort.mkSortConst("S");
         ExprVar x = makeTestVar("x");
         AnnotatedVar xVar = Var.apply("x").of(sort);
-        context.addVarMapping("x", xVar);
+        context.addTermMapping("x", new AnnotatedTerm(xVar));
         ExprVar y = makeTestVar("y");
         AnnotatedVar yVar = Var.apply("y").of(sort);
-        context.addVarMapping("y", yVar);
+        context.addTermMapping("y", new AnnotatedTerm(yVar));
 
         @SuppressWarnings("SuspiciousNameCombination")
         Expr expr = x.equal(y).and(y.equal(x)).and(x.in(x)).or(y.in(y));
@@ -310,7 +310,7 @@ public class PortusUtilTest {
         Decl yDecl = sig.oneOf("y");
         ExprVar y = (ExprVar) yDecl.get();
         AnnotatedVar yVar = Var.apply("yVar").of(sort);
-        context.addVarMapping("y", yVar);
+        context.addTermMapping("y", new AnnotatedTerm(yVar));
 
         @SuppressWarnings("SuspiciousNameCombination")
         Expr expr = x.equal(y).forAll(xDecl);

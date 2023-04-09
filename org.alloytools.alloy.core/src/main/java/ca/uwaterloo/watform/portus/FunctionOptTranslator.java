@@ -126,7 +126,7 @@ final class FunctionOptTranslator extends AbstractTranslator {
 
     private Term makeOptimizedFunctionAxiom(FieldFuncInfo info, TranslationContext context) {
         // forall x1: sort(e1), ..., x{n-1}: sort(e{n-1}) . [[x1 \in e1]] && ... && [[x{n-1} \in e{n-1}]] =>
-        //   [[y \in en]][f(x1,...,x{n-1})/y]
+        //   [[f(x1,...,x{n-1}) \in en]]
         List<Var> vars = new ArrayList<>();
         List<AnnotatedVar> decls = new ArrayList<>();
         for (int i = 0; i < info.argSorts.size(); i++) {
@@ -136,19 +136,15 @@ final class FunctionOptTranslator extends AbstractTranslator {
             decls.add(decl);
         }
 
-        Term domainFormula = makeDomainFormula(new VarTuple(decls), info, context);
+        Term domainFormula = makeDomainFormula(TermTuple.fromVars(decls), info, context);
 
+        // Map "this" to the first variable, because it represents the signature's atom
+        context.addTermMapping("this", new AnnotatedTerm(decls.get(0)));
         Term consequent;
         try {
-            // Map "this" to the first variable, because it represents the signature's atom
-            context.addVarMapping("this", decls.get(0));
-
-            // do this substitution because ExprElementOf/VarTuple only supports AnnotatedVars
-            AnnotatedVar y = Term.mkVar(context.nameGenerator.freshName("y")).of(info.resultSort);
-            Term funcApp = Term.mkApp(info.funcName, vars);
-            consequent = recursivelyTranslate(
-                    ExprElementOf.make(y, info.boundExprs.get(info.boundExprs.size() - 1)), context);
-            consequent = PortusUtil.substitute(y, funcApp, consequent);
+            AnnotatedTerm funcApp = new AnnotatedTerm(Term.mkApp(info.funcName, vars), info.resultSort, decls);
+            consequent = recursivelyTranslate(ExprElementOf.make(funcApp,
+                    info.boundExprs.get(info.boundExprs.size() - 1)), context);
         } finally {
             context.removeMapping("this");
         }
@@ -216,15 +212,15 @@ final class FunctionOptTranslator extends AbstractTranslator {
 
     /** Translate "tuple \in field" where field is affected by this optimization. */
     @Override
-    public Term translate(VarTuple tuple, Sig.Field field, TranslationContext context) {
+    public Term translate(TermTuple tuple, Sig.Field field, TranslationContext context) {
         if (!optimizedFieldsInfo.containsKey(field)) return null; // not subject to this optimization
 
         // [[(x1,..,xn) \in f]] := ((x1,...,x{n-1}) in f's domain) && f(x1,...,x{n-1}) = xn
         FieldFuncInfo info = optimizedFieldsInfo.get(field);
         Term domainFormula = makeDomainFormula(tuple.slice(0, tuple.size() - 1), info, context);
         Term funcFormula = Term.mkEq(
-                Term.mkApp(info.funcName, tuple.slice(0, tuple.size() - 1).getVars()),
-                tuple.getVar(tuple.size() - 1));
+                Term.mkApp(info.funcName, tuple.slice(0, tuple.size() - 1).getTerms()),
+                tuple.getTerm(tuple.size() - 1));
         return Term.mkAnd(domainFormula, funcFormula);
     }
 
@@ -264,20 +260,18 @@ final class FunctionOptTranslator extends AbstractTranslator {
     private Term translateOptimizedIn(Sig.Field left, Expr right, TranslationContext context) {
         // We assume all validation is already complete.
         // [[e1 in e2]] := forall x1:S1,...,x{n-1}:S{n-1} . ((x1,...,x{n-1}) in f's domain) =>
-        //   [[(x1,...,x{n-1},y) \in e2]][f(x1,...,x{n-1})/y] where f is e1's function
+        //   [[(x1,...,x{n-1},f(x1,...,x{n-1})) \in e2]] where f is e1's function
         FieldFuncInfo leftInfo = optimizedFieldsInfo.get(left);
 
-        VarTuple vars = makeArgVars(leftInfo, context);
-        Term domainFormula = makeDomainFormula(vars, leftInfo, context);
+        List<AnnotatedVar> vars = makeArgVars(leftInfo, context);
+        TermTuple termTuple = TermTuple.fromVars(vars);
+        Term domainFormula = makeDomainFormula(termTuple, leftInfo, context);
 
-        // do this substitution because VarTuple only supports vars
-        AnnotatedVar y = Term.mkVar(context.nameGenerator.freshName("y")).of(leftInfo.resultSort);
-        Term funcApp = Term.mkApp(leftInfo.funcName, vars.getVars());
-        VarTuple varsWithY = vars.concat(new VarTuple(y));
-        Term inRight = recursivelyTranslate(ExprElementOf.make(varsWithY, right), context);
-        inRight = PortusUtil.substitute(y, funcApp, inRight);
+        Term funcApp = Term.mkApp(leftInfo.funcName, termTuple.getTerms());
+        TermTuple varsWithFuncApp = termTuple.concat(new TermTuple(funcApp, leftInfo.resultSort, vars));
+        Term inRight = recursivelyTranslate(ExprElementOf.make(varsWithFuncApp, right), context);
 
-        return Term.mkForall(vars.getAnnotatedVars(), Term.mkImp(domainFormula, inRight));
+        return Term.mkForall(vars, Term.mkImp(domainFormula, inRight));
     }
 
     private Term translateOptimizedEquals(Sig.Field left, Sig.Field right, TranslationContext context) {
@@ -294,15 +288,16 @@ final class FunctionOptTranslator extends AbstractTranslator {
             return null;
         }
 
-        VarTuple vars = makeArgVars(leftInfo, context);
+        List<AnnotatedVar> vars = makeArgVars(leftInfo, context);
+        TermTuple termTuple = TermTuple.fromVars(vars);
 
         // TODO: if rightDomainFormula is cheaper than leftDomainFormula, swap them for a slight optimization
-        Term leftDomainFormula = makeDomainFormula(vars, leftInfo, context);
-        Term rightDomainFormula = makeDomainFormula(vars, rightInfo, context);
+        Term leftDomainFormula = makeDomainFormula(termTuple, leftInfo, context);
+        Term rightDomainFormula = makeDomainFormula(termTuple, rightInfo, context);
         Term funcsEqual = Term.mkEq(
-                Term.mkApp(leftInfo.funcName, vars.getVars()),
-                Term.mkApp(rightInfo.funcName, vars.getVars()));
-        return Term.mkForall(vars.getAnnotatedVars(), Term.mkAnd(
+                Term.mkApp(leftInfo.funcName, termTuple.getTerms()),
+                Term.mkApp(rightInfo.funcName, termTuple.getTerms()));
+        return Term.mkForall(vars, Term.mkAnd(
                 Term.mkIff(leftDomainFormula, rightDomainFormula),
                 Term.mkImp(leftDomainFormula, funcsEqual)));
     }
@@ -323,17 +318,16 @@ final class FunctionOptTranslator extends AbstractTranslator {
         assert joinExpr.op == ExprBinary.Op.JOIN;
 
         // Offload all the work to castToScalar because it's recursive.
-        Pair<Term, Pair<Term, Sort>> scalarResult = castToScalar(joinExpr, context, true);
+        Pair<AnnotatedTerm, Term> scalarResult = castToScalar(joinExpr, context, true);
         assert scalarResult != null;
-        Term scalar = scalarResult.a;
-        Term guard = scalarResult.b.a;
-        Sort sort = scalarResult.b.b;
+        AnnotatedTerm scalar = scalarResult.a;
+        Term guard = scalarResult.b;
 
-        if (sort != Sort.Int()) {
+        if (scalar.getSort() != Sort.Int()) {
             throw new ErrorFatal("A join used as an expression must be of the integer type");
         }
 
-        return Term.mkIfThenElse(guard, scalar, IntegerLiteral.apply(0));
+        return Term.mkIfThenElse(guard, scalar.getTerm(), IntegerLiteral.apply(0));
     }
 
     /**
@@ -344,46 +338,44 @@ final class FunctionOptTranslator extends AbstractTranslator {
     private Term translateOptimizedScalarEqualsOrIn(
             ExprBinary.Op op, Expr left, Expr right, TranslationContext context) {
         // If both are scalars, just translate [[left = right]] or [[left in right]] as a plain equals
-        Pair<Term, Pair<Term, Sort>> leftScalarData = castToScalar(left, context, false);
-        Pair<Term, Pair<Term, Sort>> rightScalarData = castToScalar(right, context, false);
+        Pair<AnnotatedTerm, Term> leftScalarData = castToScalar(left, context, false);
+        Pair<AnnotatedTerm, Term> rightScalarData = castToScalar(right, context, false);
         if (leftScalarData == null || rightScalarData == null) {
             return null;
         }
 
         // Short-circuit if the sorts aren't the same
-        Sort leftSort = leftScalarData.b.b;
-        Sort rightSort = rightScalarData.b.b;
-        if (leftSort != rightSort) {
+        AnnotatedTerm scalarLeft = leftScalarData.a;
+        AnnotatedTerm scalarRight = rightScalarData.a;
+        if (scalarLeft.getSort() != scalarRight.getSort()) {
             return Term.mkBottom();
         }
 
-        Term guardLeft = leftScalarData.b.a;
-        Term guardRight = rightScalarData.b.a;
-        Term scalarLeft = leftScalarData.a;
-        Term scalarRight = rightScalarData.a;
+        Term guardLeft = leftScalarData.b;
+        Term guardRight = rightScalarData.b;
         if (op == ExprBinary.Op.EQUALS) {
             // For equals, either (both guards are false, so both exprs are empty) or (both guards are true, so
             // both expressions are nonempty, and the expressions are equal).
             // Express this as guardLeft => guardRight && left = right else !guardRight.
             return Term.mkIfThenElse(guardLeft,
-                    Term.mkAnd(guardRight, Term.mkEq(scalarLeft, scalarRight)),
+                    Term.mkAnd(guardRight, Term.mkEq(scalarLeft.getTerm(), scalarRight.getTerm())),
                     Term.mkNot(guardRight));
         } else { // ExprBinary.Op.IN
             // For in, the left guard is allowed to be false (empty is in anything), but if it is true then the
             // right guard must be true and the scalars must be equal.
             // Express this as guardLeft => guardRight && left = right.
-            return Term.mkImp(guardLeft, Term.mkAnd(guardRight, Term.mkEq(scalarLeft, scalarRight)));
+            return Term.mkImp(guardLeft,
+                    Term.mkAnd(guardRight, Term.mkEq(scalarLeft.getTerm(), scalarRight.getTerm())));
         }
     }
 
     /**
-     * Return a pair of a variable or domain element and a pair of a guard and its sort corresponding to the expression,
-     * or either throw an exception (if throwError is true) or return null if expr is not (definitely) a scalar.
-     * Use of the scalar term must be conditioned on the guard (it's a domain check); the guard evaluates to false iff
-     * the expr evaluates to the empty set.
+     * Return a pair of a variable or domain element and a guard, or either throw an exception (if throwError is true)
+     * or return null if expr is not (definitely) a scalar. Use of the scalar term must be conditioned on the guard
+     * (it's a domain check); the guard evaluates to false iff the expr evaluates to the empty set.
      * The guard will be Top if it is not necessary.
      */
-    private Pair<Term, Pair<Term, Sort>> castToScalar(Expr expr, TranslationContext context, boolean throwError) {
+    private Pair<AnnotatedTerm, Term> castToScalar(Expr expr, TranslationContext context, boolean throwError) {
         expr = PortusUtil.stripPortusNoops(expr);
 
         if (expr instanceof ExprConstant) {
@@ -397,17 +389,18 @@ final class FunctionOptTranslator extends AbstractTranslator {
                 // Determine the Fortress sort: true, false are boolean, rest are integers
                 Sort sort = (op == ExprConstant.Op.TRUE || op == ExprConstant.Op.FALSE) ? Sort.Bool() : Sort.Int();
 
-                // no guard on usage needed
-                return new Pair<>(scalar, new Pair<>(Term.mkTop(), sort));
+                // no guard on usage needed, and there should be no free variables
+                List<AnnotatedVar> freeVars = ConstList.make();
+                return new Pair<>(new AnnotatedTerm(scalar, sort, freeVars), Term.mkTop());
             }
         } else if (expr instanceof ExprVar) {
             // it could be a variable
             String varName = ((ExprVar) expr).label;
-            if (context.hasVarMapping(varName)) {
-                AnnotatedVar fortressVar = context.getVarMapping(varName);
-                assert fortressVar != null;
+            if (context.hasTermMapping(varName)) {
+                AnnotatedTerm fortressTerm = context.getTermMapping(varName);
+                assert fortressTerm != null;
                 // no guard on the variable usage is needed
-                return new Pair<>(fortressVar.variable(), new Pair<>(Term.mkTop(), fortressVar.sort()));
+                return new Pair<>(fortressTerm, Term.mkTop());
             }
         } else if (expr instanceof Sig) {
             // it could be a one sig
@@ -417,8 +410,11 @@ final class FunctionOptTranslator extends AbstractTranslator {
                 // use its first/only domain element as the term
                 context.rangeAssigner.addRangeAxiom(sig, topLevelTranslator, context);
                 Term domainElement = PortusUtil.getOneSigDomainElement((Sig.PrimSig) sig, context);
-                // no guard on the domain element usage is needed
-                return new Pair<>(domainElement, new Pair<>(Term.mkTop(), context.sortPolicy.getSort(sig)));
+                Sort sort = context.sortPolicy.getSort(sig);
+
+                // no guard on the domain element usage is needed, and there should be no free variables
+                List<AnnotatedVar> freeVars = ConstList.make();
+                return new Pair<>(new AnnotatedTerm(domainElement, sort, freeVars), Term.mkTop());
             }
         } else if (expr instanceof ExprBinary) {
             ExprBinary binExpr = (ExprBinary) expr;
@@ -426,15 +422,14 @@ final class FunctionOptTranslator extends AbstractTranslator {
                 // it could be a join expression that resolves to a scalar
                 // "x.y" is a scalar if (and maybe only if) x is a scalar and y is optimized as a function
                 // then the scalar term is y(x)
-                Pair<Term, Pair<Term, Sort>> leftScalarData = castToScalar(binExpr.left, context, throwError);
+                Pair<AnnotatedTerm, Term> leftScalarData = castToScalar(binExpr.left, context, throwError);
                 if (leftScalarData == null) {
                     // throwError must be false because we'd throw otherwise
                     assert !throwError;
                     return null;
                 }
-                Term leftScalar = leftScalarData.a;
-                Term leftScalarGuard = leftScalarData.b.a;
-                Sort leftScalarSort = leftScalarData.b.b;
+                AnnotatedTerm leftScalar = leftScalarData.a;
+                Term leftScalarGuard = leftScalarData.b;
 
                 Expr right = binExpr.right.deNOP();
                 if (!(right instanceof Sig.Field)) {
@@ -452,17 +447,14 @@ final class FunctionOptTranslator extends AbstractTranslator {
                     return throwIfTrue(throwError, "Functions in an integer join expression must be unary");
                 }
 
-                // We want to express "leftScalar in domain of field", but leftScalar could be an arbitrary Term while
-                // makeDomainFormula requires a VarTuple (so AnnotatedVars). To get around this, use a temporary
-                // variable and substitute it with the term.
-                AnnotatedVar tempVar = Term.mkVar(context.nameGenerator.freshName("temp")).of(leftScalarSort);
-                Term unsubbedInDomain = makeDomainFormula(new VarTuple(tempVar), optInfo, context);
-                Term inDomain = PortusUtil.substitute(tempVar, leftScalar, unsubbedInDomain);
-
-                Term scalar = Term.mkApp(optInfo.funcName, leftScalar);
+                Term inDomain = makeDomainFormula(new TermTuple(leftScalar), optInfo, context);
+                Term scalar = Term.mkApp(optInfo.funcName, leftScalar.getTerm());
                 Term guard = Term.mkAnd(leftScalarGuard, inDomain);
                 Sort sort = optInfo.resultSort;
-                return new Pair<>(scalar, new Pair<>(guard, sort));
+
+                // There shouldn't be any extra free variables in the scalar
+                List<AnnotatedVar> scalarFreeVars = ConstList.make();
+                return new Pair<>(new AnnotatedTerm(scalar, sort, scalarFreeVars), guard);
             }
         }
         return throwIfTrue(throwError,
@@ -478,12 +470,12 @@ final class FunctionOptTranslator extends AbstractTranslator {
         }
     }
 
-    private VarTuple makeArgVars(FieldFuncInfo info, TranslationContext context) {
+    private List<AnnotatedVar> makeArgVars(FieldFuncInfo info, TranslationContext context) {
         List<AnnotatedVar> varList = new ArrayList<>();
         for (int i = 0; i < info.argSorts.size(); i++) {
             varList.add(Term.mkVar(context.nameGenerator.freshName("x" + i)).of(info.argSorts.get(i)));
         }
-        return new VarTuple(varList);
+        return varList;
     }
 
     /**
@@ -491,16 +483,15 @@ final class FunctionOptTranslator extends AbstractTranslator {
      * (i.e. for sig S { f: e1->e2->one e3 }, the bound expressions are S,e1,e2,e3),
      * return a term expressing "(x1,...,x{n-1}) is in the domain of the function representing the field".
      */
-    private Term makeDomainFormula(VarTuple vars, FieldFuncInfo info, TranslationContext context) {
+    private Term makeDomainFormula(TermTuple vars, FieldFuncInfo info, TranslationContext context) {
         if (info.domainPredName != null) {
             // use the domain predicate instead (supports lone)
-            return Term.mkApp(info.domainPredName, vars.getVars());
+            return Term.mkApp(info.domainPredName, vars.getTerms());
         }
 
         // Map "this" to the first var in the tuple, because it's the one bounded by the enclosing signature.
+        context.addTermMapping("this", vars.getAnnotatedTerm(0));
         try {
-            context.addVarMapping("this", vars.getAnnotatedVar(0));
-
             List<Term> conjuncts = new ArrayList<>();
             int varIdx = 0;
 
@@ -512,7 +503,7 @@ final class FunctionOptTranslator extends AbstractTranslator {
                     throw new ErrorFatal("Mismatched arities in optimized field expression!");
                 }
 
-                VarTuple subTuple = vars.slice(varIdx, varIdx + arity);
+                TermTuple subTuple = vars.slice(varIdx, varIdx + arity);
                 Term conjunct = recursivelyTranslate(ExprElementOf.make(subTuple, expr), context);
                 conjuncts.add(conjunct);
 

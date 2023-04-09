@@ -46,13 +46,13 @@ final class DefaultTranslator extends AbstractTranslator {
     // Membership predicates for each signature (see KT 4.2).
     // Represent it by a Java function taking "x" to "inA(x)".
     // (For some arguments the function might not just return inA(x) - it could return Top or Bottom as opts.)
-    private final Map<Sig, Function<AnnotatedVar, Term>> sigMemberPredicates = new HashMap<>();
+    private final Map<Sig, Function<AnnotatedTerm, Term>> sigMemberPredicates = new HashMap<>();
 
     // Relation predicates for each field (see KT 4.2).
     // Note: the function optimization is in FunctionOptTranslator instead.
     // Represent relations by a Java function taking "x1,...,xn" to "f(x1,...,xn)".
     // (Similarly, for some arguments the function might not return a call - it could return Top or Bottom as opts.)
-    private final Map<Sig.Field, Function<VarTuple, Term>> relationPredicates = new HashMap<>();
+    private final Map<Sig.Field, Function<TermTuple, Term>> relationPredicates = new HashMap<>();
 
     // Names of the above relation predicates for easy access.
     private final Map<Sig.Field, String> relationPredicateNames = new HashMap<>();
@@ -80,13 +80,13 @@ final class DefaultTranslator extends AbstractTranslator {
             throw new ErrorFatal("Internal Portus error: signature " + sig + " cannot be assigned a sort");
         }
         String memPredName = context.nameGenerator.freshName("in" + sig.label);
-        sigMemberPredicates.put(sig, var -> {
+        sigMemberPredicates.put(sig, term -> {
             // TODO: if sig is the entire sort, don't bother with the predicate and just return Top
-            if (!var.sort().equals(sigSort)) {
+            if (!term.getSort().equals(sigSort)) {
                 // Any other sort is not in the signature!
                 return Term.mkBottom();
             }
-            return Term.mkApp(memPredName, var.variable());
+            return Term.mkApp(memPredName, term.getTerm());
         });
         context.addFunctionDeclaration(FuncDecl.mkFuncDecl(memPredName, sigSort, Sort.Bool()));
 
@@ -177,9 +177,9 @@ final class DefaultTranslator extends AbstractTranslator {
         return recursivelyTranslate(completenessAxiom, context);
     }
 
-    /** Translate "var \in sig". */
+    /** Translate "term \in sig". */
     @Override
-    public Term translate(AnnotatedVar var, Sig sig, TranslationContext context) {
+    public Term translate(AnnotatedTerm term, Sig sig, TranslationContext context) {
         // Special cases: builtin sigs
         if (sig.builtin) {
             if (sig.equals(Sig.UNIV)) {
@@ -190,15 +190,15 @@ final class DefaultTranslator extends AbstractTranslator {
                 return Term.mkBottom();
             } else if (sig.equals(Sig.SIGINT)) {
                 // it's an int iff its sort is int - evaluate at compile time using var's type
-                return var.sort().equals(Sort.Int()) ? Term.mkTop() : Term.mkBottom();
+                return term.getSort().equals(Sort.Int()) ? Term.mkTop() : Term.mkBottom();
             } else if (sig.equals(Sig.SEQIDX)) {
                 // seq/Int is just ints in [0, maxseq-1] - TODO optimize sequences
                 // Note: we use "<= maxseq - 1" and not "< maxseq" to support the case where
                 // maxseq = 2^(bitwidth-1), so maxseq isn't representable in the bitwidth but maxseq-1 is.
-                if (var.sort().equals(Sort.Int())) {
+                if (term.getSort().equals(Sort.Int())) {
                     return Term.mkAnd(
-                            Term.mkGE(var.variable(), IntegerLiteral.apply(0)),
-                            Term.mkLE(var.variable(), IntegerLiteral.apply(context.getMaxSeq() - 1)));
+                            Term.mkGE(term.getTerm(), IntegerLiteral.apply(0)),
+                            Term.mkLE(term.getTerm(), IntegerLiteral.apply(context.getMaxSeq() - 1)));
                 } else {
                     return Term.mkBottom();
                 }
@@ -214,7 +214,7 @@ final class DefaultTranslator extends AbstractTranslator {
         if (!sigMemberPredicates.containsKey(sig)) {
             throw new ErrorFatal("Unknown sig " + sig);
         }
-        return sigMemberPredicates.get(sig).apply(var);
+        return sigMemberPredicates.get(sig).apply(term);
     }
 
     /** Translate a field declaration inside a sig. */
@@ -226,16 +226,16 @@ final class DefaultTranslator extends AbstractTranslator {
 
         // Make a new predicate for the field relation (function optimization is elsewhere).
         String relName = context.nameGenerator.freshName(field.label);
-        relationPredicates.put(field, vars -> {
-            if (vars.size() != field.type().arity()) {
+        relationPredicates.put(field, terms -> {
+            if (terms.size() != field.type().arity()) {
                 throw new ErrorFatal("Field predicate arity mismatch: expected arity " + field.type().arity()
-                        + " but got " + vars.size() + ".");
+                        + " but got " + terms.size() + ".");
             }
-            if (!vars.getSorts().equals(argSorts)) {
+            if (!terms.getSorts().equals(argSorts)) {
                 // Sorts don't match, so it's definitely not in the field!
                 return Term.mkBottom();
             }
-            return Term.mkApp(relName, vars.getVars());
+            return Term.mkApp(relName, terms.getTerms());
         });
         relationPredicateNames.put(field, relName);
 
@@ -265,14 +265,14 @@ final class DefaultTranslator extends AbstractTranslator {
                 .map(sort -> Term.mkVar(context.nameGenerator.freshName("x")).of(sort))
                 .collect(Collectors.toList());
         Term domainAxiom = Term.mkForall(vars, Term.mkImp(
-                recursivelyTranslate(ExprElementOf.make(new VarTuple(vars), field), context),
+                recursivelyTranslate(ExprElementOf.make(TermTuple.fromVars(vars), field), context),
                 recursivelyTranslate(ExprElementOf.make(vars.get(0), field.sig), context)));
 
         return Term.mkAnd(domainAxiom, rangeAxiom);
     }
 
     @Override
-    public Term translate(VarTuple tuple, Sig.Field field, TranslationContext context) {
+    public Term translate(TermTuple tuple, Sig.Field field, TranslationContext context) {
         // if we recognize the field, use its relation
         if (!relationPredicates.containsKey(field)) {
             throw new ErrorFatal("Unknown field: " + field);
@@ -282,7 +282,7 @@ final class DefaultTranslator extends AbstractTranslator {
 
     /** Translate "tuple \in expr", where expr is an ExprBinary term. */
     @Override
-    public Term translate(VarTuple tuple, ExprBinary expr, TranslationContext context) {
+    public Term translate(TermTuple tuple, ExprBinary expr, TranslationContext context) {
         switch (expr.op) {
             case PLUS:
                 return translateUnion(tuple, expr.left, expr.right, context);
@@ -312,7 +312,7 @@ final class DefaultTranslator extends AbstractTranslator {
                     // Fortress will reject = with mismatched sorts, but we know they aren't equal if it's not an int
                     return Term.mkBottom();
                 }
-                return Term.mkEq(tuple.getVar(0), translateArithmeticOperation(
+                return Term.mkEq(tuple.getTerm(0), translateArithmeticOperation(
                         expr.op, expr.left, expr.right, context));
             default:
                 // others are either not supported or not terms
@@ -321,7 +321,7 @@ final class DefaultTranslator extends AbstractTranslator {
     }
 
     /** Translate "tuple \in left + right". */
-    private Term translateUnion(VarTuple tuple, Expr left, Expr right, TranslationContext context) {
+    private Term translateUnion(TermTuple tuple, Expr left, Expr right, TranslationContext context) {
         // see KT figure 4.10
         return Term.mkOr(
                 recursivelyTranslate(ExprElementOf.make(tuple, left), context),
@@ -329,14 +329,14 @@ final class DefaultTranslator extends AbstractTranslator {
     }
 
     /** Translate "tuple \in left & right". */
-    private Term translateIntersection(VarTuple tuple, Expr left, Expr right, TranslationContext context) {
+    private Term translateIntersection(TermTuple tuple, Expr left, Expr right, TranslationContext context) {
         // see KT figure 4.10
         return Term.mkAnd(
                 recursivelyTranslate(ExprElementOf.make(tuple, left), context),
                 recursivelyTranslate(ExprElementOf.make(tuple, right), context));
     }
 
-    private Term translateSetDifference(VarTuple tuple, Expr left, Expr right, TranslationContext context) {
+    private Term translateSetDifference(TermTuple tuple, Expr left, Expr right, TranslationContext context) {
         // see KT figure 4.10
         return Term.mkAnd(
                 recursivelyTranslate(ExprElementOf.make(tuple, left), context),
@@ -344,7 +344,7 @@ final class DefaultTranslator extends AbstractTranslator {
     }
 
     /** Translate "tuple \in left . right". */
-    private Term translateJoin(VarTuple tuple, Expr left, Expr right, TranslationContext context) {
+    private Term translateJoin(TermTuple tuple, Expr left, Expr right, TranslationContext context) {
         // Naive join implementation without optimizations (see KT figure 4.11).
         // [[(x1,...,xn) \in e1 . e2]] := exists y: sort . [[(x1,...,xm,y) \in e1]] &&
         //   [[(y,x{m+1},...,xn) \in e2]] where arity(e1) = m+1 and arity(e2) = n-m+1 and m<n
@@ -376,9 +376,9 @@ final class DefaultTranslator extends AbstractTranslator {
 
         // build up the tuples we'll recurse on
         // append y to make (x1, ..., xm, y)
-        VarTuple leftSubTuple = tuple.slice(0, partitionIdx).concat(new VarTuple(y));
+        TermTuple leftSubTuple = tuple.slice(0, partitionIdx).concat(TermTuple.fromVars(y));
         // prepend y to make (y, x{m+1}, ..., xn)
-        VarTuple rightSubTuple = new VarTuple(y).concat(tuple.slice(partitionIdx, tuple.size()));
+        TermTuple rightSubTuple = TermTuple.fromVars(y).concat(tuple.slice(partitionIdx, tuple.size()));
 
         //noinspection SuspiciousNameCombination - IntelliJ is overzealous
         return Term.mkExists(y, Term.mkAnd(
@@ -387,22 +387,22 @@ final class DefaultTranslator extends AbstractTranslator {
     }
 
     /** Translate "tuple \in left->right". */
-    private Term translateCrossProduct(VarTuple tuple, Expr left, Expr right, TranslationContext context) {
+    private Term translateCrossProduct(TermTuple tuple, Expr left, Expr right, TranslationContext context) {
         // [[(x1,...,xn) \in e1->e2]] := [[(x1,...,xm) \in e1]] && [[(x{m+1},...,xn) \in e2]]
         // where arity(e1) = m and arity(e2) = n-m
         if (left.type().arity() + right.type().arity() != tuple.size()) {
             throw new ErrorFatal("Cross product arities do not match!");
         }
 
-        VarTuple leftSubTuple = tuple.slice(0, left.type().arity());
-        VarTuple rightSubTuple = tuple.slice(left.type().arity(), tuple.size());
+        TermTuple leftSubTuple = tuple.slice(0, left.type().arity());
+        TermTuple rightSubTuple = tuple.slice(left.type().arity(), tuple.size());
         return Term.mkAnd(
                 recursivelyTranslate(ExprElementOf.make(leftSubTuple, left), context),
                 recursivelyTranslate(ExprElementOf.make(rightSubTuple, right), context));
     }
 
     /** Translate the formula "tuple \in domain <: expr". */
-    private Term translateDomainRestriction(VarTuple tuple, Expr domain, Expr expr, TranslationContext context) {
+    private Term translateDomainRestriction(TermTuple tuple, Expr domain, Expr expr, TranslationContext context) {
         // KT figure 4.11: [[(x1,...,xn) \in domain <: expr]] := [[x1 \in domain]] && [[(x1,...,xn) \in expr]]
         // where arity(domain) = 1 and arity(expr) = n
         if (domain.type().arity() != 1) {
@@ -414,7 +414,7 @@ final class DefaultTranslator extends AbstractTranslator {
     }
 
     /** Translate the formula "tuple \in expr :> range". */
-    private Term translateRangeRestriction(VarTuple tuple, Expr expr, Expr range, TranslationContext context) {
+    private Term translateRangeRestriction(TermTuple tuple, Expr expr, Expr range, TranslationContext context) {
         // KT figure 4.11: [[(x1,...,xn) \in expr :> range]] := [[(x1,...,xn) \in expr]] && [[xn \in range]]
         // where arity(expr) = n and arity(range) = 1
         if (range.type().arity() != 1) {
@@ -426,7 +426,7 @@ final class DefaultTranslator extends AbstractTranslator {
     }
 
     /** Translate the formula "tuple \in base ++ override". */
-    private Term translateOverride(VarTuple tuple, Expr base, Expr override, TranslationContext context) {
+    private Term translateOverride(TermTuple tuple, Expr base, Expr override, TranslationContext context) {
         // KT figure 4.11: [[(x1,...,xn) \in base ++ override]] := [[(x1,...,xn) \in override]]
         // || ([[(x1,...,xn \in base]] && !(exists y2:S2,...,yn:Sn . [[(x1,y2,...,yn) \in override]]))
         // where arity(base) = arity(override) = n
@@ -450,21 +450,21 @@ final class DefaultTranslator extends AbstractTranslator {
         List<Sort> overrideSorts = context.sortPolicy.getMinimalExprSorts(override,
                 "The second argument to ++ must have definite Portus sorts!", context);
 
-        // build up the vars x1,y2,...,yn and the annotated vars y2,...,yn
+        // build up the terms x1,y2,...,yn and the annotated vars y2,...,yn
         List<AnnotatedVar> quantifiedVars = new ArrayList<>();
-        List<AnnotatedVar> allVars = new ArrayList<>();
-        allVars.add(tuple.getAnnotatedVar(0));
+        List<AnnotatedTerm> allTerms = new ArrayList<>();
+        allTerms.add(tuple.getAnnotatedTerm(0));
         for (int i = 1; i < arity; i++) {
             Var yVar = Term.mkVar(context.nameGenerator.freshName("y" + i));
             // TODO: how much short circuiting can we do here?
             AnnotatedVar y = yVar.of(overrideSorts.get(i));
             quantifiedVars.add(y);
-            allVars.add(y);
+            allTerms.add(new AnnotatedTerm(y));
         }
 
         // translate [[(x1,y2,...,yn) \in override]]
         Term firstInOverride = recursivelyTranslate(
-                ExprElementOf.make(new VarTuple(allVars), override), context);
+                ExprElementOf.make(new TermTuple(allTerms), override), context);
 
         return Term.mkOr(inOverride, Term.mkAnd(
                 inBase, Term.mkNot(Term.mkExists(quantifiedVars, firstInOverride))));
@@ -634,8 +634,8 @@ final class DefaultTranslator extends AbstractTranslator {
                         .of(sorts.get(idx)))
                 .collect(Collectors.toList());
 
-        Term inE1 = recursivelyTranslate(ExprElementOf.make(new VarTuple(vars), e1), context);
-        Term inE2 = recursivelyTranslate(ExprElementOf.make(new VarTuple(vars), e2), context);
+        Term inE1 = recursivelyTranslate(ExprElementOf.make(TermTuple.fromVars(vars), e1), context);
+        Term inE2 = recursivelyTranslate(ExprElementOf.make(TermTuple.fromVars(vars), e2), context);
         Term condition;
         Expr multCondition = null;
         if (op == ExprBinary.Op.EQUALS || e2.mult() == ExprUnary.Op.EXACTLYOF) {
@@ -724,7 +724,7 @@ final class DefaultTranslator extends AbstractTranslator {
 
     /** Translate the formula "tuple \in (f => e1 else e2)". */
     @Override
-    public Term translate(VarTuple tuple, ExprITE expr, TranslationContext context) {
+    public Term translate(TermTuple tuple, ExprITE expr, TranslationContext context) {
         // Similar to the above: "IfThenElse([[f]], [[tuple \in e1]], [[tuple \in e2]])"
         context.sortPolicy.checkIsFormula("The condition of if-then-else must be a formula!", expr.cond);
         Term cond = recursivelyTranslate(expr.cond, context);
@@ -784,13 +784,13 @@ final class DefaultTranslator extends AbstractTranslator {
             vars.add(var.of(sorts.get(i)));
         }
 
-        Term condition = recursivelyTranslate(ExprElementOf.make(new VarTuple(vars), expr), context);
+        Term condition = recursivelyTranslate(ExprElementOf.make(TermTuple.fromVars(vars), expr), context);
         return translateSum(IntegerLiteral.apply(1), condition, vars, context);
     }
 
     /** Translate "tuple \in expr", where expr is an ExprUnary formula. */
     @Override
-    public Term translate(VarTuple tuple, ExprUnary expr, TranslationContext context) {
+    public Term translate(TermTuple tuple, ExprUnary expr, TranslationContext context) {
         switch (expr.op) {
             case NOOP:
                 // no-op: ignore it
@@ -820,18 +820,18 @@ final class DefaultTranslator extends AbstractTranslator {
     }
 
     /** Translate "tuple \in ~sub". */
-    private Term translateTranspose(VarTuple tuple, Expr sub, TranslationContext context) {
+    private Term translateTranspose(TermTuple tuple, Expr sub, TranslationContext context) {
         if (tuple.size() != 2) {
             throw new ErrorSyntax("Transpose argument must have arity 2");
         }
 
         // swap the variables in the tuple - see KT figure 4.11
-        VarTuple swapped = tuple.pick(1).concat(tuple.pick(0));
+        TermTuple swapped = tuple.pick(1).concat(tuple.pick(0));
         return recursivelyTranslate(ExprElementOf.make(swapped, sub), context);
     }
 
     /** Translate "tuple \in ^sub" (reflexive==false) or "tuple \in *sub" (reflexive==true). */
-    private Term translateClosure(boolean reflexive, VarTuple tuple, Expr sub, TranslationContext context) {
+    private Term translateClosure(boolean reflexive, TermTuple tuple, Expr sub, TranslationContext context) {
         if (tuple.size() != 2) {
             throw new ErrorSyntax("Closure argument must have arity 2");
         }
@@ -850,9 +850,9 @@ final class DefaultTranslator extends AbstractTranslator {
                 .map(AnnotatedVar::variable)
                 .collect(Collectors.toList());
         if (reflexive) {
-            return Term.mkReflexiveClosure(auxRelationName, tuple.getVar(0), tuple.getVar(1), freeVars);
+            return Term.mkReflexiveClosure(auxRelationName, tuple.getTerm(0), tuple.getTerm(1), freeVars);
         } else {
-            return Term.mkClosure(auxRelationName, tuple.getVar(0), tuple.getVar(1), freeVars);
+            return Term.mkClosure(auxRelationName, tuple.getTerm(0), tuple.getTerm(1), freeVars);
         }
     }
 
@@ -912,7 +912,7 @@ final class DefaultTranslator extends AbstractTranslator {
         axiomDecls.addAll(freeVars);
         List<Var> allVars = axiomDecls.stream().map(AnnotatedVar::variable).collect(Collectors.toList());
         Term inExpr = recursivelyTranslate(ExprElementOf.make(
-                new VarTuple(x.of(sort), y.of(sort)), expr), context);
+                TermTuple.fromVars(x.of(sort), y.of(sort)), expr), context);
         context.addAxiom(Term.mkForall(axiomDecls,
                 Term.mkIff(
                         Term.mkApp(auxRelationName, allVars),
@@ -961,11 +961,11 @@ final class DefaultTranslator extends AbstractTranslator {
         // directly use Fortress's "distinct" primitive.
         // In theory e1,...,en can be arbitrary expressions, but the "disj [e1,...,en]" construct is poorly
         // documented and probably not well-used, so we don't support it for now. We only support bound vars.
-        List<AnnotatedVar> vars = args.stream().map(arg -> {
+        List<AnnotatedTerm> terms = args.stream().map(arg -> {
             if (arg instanceof ExprVar) {
                 ExprVar var = (ExprVar) arg;
-                if (context.hasVarMapping(var.label)) {
-                    return context.getVarMapping(var.label);
+                if (context.hasTermMapping(var.label)) {
+                    return context.getTermMapping(var.label);
                 }
             }
             throw new ErrorFatal("Portus only supports disj[] with bound variables.");
@@ -973,11 +973,11 @@ final class DefaultTranslator extends AbstractTranslator {
 
         // Make sure they have the same sort - we don't support it if they don't.
         // (If we do have to support this - partition by sort and map to a conjunction of distincts.)
-        if (vars.stream().map(AnnotatedVar::sort).distinct().count() > 1) {
+        if (terms.stream().map(AnnotatedTerm::getSort).distinct().count() > 1) {
             throw new ErrorFatal("Portus only supports disj[] with variables of the same top-level sort.");
         }
 
-        return Term.mkDistinct(vars.stream().map(AnnotatedVar::variable).collect(Collectors.toList()));
+        return Term.mkDistinct(terms.stream().map(AnnotatedTerm::getTerm).collect(Collectors.toList()));
     }
 
     /** Translate "Q e", where Q is one of {one, lone, some, no} and e is an expression. */
@@ -1001,7 +1001,7 @@ final class DefaultTranslator extends AbstractTranslator {
         }
 
         // technically, we actually translate as pseudo-Alloy "Q (x1,...,xn): e | true", so there's an extra true
-        Term condition = recursivelyTranslate(ExprElementOf.make(new VarTuple(vars), expr), context);
+        Term condition = recursivelyTranslate(ExprElementOf.make(TermTuple.fromVars(vars), expr), context);
         Term sub = Term.mkTop();
         return translateRawQuantifier(quantifier, vars, condition, sub, context);
     }
@@ -1127,7 +1127,7 @@ final class DefaultTranslator extends AbstractTranslator {
 
     /** Translate "tuple \in expr", where expr is an ExprQt. */
     @Override
-    public Term translate(VarTuple tuple, ExprQt expr, TranslationContext context) {
+    public Term translate(TermTuple tuple, ExprQt expr, TranslationContext context) {
         switch (expr.op) {
             case COMPREHENSION:
                 return translateComprehension(tuple, expr, context);
@@ -1140,7 +1140,7 @@ final class DefaultTranslator extends AbstractTranslator {
     }
 
     /** Translate "tuple \in expr", where expr is a comprehension ExprQt. */
-    private Term translateComprehension(VarTuple tuple, ExprQt expr, TranslationContext context) {
+    private Term translateComprehension(TermTuple tuple, ExprQt expr, TranslationContext context) {
         // [[(x1,...,xn) \in {y1: e1, ..., yn: en | f(y1,...,yn)}]] :=
         // [[x1 \in e1 and (let y1=x1 | x2 \in e2 and (let y2=x2 | ... (let yn=xn | f(y1,...,yn))))]]
         // But we translate more like [[x1 \in e1]] && ... && [[xn \in en]] && [[f(y1,...,yn)]]
@@ -1150,13 +1150,13 @@ final class DefaultTranslator extends AbstractTranslator {
             throw new ErrorSyntax("Mismatched arity for comprehension expression!");
         }
 
-        // Pair the vars and decls/names
-        List<Pair<AnnotatedVar, Pair<Decl, ExprHasName>>> varsAndDecls = new ArrayList<>();
+        // Pair the terms and decls/names
+        List<Pair<AnnotatedTerm, Pair<Decl, ExprHasName>>> termsAndDecls = new ArrayList<>();
         int tupleIdx = 0;
         for (Decl decl : expr.decls) {
             for (ExprHasName name : decl.names) {
-                AnnotatedVar var = tuple.getAnnotatedVar(tupleIdx);
-                varsAndDecls.add(new Pair<>(var, new Pair<>(decl, name)));
+                AnnotatedTerm var = tuple.getAnnotatedTerm(tupleIdx);
+                termsAndDecls.add(new Pair<>(var, new Pair<>(decl, name)));
                 tupleIdx++;
             }
         }
@@ -1164,10 +1164,10 @@ final class DefaultTranslator extends AbstractTranslator {
         List<Term> conjuncts = new ArrayList<>();
 
         // Generate each [[xi \in ei]] conjunct
-        for (Pair<AnnotatedVar, Pair<Decl, ExprHasName>> varAndDecl : varsAndDecls) {
-            AnnotatedVar var = varAndDecl.a;
-            Decl decl = varAndDecl.b.a;
-            ExprHasName name = varAndDecl.b.b;
+        for (Pair<AnnotatedTerm, Pair<Decl, ExprHasName>> termAndDecl : termsAndDecls) {
+            AnnotatedTerm term = termAndDecl.a;
+            Decl decl = termAndDecl.b.a;
+            ExprHasName name = termAndDecl.b.b;
             // Unwrap the expression from its multiplicity (and any NOOPs)
             Expr declExpr = decl.expr.deNOP();
             if (declExpr.mult == 1) {
@@ -1176,12 +1176,12 @@ final class DefaultTranslator extends AbstractTranslator {
                 ExprUnary wrappedDeclExpr = (ExprUnary) declExpr;
                 declExpr = wrappedDeclExpr.sub;
             }
-            Expr conjunct = ExprElementOf.make(new VarTuple(var), declExpr);
+            Expr conjunct = ExprElementOf.make(term, declExpr);
             conjuncts.add(recursivelyTranslate(conjunct, context));
 
             // Map yi to xi for subsequent translations and the f(y1,...,yn) translation
             // We do this here because yi could appear in subsequent ei's and should be mapped to xi
-            context.addVarMapping(name.label, var);
+            context.addTermMapping(name.label, term);
         }
 
         // Map [[f(y1,...,yn)]]
@@ -1189,8 +1189,8 @@ final class DefaultTranslator extends AbstractTranslator {
             conjuncts.add(recursivelyTranslate(expr.sub, context));
         } finally {
             // Unmap all the yi's (and do it even if there's an exception)
-            for (Pair<AnnotatedVar, Pair<Decl, ExprHasName>> varAndDecl : varsAndDecls) {
-                ExprHasName name = varAndDecl.b.b;
+            for (Pair<AnnotatedTerm, Pair<Decl, ExprHasName>> termAndDecl : termsAndDecls) {
+                ExprHasName name = termAndDecl.b.b;
                 context.removeMapping(name.label);
             }
         }
@@ -1214,7 +1214,7 @@ final class DefaultTranslator extends AbstractTranslator {
 
     /** Translate "tuple \in expr", where expr is an ExprLet. */
     @Override
-    public Term translate(VarTuple tuple, ExprLet let, TranslationContext context) {
+    public Term translate(TermTuple tuple, ExprLet let, TranslationContext context) {
         // Like above: bind the variable, translate "tuple \in let.sub", and remove the variable.
         context.addLetMapping(let.var.label, let.expr);
         Term result;
@@ -1228,7 +1228,7 @@ final class DefaultTranslator extends AbstractTranslator {
 
     /** Translate "tuple \in expr", where expr is an ExprVar. */
     @Override
-    public Term translate(VarTuple tuple, ExprVar expr, TranslationContext context) {
+    public Term translate(TermTuple tuple, ExprVar expr, TranslationContext context) {
         // Check if it's mapped to a let-expression - if so, use that instead
         if (context.hasLetMapping(expr.label)) {
             TranslationContext.LetContext letContext = context.getLetMapping(expr.label);
@@ -1249,12 +1249,12 @@ final class DefaultTranslator extends AbstractTranslator {
         if (tuple.size() != 1) {
             throw new ErrorFatal("Wrong arity for ExprVar!");
         }
-        AnnotatedVar mapped = checkAndMapVarName(expr.label, context);
+        AnnotatedTerm mapped = checkAndMapVarName(expr.label, context);
         // If the sorts are mismatched, short-circuit (the tuple can't be in the expr)
-        if (!tuple.getSort(0).equals(mapped.sort())) {
+        if (!tuple.getSort(0).equals(mapped.getSort())) {
             return Term.mkBottom();
         }
-        return Term.mkEq(tuple.getVar(0), mapped.variable());
+        return Term.mkEq(tuple.getTerm(0), mapped.getTerm());
     }
 
     /** Translate an ExprVar integer expression. */
@@ -1271,7 +1271,7 @@ final class DefaultTranslator extends AbstractTranslator {
                 letContext.resetMapping();
             }
         }
-        return checkAndMapVarName(expr.label, context).variable();
+        return checkAndMapVarName(expr.label, context).getTerm();
     }
 
     /** Translate an ExprConstant formula/integer expression. */
@@ -1297,7 +1297,7 @@ final class DefaultTranslator extends AbstractTranslator {
 
     /** Translate "tuple \in expr", where expr is an ExprConstant. */
     @Override
-    public Term translate(VarTuple tuple, ExprConstant expr, TranslationContext context) {
+    public Term translate(TermTuple tuple, ExprConstant expr, TranslationContext context) {
         switch (expr.op) {
             case IDEN:
                 return translateIden(tuple);
@@ -1316,7 +1316,7 @@ final class DefaultTranslator extends AbstractTranslator {
     }
 
     /** Translate "tuple \in iden". */
-    private Term translateIden(VarTuple tuple) {
+    private Term translateIden(TermTuple tuple) {
         // KT figure 4.12: [[(x1, x2) \in iden]] := x1 = x2
         // note that this works even for incompatible top-level sigs since we use a universal sort
         if (tuple.size() != 2) {
@@ -1326,11 +1326,11 @@ final class DefaultTranslator extends AbstractTranslator {
         if (!tuple.getSort(0).equals(tuple.getSort(1))) {
             return Term.mkBottom();
         }
-        return Term.mkEq(tuple.getVar(0), tuple.getVar(1));
+        return Term.mkEq(tuple.getTerm(0), tuple.getTerm(1));
     }
 
     /** Translate "tuple \in next". */
-    private Term translateNext(VarTuple tuple, TranslationContext context) {
+    private Term translateNext(TermTuple tuple, TranslationContext context) {
         // Translate as [[(x1, x2) \in next]] := x1 != max && x1 + 1 = x2
         // Alloy semantics dictate that "max . next = none", so we add a guard.
         // In fact, even with "prevent overflow" enabled, Alloy has "max.next = none" (even when max + 1 = min)!
@@ -1343,8 +1343,8 @@ final class DefaultTranslator extends AbstractTranslator {
             return Term.mkBottom();
         }
         int max = Util.max(context.getBitwidth());
-        Term guard = Term.mkNot(Term.mkEq(tuple.getVar(0), IntegerLiteral.apply(max)));
-        Term check = Term.mkEq(Term.mkPlus(tuple.getVar(0), IntegerLiteral.apply(1)), tuple.getVar(1));
+        Term guard = Term.mkNot(Term.mkEq(tuple.getTerm(0), IntegerLiteral.apply(max)));
+        Term check = Term.mkEq(Term.mkPlus(tuple.getTerm(0), IntegerLiteral.apply(1)), tuple.getTerm(1));
         return Term.mkAnd(guard, check);
     }
 
@@ -1356,7 +1356,7 @@ final class DefaultTranslator extends AbstractTranslator {
 
     /** Translate "tuple \in call", where call is a function call. */
     @Override
-    public Term translate(VarTuple tuple, ExprCall call, TranslationContext context) {
+    public Term translate(TermTuple tuple, ExprCall call, TranslationContext context) {
         return translateCall(ExprElementOf.make(tuple, call.fun.getBody()), call, context);
     }
 
@@ -1381,7 +1381,7 @@ final class DefaultTranslator extends AbstractTranslator {
         return result;
     }
 
-    private Term translateInIntExpr(VarTuple tuple, Expr intExpr, TranslationContext context) {
+    private Term translateInIntExpr(TermTuple tuple, Expr intExpr, TranslationContext context) {
         if (tuple.size() != 1) {
             throw new ErrorSyntax("Int expression '" + intExpr + "' requires arity 1");
         }
@@ -1389,16 +1389,16 @@ final class DefaultTranslator extends AbstractTranslator {
         if (!tuple.getSort(0).equals(Sort.Int())) {
             return Term.mkBottom();
         }
-        return Term.mkEq(tuple.getVar(0), recursivelyTranslate(intExpr, context));
+        return Term.mkEq(tuple.getTerm(0), recursivelyTranslate(intExpr, context));
     }
 
     /** Map an Alloy variable name to a Fortress term, or throw an error. */
-    private AnnotatedVar checkAndMapVarName(String label, TranslationContext context) {
+    private AnnotatedTerm checkAndMapVarName(String label, TranslationContext context) {
         // the Alloy variable must be mapped to a Fortress var in the current lexical scope
-        if (!context.hasVarMapping(label)) {
+        if (!context.hasTermMapping(label)) {
             throw new ErrorSyntax("Unknown variable name " + label);
         }
-        return context.getVarMapping(label);
+        return context.getTermMapping(label);
     }
 
     /**
@@ -1456,11 +1456,10 @@ final class DefaultTranslator extends AbstractTranslator {
                 namesToVars.put(name.label, annotatedVar);
 
                 // Add it to the lexical scope to translate the condition and subformula
-                context.addVarMapping(name.label, annotatedVar);
+                context.addTermMapping(name.label, new AnnotatedTerm(annotatedVar));
 
                 // Add the condition "var \in declExpr" to restrict the domain of var
-                conditions.add(recursivelyTranslate(
-                        ExprElementOf.make(new VarTuple(annotatedVar), declExpr), context));
+                conditions.add(recursivelyTranslate(ExprElementOf.make(annotatedVar, declExpr), context));
             }
         }
 

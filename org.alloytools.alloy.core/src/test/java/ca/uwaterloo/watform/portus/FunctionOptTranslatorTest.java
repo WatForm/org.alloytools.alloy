@@ -55,7 +55,7 @@ public class FunctionOptTranslatorTest {
             assertTrue(argExpr instanceof ExprElementOf);
             ExprElementOf elementOf = (ExprElementOf) argExpr;
             assertEquals(expr, elementOf.sub);
-            return Term.mkApp(funcName, elementOf.tuple.getVars());
+            return Term.mkApp(funcName, elementOf.tuple.getTerms());
         };
     }
 
@@ -148,7 +148,7 @@ public class FunctionOptTranslatorTest {
         FuncDecl func = theory.functionDeclarations().head();
 
         AnnotatedVar x = Term.mkVar("x").of(sortA);
-        context.addVarMapping("x", x);
+        context.addTermMapping("x", new AnnotatedTerm(x));
         ExprHasName alloyVar = sigA.oneOf("x").names.get(0);
         Term result = translator.translate(alloyVar.join(intField), context);
 
@@ -221,7 +221,7 @@ public class FunctionOptTranslatorTest {
         FuncDecl funcZ = theory.functionDeclarations().last();
 
         AnnotatedVar x = Term.mkVar("x").of(sortA);
-        context.addVarMapping("x", x);
+        context.addTermMapping("x", new AnnotatedTerm(x));
         ExprHasName alloyVar = sigA.oneOf("x").names.get(0);
         //noinspection SuspiciousNameCombination
         Term result = translator.translate(alloyVar.join(fieldY).join(fieldZ), context);
@@ -337,8 +337,8 @@ public class FunctionOptTranslatorTest {
         Var fortressX = Term.mkVar("x");
         Var fortressY = Term.mkVar("y");
         // Use the same sort so we don't short-circuit
-        context.addVarMapping("x", fortressX.of(sortA));
-        context.addVarMapping("y", fortressY.of(sortA));
+        context.addTermMapping("x", new AnnotatedTerm(fortressX.of(sortA)));
+        context.addTermMapping("y", new AnnotatedTerm(fortressY.of(sortA)));
 
         Translator translator = new FunctionOptTranslator(mockRoot, true);
         //noinspection SuspiciousNameCombination
@@ -358,8 +358,8 @@ public class FunctionOptTranslatorTest {
         Var fortressX = Term.mkVar("x");
         Var fortressY = Term.mkVar("y");
         // Use different sorts to short-circuit
-        context.addVarMapping("x", fortressX.of(sortA));
-        context.addVarMapping("y", fortressY.of(sortB));
+        context.addTermMapping("x", new AnnotatedTerm(fortressX.of(sortA)));
+        context.addTermMapping("y", new AnnotatedTerm(fortressY.of(sortB)));
 
         Translator translator = new FunctionOptTranslator(mockRoot, true);
         //noinspection SuspiciousNameCombination

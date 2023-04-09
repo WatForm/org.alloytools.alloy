@@ -38,16 +38,16 @@ final class TranslationContext {
         /** The expression a variable is mapped to in this "let". */
         private final Expr expr;
 
-        /** The mapping of Alloy variable names to Fortress vars/lets at the place this "let" appears. */
-        private final Env<String, Either<AnnotatedVar, LetContext>> savedVarMapping;
+        /** The mapping of Alloy variable names to Fortress terms or Alloy let exprs at the place "let" appears. */
+        private final Env<String, Either<AnnotatedTerm, LetContext>> savedVarMapping;
 
         /** The old Alloy variable name to Fortress var/let mapping when using useLetMapping(). */
-        private Env<String, Either<AnnotatedVar, LetContext>> oldMapping = null;
+        private Env<String, Either<AnnotatedTerm, LetContext>> oldMapping = null;
 
         /** The TranslationContext whose mapping we've changed with useLetMapping(). */
         private TranslationContext mappedContext = null;
 
-        private LetContext(Expr expr, Env<String, Either<AnnotatedVar, LetContext>> alloyVarMapping) {
+        private LetContext(Expr expr, Env<String, Either<AnnotatedTerm, LetContext>> alloyVarMapping) {
             this.expr = expr;
             this.savedVarMapping = alloyVarMapping;
         }
@@ -105,9 +105,9 @@ final class TranslationContext {
     private Theory theory;
 
     // The current lexical scope's mapping from Alloy variable labels to either
-    // Fortress Vars or Alloy expressions as used in the "let x = e | ..." construct.
+    // Fortress Terms (i.e. for quantified vars) or Alloy expressions as used in the "let x = e | ..." construct.
     // We use a single Env so these types of mappings can shadow each other.
-    private Env<String, Either<AnnotatedVar, LetContext>> alloyVarMapping;
+    private Env<String, Either<AnnotatedTerm, LetContext>> alloyVarMapping;
 
     // The list of sorts to mark as unchanging in Fortress.
     // This should include any sort for which the Portus translation depends on the scope,
@@ -180,35 +180,35 @@ final class TranslationContext {
     }
 
     /**
-     * Add a mapping from an Alloy variable name to a Fortress variable.
+     * Add a mapping from an Alloy variable name to a Fortress term.
      * The mapping should be valid for the current lexical scope and be removed at the end
      * of the scope with {@link #removeMapping(String)}.
      */
-    public void addVarMapping(String alloyVarName, AnnotatedVar fortressVar) {
-        alloyVarMapping.put(alloyVarName, Either.asFirst(fortressVar));
+    public void addTermMapping(String alloyVarName, AnnotatedTerm fortressTerm) {
+        alloyVarMapping.put(alloyVarName, Either.asFirst(fortressTerm));
     }
 
     /**
-     * Does the current lexical scope have a Fortress variable associated with
+     * Does the current lexical scope have a Fortress term associated with
      * the given Alloy variable name?
      */
-    public boolean hasVarMapping(String alloyVarName) {
+    public boolean hasTermMapping(String alloyVarName) {
         return alloyVarMapping.has(alloyVarName) && alloyVarMapping.get(alloyVarName).hasFirst();
     }
 
     /**
-     * Get the Fortress variable associated with an Alloy variable name in the
+     * Get the Fortress term associated with an Alloy variable name in the
      * current lexical scope. Return null if there's no such associated variable.
      */
-    public AnnotatedVar getVarMapping(String alloyVarName) {
-        if (hasVarMapping(alloyVarName)) {
+    public AnnotatedTerm getTermMapping(String alloyVarName) {
+        if (hasTermMapping(alloyVarName)) {
             return alloyVarMapping.get(alloyVarName).getFirst();
         }
         return null;
     }
 
     /**
-     * Add a mapping from an Alloy variable name to a bound expression.
+     * Add a mapping from an Alloy variable name to a 'let' Alloy expression.
      * The mapping should be valid for the current lexical scope and be removed at the end
      * of the scope with {@link #removeMapping(String)}.
      */
@@ -226,7 +226,7 @@ final class TranslationContext {
      * All mappings must be removed individually with {@link #removeMapping(String)}.
      */
     public void addSimultaneousLetMappings(List<Pair<String, Expr>> varNamesAndBoundExprs) {
-        Env<String, Either<AnnotatedVar, LetContext>> oldAlloyVarMapping = alloyVarMapping.dup();
+        Env<String, Either<AnnotatedTerm, LetContext>> oldAlloyVarMapping = alloyVarMapping.dup();
         for (Pair<String, Expr> varNameAndBoundExpr : varNamesAndBoundExprs) {
             LetContext letContext = new LetContext(varNameAndBoundExpr.b, oldAlloyVarMapping);
             alloyVarMapping.put(varNameAndBoundExpr.a, Either.asSecond(letContext));

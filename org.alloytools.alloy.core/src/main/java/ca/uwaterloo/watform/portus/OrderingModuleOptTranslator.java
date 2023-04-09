@@ -6,7 +6,6 @@ import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprBinary;
 import edu.mit.csail.sdg.ast.ExprList;
 import edu.mit.csail.sdg.ast.Sig;
-import fortress.msfol.AnnotatedVar;
 import fortress.msfol.DomainElement;
 import fortress.msfol.FuncDecl;
 import fortress.msfol.Sort;
@@ -107,14 +106,14 @@ final class OrderingModuleOptTranslator extends AbstractTranslator {
             return nextField != null && matchesNextField(nextField);
         }
 
-        public Term translateFirst(VarTuple tuple, TranslationContext context) {
+        public Term translateFirst(TermTuple tuple, TranslationContext context) {
             if (tuple.size() != 1) {
                 throw new ErrorFatal("'first' is unary but used in a " + tuple.size() + "-ary context");
             }
-            AnnotatedVar var = tuple.getAnnotatedVar(0);
+            AnnotatedTerm term = tuple.getAnnotatedTerm(0);
 
             Sort sort = context.sortPolicy.getSort(sig);
-            if (var.sort() != sort) {
+            if (term.getSort() != sort) {
                 // Short-circuit: sorts are mismatched, can't be equal
                 return Term.mkBottom();
             }
@@ -123,10 +122,10 @@ final class OrderingModuleOptTranslator extends AbstractTranslator {
             context.rangeAssigner.addRangeAxiom(sig, topLevelTranslator, context); // ensure range is valid
             Pair<Integer, Integer> range = context.rangeAssigner.getDomainElementRange(sig, context);
             DomainElement firstDE = DomainElement.apply(range.a, sort);
-            return Term.mkEq(var.variable(), firstDE);
+            return Term.mkEq(term.getTerm(), firstDE);
         }
 
-        public Term translateNext(VarTuple tuple, TranslationContext context) {
+        public Term translateNext(TermTuple tuple, TranslationContext context) {
             if (tuple.size() != 2) {
                 throw new ErrorFatal("'next' is binary but used in a " + tuple.size() + "-ary context");
             }
@@ -143,9 +142,9 @@ final class OrderingModuleOptTranslator extends AbstractTranslator {
             Pair<Integer, Integer> range = context.rangeAssigner.getDomainElementRange(sig, context);
             DomainElement lastDE = DomainElement.apply(range.b, sort);
             return Term.mkAnd(
-                    recursivelyTranslate(ExprElementOf.make(tuple.getAnnotatedVar(0), sig), context),
-                    Term.mkNot(Term.mkEq(tuple.getVar(0), lastDE)),
-                    Term.mkEq(Term.mkApp(nextFuncName, tuple.getVar(0)), tuple.getVar(1)));
+                    recursivelyTranslate(ExprElementOf.make(tuple.getAnnotatedTerm(0), sig), context),
+                    Term.mkNot(Term.mkEq(tuple.getTerm(0), lastDE)),
+                    Term.mkEq(Term.mkApp(nextFuncName, tuple.getTerm(0)), tuple.getTerm(1)));
         }
 
         private void addNextPredicate(TranslationContext context) {
@@ -258,7 +257,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator {
     }
 
     @Override
-    public Term translate(VarTuple tuple, ExprBinary expr, TranslationContext context) {
+    public Term translate(TermTuple tuple, ExprBinary expr, TranslationContext context) {
         // If it's a usage of any of the recognized first/next predicates, translate with it
         // (a "usage" is like Ord.First or Ord.Next)
         for (OrderInfo order : orders) {
@@ -272,12 +271,12 @@ final class OrderingModuleOptTranslator extends AbstractTranslator {
     }
 
     @Override
-    public Term translate(VarTuple tuple, Sig.Field field, TranslationContext context) {
+    public Term translate(TermTuple tuple, Sig.Field field, TranslationContext context) {
         // For visualization/XML, when First and Next are used outside "Ord.First"/"Ord.Next" expressions,
         // translate them directly by stripping the first element of the tuple (since that's the Ord one-sig),
         // and also check that the first element of the tuple is the Ord sig's one atom
         for (OrderInfo order : orders) {
-            Term matchesOrdDE = order.getMatchesOrdDETerm(tuple.getVar(0), context);
+            Term matchesOrdDE = order.getMatchesOrdDETerm(tuple.getTerm(0), context);
             if (order.matchesFirstField(field)) {
                 return Term.mkAnd(matchesOrdDE, order.translateFirst(tuple.slice(1, tuple.size()), context));
             } else if (order.matchesNextField(field)) {

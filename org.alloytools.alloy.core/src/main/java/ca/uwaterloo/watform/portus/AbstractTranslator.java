@@ -16,7 +16,6 @@ import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Func;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.parser.Macro;
-import fortress.msfol.AnnotatedVar;
 import fortress.msfol.Term;
 
 /**
@@ -61,7 +60,7 @@ abstract class AbstractTranslator implements Translator {
     // Calls to translate() will automatically be routed to one of these methods.
 
     /** Translate "tuple \in expr", where expr is an ExprBinary term. */
-    public Term translate(VarTuple tuple, ExprBinary expr, TranslationContext context) {
+    public Term translate(TermTuple tuple, ExprBinary expr, TranslationContext context) {
         return null;
     }
 
@@ -84,7 +83,7 @@ abstract class AbstractTranslator implements Translator {
      * Translate "tuple \in expr", where expr is a function ExprCall. `expr` must be a function.
      * The arity of `tuple` must match that of `expr`.
      */
-    public Term translate(VarTuple tuple, ExprCall expr, TranslationContext context) {
+    public Term translate(TermTuple tuple, ExprCall expr, TranslationContext context) {
         return null;
     }
 
@@ -94,7 +93,7 @@ abstract class AbstractTranslator implements Translator {
     }
 
     /** Translate "tuple \in expr", where expr is an ExprConstant. */
-    public Term translate(VarTuple tuple, ExprConstant expr, TranslationContext context) {
+    public Term translate(TermTuple tuple, ExprConstant expr, TranslationContext context) {
         return null;
     }
 
@@ -104,12 +103,12 @@ abstract class AbstractTranslator implements Translator {
     }
 
     /** Translate "tuple \in expr", where expr is an ExprITE. */
-    public Term translate(VarTuple tuple, ExprITE expr, TranslationContext context) {
+    public Term translate(TermTuple tuple, ExprITE expr, TranslationContext context) {
         return null;
     }
 
     /** Translate "tuple \in expr", where expr is an ExprLet. Arities must match. */
-    public Term translate(VarTuple tuple, ExprLet expr, TranslationContext context) {
+    public Term translate(TermTuple tuple, ExprLet expr, TranslationContext context) {
         return null;
     }
 
@@ -119,7 +118,7 @@ abstract class AbstractTranslator implements Translator {
     }
 
     /** Translate "tuple \in expr", where expr is an ExprQt. */
-    public Term translate(VarTuple tuple, ExprQt expr, TranslationContext context) {
+    public Term translate(TermTuple tuple, ExprQt expr, TranslationContext context) {
         return null;
     }
 
@@ -129,7 +128,7 @@ abstract class AbstractTranslator implements Translator {
     }
 
     /** Translate "tuple \in expr", where expr is an ExprUnary. Arities must match. */
-    public Term translate(VarTuple tuple, ExprUnary expr, TranslationContext context) {
+    public Term translate(TermTuple tuple, ExprUnary expr, TranslationContext context) {
         return null;
     }
 
@@ -139,7 +138,7 @@ abstract class AbstractTranslator implements Translator {
     }
 
     /** Translate "tuple \in expr", where expr is an ExprVar. */
-    public Term translate(VarTuple tuple, ExprVar expr, TranslationContext context) {
+    public Term translate(TermTuple tuple, ExprVar expr, TranslationContext context) {
         return null;
     }
 
@@ -157,8 +156,8 @@ abstract class AbstractTranslator implements Translator {
         return null;
     }
 
-    /** Translate "var \in sig" for an Alloy signature `sig`. */
-    public Term translate(AnnotatedVar var, Sig sig, TranslationContext context) {
+    /** Translate "term \in sig" for an Alloy signature `sig`. */
+    public Term translate(AnnotatedTerm var, Sig sig, TranslationContext context) {
         return null;
     }
 
@@ -168,7 +167,7 @@ abstract class AbstractTranslator implements Translator {
     }
 
     /** Translate "tuple \in field" for an Alloy field `field`. Arities must match. */
-    public Term translate(VarTuple tuple, Sig.Field field, TranslationContext context) {
+    public Term translate(TermTuple tuple, Sig.Field field, TranslationContext context) {
         return null;
     }
 
@@ -223,7 +222,7 @@ abstract class AbstractTranslator implements Translator {
                 return translate(expr.tuple, (ExprQt) expr.sub, context);
             } else if (expr.sub instanceof Sig) {
                 assert expr.tuple.size() == 1;
-                return translate(expr.tuple.getAnnotatedVar(0), (Sig) expr.sub, context);
+                return translate(expr.tuple.getAnnotatedTerm(0), (Sig) expr.sub, context);
             } else if (expr.sub instanceof Sig.Field) {
                 return translate(expr.tuple, (Sig.Field) expr.sub, context);
             } else {

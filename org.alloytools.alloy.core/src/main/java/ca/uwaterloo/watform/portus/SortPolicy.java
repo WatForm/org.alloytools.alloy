@@ -2,7 +2,6 @@ package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.Err;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
-import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.ast.Assert;
 import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
@@ -20,9 +19,7 @@ import edu.mit.csail.sdg.ast.Func;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.ast.Type;
 import edu.mit.csail.sdg.parser.Macro;
-import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.modelfind.ModelFinder;
-import fortress.msfol.AnnotatedVar;
 import fortress.msfol.Sort;
 import fortress.msfol.Theory;
 import fortress.problemstate.Scope;
@@ -30,7 +27,6 @@ import fortress.problemstate.Scope;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -127,16 +123,13 @@ public abstract class SortPolicy {
         return a.equals(b) || !isSortDefinite(b);
     }
 
-    private final class SortVisitor extends FortressVisitReturn<List<Sort>> {
+    private final class SortVisitor extends ContextVisitReturn<List<Sort>> {
 
         // Thrown on failure, because exceptions-as-flow-control is the most convenient here (unfortunately)
         private final class IncompatibleSortsException extends RuntimeException {}
 
-        // A copy of the context so we can keep track of which variables have which sorts
-        private final TranslationContext context;
-
         public SortVisitor(TranslationContext context) {
-            this.context = new TranslationContext(context);
+            super(context);
         }
 
         private List<Sort> merge(List<Sort> a, List<Sort> b, BiFunction<Sort, Sort, Sort> merger) {
@@ -305,18 +298,12 @@ public abstract class SortPolicy {
         }
 
         @Override
-        public List<Sort> visit(ExprLet x) throws Err {
-            context.addLetMapping(x.var.label, x.expr);
-            try {
-                return visitThis(x.sub);
-            } finally {
-                // remove it even if there's an exception
-                context.removeMapping(x.var.label);
-            }
+        public List<Sort> visitLet(ExprLet x) throws Err {
+            return visitThis(x.sub); // let mappings handled by superclass
         }
 
         @Override
-        public List<Sort> visit(ExprQt x) throws Err {
+        public List<Sort> visitQuantifier(ExprQt x, List<List<Sort>> ignoredArgResults) throws Err {
             // trust typechecking
             if (x.op == ExprQt.Op.SUM) {
                 return Collections.singletonList(Sort.Int());
@@ -372,21 +359,13 @@ public abstract class SortPolicy {
         }
 
         @Override
-        public List<Sort> visit(ExprVar x) throws Err {
+        public List<Sort> visitVar(ExprVar x) throws Err {
             // use the sort it's mapped to in the context
-            if (context.hasLetMapping(x.label)) {
-                TranslationContext.LetContext mapping = context.getLetMapping(x.label);
-                assert mapping != null;
-                mapping.useLetMapping(context);
-                try {
-                    return visitThis(mapping.getExpr());
-                } finally {
-                    mapping.resetMapping(); // reset even in case of exception
-                }
-            } else if (context.hasVarMapping(x.label)) {
-                AnnotatedVar mapped = context.getVarMapping(x.label);
+            // Note: let mappings are automatically expanded in superclass
+            if (context.hasTermMapping(x.label)) {
+                AnnotatedTerm mapped = context.getTermMapping(x.label);
                 assert mapped != null;
-                return Collections.singletonList(mapped.sort());
+                return Collections.singletonList(mapped.getSort());
             } else {
                 // try to get the sort from the type
                 return getTypeSorts(x.type());

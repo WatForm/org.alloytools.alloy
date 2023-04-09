@@ -56,7 +56,7 @@ public class OrderingModuleOptTranslatorTest {
             ExprElementOf exprElementOf = (ExprElementOf) expr;
             if (exprElementOf.sub != orderedSig) fail();
             if (exprElementOf.tuple.size() != 1 || exprElementOf.tuple.getSort(0) != orderedSigSort) fail();
-            return Term.mkApp("inOrderedSig", exprElementOf.tuple.getVar(0));
+            return Term.mkApp("inOrderedSig", exprElementOf.tuple.getTerm(0));
         });
 
         orderedSig = new Sig.PrimSig("Ordered");
@@ -113,7 +113,7 @@ public class OrderingModuleOptTranslatorTest {
         translator.translate(ordSig, context);
         Var x = Term.mkVar("x");
         Term result = translator.translate(ExprElementOf.make(
-                new VarTuple(x.of(orderedSigSort)), ordSig.join(firstField)), context);
+                TermTuple.fromVars(x.of(orderedSigSort)), ordSig.join(firstField)), context);
         assertEquals(Term.mkEq(x, DomainElement.apply(1, orderedSigSort)), result);
     }
 
@@ -125,7 +125,7 @@ public class OrderingModuleOptTranslatorTest {
         translator.translate(ordSig, context);
         Var x = Term.mkVar("x");
         Term result = translator.translate(ExprElementOf.make(
-                new VarTuple(x.of(orderedSigSort)), ordSig.join(firstField)), context);
+                TermTuple.fromVars(x.of(orderedSigSort)), ordSig.join(firstField)), context);
         assertEquals(Term.mkEq(x, DomainElement.apply(5, orderedSigSort)), result);
     }
 
@@ -140,7 +140,7 @@ public class OrderingModuleOptTranslatorTest {
 
         Var x = Term.mkVar("x"), y = Term.mkVar("y");
         Term result = translator.translate(ExprElementOf.make(
-                new VarTuple(x.of(orderedSigSort), y.of(orderedSigSort)),
+                TermTuple.fromVars(x.of(orderedSigSort), y.of(orderedSigSort)),
                 ordSig.join(nextField)), context);
 
         // there should be one function, next: orderedSigSort -> orderedSigSort
@@ -183,7 +183,7 @@ public class OrderingModuleOptTranslatorTest {
 
         Var x = Term.mkVar("x"), y = Term.mkVar("y");
         Term result = translator.translate(ExprElementOf.make(
-                new VarTuple(x.of(orderedSigSort), y.of(orderedSigSort)),
+                TermTuple.fromVars(x.of(orderedSigSort), y.of(orderedSigSort)),
                 ordSig.join(nextField)), context);
 
         // there should be one function, next: orderedSigSort -> orderedSigSort
@@ -228,7 +228,7 @@ public class OrderingModuleOptTranslatorTest {
 
         Var x = Term.mkVar("x"), y = Term.mkVar("y");
         Term result = translator.translate(ExprElementOf.make(
-                new VarTuple(x.of(orderedSigSort), y.of(orderedSigSort)),
+                TermTuple.fromVars(x.of(orderedSigSort), y.of(orderedSigSort)),
                 ordSig.join(nextField)), context);
 
         // there should be one function, next: orderedSigSort -> orderedSigSort

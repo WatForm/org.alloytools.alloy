@@ -330,7 +330,7 @@ public class RangeAssignerTest {
             if (!(expr instanceof ExprElementOf)) fail();
             ExprElementOf exprElementOf = (ExprElementOf) expr;
             if (exprElementOf.tuple.size() != 1 || exprElementOf.sub != sig) fail();
-            return Term.mkApp("flag", exprElementOf.tuple.getVar(0));
+            return Term.mkApp("flag", exprElementOf.tuple.getTerm(0));
         });
 
         rangeAssigner.addRangeAxiom(sig, mockTranslator, context);
@@ -359,7 +359,7 @@ public class RangeAssignerTest {
             if (!(expr instanceof ExprElementOf)) fail();
             ExprElementOf exprElementOf = (ExprElementOf) expr;
             if (exprElementOf.tuple.size() != 1 || exprElementOf.sub != sig) fail();
-            return Term.mkApp("flag", exprElementOf.tuple.getVar(0));
+            return Term.mkApp("flag", exprElementOf.tuple.getTerm(0));
         });
 
         rangeAssigner.addRangeAxiom(sig, mockTranslator, context);
@@ -391,7 +391,7 @@ public class RangeAssignerTest {
             if (!(expr instanceof ExprElementOf)) fail();
             ExprElementOf exprElementOf = (ExprElementOf) expr;
             if (exprElementOf.tuple.size() != 1 || exprElementOf.sub != sig) fail();
-            return Term.mkApp("flag", exprElementOf.tuple.getVar(0));
+            return Term.mkApp("flag", exprElementOf.tuple.getTerm(0));
         });
 
         rangeAssigner.addRangeAxiom(sig, mockTranslator, context);

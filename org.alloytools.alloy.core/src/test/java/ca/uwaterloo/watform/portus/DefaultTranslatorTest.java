@@ -141,15 +141,15 @@ public class DefaultTranslatorTest {
             // make sure the variable appears in the context
             TranslationContext context = ctx.getArgument(1);
             for (String varName : varNames) {
-                assertTrue(context.hasVarMapping(varName));
+                assertTrue(context.hasTermMapping(varName));
             }
 
             // use the mapped vars as arguments to the function
             //noinspection ConstantConditions - we just checked that they all exist
             return Term.mkApp(funcName, Arrays.stream(varNames)
-                    .map(context::getVarMapping)
-                    .map(AnnotatedVar::variable)
-                    .toArray(Var[]::new));
+                    .map(context::getTermMapping)
+                    .map(AnnotatedTerm::getTerm)
+                    .toArray(Term[]::new));
         };
     }
 
@@ -235,7 +235,7 @@ public class DefaultTranslatorTest {
         // mock out the non-exact scope axiom's [[xi \in sig]]
         Expr inSig = ExprElementOf.make(Term.mkVar("x").of(univ), sig);
         when(mockRoot.translate(argThat(isAlphaEquivalent(inSig)), any())).then(
-                ctx -> makeFlagConstant("inFlag_" + ctx.<ExprElementOf>getArgument(0).tuple.getVar(0)));
+                ctx -> makeFlagConstant("inFlag_" + ctx.<ExprElementOf>getArgument(0).tuple.getTerm(0)));
 
         Term result = translator.translate(sig, context);
         assertThat(result, is(notNullValue())); // sig just returns something
@@ -281,7 +281,7 @@ public class DefaultTranslatorTest {
         // mock out the non-exact scope axiom's [[xi \in sig]]
         Expr inSig = ExprElementOf.make(Term.mkVar("x").of(univ), sig);
         when(mockRoot.translate(argThat(isAlphaEquivalent(inSig)), any())).then(
-                ctx -> makeFlagConstant("inFlag_" + ctx.<ExprElementOf>getArgument(0).tuple.getVar(0)));
+                ctx -> makeFlagConstant("inFlag_" + ctx.<ExprElementOf>getArgument(0).tuple.getTerm(0)));
 
         Term result = translator.translate(sig, context);
         assertThat(result, is(notNullValue())); // sig just returns something
@@ -435,9 +435,9 @@ public class DefaultTranslatorTest {
         Expr inChild = ExprElementOf.make(Term.mkVar("x").of(univ), child1);
         Expr inParent = ExprElementOf.make(Term.mkVar("x").of(univ), parent);
         when(mockRoot.translate(argThat(isAlphaEquivalent(inChild)), any())).then(
-                ctx -> makeFlagConstant("inFlag_" + ctx.<ExprElementOf>getArgument(0).tuple.getVar(0)));
+                ctx -> makeFlagConstant("inFlag_" + ctx.<ExprElementOf>getArgument(0).tuple.getTerm(0)));
         when(mockRoot.translate(argThat(isAlphaEquivalent(inParent)), any())).then(
-                ctx -> makeFlagConstant("inFlag_" + ctx.<ExprElementOf>getArgument(0).tuple.getVar(0)));
+                ctx -> makeFlagConstant("inFlag_" + ctx.<ExprElementOf>getArgument(0).tuple.getTerm(0)));
 
         // delegate to the method under test to translate the child sigs
         when(mockRoot.translate(or(eq(child1), eq(child2)), any())).then(
@@ -676,7 +676,7 @@ public class DefaultTranslatorTest {
         Var inF = makeFlagConstant("inF");
         AnnotatedVar x0 = Term.mkVar("x_0").of(univ), x1 = Term.mkVar("x_1").of(univ);
         // (x0,x1) \in f
-        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(new VarTuple(x0, x1), f))), any()))
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(TermTuple.fromVars(x0, x1), f))), any()))
                 .thenReturn(inF);
         // x0 \in A
         Var inA = makeFlagConstant("inA");
@@ -723,7 +723,7 @@ public class DefaultTranslatorTest {
         Var inF = makeFlagConstant("inF");
         AnnotatedVar x0 = Term.mkVar("x_0").of(univ), x1 = Term.mkVar("x_1").of(univ), x2 = Term.mkVar("x_2").of(univ);
         // (x0,x1,x2) \in f
-        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(new VarTuple(x0, x1, x2), f))), any()))
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(TermTuple.fromVars(x0, x1, x2), f))), any()))
                 .thenReturn(inF);
         // x0 \in A
         Var inA = makeFlagConstant("inA");
@@ -769,7 +769,7 @@ public class DefaultTranslatorTest {
         Var inF = makeFlagConstant("inF");
         AnnotatedVar x0 = Term.mkVar("x_0").of(univ), x1 = Term.mkVar("x_1").of(univ);
         // (x0,x1) \in f
-        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(new VarTuple(x0, x1), f))), any()))
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(TermTuple.fromVars(x0, x1), f))), any()))
                 .thenReturn(inF);
         // x0 \in A
         Var inA = makeFlagConstant("inA");
@@ -815,7 +815,7 @@ public class DefaultTranslatorTest {
         Var inF = makeFlagConstant("inF");
         AnnotatedVar x0 = Term.mkVar("x_0").of(univ), x1 = Term.mkVar("x_1").of(univ);
         // (x0,x1) \in f
-        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(new VarTuple(x0, x1), f))), any()))
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(TermTuple.fromVars(x0, x1), f))), any()))
                 .thenReturn(inF);
         // x0 \in A
         Var inA = makeFlagConstant("inA");
@@ -861,7 +861,7 @@ public class DefaultTranslatorTest {
         Var inF = makeFlagConstant("inF");
         AnnotatedVar x0 = Term.mkVar("x_0").of(univ), x1 = Term.mkVar("x_1").of(univ);
         // (x0,x1) \in f
-        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(new VarTuple(x0, x1), f))), any()))
+        when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(TermTuple.fromVars(x0, x1), f))), any()))
                 .thenReturn(inF);
         // x0 \in A
         Var inA = makeFlagConstant("inA");
@@ -1152,7 +1152,7 @@ public class DefaultTranslatorTest {
         when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(y.of(univ), e1))), any()))
                 .thenReturn(flagInE1);
         when(mockRoot.translate(argThat(isAlphaEquivalent(
-                ExprElementOf.make(new VarTuple(y.of(univ), x.of(univ)), e2))), any()))
+                ExprElementOf.make(TermTuple.fromVars(y.of(univ), x.of(univ)), e2))), any()))
                 .thenReturn(flagInE2);
 
         Term result = translator.translate(ExprElementOf.make(x.of(univ), e1.join(e2)), context);
@@ -1173,7 +1173,7 @@ public class DefaultTranslatorTest {
         // mock out [[(x, y) \in e1]] and [[y \in e2]]
         Var flagInE1 = makeFlagConstant("inE1"), flagInE2 = makeFlagConstant("inE2");
         when(mockRoot.translate(argThat(isAlphaEquivalent(
-                ExprElementOf.make(new VarTuple(x.of(univ), y.of(univ)), e1))), any()))
+                ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(univ)), e1))), any()))
                 .thenReturn(flagInE1);
         when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(y.of(univ), e2))), any()))
                 .thenReturn(flagInE2);
@@ -1197,11 +1197,11 @@ public class DefaultTranslatorTest {
         // they're alpha-equivalent, so just return one after the other
         Var flagInE1 = makeFlagConstant("inE1"), flagInE2 = makeFlagConstant("inE2");
         when(mockRoot.translate(argThat(isAlphaEquivalent(
-                ExprElementOf.make(new VarTuple(x1.of(univ), y.of(univ)), e1))), any()))
+                ExprElementOf.make(TermTuple.fromVars(x1.of(univ), y.of(univ)), e1))), any()))
                 .thenReturn(flagInE1, flagInE2);
 
         Term result = translator.translate(
-                ExprElementOf.make(new VarTuple(y.of(univ), x2.of(univ)), e1.join(e2)), context);
+                ExprElementOf.make(TermTuple.fromVars(y.of(univ), x2.of(univ)), e1.join(e2)), context);
         Term expected = Term.mkExists(y.of(univ), Term.mkAnd(flagInE1, flagInE2));
         assertThat(result, isAlphaEquivalentTerm(expected));
         assertContextEmpty();
@@ -1222,11 +1222,11 @@ public class DefaultTranslatorTest {
         when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(y.of(univ), e1))), any()))
                 .thenReturn(flagInE1);
         when(mockRoot.translate(argThat(isAlphaEquivalent(
-                ExprElementOf.make(new VarTuple(y.of(univ), x1.of(univ), x2.of(univ)), e2))), any()))
+                ExprElementOf.make(TermTuple.fromVars(y.of(univ), x1.of(univ), x2.of(univ)), e2))), any()))
                 .thenReturn(flagInE2);
 
         Term result = translator.translate(
-                ExprElementOf.make(new VarTuple(x1.of(univ), x2.of(univ)), e1.join(e2)), context);
+                ExprElementOf.make(TermTuple.fromVars(x1.of(univ), x2.of(univ)), e1.join(e2)), context);
         Term expected = Term.mkExists(y.of(univ), Term.mkAnd(flagInE1, flagInE2));
         assertThat(result, isAlphaEquivalentTerm(expected));
         assertContextEmpty();
@@ -1245,7 +1245,7 @@ public class DefaultTranslatorTest {
         when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(y.of(univ), Sig.UNIV))), any()))
                 .thenReturn(flagInE1);
         when(mockRoot.translate(argThat(isAlphaEquivalent(
-                ExprElementOf.make(new VarTuple(y.of(univ), x.of(univ)), e))), any()))
+                ExprElementOf.make(TermTuple.fromVars(y.of(univ), x.of(univ)), e))), any()))
                 .thenReturn(flagInE2);
 
         Term result = translator.translate(ExprElementOf.make(x.of(univ), Sig.UNIV.join(e)), context);
@@ -1270,7 +1270,7 @@ public class DefaultTranslatorTest {
                 .thenReturn(flagInE1, flagInE2);
 
         Term result = translator.translate(
-                ExprElementOf.make(new VarTuple(x1.of(univ), x2.of(univ)), e1.product(e2)), context);
+                ExprElementOf.make(TermTuple.fromVars(x1.of(univ), x2.of(univ)), e1.product(e2)), context);
         Term expected = Term.mkAnd(flagInE1, flagInE2);
         assertThat(result, isAlphaEquivalentTerm(expected));
         assertContextEmpty();
@@ -1290,11 +1290,11 @@ public class DefaultTranslatorTest {
         when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(x1.of(univ), e1))), any()))
                 .thenReturn(flagInE1);
         when(mockRoot.translate(argThat(isAlphaEquivalent(
-                ExprElementOf.make(new VarTuple(x2.of(univ), x3.of(univ)), e1))), any()))
+                ExprElementOf.make(TermTuple.fromVars(x2.of(univ), x3.of(univ)), e1))), any()))
                 .thenReturn(flagInE2);
 
         Term result = translator.translate(
-                ExprElementOf.make(new VarTuple(x1.of(univ), x2.of(univ), x3.of(univ)), e1.product(e2)), context);
+                ExprElementOf.make(TermTuple.fromVars(x1.of(univ), x2.of(univ), x3.of(univ)), e1.product(e2)), context);
         Term expected = Term.mkAnd(flagInE1, flagInE2);
         assertThat(result, isAlphaEquivalentTerm(expected));
         assertContextEmpty();
@@ -1312,13 +1312,13 @@ public class DefaultTranslatorTest {
         // mock out [[(x1, x2) \in e1]] and [[x3 \in e2]]
         Var flagInE1 = makeFlagConstant("inE1"), flagInE2 = makeFlagConstant("inE2");
         when(mockRoot.translate(argThat(isAlphaEquivalent(
-                ExprElementOf.make(new VarTuple(x1.of(univ), x2.of(univ)), e1))), any()))
+                ExprElementOf.make(TermTuple.fromVars(x1.of(univ), x2.of(univ)), e1))), any()))
                 .thenReturn(flagInE1);
         when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(x3.of(univ), e1))), any()))
                 .thenReturn(flagInE2);
 
         Term result = translator.translate(
-                ExprElementOf.make(new VarTuple(x1.of(univ), x2.of(univ), x3.of(univ)), e1.product(e2)), context);
+                ExprElementOf.make(TermTuple.fromVars(x1.of(univ), x2.of(univ), x3.of(univ)), e1.product(e2)), context);
         Term expected = Term.mkAnd(flagInE1, flagInE2);
         assertThat(result, isAlphaEquivalentTerm(expected));
         assertContextEmpty();
@@ -1523,16 +1523,15 @@ public class DefaultTranslatorTest {
         when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(x1.of(univ), e1))), any()))
                 .thenReturn(flagInE1);
         when(mockRoot.translate(argThat(isAlphaEquivalent(
-                ExprElementOf.make(new VarTuple(x1.of(univ), x2.of(univ), x3.of(univ)), e2))), any()))
+                ExprElementOf.make(TermTuple.fromVars(x1.of(univ), x2.of(univ), x3.of(univ)), e2))), any()))
                 .thenReturn(flagInE2);
 
         Term result = translator.translate(ExprElementOf.make(
-                new VarTuple(x1.of(univ), x2.of(univ), x3.of(univ)), e1.domain(e2)), context);
+                TermTuple.fromVars(x1.of(univ), x2.of(univ), x3.of(univ)), e1.domain(e2)), context);
         Term expected = Term.mkAnd(flagInE1, flagInE2);
         assertThat(result, isAlphaEquivalentTerm(expected));
         assertContextEmpty();
     }
-
 
     @Test
     public void testTranslate_rangeRestriction_arity1() {
@@ -1567,13 +1566,13 @@ public class DefaultTranslatorTest {
         // mock out [[(x1,x2,x3) \in e2]] and [[x \in e1]]
         Var flagInE1 = makeFlagConstant("inE1"), flagInE2 = makeFlagConstant("inE2");
         when(mockRoot.translate(argThat(isAlphaEquivalent(
-                ExprElementOf.make(new VarTuple(x1.of(univ), x2.of(univ), x3.of(univ)), e1))), any()))
+                ExprElementOf.make(TermTuple.fromVars(x1.of(univ), x2.of(univ), x3.of(univ)), e1))), any()))
                 .thenReturn(flagInE1);
         when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(x1.of(univ), e2))), any()))
                 .thenReturn(flagInE2);
 
         Term result = translator.translate(ExprElementOf.make(
-                new VarTuple(x1.of(univ), x2.of(univ), x3.of(univ)), e1.range(e2)), context);
+                TermTuple.fromVars(x1.of(univ), x2.of(univ), x3.of(univ)), e1.range(e2)), context);
         Term expected = Term.mkAnd(flagInE1, flagInE2);
         assertThat(result, isAlphaEquivalentTerm(expected));
         assertContextEmpty();
@@ -1612,17 +1611,17 @@ public class DefaultTranslatorTest {
         Var flagBothInE2 = makeFlagConstant("bothInE2");
         Var flagX1InE2 = makeFlagConstant("x1InE2");
         when(mockRoot.translate(argThat(isSameAs(
-                ExprElementOf.make(new VarTuple(x1.of(univ), x2.of(univ)), e1))), any()))
+                ExprElementOf.make(TermTuple.fromVars(x1.of(univ), x2.of(univ)), e1))), any()))
                 .thenReturn(flagBothInE1);
         when(mockRoot.translate(argThat(isSameAs(
-                ExprElementOf.make(new VarTuple(x1.of(univ), x2.of(univ)), e2))), any()))
+                ExprElementOf.make(TermTuple.fromVars(x1.of(univ), x2.of(univ)), e2))), any()))
                 .thenReturn(flagBothInE2);
         when(mockRoot.translate(argThat(isSameAs(
-                ExprElementOf.make(new VarTuple(x1.of(univ), y.of(univ)), e2))), any()))
+                ExprElementOf.make(TermTuple.fromVars(x1.of(univ), y.of(univ)), e2))), any()))
                 .thenReturn(flagX1InE2);
 
         Term result = translator.translate(
-                ExprElementOf.make(new VarTuple(x1.of(univ), x2.of(univ)), e1.override(e2)), context);
+                ExprElementOf.make(TermTuple.fromVars(x1.of(univ), x2.of(univ)), e1.override(e2)), context);
         Term expected = Term.mkOr(flagBothInE2, Term.mkAnd(
                 flagBothInE1, Term.mkNot(Term.mkExists(y.of(univ), flagX1InE2))));
         assertEquals(expected, result);
@@ -1647,17 +1646,17 @@ public class DefaultTranslatorTest {
         Var flagAllInE2 = makeFlagConstant("allInE2");
         Var flagX1InE2 = makeFlagConstant("x1InE2");
         when(mockRoot.translate(argThat(isSameAs(
-                ExprElementOf.make(new VarTuple(x1.of(univ), x2.of(univ), x3.of(univ)), e1))), any()))
+                ExprElementOf.make(TermTuple.fromVars(x1.of(univ), x2.of(univ), x3.of(univ)), e1))), any()))
                 .thenReturn(flagAllInE1);
         when(mockRoot.translate(argThat(isSameAs(
-                ExprElementOf.make(new VarTuple(x1.of(univ), x2.of(univ), x3.of(univ)), e2))), any()))
+                ExprElementOf.make(TermTuple.fromVars(x1.of(univ), x2.of(univ), x3.of(univ)), e2))), any()))
                 .thenReturn(flagAllInE2);
         when(mockRoot.translate(argThat(isSameAs(
-                ExprElementOf.make(new VarTuple(x1.of(univ), y1.of(univ), y2.of(univ)), e2))), any()))
+                ExprElementOf.make(TermTuple.fromVars(x1.of(univ), y1.of(univ), y2.of(univ)), e2))), any()))
                 .thenReturn(flagX1InE2);
 
         Term result = translator.translate(
-                ExprElementOf.make(new VarTuple(x1.of(univ), x2.of(univ), x3.of(univ)), e1.override(e2)), context);
+                ExprElementOf.make(TermTuple.fromVars(x1.of(univ), x2.of(univ), x3.of(univ)), e1.override(e2)), context);
         Term expected = Term.mkOr(flagAllInE2, Term.mkAnd(
                 flagAllInE1, Term.mkNot(Term.mkExists(
                         Arrays.asList(y1.of(univ), y2.of(univ)), flagX1InE2))));
@@ -1694,7 +1693,7 @@ public class DefaultTranslatorTest {
         Var x1 = Term.mkVar("x1"), x2 = Term.mkVar("x2");
 
         when(mockRoot.translate(argThat(isAlphaEquivalent(
-                ExprElementOf.make(new VarTuple(x1.of(univ), x2.of(univ)), e1))), any()))
+                ExprElementOf.make(TermTuple.fromVars(x1.of(univ), x2.of(univ)), e1))), any()))
                 .thenReturn(flagInE1, flagInE2);
 
         Term result = translator.translate(e1.in(e2), context);
@@ -1733,7 +1732,7 @@ public class DefaultTranslatorTest {
         Var x1 = Term.mkVar("x1"), x2 = Term.mkVar("x2");
 
         when(mockRoot.translate(argThat(isAlphaEquivalent(
-                ExprElementOf.make(new VarTuple(x1.of(univ), x2.of(univ)), e1))), any()))
+                ExprElementOf.make(TermTuple.fromVars(x1.of(univ), x2.of(univ)), e1))), any()))
                 .thenReturn(flagInE1, flagInE2);
 
         Term result = translator.translate(e1.equal(e2), context);
@@ -1889,11 +1888,11 @@ public class DefaultTranslatorTest {
 
         Var flagSwapped = makeFlagConstant("swapped");
         when(mockRoot.translate(argThat(isSameAs(
-                ExprElementOf.make(new VarTuple(x2.of(univ), x1.of(univ)), e))), any()))
+                ExprElementOf.make(TermTuple.fromVars(x2.of(univ), x1.of(univ)), e))), any()))
                 .thenReturn(flagSwapped);
 
         Term result = translator.translate(
-                ExprElementOf.make(new VarTuple(x1.of(univ), x2.of(univ)), e.transpose()), context);
+                ExprElementOf.make(TermTuple.fromVars(x1.of(univ), x2.of(univ)), e.transpose()), context);
         assertEquals(flagSwapped, result);
     }
 
@@ -1912,7 +1911,7 @@ public class DefaultTranslatorTest {
         // test the actual translation
         Var x = Term.mkVar("x"), y = Term.mkVar("y");
         Term result = translator.translate(
-                ExprElementOf.make(new VarTuple(x.of(univ), y.of(univ)), fieldF.closure()), context);
+                ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(univ)), fieldF.closure()), context);
         assertEquals(Term.mkClosure(funcF.name(), x, y), result);
 
         // ensure no relation was added
@@ -1934,7 +1933,7 @@ public class DefaultTranslatorTest {
         // test the actual translation
         Var x = Term.mkVar("x"), y = Term.mkVar("y");
         Term result = translator.translate(
-                ExprElementOf.make(new VarTuple(x.of(univ), y.of(univ)), fieldF.reflexiveClosure()), context);
+                ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(univ)), fieldF.reflexiveClosure()), context);
         assertEquals(Term.mkReflexiveClosure(funcF.name(), x, y), result);
 
         // ensure no relation was added
@@ -1956,7 +1955,7 @@ public class DefaultTranslatorTest {
         // test the actual translation
         Var x = Term.mkVar("x"), y = Term.mkVar("y");
         Term result = translator.translate(
-                ExprElementOf.make(new VarTuple(x.of(univ), y.of(univ)),
+                ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(univ)),
                         ExprUnary.Op.NOOP.make(null, fieldF).closure()), context);
         assertEquals(Term.mkClosure(funcF.name(), x, y), result);
 
@@ -1979,7 +1978,7 @@ public class DefaultTranslatorTest {
         // test the actual translation
         Var x = Term.mkVar("x"), y = Term.mkVar("y");
         Term result = translator.translate(
-                ExprElementOf.make(new VarTuple(x.of(univ), y.of(univ)),
+                ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(univ)),
                         ExprUnary.Op.NOOP.make(null, fieldF).reflexiveClosure()), context);
         assertEquals(Term.mkReflexiveClosure(funcF.name(), x, y), result);
 
@@ -1998,11 +1997,11 @@ public class DefaultTranslatorTest {
         // mock out [[(x,y) \in e]] from the axiom
         Var flagInE = makeFlagConstant("inE");
         when(mockRoot.translate(argThat(isAlphaEquivalent(
-                ExprElementOf.make(new VarTuple(x.of(univ), y.of(univ)), e))), any()))
+                ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(univ)), e))), any()))
                 .thenReturn(flagInE);
 
         Term result = translator.translate(
-                ExprElementOf.make(new VarTuple(x.of(univ), y.of(univ)), e.closure()), context);
+                ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(univ)), e.closure()), context);
 
         // ensure a relation of type (univ, univ) -> Bool was added
         assertEquals(1, context.getTheory().functionDeclarations().size());
@@ -2041,11 +2040,11 @@ public class DefaultTranslatorTest {
         // mock out [[(x,y) \in e]] from the axiom
         Var flagInE = makeFlagConstant("inE");
         when(mockRoot.translate(argThat(isAlphaEquivalent(
-                ExprElementOf.make(new VarTuple(x.of(univ), y.of(univ)), e))), any()))
+                ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(univ)), e))), any()))
                 .thenReturn(flagInE);
 
         Term result = translator.translate(
-                ExprElementOf.make(new VarTuple(x.of(univ), y.of(univ)), e.reflexiveClosure()), context);
+                ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(univ)), e.reflexiveClosure()), context);
 
         // ensure a relation of type (univ, univ) -> Bool was added
         assertEquals(1, context.getTheory().functionDeclarations().size());
@@ -2085,11 +2084,11 @@ public class DefaultTranslatorTest {
         // mock out [[(x,y) \in f]] from the axiom
         Var flagInF = makeFlagConstant("inF");
         when(mockRoot.translate(argThat(isAlphaEquivalent(
-                ExprElementOf.make(new VarTuple(x.of(univ), y.of(univ)), f))), any()))
+                ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(univ)), f))), any()))
                 .thenReturn(flagInF);
 
         Term result = translator.translate(
-                ExprElementOf.make(new VarTuple(x.of(univ), y.of(univ)), f.closure()), context);
+                ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(univ)), f.closure()), context);
 
         // ensure a relation of type (univ, univ) -> Bool was added
         assertEquals(1, context.getTheory().functionDeclarations().size());
@@ -2129,11 +2128,11 @@ public class DefaultTranslatorTest {
         // mock out [[(x,y) \in f]] from the axiom
         Var flagInF = makeFlagConstant("inF");
         when(mockRoot.translate(argThat(isAlphaEquivalent(
-                ExprElementOf.make(new VarTuple(x.of(univ), y.of(univ)), f))), any()))
+                ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(univ)), f))), any()))
                 .thenReturn(flagInF);
 
         Term result = translator.translate(
-                ExprElementOf.make(new VarTuple(x.of(univ), y.of(univ)), f.reflexiveClosure()), context);
+                ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(univ)), f.reflexiveClosure()), context);
 
         // ensure a relation of type (univ, univ) -> Bool was added
         assertEquals(1, context.getTheory().functionDeclarations().size());
@@ -2171,11 +2170,11 @@ public class DefaultTranslatorTest {
         // mock out [[(x,y) \in e]] from the axiom
         Var flagInE = makeFlagConstant("inE");
         when(mockRoot.translate(argThat(isAlphaEquivalent(
-                ExprElementOf.make(new VarTuple(x.of(Sort.Int()), y.of(Sort.Int())), e))), any()))
+                ExprElementOf.make(TermTuple.fromVars(x.of(Sort.Int()), y.of(Sort.Int())), e))), any()))
                 .thenReturn(flagInE);
 
         Term result = translator.translate(
-                ExprElementOf.make(new VarTuple(x.of(Sort.Int()), y.of(Sort.Int())), e.closure()), context);
+                ExprElementOf.make(TermTuple.fromVars(x.of(Sort.Int()), y.of(Sort.Int())), e.closure()), context);
 
         // ensure a relation of type (Int,Int) -> Bool was added
         assertEquals(1, context.getTheory().functionDeclarations().size());
@@ -2213,11 +2212,11 @@ public class DefaultTranslatorTest {
         // mock out [[(x,y) \in e]] from the axiom
         Var flagInE = makeFlagConstant("inE");
         when(mockRoot.translate(argThat(isAlphaEquivalent(
-                ExprElementOf.make(new VarTuple(x.of(Sort.Int()), y.of(Sort.Int())), e))), any()))
+                ExprElementOf.make(TermTuple.fromVars(x.of(Sort.Int()), y.of(Sort.Int())), e))), any()))
                 .thenReturn(flagInE);
 
-        Term result = translator.translate(
-                ExprElementOf.make(new VarTuple(x.of(Sort.Int()), y.of(Sort.Int())), e.reflexiveClosure()), context);
+        Term result = translator.translate(ExprElementOf.make(
+                TermTuple.fromVars(x.of(Sort.Int()), y.of(Sort.Int())), e.reflexiveClosure()), context);
 
         // ensure a relation of type (Int,Int) -> Bool was added
         assertEquals(1, context.getTheory().functionDeclarations().size());
@@ -2254,7 +2253,7 @@ public class DefaultTranslatorTest {
         assertThrows("Should fail because e: univ->Int and we don't support closure over mixing univ/Int",
                 ErrorFatal.class,
                 () -> translator.translate(
-                        ExprElementOf.make(new VarTuple(x.of(univ), y.of(Sort.Int())), e.closure()), context));
+                        ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(Sort.Int())), e.closure()), context));
     }
 
     @Test
@@ -2266,8 +2265,8 @@ public class DefaultTranslatorTest {
         Var x = Term.mkVar("x"), y = Term.mkVar("y");
         assertThrows("Should fail because e: univ->Int and we don't support closure over mixing univ/Int",
                 ErrorFatal.class,
-                () -> translator.translate(
-                        ExprElementOf.make(new VarTuple(x.of(univ), y.of(Sort.Int())), e.reflexiveClosure()), context));
+                () -> translator.translate(ExprElementOf.make(
+                        TermTuple.fromVars(x.of(univ), y.of(Sort.Int())), e.reflexiveClosure()), context));
     }
 
     @Test
@@ -2283,14 +2282,14 @@ public class DefaultTranslatorTest {
         // mock out [[(x,y) \in e1+e2]] from the axiom
         Var flagInE = makeFlagConstant("inE");
         when(mockRoot.translate(argThat(isAlphaEquivalent(
-                ExprElementOf.make(new VarTuple(x.of(univ), y.of(univ)), e1.plus(e2)))), any()))
+                ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(univ)), e1.plus(e2)))), any()))
                 .thenReturn(flagInE);
 
         // translate twice, using the copy the second time
         translator.translate(
-                ExprElementOf.make(new VarTuple(x.of(univ), y.of(univ)), e1.plus(e2).closure()), context);
+                ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(univ)), e1.plus(e2).closure()), context);
         Term result = translator.translate(
-                ExprElementOf.make(new VarTuple(x.of(univ), y.of(univ)), e1.plus(e2).closure()), context);
+                ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(univ)), e1.plus(e2).closure()), context);
 
         // ensure only one relation of type (univ, univ) -> Bool was added
         assertEquals(1, context.getTheory().functionDeclarations().size());
@@ -2331,14 +2330,14 @@ public class DefaultTranslatorTest {
         // mock out [[(x,y) \in e1+e2]] from the axiom
         Var flagInE = makeFlagConstant("inE");
         when(mockRoot.translate(argThat(isAlphaEquivalent(
-                ExprElementOf.make(new VarTuple(x.of(univ), y.of(univ)), e1.plus(e2)))), any()))
+                ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(univ)), e1.plus(e2)))), any()))
                 .thenReturn(flagInE);
 
         // translate twice, using the copy the second time
         translator.translate(
-                ExprElementOf.make(new VarTuple(x.of(univ), y.of(univ)), e1.plus(e2).reflexiveClosure()), context);
+                ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(univ)), e1.plus(e2).reflexiveClosure()), context);
         Term result = translator.translate(
-                ExprElementOf.make(new VarTuple(x.of(univ), y.of(univ)), e1.plus(e2).reflexiveClosure()), context);
+                ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(univ)), e1.plus(e2).reflexiveClosure()), context);
 
         // ensure only one relation of type (univ, univ) -> Bool was added
         assertEquals(1, context.getTheory().functionDeclarations().size());
@@ -2379,14 +2378,14 @@ public class DefaultTranslatorTest {
         // mock out [[(x,y) \in e1+e2]] from the axiom
         Var flagInE = makeFlagConstant("inE");
         when(mockRoot.translate(argThat(isAlphaEquivalent(
-                ExprElementOf.make(new VarTuple(x.of(univ), y.of(univ)), e1.plus(e2)))), any()))
+                ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(univ)), e1.plus(e2)))), any()))
                 .thenReturn(flagInE);
 
         // translate twice, using the copy the second time
         translator.translate(
-                ExprElementOf.make(new VarTuple(x.of(univ), y.of(univ)), e1.plus(e2).closure()), context);
+                ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(univ)), e1.plus(e2).closure()), context);
         Term result = translator.translate(
-                ExprElementOf.make(new VarTuple(x.of(univ), y.of(univ)), e1.plus(e2).reflexiveClosure()), context);
+                ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(univ)), e1.plus(e2).reflexiveClosure()), context);
 
         // ensure only one relation of type (univ, univ) -> Bool was added
         assertEquals(1, context.getTheory().functionDeclarations().size());
@@ -2424,16 +2423,16 @@ public class DefaultTranslatorTest {
         Expr e = v.product(v);
         Var x = Term.mkVar("x"), y = Term.mkVar("y");
         Var vVar = Term.mkVar("v");
-        context.addVarMapping("v", vVar.of(univ));
+        context.addTermMapping("v", new AnnotatedTerm(vVar.of(univ)));
 
         // mock out [[(x,y) \in v->v]] from the axiom
         Var flagInE = makeFlagConstant("inE");
         when(mockRoot.translate(argThat(isAlphaEquivalent(
-                ExprElementOf.make(new VarTuple(x.of(univ), y.of(univ)), e))), any()))
+                ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(univ)), e))), any()))
                 .thenReturn(flagInE);
 
         Term result = translator.translate(
-                ExprElementOf.make(new VarTuple(x.of(univ), y.of(univ)), e.closure()), context);
+                ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(univ)), e.closure()), context);
 
         // ensure a relation of type (univ, univ, univ) -> Bool was added
         assertEquals(1, context.getTheory().functionDeclarations().size());
@@ -2472,16 +2471,16 @@ public class DefaultTranslatorTest {
         Expr e = v.product(v);
         Var x = Term.mkVar("x"), y = Term.mkVar("y");
         Var vVar = Term.mkVar("v");
-        context.addVarMapping("v", vVar.of(univ));
+        context.addTermMapping("v", new AnnotatedTerm(vVar.of(univ)));
 
         // mock out [[(x,y) \in v->v]] from the axiom
         Var flagInE = makeFlagConstant("inE");
         when(mockRoot.translate(argThat(isAlphaEquivalent(
-                ExprElementOf.make(new VarTuple(x.of(univ), y.of(univ)), e))), any()))
+                ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(univ)), e))), any()))
                 .thenReturn(flagInE);
 
         Term result = translator.translate(
-                ExprElementOf.make(new VarTuple(x.of(univ), y.of(univ)), e.reflexiveClosure()), context);
+                ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(univ)), e.reflexiveClosure()), context);
 
         // ensure a relation of type (univ, univ, univ) -> Bool was added
         assertEquals(1, context.getTheory().functionDeclarations().size());
@@ -2523,20 +2522,20 @@ public class DefaultTranslatorTest {
         // mock out [[(x,y) \in v->v]] from the axiom
         Var flagInE = makeFlagConstant("inE");
         when(mockRoot.translate(argThat(isAlphaEquivalent(
-                ExprElementOf.make(new VarTuple(x.of(univ), y.of(univ)), e))), any()))
+                ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(univ)), e))), any()))
                 .thenReturn(flagInE);
 
         // with one free variable
-        context.addVarMapping("v", vVar.of(univ));
+        context.addTermMapping("v", new AnnotatedTerm(vVar.of(univ)));
         Term result1 = translator.translate(
-                ExprElementOf.make(new VarTuple(x.of(univ), y.of(univ)), e.closure()), context);
+                ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(univ)), e.closure()), context);
 
         // with no free variables - "v" is mapped to univ
         context.removeMapping("v");
         context.addLetMapping("v", Sig.UNIV);
         delegateToRealTranslator(); // easier than mocking out the univ->univ translation
         Term result2 = translator.translate(
-                ExprElementOf.make(new VarTuple(x.of(univ), y.of(univ)), e.closure()), context);
+                ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(univ)), e.closure()), context);
 
         // assert that two different functions were generated: univ^3 -> Bool and univ^2 -> Bool
         assertEquals(2, context.getTheory().functionDeclarations().size());
@@ -2587,20 +2586,20 @@ public class DefaultTranslatorTest {
         // mock out [[(x,y) \in v->v]] from the axiom
         Var flagInE = makeFlagConstant("inE");
         when(mockRoot.translate(argThat(isAlphaEquivalent(
-                ExprElementOf.make(new VarTuple(x.of(univ), y.of(univ)), e))), any()))
+                ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(univ)), e))), any()))
                 .thenReturn(flagInE);
 
         // with one free variable
-        context.addVarMapping("v", vVar.of(univ));
+        context.addTermMapping("v", new AnnotatedTerm(vVar.of(univ)));
         Term result1 = translator.translate(
-                ExprElementOf.make(new VarTuple(x.of(univ), y.of(univ)), e.reflexiveClosure()), context);
+                ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(univ)), e.reflexiveClosure()), context);
 
         // with no free variables - "v" is mapped to univ
         context.removeMapping("v");
         context.addLetMapping("v", Sig.UNIV);
         delegateToRealTranslator(); // easier than mocking out the univ->univ translation
         Term result2 = translator.translate(
-                ExprElementOf.make(new VarTuple(x.of(univ), y.of(univ)), e.reflexiveClosure()), context);
+                ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(univ)), e.reflexiveClosure()), context);
 
         // assert that two different functions were generated: univ^3 -> Bool and univ^2 -> Bool
         assertEquals(2, context.getTheory().functionDeclarations().size());
@@ -2686,8 +2685,11 @@ public class DefaultTranslatorTest {
             // make sure that x |-> fortressX appears in the context map when translating [[f]],
             // and capture the fortressX constant to construct the expected translation later
             TranslationContext context = ctx.getArgument(1);
-            assertTrue(context.hasVarMapping("x"));
-            fortressX.set(context.getVarMapping("x"));
+            assertTrue(context.hasTermMapping("x"));
+            AnnotatedTerm term = context.getTermMapping("x");
+            assertNotNull(term);
+            assertTrue(term.getTerm() instanceof Var);
+            fortressX.set(new AnnotatedVar((Var) term.getTerm(), term.getSort()));
             return flagSub;
         });
 
@@ -2698,7 +2700,7 @@ public class DefaultTranslatorTest {
         assertEquals(expected, result);
 
         // make sure the x |-> fortressX mapping was removed after translating [[f]]
-        assertFalse(context.hasVarMapping("x"));
+        assertFalse(context.hasTermMapping("x"));
         assertContextEmpty();
     }
 
@@ -2722,10 +2724,16 @@ public class DefaultTranslatorTest {
         when(mockRoot.translate(eq(f), any())).then(ctx -> {
             // make sure x1 and x2 have mappings here and capture them
             TranslationContext context = ctx.getArgument(1);
-            assertTrue(context.hasVarMapping("x1"));
-            assertTrue(context.hasVarMapping("x2"));
-            fortressX1.set(context.getVarMapping("x1"));
-            fortressX2.set(context.getVarMapping("x2"));
+            assertTrue(context.hasTermMapping("x1"));
+            assertTrue(context.hasTermMapping("x2"));
+            AnnotatedTerm term1 = context.getTermMapping("x1");
+            assertNotNull(term1);
+            assertTrue(term1.getTerm() instanceof Var);
+            fortressX1.set(new AnnotatedVar((Var) term1.getTerm(), term1.getSort()));
+            AnnotatedTerm term2 = context.getTermMapping("x2");
+            assertNotNull(term2);
+            assertTrue(term2.getTerm() instanceof Var);
+            fortressX2.set(new AnnotatedVar((Var) term2.getTerm(), term2.getSort()));
             return flagSub;
         });
 
@@ -2739,8 +2747,8 @@ public class DefaultTranslatorTest {
         assertEquals(expected, result);
 
         // make sure the mappings were removed after translation
-        assertFalse(context.hasVarMapping("x1"));
-        assertFalse(context.hasVarMapping("x2"));
+        assertFalse(context.hasTermMapping("x1"));
+        assertFalse(context.hasTermMapping("x2"));
         assertContextEmpty();
     }
 
@@ -2765,8 +2773,11 @@ public class DefaultTranslatorTest {
             // make sure that x |-> fortressX appears in the context map when translating [[f]],
             // and capture the fortressX constant to construct the expected translation later
             TranslationContext context = ctx.getArgument(1);
-            assertTrue(context.hasVarMapping("x"));
-            fortressX.set(context.getVarMapping("x"));
+            assertTrue(context.hasTermMapping("x"));
+            AnnotatedTerm term = context.getTermMapping("x");
+            assertNotNull(term);
+            assertTrue(term.getTerm() instanceof Var);
+            fortressX.set(new AnnotatedVar((Var) term.getTerm(), term.getSort()));
             return flagSub;
         });
 
@@ -2777,7 +2788,7 @@ public class DefaultTranslatorTest {
         assertEquals(expected, result);
 
         // make sure the x |-> fortressX mapping was removed after translating [[f]]
-        assertFalse(context.hasVarMapping("x"));
+        assertFalse(context.hasTermMapping("x"));
         assertContextEmpty();
     }
 
@@ -2804,10 +2815,16 @@ public class DefaultTranslatorTest {
                 .then(ctx -> {
                     // make sure x1 and x2 have mappings here and capture them
                     TranslationContext context = ctx.getArgument(1);
-                    assertTrue(context.hasVarMapping("x1"));
-                    assertTrue(context.hasVarMapping("x2"));
-                    fortressX1.set(context.getVarMapping("x1"));
-                    fortressX2.set(context.getVarMapping("x2"));
+                    assertTrue(context.hasTermMapping("x1"));
+                    assertTrue(context.hasTermMapping("x2"));
+                    AnnotatedTerm term1 = context.getTermMapping("x1");
+                    assertNotNull(term1);
+                    assertTrue(term1.getTerm() instanceof Var);
+                    fortressX1.set(new AnnotatedVar((Var) term1.getTerm(), term1.getSort()));
+                    AnnotatedTerm term2 = context.getTermMapping("x2");
+                    assertNotNull(term2);
+                    assertTrue(term2.getTerm() instanceof Var);
+                    fortressX2.set(new AnnotatedVar((Var) term2.getTerm(), term2.getSort()));
                     return flagSub;
                 });
 
@@ -2821,8 +2838,8 @@ public class DefaultTranslatorTest {
         assertEquals(expected, result);
 
         // make sure the mappings were removed after translation
-        assertFalse(context.hasVarMapping("x1"));
-        assertFalse(context.hasVarMapping("x2"));
+        assertFalse(context.hasTermMapping("x1"));
+        assertFalse(context.hasTermMapping("x2"));
         assertContextEmpty();
     }
 
@@ -2846,8 +2863,11 @@ public class DefaultTranslatorTest {
             // make sure that x |-> fortressX appears in the context map when translating [[f]],
             // and capture the fortressX constant to construct the expected translation later
             TranslationContext context = ctx.getArgument(1);
-            assertTrue(context.hasVarMapping("x"));
-            fortressX.set(context.getVarMapping("x"));
+            assertTrue(context.hasTermMapping("x"));
+            AnnotatedTerm term = context.getTermMapping("x");
+            assertNotNull(term);
+            assertTrue(term.getTerm() instanceof Var);
+            fortressX.set(new AnnotatedVar((Var) term.getTerm(), term.getSort()));
             return flagSub;
         });
 
@@ -2858,7 +2878,7 @@ public class DefaultTranslatorTest {
         assertEquals(expected, result);
 
         // make sure the x |-> fortressX mapping was removed after translating [[f]]
-        assertFalse(context.hasVarMapping("x"));
+        assertFalse(context.hasTermMapping("x"));
         assertContextEmpty();
     }
 
@@ -2881,8 +2901,11 @@ public class DefaultTranslatorTest {
             // make sure that x |-> fortressX appears in the context map when translating [[f]],
             // and capture the fortressX constant to construct the expected translation later
             TranslationContext context = ctx.getArgument(1);
-            assertTrue(context.hasVarMapping("x"));
-            fortressX.set(context.getVarMapping("x"));
+            assertTrue(context.hasTermMapping("x"));
+            AnnotatedTerm term = context.getTermMapping("x");
+            assertNotNull(term);
+            assertTrue(term.getTerm() instanceof Var);
+            fortressX.set(new AnnotatedVar((Var) term.getTerm(), term.getSort()));
             return flagSub;
         });
 
@@ -2893,7 +2916,7 @@ public class DefaultTranslatorTest {
         assertEquals(expected, result);
 
         // make sure the x |-> fortressX mapping was removed after translating [[f]]
-        assertFalse(context.hasVarMapping("x"));
+        assertFalse(context.hasTermMapping("x"));
         assertContextEmpty();
     }
 
@@ -2932,7 +2955,7 @@ public class DefaultTranslatorTest {
         assertThat(result, isAlphaEquivalentTerm(expected));
 
         // make sure the x |-> fortressX mapping was removed
-        assertFalse(context.hasVarMapping("x"));
+        assertFalse(context.hasTermMapping("x"));
     }
 
     @Test
@@ -2972,7 +2995,7 @@ public class DefaultTranslatorTest {
         assertThat(result, isAlphaEquivalentTerm(expected));
 
         // make sure the x mapping was removed
-        assertFalse(context.hasVarMapping("x"));
+        assertFalse(context.hasTermMapping("x"));
     }
 
     @Test
@@ -3002,7 +3025,7 @@ public class DefaultTranslatorTest {
         assertEquals(expected, result);
 
         // make sure the x mapping was removed
-        assertFalse(context.hasVarMapping("x"));
+        assertFalse(context.hasTermMapping("x"));
     }
 
     @Test
@@ -3038,7 +3061,7 @@ public class DefaultTranslatorTest {
         assertEquals(expected, result);
 
         // make sure the x mapping was removed
-        assertFalse(context.hasVarMapping("x"));
+        assertFalse(context.hasTermMapping("x"));
     }
 
     @Test
@@ -3073,8 +3096,8 @@ public class DefaultTranslatorTest {
         assertEquals(expected, result);
 
         // make sure the mappings were removed
-        assertFalse(context.hasVarMapping("x"));
-        assertFalse(context.hasVarMapping("y"));
+        assertFalse(context.hasTermMapping("x"));
+        assertFalse(context.hasTermMapping("y"));
     }
 
     @Test
@@ -3126,8 +3149,8 @@ public class DefaultTranslatorTest {
         assertEquals(expected, result);
 
         // make sure the mappings were removed
-        assertFalse(context.hasVarMapping("x"));
-        assertFalse(context.hasVarMapping("y"));
+        assertFalse(context.hasTermMapping("x"));
+        assertFalse(context.hasTermMapping("y"));
     }
 
     @Test
@@ -3156,7 +3179,7 @@ public class DefaultTranslatorTest {
         assertEquals(expected, result);
 
         // make sure the x mapping was removed
-        assertFalse(context.hasVarMapping("x"));
+        assertFalse(context.hasTermMapping("x"));
     }
 
     @Test
@@ -3193,8 +3216,8 @@ public class DefaultTranslatorTest {
         assertEquals(expected, result);
 
         // make sure the mappings were removed
-        assertFalse(context.hasVarMapping("x"));
-        assertFalse(context.hasVarMapping("y"));
+        assertFalse(context.hasTermMapping("x"));
+        assertFalse(context.hasTermMapping("y"));
     }
 
     @Test
@@ -3227,7 +3250,7 @@ public class DefaultTranslatorTest {
                 ExprElementOf.make(Term.mkVar("x0").of(univ), e))), any()))
                 .then(ctx -> {
                     ExprElementOf translated = ctx.getArgument(0);
-                    return Term.mkApp("inE", translated.tuple.getVar(0));
+                    return Term.mkApp("inE", translated.tuple.getTerm(0));
                 });
 
         DomainElement domElem = DomainElement.apply(1, univ);
@@ -3247,10 +3270,11 @@ public class DefaultTranslatorTest {
 
         // translate [[x0 \in e]] with a function inE(x)
         when(mockRoot.translate(argThat(isAlphaEquivalent(
-                ExprElementOf.make(new VarTuple(Term.mkVar("x0").of(univ), Term.mkVar("x1").of(univ)), e))), any()))
+                ExprElementOf.make(TermTuple.fromVars(
+                        Term.mkVar("x0").of(univ), Term.mkVar("x1").of(univ)), e))), any()))
                 .then(ctx -> {
                     ExprElementOf translated = ctx.getArgument(0);
-                    return Term.mkApp("inE", translated.tuple.getVar(0), translated.tuple.getVar(1));
+                    return Term.mkApp("inE", translated.tuple.getTerm(0), translated.tuple.getTerm(1));
                 });
 
         DomainElement domElem = DomainElement.apply(1, univ);
@@ -3273,10 +3297,10 @@ public class DefaultTranslatorTest {
         // translate [[x0 \in e]] with a function inE(x)
         when(mockRoot.translate(argThat(isAlphaEquivalent(
                 ExprElementOf.make(
-                        new VarTuple(Term.mkVar("x0").of(univ), Term.mkVar("x1").of(Sort.Int())), e))), any()))
+                        TermTuple.fromVars(Term.mkVar("x0").of(univ), Term.mkVar("x1").of(Sort.Int())), e))), any()))
                 .then(ctx -> {
                     ExprElementOf translated = ctx.getArgument(0);
-                    return Term.mkApp("inE", translated.tuple.getVar(0), translated.tuple.getVar(1));
+                    return Term.mkApp("inE", translated.tuple.getTerm(0), translated.tuple.getTerm(1));
                 });
 
         DomainElement domElemUniv = DomainElement.apply(1, univ);
@@ -3301,7 +3325,7 @@ public class DefaultTranslatorTest {
                 ExprElementOf.make(Term.mkVar("x0").of(univ), e))), any()))
                 .then(ctx -> {
                     ExprElementOf translated = ctx.getArgument(0);
-                    return Term.mkApp("inE", translated.tuple.getVar(0));
+                    return Term.mkApp("inE", translated.tuple.getTerm(0));
                 });
 
         DomainElement domElem1 = DomainElement.apply(1, univ);
@@ -3327,10 +3351,11 @@ public class DefaultTranslatorTest {
 
         // translate [[x0 \in e]] with a function inE(x)
         when(mockRoot.translate(argThat(isAlphaEquivalent(
-                ExprElementOf.make(new VarTuple(Term.mkVar("x0").of(univ), Term.mkVar("x1").of(univ)), e))), any()))
+                ExprElementOf.make(TermTuple.fromVars(
+                        Term.mkVar("x0").of(univ), Term.mkVar("x1").of(univ)), e))), any()))
                 .then(ctx -> {
                     ExprElementOf translated = ctx.getArgument(0);
-                    return Term.mkApp("inE", translated.tuple.getVar(0), translated.tuple.getVar(1));
+                    return Term.mkApp("inE", translated.tuple.getTerm(0), translated.tuple.getTerm(1));
                 });
 
         DomainElement domElem1 = DomainElement.apply(1, univ);
@@ -3368,8 +3393,8 @@ public class DefaultTranslatorTest {
         Var flagMappedF = makeFlagConstant("mappedF");
         when(mockRoot.translate(eq(f), any())).then(ctx -> {
             TranslationContext context = ctx.getArgument(1);
-            assertTrue(context.hasVarMapping("y"));
-            assertEquals(x, Objects.requireNonNull(context.getVarMapping("y")).variable());
+            assertTrue(context.hasTermMapping("y"));
+            assertEquals(x, Objects.requireNonNull(context.getTermMapping("y")).getTerm());
             return flagMappedF;
         });
 
@@ -3402,14 +3427,15 @@ public class DefaultTranslatorTest {
         Var flagMappedF = makeFlagConstant("mappedF");
         when(mockRoot.translate(eq(f), any())).then(ctx -> {
             TranslationContext context = ctx.getArgument(1);
-            assertTrue(context.hasVarMapping("y1"));
-            assertTrue(context.hasVarMapping("y2"));
-            assertEquals(x1, Objects.requireNonNull(context.getVarMapping("y1")).variable());
-            assertEquals(x2, Objects.requireNonNull(context.getVarMapping("y2")).variable());
+            assertTrue(context.hasTermMapping("y1"));
+            assertTrue(context.hasTermMapping("y2"));
+            assertEquals(x1, Objects.requireNonNull(context.getTermMapping("y1")).getTerm());
+            assertEquals(x2, Objects.requireNonNull(context.getTermMapping("y2")).getTerm());
             return flagMappedF;
         });
 
-        Expr comprehension = ExprElementOf.make(new VarTuple(x1.of(univ), x2.of(univ)), f.comprehensionOver(y1, y2));
+        Expr comprehension = ExprElementOf.make(
+                TermTuple.fromVars(x1.of(univ), x2.of(univ)), f.comprehensionOver(y1, y2));
         Term result = translator.translate(comprehension, context);
         assertEquals(Term.mkAnd(flagInE1, flagInE2, flagMappedF), result);
         assertContextEmpty(); // should clear context
@@ -3437,14 +3463,14 @@ public class DefaultTranslatorTest {
         Var flagMappedF = makeFlagConstant("mappedF");
         when(mockRoot.translate(eq(f), any())).then(ctx -> {
             TranslationContext context = ctx.getArgument(1);
-            assertTrue(context.hasVarMapping("y1"));
-            assertTrue(context.hasVarMapping("y2"));
-            assertEquals(x1, Objects.requireNonNull(context.getVarMapping("y1")).variable());
-            assertEquals(x2, Objects.requireNonNull(context.getVarMapping("y2")).variable());
+            assertTrue(context.hasTermMapping("y1"));
+            assertTrue(context.hasTermMapping("y2"));
+            assertEquals(x1, Objects.requireNonNull(context.getTermMapping("y1")).getTerm());
+            assertEquals(x2, Objects.requireNonNull(context.getTermMapping("y2")).getTerm());
             return flagMappedF;
         });
 
-        Expr comprehension = ExprElementOf.make(new VarTuple(x1.of(univ), x2.of(univ)), f.comprehensionOver(ys));
+        Expr comprehension = ExprElementOf.make(TermTuple.fromVars(x1.of(univ), x2.of(univ)), f.comprehensionOver(ys));
         Term result = translator.translate(comprehension, context);
         assertEquals(Term.mkAnd(flagInE1, flagInE2, flagMappedF), result);
         assertContextEmpty(); // should clear context
@@ -3467,9 +3493,9 @@ public class DefaultTranslatorTest {
                 .thenReturn(flagInE);
         when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(x2.of(univ), y1.get()))), any())).then(ctx -> {
             TranslationContext context = ctx.getArgument(1);
-            assertTrue(context.hasVarMapping("y1"));
-            assertFalse(context.hasVarMapping("y2")); // no y2 yet, we're too early
-            assertEquals(x1, Objects.requireNonNull(context.getVarMapping("y1")).variable());
+            assertTrue(context.hasTermMapping("y1"));
+            assertFalse(context.hasTermMapping("y2")); // no y2 yet, we're too early
+            assertEquals(x1, Objects.requireNonNull(context.getTermMapping("y1")).getTerm());
             return flagInY1;
         });
 
@@ -3477,14 +3503,15 @@ public class DefaultTranslatorTest {
         Var flagMappedF = makeFlagConstant("mappedF");
         when(mockRoot.translate(eq(f), any())).then(ctx -> {
             TranslationContext context = ctx.getArgument(1);
-            assertTrue(context.hasVarMapping("y1"));
-            assertTrue(context.hasVarMapping("y2"));
-            assertEquals(x1, Objects.requireNonNull(context.getVarMapping("y1")).variable());
-            assertEquals(x2, Objects.requireNonNull(context.getVarMapping("y2")).variable());
+            assertTrue(context.hasTermMapping("y1"));
+            assertTrue(context.hasTermMapping("y2"));
+            assertEquals(x1, Objects.requireNonNull(context.getTermMapping("y1")).getTerm());
+            assertEquals(x2, Objects.requireNonNull(context.getTermMapping("y2")).getTerm());
             return flagMappedF;
         });
 
-        Expr comprehension = ExprElementOf.make(new VarTuple(x1.of(univ), x2.of(univ)), f.comprehensionOver(y1, y2));
+        Expr comprehension = ExprElementOf.make(
+                TermTuple.fromVars(x1.of(univ), x2.of(univ)), f.comprehensionOver(y1, y2));
         Term result = translator.translate(comprehension, context);
         assertEquals(Term.mkAnd(flagInE, flagInY1, flagMappedF), result);
         assertContextEmpty(); // should clear context
@@ -3517,7 +3544,7 @@ public class DefaultTranslatorTest {
         // mock out [[x \in e]]
         Var flagInE = makeFlagConstant("inE");
         when(mockRoot.translate(argThat(isSameAs(
-                ExprElementOf.make(new VarTuple(x0.of(univ), x1.of(univ)), e))), any())).thenReturn(flagInE);
+                ExprElementOf.make(TermTuple.fromVars(x0.of(univ), x1.of(univ)), e))), any())).thenReturn(flagInE);
 
         Term result = translator.translate(e.some(), context);
         Term expected = Term.mkExists(Arrays.asList(x0.of(univ), x1.of(univ)),
@@ -3552,7 +3579,7 @@ public class DefaultTranslatorTest {
         // mock out [[x \in e]]
         Var flagInE = makeFlagConstant("inE");
         when(mockRoot.translate(argThat(isSameAs(
-                ExprElementOf.make(new VarTuple(x0.of(univ), x1.of(Sort.Int())), e))), any())).thenReturn(flagInE);
+                ExprElementOf.make(TermTuple.fromVars(x0.of(univ), x1.of(Sort.Int())), e))), any())).thenReturn(flagInE);
 
         Term result = translator.translate(e.some(), context);
         Term expected = Term.mkExists(Arrays.asList(x0.of(univ), x1.of(Sort.Int())),
@@ -3626,8 +3653,8 @@ public class DefaultTranslatorTest {
         // test [[disj[e1,e2]]] := DISTINCT(v1,v2) where e1,e2 are variables bound to v1,v2
         ExprVar e1 = makeTestVariable("e1"), e2 = makeTestVariable("e2");
         Var v1 = Term.mkVar("v1"), v2 = Term.mkVar("v2");
-        context.addVarMapping("e1", v1.of(univ));
-        context.addVarMapping("e2", v2.of(univ));
+        context.addTermMapping("e1", new AnnotatedTerm(v1.of(univ)));
+        context.addTermMapping("e2", new AnnotatedTerm(v2.of(univ)));
         Term result = translator.translate(ExprList.makeDISJOINT(null, null, Arrays.asList(e1, e2)), context);
         assertEquals(Term.mkDistinct(v1, v2), result);
     }
@@ -3637,9 +3664,9 @@ public class DefaultTranslatorTest {
         // test [[disj[e1,e2,e3]]] := DISTINCT(v1,v2,v3) where e1,e2,e3 are variables bound to v1,v2,v3
         ExprVar e1 = makeTestVariable("e1"), e2 = makeTestVariable("e2"), e3 = makeTestVariable("e3");
         Var v1 = Term.mkVar("v1"), v2 = Term.mkVar("v2"), v3 = Term.mkVar("v3");
-        context.addVarMapping("e1", v1.of(univ));
-        context.addVarMapping("e2", v2.of(univ));
-        context.addVarMapping("e3", v3.of(univ));
+        context.addTermMapping("e1", new AnnotatedTerm(v1.of(univ)));
+        context.addTermMapping("e2", new AnnotatedTerm(v2.of(univ)));
+        context.addTermMapping("e3", new AnnotatedTerm(v3.of(univ)));
         Term result = translator.translate(ExprList.makeDISJOINT(null, null, Arrays.asList(e1, e2, e3)), context);
         assertEquals(Term.mkDistinct(v1, v2, v3), result);
     }
@@ -3674,7 +3701,7 @@ public class DefaultTranslatorTest {
         // make sure x is flushed from the context's mapping
         assertContextEmpty();
         assertFalse(context.hasLetMapping("x"));
-        assertFalse(context.hasVarMapping("x"));
+        assertFalse(context.hasTermMapping("x"));
     }
 
     @Test
@@ -3691,7 +3718,7 @@ public class DefaultTranslatorTest {
         assertEquals(flagF, result);
         assertContextEmpty();
         assertFalse(context.hasLetMapping("x"));
-        assertFalse(context.hasVarMapping("x"));
+        assertFalse(context.hasTermMapping("x"));
     }
 
     @Test
@@ -3703,7 +3730,7 @@ public class DefaultTranslatorTest {
         ExprVar x = makeTestVariable("x");
 
         Var fortressE = Term.mkVar("e");
-        context.addVarMapping("e", fortressE.of(univ));
+        context.addTermMapping("e", new AnnotatedTerm(fortressE.of(univ)));
         delegateToRealTranslator();
 
         Term result = translator.translate(ExprLet.make(null, a, e, ExprLet.make(null, e, x, a)), context);
@@ -3712,9 +3739,9 @@ public class DefaultTranslatorTest {
         // make sure things are flushed from the context's mapping
         assertContextEmpty();
         assertFalse(context.hasLetMapping("a"));
-        assertFalse(context.hasVarMapping("a"));
-        assertTrue(context.hasVarMapping("e"));
-        assertEquals(fortressE, Objects.requireNonNull(context.getVarMapping("e")).variable());
+        assertFalse(context.hasTermMapping("a"));
+        assertTrue(context.hasTermMapping("e"));
+        assertEquals(fortressE, Objects.requireNonNull(context.getTermMapping("e")).getTerm());
     }
 
     @Test
@@ -3748,7 +3775,7 @@ public class DefaultTranslatorTest {
         // make sure x is flushed from the context's mapping
         assertContextEmpty();
         assertFalse(context.hasLetMapping("x"));
-        assertFalse(context.hasVarMapping("x"));
+        assertFalse(context.hasTermMapping("x"));
     }
 
     @Test
@@ -3758,7 +3785,7 @@ public class DefaultTranslatorTest {
         ExprVar alloyVar = makeTestVariable("v");
         Var x = Term.mkVar("x");
         Var v = Term.mkVar("v");
-        context.addVarMapping(alloyVar.label, v.of(univ));
+        context.addTermMapping(alloyVar.label, new AnnotatedTerm(v.of(univ)));
 
         Term result = translator.translate(ExprElementOf.make(x.of(univ), alloyVar), context);
         assertEquals(Term.mkEq(x, v), result);
@@ -3775,7 +3802,7 @@ public class DefaultTranslatorTest {
 
         // mock out [[(x1,x2) \in e]]
         Var x1 = Term.mkVar("x1"), x2 = Term.mkVar("x2");
-        VarTuple vars = new VarTuple(x1.of(univ), x2.of(univ));
+        TermTuple vars = TermTuple.fromVars(x1.of(univ), x2.of(univ));
         Var flagInE = makeFlagConstant("inE");
         when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(vars, expr))), any()))
                 .thenReturn(flagInE);
@@ -3822,7 +3849,7 @@ public class DefaultTranslatorTest {
         // make sure y is flushed from the context's mapping
         assertContextEmpty();
         assertFalse(context.hasLetMapping("y"));
-        assertFalse(context.hasVarMapping("y"));
+        assertFalse(context.hasTermMapping("y"));
     }
 
     @Test
@@ -3854,8 +3881,8 @@ public class DefaultTranslatorTest {
         assertContextEmpty();
         assertFalse(context.hasLetMapping("y1"));
         assertFalse(context.hasLetMapping("y2"));
-        assertFalse(context.hasVarMapping("y1"));
-        assertFalse(context.hasVarMapping("y2"));
+        assertFalse(context.hasTermMapping("y1"));
+        assertFalse(context.hasTermMapping("y2"));
     }
 
     @Test
@@ -3865,7 +3892,7 @@ public class DefaultTranslatorTest {
         ExprVar f = makeTestVariable("f");
         Func fun = makeTestFunc("g", null, sig, f);
         Var x = Term.mkVar("x");
-        VarTuple vars = new VarTuple(x.of(univ));
+        TermTuple vars = TermTuple.fromVars(x.of(univ));
 
         Var flag = makeFlagConstant("flag");
         when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(vars, f))), any()))
@@ -3885,7 +3912,7 @@ public class DefaultTranslatorTest {
         ExprVar f = makeTestVariable("f");
         Func fun = makeTestFunc("u", Collections.singletonList(xDecl), sig, f);
         Var x = Term.mkVar("x");
-        VarTuple vars = new VarTuple(x.of(univ));
+        TermTuple vars = TermTuple.fromVars(x.of(univ));
 
         // make sure the argument is y
         Term flag = makeFlagConstant("flag");
@@ -3902,7 +3929,7 @@ public class DefaultTranslatorTest {
         // make sure y is flushed from the context's mapping
         assertContextEmpty();
         assertFalse(context.hasLetMapping("y"));
-        assertFalse(context.hasVarMapping("y"));
+        assertFalse(context.hasTermMapping("y"));
     }
 
     @Test
@@ -3916,7 +3943,7 @@ public class DefaultTranslatorTest {
         ExprVar f = makeTestVariable("f");
         Func fun = makeTestFunc("b", Arrays.asList(x1Decl, x2Decl), sig, f);
         Var x = Term.mkVar("x");
-        VarTuple vars = new VarTuple(x.of(univ));
+        TermTuple vars = TermTuple.fromVars(x.of(univ));
 
         // make sure the arguments are y1, y2
         Term flag = makeFlagConstant("flag");
@@ -3936,8 +3963,8 @@ public class DefaultTranslatorTest {
         assertContextEmpty();
         assertFalse(context.hasLetMapping("y1"));
         assertFalse(context.hasLetMapping("y2"));
-        assertFalse(context.hasVarMapping("y1"));
-        assertFalse(context.hasVarMapping("y2"));
+        assertFalse(context.hasTermMapping("y1"));
+        assertFalse(context.hasTermMapping("y2"));
     }
 
     @Test
@@ -3979,15 +4006,15 @@ public class DefaultTranslatorTest {
         assertContextEmpty();
         assertFalse(context.hasLetMapping("x"));
         assertFalse(context.hasLetMapping("a"));
-        assertFalse(context.hasVarMapping("x"));
-        assertFalse(context.hasVarMapping("a"));
+        assertFalse(context.hasTermMapping("x"));
+        assertFalse(context.hasTermMapping("a"));
     }
 
     @Test
     public void testTranslate_varAsExpression() {
         // test [[x]] := x (as an [integer] expression)
         Var x = Term.mkVar("x");
-        context.addVarMapping("x", x.of(univ));
+        context.addTermMapping("x", new AnnotatedTerm(x.of(univ)));
         Term result = translator.translate(makeTestVariable("x"), context);
         assertEquals(Term.mkVar("x"), result);
         assertContextEmpty();
@@ -4024,8 +4051,11 @@ public class DefaultTranslatorTest {
         doAnswer(ctx -> {
             // make sure x has a mapping here and capture it
             TranslationContext context = ctx.getArgument(1);
-            assertTrue(context.hasVarMapping("x"));
-            fortressX.set(context.getVarMapping("x"));
+            assertTrue(context.hasTermMapping("x"));
+            AnnotatedTerm term = context.getTermMapping("x");
+            assertNotNull(term);
+            assertTrue(term.getTerm() instanceof Var);
+            fortressX.set(new AnnotatedVar((Var) term.getTerm(), term.getSort()));
             return flagF;
         }).when(mockRoot).translate(eq(f), any());
 
@@ -4229,7 +4259,7 @@ public class DefaultTranslatorTest {
         // test [[(x1, x2) \in iden] := x1 = x2
         Var x1 = Term.mkVar("x1"), x2 = Term.mkVar("x2");
         Term result = translator.translate(
-                ExprElementOf.make(new VarTuple(x1.of(univ), x2.of(univ)), ExprConstant.IDEN), context);
+                ExprElementOf.make(TermTuple.fromVars(x1.of(univ), x2.of(univ)), ExprConstant.IDEN), context);
         assertEquals(Term.mkEq(x1, x2), result);
         assertContextEmpty();
     }
@@ -4304,8 +4334,8 @@ public class DefaultTranslatorTest {
         // test [[(x1, x2) \in next]] := x1 != 7 && x1 + 1 = x2 for bitwidth 4
         when(mockScoper.getBitwidth()).thenReturn(4);
         Var x1 = Term.mkVar("x1"), x2 = Term.mkVar("x2");
-        Term result = translator.translate(
-                ExprElementOf.make(new VarTuple(x1.of(Sort.Int()), x2.of(Sort.Int())), ExprConstant.NEXT), context);
+        Term result = translator.translate(ExprElementOf.make(
+                TermTuple.fromVars(x1.of(Sort.Int()), x2.of(Sort.Int())), ExprConstant.NEXT), context);
         Term expected = Term.mkAnd(
                 Term.mkNot(Term.mkEq(x1, IntegerLiteral.apply(7))),
                 Term.mkEq(Term.mkPlus(x1, IntegerLiteral.apply(1)), x2));

@@ -9,7 +9,6 @@ import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprBinary;
 import edu.mit.csail.sdg.ast.ExprCall;
 import edu.mit.csail.sdg.ast.ExprConstant;
-import edu.mit.csail.sdg.ast.ExprHasName;
 import edu.mit.csail.sdg.ast.ExprITE;
 import edu.mit.csail.sdg.ast.ExprLet;
 import edu.mit.csail.sdg.ast.ExprList;
@@ -27,7 +26,6 @@ import fortress.msfol.Sort;
 import fortress.msfol.Term;
 import fortress.msfol.Var;
 import fortress.operations.Substituter;
-import scala.collection.immutable.HashSet;
 import scala.jdk.javaapi.CollectionConverters;
 
 import java.util.ArrayList;
@@ -199,7 +197,7 @@ final class PortusUtil {
 
         // TODO: can we use FastSubstituter in some cases?
         //noinspection unchecked
-        NameGenerator nameGen = new IntSuffixNameGenerator(new HashSet<String>(), 0);
+        NameGenerator nameGen = new IntSuffixNameGenerator(new scala.collection.immutable.HashSet<String>(), 0);
         for (int i = 0; i < a.size(); i++) {
             Var from = a.get(i).variable();
             Term to = b.get(i);
@@ -275,11 +273,9 @@ final class PortusUtil {
      * (which should assign a Fortress var for each free Alloy var).
      */
     public static List<AnnotatedVar> computeFreeVariables(Expr expr, final TranslationContext inContext) {
-        // make a copy just in case
-        TranslationContext context = new TranslationContext(inContext);
-
+        // TODO: find sorts of free vars via earlier quantifiers
         // simple recursive implementation
-        return expr.accept(new FortressVisitReturn<List<AnnotatedVar>>() {
+        return expr.accept(new ContextVisitReturn<List<AnnotatedVar>>(inContext) {
             @SafeVarargs
             private final List<AnnotatedVar> union(List<AnnotatedVar>... lists) {
                 // this is O(n^2) to union two lists of length n, but this shouldn't be a bottleneck
@@ -326,39 +322,24 @@ final class PortusUtil {
             }
 
             @Override
-            public List<AnnotatedVar> visit(ExprLet x) throws Err {
+            public List<AnnotatedVar> visitLet(ExprLet x) throws Err {
                 return visitThis(x.sub);
             }
 
             @Override
-            public List<AnnotatedVar> visit(ExprQt x) throws Err {
-                // Add each quantified variable to the context and map bound variables being declared.
-                // We map each of them to this constant so we can easily remove it from the list of free vars later.
-                // Use a nonexistant sort and special characters in the names so we don't collide with user vars.
-                final Sort nonexistantSort = Sort.mkSortConst("%NonexistantSort");
-                final AnnotatedVar boundPlaceholderVar = Term.mkVar("%boundPlaceholderVar").of(nonexistantSort);
-                List<AnnotatedVar> freeVars = new ArrayList<>();
-                for (Decl decl : x.decls) {
-                    for (ExprHasName name : decl.names) {
-                        freeVars = union(freeVars, visitThis(decl.expr));
-                        context.addVarMapping(name.label, boundPlaceholderVar);
-                    }
-                }
+            public List<AnnotatedVar> visitQuantifier(ExprQt x, List<List<AnnotatedVar>> argResults) throws Err {
+                // the special bound variable represents vars that aren't free - remove it from the list
+                List<AnnotatedVar> freeVars = argResults.stream().reduce(new ArrayList<>(), this::union);
+                List<AnnotatedVar> subFreeVars = visitThis(x.sub);
+                return union(freeVars, subFreeVars.stream()
+                        .filter(var -> !var.equals(boundPlaceholderVar))
+                        .collect(Collectors.toList()));
+            }
 
-                try {
-                    // the special bound variable represents vars that aren't free - remove it from the list
-                    List<AnnotatedVar> subFreeVars = visitThis(x.sub);
-                    return union(freeVars, subFreeVars.stream()
-                            .filter(var -> !var.equals(boundPlaceholderVar))
-                            .collect(Collectors.toList()));
-                } finally {
-                    // remove each quantified variable from the context
-                    for (Decl decl : x.decls) {
-                        for (ExprHasName name : decl.names) {
-                            context.removeMapping(name.label);
-                        }
-                    }
-                }
+            @Override
+            public List<AnnotatedVar> visitQuantifierArg(Expr arg) throws Err {
+                // Translate quantifier arguments normally (in proper context) so we can union the result
+                return visitThis(arg);
             }
 
             @Override
@@ -367,24 +348,14 @@ final class PortusUtil {
             }
 
             @Override
-            public List<AnnotatedVar> visit(ExprVar x) throws Err {
-                // If there's a let mapping, use free variables existing at the point of the 'let'
-                if (context.hasLetMapping(x.label)) {
-                    TranslationContext.LetContext letContext = context.getLetMapping(x.label);
-                    assert letContext != null;
-                    try {
-                        letContext.useLetMapping(context);
-                        return visitThis(letContext.getExpr());
-                    } finally {
-                        letContext.resetMapping();
-                    }
-                }
-
-                // Otherwise, it should be in the context - use it
-                if (!context.hasVarMapping(x.label)) {
+            public List<AnnotatedVar> visitVar(ExprVar x) throws Err {
+                // Let mappings are handled for us, so it should be in the context - use it
+                if (!context.hasTermMapping(x.label)) {
                     throw new ErrorFatal("Unknown variable: " + x.label);
                 }
-                return Collections.singletonList(context.getVarMapping(x.label));
+                AnnotatedTerm mappedTerm = context.getTermMapping(x.label);
+                assert mappedTerm != null;
+                return new ArrayList<>(mappedTerm.getFreeVars());
             }
 
             @Override
@@ -401,8 +372,7 @@ final class PortusUtil {
 
             @Override
             public List<AnnotatedVar> visit(ExprElementOf x) throws Err {
-                // treat the tuple as free vars until proven otherwise
-                return union(x.tuple.getAnnotatedVars(), visitThis(x.sub));
+                return union(new ArrayList<>(x.tuple.getAllFreeVars()), visitThis(x.sub));
             }
 
             @Override
@@ -426,14 +396,11 @@ final class PortusUtil {
      * Expand all the 'let's in an expression, for use when disambiguating expressions.
      */
     public static Expr expandLets(Expr expr, final TranslationContext originalContext) {
-        // Make a copy just to be safe
-        TranslationContext context = new TranslationContext(originalContext);
-
         // note: this is vulnerable to exponential blowup in cases like
         // let x1=A+A | let x2=x1+x1 | let x3=x2+x2 | ... | let x64=x63+x63 | f[x64]
         // which will cause us to generate a union of 2^64 A's (!!)
         // but let's assume our users aren't evil enough to do that, eh?
-        return expr.accept(new FortressVisitReturn<Expr>() {
+        return expr.accept(new ContextVisitReturn<Expr>(originalContext) {
             @Override
             public Expr visit(ExprBinary x) throws Err {
                 return x.op.make(null, null, visitThis(x.left), visitThis(x.right));
@@ -450,7 +417,7 @@ final class PortusUtil {
             public Expr visit(ExprCall x) throws Err {
                 // Don't expand ExprCalls for now - this might cause us to generate some duplicate auxiliary
                 // functions when translating closure, e.g.
-                //   ^x   and    ^f[x] where fun f[y] { ^y }
+                //   ^x   and    ^f[x] where fun f[y] { y }
                 // will generate two different auxiliary functions, but that's okay
                 return ExprCall.make(null, null, x.fun, x.args.stream()
                         .map(this::visitThis)
@@ -468,29 +435,13 @@ final class PortusUtil {
             }
 
             @Override
-            public Expr visit(ExprLet x) throws Err {
+            public Expr visitLet(ExprLet x) throws Err {
                 return visitThis(x.sub);
             }
 
             @Override
-            public Expr visit(ExprQt x) throws Err {
-                // add var mappings for the quantified variables as we move into the quantifier
-                for (Decl decl : x.decls) {
-                    for (ExprHasName name : decl.names) {
-                        // the actual variable doesn't matter for us, make one up
-                        context.addVarMapping(name.label, Term.mkVar("x").of(Sort.Int()));
-                    }
-                }
-                try {
-                    return visitThis(x.sub);
-                } finally {
-                    // remove the var mappings
-                    for (Decl decl : x.decls) {
-                        for (ExprHasName name : decl.names) {
-                            context.removeMapping(name.label);
-                        }
-                    }
-                }
+            public Expr visitQuantifier(ExprQt x, List<Expr> ignoredArgResults) throws Err {
+                return visitThis(x.sub);
             }
 
             @Override
@@ -499,20 +450,8 @@ final class PortusUtil {
             }
 
             @Override
-            public Expr visit(ExprVar x) throws Err {
-                // Expand the let mapping if it has it
-                if (context.hasLetMapping(x.label)) {
-                    TranslationContext.LetContext letContext = context.getLetMapping(x.label);
-                    assert letContext != null;
-                    try {
-                        letContext.useLetMapping(context);
-                        return visitThis(letContext.getExpr());
-                    } finally {
-                        letContext.resetMapping();
-                    }
-                } else {
-                    return x;
-                }
+            public Expr visitVar(ExprVar x) throws Err {
+                return x;
             }
 
             @Override

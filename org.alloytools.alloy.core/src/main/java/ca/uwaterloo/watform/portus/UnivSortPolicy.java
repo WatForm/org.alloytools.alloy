@@ -1,17 +1,14 @@
 package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
-import edu.mit.csail.sdg.alloy4.Util;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.ScopeComputer;
-import fortress.modelfind.ModelFinder;
 import fortress.msfol.Sort;
 import fortress.msfol.Theory;
 import fortress.problemstate.ExactScope;
 import fortress.problemstate.Scope;
 
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;

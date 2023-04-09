@@ -19,15 +19,15 @@ import java.util.stream.Collectors;
 
 /**
  * Intermediate Expr produced during translation. Immutable.
- * Represents "(x1, ..., xn) \in e" where x1, ..., xn are Fortress Vars and
+ * Represents "(x1, ..., xn) \in e" where x1, ..., xn are Fortress Terms and
  * e is an Alloy expression. Used to pass down contextual info. See KT 4.4.
  */
 public final class ExprElementOf extends Expr {
 
-    public final VarTuple tuple;
+    public final TermTuple tuple;
     public final Expr sub;
 
-    private ExprElementOf(VarTuple tuple, Expr sub, JoinableList<Err> errs) {
+    private ExprElementOf(TermTuple tuple, Expr sub, JoinableList<Err> errs) {
         super(null, null, sub.ambiguous, Type.FORMULA, 0, sub.weight, errs);
         this.tuple = tuple;
         this.sub = sub;
@@ -38,7 +38,7 @@ public final class ExprElementOf extends Expr {
      * @param tuple The tuple that is a member of the expression.
      * @param sub The expression tuple is asserted to be a member of.
      */
-    public static Expr make(VarTuple tuple, Expr sub) {
+    public static Expr make(TermTuple tuple, Expr sub) {
         JoinableList<Err> errs = new JoinableList<>();
         if (tuple.size() != sub.type().arity()) {
             errs = errs.make(new ErrorType("Tuple size must match arity of expression."));
@@ -47,8 +47,13 @@ public final class ExprElementOf extends Expr {
     }
 
     /** Convenience constructor for an ExprElementOf with a singleton tuple. */
+    public static Expr make(AnnotatedTerm term, Expr sub) {
+        return make(new TermTuple(term), sub);
+    }
+
+    /** Convenience constructor for an ExprElementOf with a singleton tuple, which is only a var. */
     public static Expr make(AnnotatedVar var, Expr sub) {
-        return make(new VarTuple(var), sub);
+        return make(TermTuple.fromVars(var), sub);
     }
 
     @Override
@@ -93,7 +98,7 @@ public final class ExprElementOf extends Expr {
             out.append(' ');
         }
         out.append(" (");
-        out.append(tuple.getAnnotatedVars().stream().map(AnnotatedVar::toString).collect(Collectors.joining(", ")));
+        out.append(tuple.getAnnotatedTerms().stream().map(AnnotatedTerm::toString).collect(Collectors.joining(", ")));
         out.append(") element-of ");
         if (indent < 0) {
             sub.toString(out, -1);

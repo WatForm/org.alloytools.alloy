@@ -21,12 +21,14 @@ import fortress.msfol.AnnotatedVar;
 import org.hamcrest.Description;
 import org.hamcrest.TypeSafeMatcher;
 
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 /**
@@ -217,13 +219,31 @@ public class AlloyASTMatcher extends TypeSafeMatcher<Expr> {
             ExprElementOf y = (ExprElementOf) testing;
             if (x.tuple.size() != y.tuple.size()) return false;
 
-            // check that each Fortress variable (and its sort) is alpha-equivalent
+            // check that each Fortress term (and its sort) is alpha-equivalent
             for (int i = 0; i < x.tuple.size(); i++) {
-                AnnotatedVar xVar = x.tuple.getAnnotatedVar(i);
-                AnnotatedVar yVar = y.tuple.getAnnotatedVar(i);
-                if (!checkMapping(xVar.name(), yVar.name(), fortressVarMap)
-                    || !checkMapping(xVar.sort().name(), yVar.sort().name(), fortressVarMap)) {
+                AnnotatedTerm xTerm = x.tuple.getAnnotatedTerm(i);
+                AnnotatedTerm yTerm = y.tuple.getAnnotatedTerm(i);
+                // This definitely isn't the best way to do it, but should be good enough since we also check free vars
+                if (!checkMapping(xTerm.getTerm().toString(), yTerm.getTerm().toString(), fortressVarMap)
+                    || !checkMapping(xTerm.getSort().name(), yTerm.getSort().name(), fortressVarMap)) {
                     return false;
+                }
+                if (xTerm.getFreeVars().size() != yTerm.getFreeVars().size()) {
+                    return false;
+                }
+                Comparator<AnnotatedVar> varSorter = Comparator.comparing(AnnotatedVar::toString);
+                List<AnnotatedVar> xFreeVars = xTerm.getFreeVars().stream()
+                        .sorted(varSorter)
+                        .collect(Collectors.toList());
+                List<AnnotatedVar> yFreeVars = yTerm.getFreeVars().stream()
+                        .sorted(varSorter)
+                        .collect(Collectors.toList());
+                for (int j = 0; j < xFreeVars.size(); j++) {
+                    if (!checkMapping(xFreeVars.get(j).name(), yFreeVars.get(j).name(), fortressVarMap)
+                        || !checkMapping(
+                                xFreeVars.get(j).sort().name(), yFreeVars.get(j).sort().name(), fortressVarMap)) {
+                        return false;
+                    }
                 }
             }
 

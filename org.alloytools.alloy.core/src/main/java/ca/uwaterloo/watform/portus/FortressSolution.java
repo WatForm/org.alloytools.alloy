@@ -253,7 +253,7 @@ public final class FortressSolution implements AlloySolution {
                 .collect(Collectors.toList());
 
         cartesianProduct(sortsPerPosition).forEach(sortCombo -> {
-            // ExprElementOf only takes Vars, so use tricks to get around:
+            // Use this trick to avoid calling translate() for every combination of atoms:
             // for (v1,...,vn) \in expr, make vars x1,...,xn and translate [[(x1,...,xn) \in expr]]
             // and then substitute xi->vi for i=1..n.
             List<AnnotatedVar> vars = sortCombo.stream()
@@ -261,7 +261,7 @@ public final class FortressSolution implements AlloySolution {
                     .collect(Collectors.toList());
 
             TranslationContext contextCopy = new TranslationContext(context);
-            Expr inExpr = ExprElementOf.make(new VarTuple(vars), expr);
+            Expr inExpr = ExprElementOf.make(TermTuple.fromVars(vars), expr);
             Term formula = translator.translate(inExpr, contextCopy);
 
             List<List<Value>> sortAtoms = sortCombo.stream()
