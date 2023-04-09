@@ -2,6 +2,7 @@ package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.Err;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
+import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.ast.Expr;
 import fortress.msfol.Term;
 
@@ -16,11 +17,14 @@ import java.util.List;
  * to translate, it delegates to its list of translators in order until one of
  * them successfully translates the expression. This allows optimizations to
  * translate certain expressions earlier in the list.
+ *
+ * It also acts as a root ScalarCaster similarly, keeping a list of scalar casters
+ * and delegating to them to attempt to cast an expression to scalar.
  */
-// TODO: is there a better name for this? RootTranslator?
-final class TranslatorManager implements Translator {
+final class TranslatorManager implements Translator, ScalarCaster {
 
     private final List<Translator> translators = new ArrayList<>();
+    private final List<ScalarCaster> scalarCasters = new ArrayList<>();
 
     /**
      * Create a TranslatorManager that uses the given reporter and options
@@ -32,10 +36,15 @@ final class TranslatorManager implements Translator {
     public TranslatorManager(PortusOptions options) {
         // TODO: use options to come up with a list of translators
         // but for now:
-        translators.add(new FunctionOptTranslator(this, true));
+        FunctionOptTranslator functionOpt = new FunctionOptTranslator(this, this, true);
+        translators.add(new SimpleScalarOptTranslator(this, this));
+        translators.add(functionOpt);
         translators.add(new JoinOptTranslator(this));
         translators.add(new OrderingModuleOptTranslator(this));
         translators.add(new DefaultTranslator(this, new CardinalityScopeAxiomStrategy()));
+
+        scalarCasters.add(functionOpt);
+        scalarCasters.add(new DefaultScalarCaster(this));
     }
 
     /**
@@ -52,6 +61,21 @@ final class TranslatorManager implements Translator {
             }
         }
         throw new ErrorFatal("No Fortress translation implemented for node: " + expr);
+    }
+
+    /**
+     * Attempt to cast expr to scalar by delegating to the list of scalar casters.
+     * @return (scalar term, guard), as casted by some scalar caster, or null if no caster can cast.
+     */
+    @Override
+    public Pair<AnnotatedTerm, Term> castToScalar(Expr expr, TranslationContext context) {
+        for (ScalarCaster scalarCaster : scalarCasters) {
+            Pair<AnnotatedTerm, Term> attempt = scalarCaster.castToScalar(expr, context);
+            if (attempt != null) {
+                return attempt;
+            }
+        }
+        return null;
     }
 
 }
