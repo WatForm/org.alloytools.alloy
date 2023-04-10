@@ -1,61 +1,41 @@
 package ca.uwaterloo.watform.portus;
 
-import edu.mit.csail.sdg.ast.Expr;
+import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.ast.ExprBinary;
-import edu.mit.csail.sdg.ast.ExprVar;
 import fortress.msfol.Term;
 
 /**
- * The join optimization from KT 5.1.
+ * The join optimization from KT 5.1, generalized for general Fortress scalars and not just vars.
  */
-// TODO: Use all the varieties of scalars from the function optimization
 final class JoinOptTranslator extends AbstractTranslator {
 
-    public JoinOptTranslator(Translator topLevel) {
+    private final ScalarCaster scalarCaster;
+
+    public JoinOptTranslator(Translator topLevel, ScalarCaster scalarCaster) {
         super(topLevel);
+        this.scalarCaster = scalarCaster;
     }
 
     @Override
     public Term translate(TermTuple tuple, ExprBinary expr, TranslationContext context) {
         if (expr.op != ExprBinary.Op.JOIN) return null;
 
-        // Translate [[(x1,...,xn) \in v . e]] := [[(v,x1,...,xn) \in e]]
-        AnnotatedTerm leftVar = castToTerm(expr.left, context);
-        if (leftVar != null) {
-            TermTuple newTuple = new TermTuple(leftVar).concat(tuple);
-            return recursivelyTranslate(ExprElementOf.make(newTuple, expr.right), context);
+        // Translate [[(x1,...,xn) \in v . e]] := guard && [[(v,x1,...,xn) \in e]]
+        Pair<AnnotatedTerm, Term> leftScalar = scalarCaster.castToScalar(expr.left, context);
+        if (leftScalar != null) {
+            AnnotatedTerm leftTerm = leftScalar.a;
+            Term leftGuard = leftScalar.b;
+            TermTuple newTuple = new TermTuple(leftTerm).concat(tuple);
+            return Term.mkAnd(leftGuard, recursivelyTranslate(ExprElementOf.make(newTuple, expr.right), context));
         }
 
-        // Translate [[(x1,...,xn) \in e . v]] := [[(x1,...,xn,v) \in e]]
-        AnnotatedTerm rightVar = castToTerm(expr.right, context);
-        if (rightVar != null) {
-            TermTuple newTuple = tuple.concat(new TermTuple(rightVar));
-            return recursivelyTranslate(ExprElementOf.make(newTuple, expr.left), context);
-        }
-
-        return null;
-    }
-
-    /** Return an AnnotatedTerm for the expression if one can be determined, or else return null. */
-    private AnnotatedTerm castToTerm(Expr expr, TranslationContext context) {
-        expr = PortusUtil.stripPortusNoops(expr);
-        if (!(expr instanceof ExprVar)) return null;
-
-        ExprVar exprVar = (ExprVar) expr; 
-        String varName = exprVar.label;
-        if (context.hasTermMapping(varName)) {
-            // it maps to a Fortress var: success
-            return context.getTermMapping(varName);
-        } else if (context.hasLetMapping(varName)) {
-            // try and use the let mapping
-            TranslationContext.LetContext letContext = context.getLetMapping(varName);
-            assert letContext != null;
-            letContext.useLetMapping(context);
-            try {
-                return castToTerm(letContext.getExpr(), context);
-            } finally {
-                letContext.resetMapping();
-            }
+        // Translate [[(x1,...,xn) \in e . v]] := guard && [[(x1,...,xn,v) \in e]]
+        Pair<AnnotatedTerm, Term> rightScalar = scalarCaster.castToScalar(expr.right, context);
+        if (rightScalar != null) {
+            AnnotatedTerm rightTerm = rightScalar.a;
+            Term rightGuard = rightScalar.b;
+            TermTuple newTuple = tuple.concat(new TermTuple(rightTerm));
+            return Term.mkAnd(rightGuard, recursivelyTranslate(ExprElementOf.make(newTuple, expr.left), context));
         }
 
         return null;

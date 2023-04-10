@@ -17,7 +17,7 @@ the theory).
 
 The entry point to the translation process is the `TranslateAlloyToFortress` class.
 It simply delegates to the `TranslatorManager` class for each translation, which uses the
-`FortressOptions` (representing user-configured options) to come up with a list of
+`PortusOptions` (representing user-configured options) to come up with a list of
 translators. When asked to translate an expression, `TranslatorManager` delegates to
 each of the translators in the list in turn until one successfully translates the
 expression, or throws an exception if none of them can.

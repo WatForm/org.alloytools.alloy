@@ -62,6 +62,7 @@ final class DefaultScalarCaster implements ScalarCaster {
                 // no guard on the variable usage is needed
                 return new Pair<>(fortressTerm, Term.mkTop());
             }
+            // TODO: expand lets
         } else if (expr instanceof Sig) {
             // it could be a one sig
             // subset sigs aren't supported by RangeAssigner, so don't bother since they aren't common
