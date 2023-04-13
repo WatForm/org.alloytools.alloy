@@ -30,8 +30,12 @@ final class DefaultScalarCaster implements ScalarCaster {
     // The translator to use when we need to translate something while casting to scalar.
     private final Translator translator;
 
-    public DefaultScalarCaster(Translator translator) {
+    // The scalar caster to use for recursive casting.
+    private final ScalarCaster rootScalarCaster;
+
+    public DefaultScalarCaster(Translator translator, ScalarCaster rootScalarCaster) {
         this.translator = translator;
+        this.rootScalarCaster = rootScalarCaster;
     }
 
     @Override
@@ -61,8 +65,16 @@ final class DefaultScalarCaster implements ScalarCaster {
                 assert fortressTerm != null;
                 // no guard on the variable usage is needed
                 return new Pair<>(fortressTerm, Term.mkTop());
+            } else if (context.hasLetMapping(varName)) {
+                TranslationContext.LetContext letContext = context.getLetMapping(varName);
+                assert letContext != null;
+                letContext.useLetMapping(context);
+                try {
+                    return rootScalarCaster.castToScalar(letContext.getExpr(), context);
+                } finally {
+                    letContext.resetMapping();
+                }
             }
-            // TODO: expand lets
         } else if (expr instanceof Sig) {
             // it could be a one sig
             // subset sigs aren't supported by RangeAssigner, so don't bother since they aren't common

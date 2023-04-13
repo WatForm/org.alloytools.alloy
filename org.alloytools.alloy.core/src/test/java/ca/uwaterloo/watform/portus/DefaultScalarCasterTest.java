@@ -26,6 +26,7 @@ import static org.mockito.hamcrest.MockitoHamcrest.argThat;
 public class DefaultScalarCasterTest {
 
     private ScalarCaster scalarCaster;
+    private ScalarCaster mockRoot;
 
     private Translator mockTranslator;
     private SortPolicy mockSortPolicy;
@@ -34,12 +35,13 @@ public class DefaultScalarCasterTest {
 
     @Before
     public void setUp() {
+        mockRoot = mock(ScalarCaster.class);
         mockTranslator = mock(Translator.class);
         mockSortPolicy = mock(SortPolicy.class);
         mockRangeAssigner = mock(RangeAssigner.class);
         context = new TranslationContext(
                 new PortusOptions(), mock(ScopeComputer.class), mockSortPolicy, mockRangeAssigner);
-        scalarCaster = new DefaultScalarCaster(mockTranslator);
+        scalarCaster = new DefaultScalarCaster(mockTranslator, mockRoot);
     }
 
     @Test
@@ -98,6 +100,23 @@ public class DefaultScalarCasterTest {
         assertNotNull(result);
         assertEquals(mapped, result.a);
         assertEquals(Term.mkTop(), result.b);
+    }
+
+    @Test
+    public void testCastToScalar_letVar() {
+        // test castToScalar(x) recurses to x's let mapping when x has one
+        Sort sort = Sort.mkSortConst("Sort");
+        ExprVar mapping = ExprVar.make(null, "mapping");
+        AnnotatedTerm flag = new AnnotatedTerm(Term.mkVar("flag").of(sort));
+        Term flagGuard = Term.mkVar("flagGuard");
+        when(mockRoot.castToScalar(eq(mapping), any()))
+                .thenReturn(new Pair<>(flag, flagGuard));
+        context.addLetMapping("x", mapping);
+
+        Pair<AnnotatedTerm, Term> result = scalarCaster.castToScalar(ExprVar.make(null, "x"), context);
+        assertNotNull(result);
+        assertEquals(flag, result.a);
+        assertEquals(flagGuard, result.b);
     }
 
 }
