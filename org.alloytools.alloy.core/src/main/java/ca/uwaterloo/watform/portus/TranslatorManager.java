@@ -46,7 +46,7 @@ final class TranslatorManager implements Translator, ScalarCaster {
 
         scalarCasters.add(functionOpt);
         scalarCasters.add(orderingModuleOpt);
-        scalarCasters.add(new DefaultScalarCaster(this));
+        scalarCasters.add(new DefaultScalarCaster(this, this));
     }
 
     /**
