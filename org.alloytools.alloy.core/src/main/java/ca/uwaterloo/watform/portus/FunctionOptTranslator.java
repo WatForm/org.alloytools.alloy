@@ -339,7 +339,7 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
                 AnnotatedTerm leftScalar = leftScalarData.a;
                 Term leftScalarGuard = leftScalarData.b;
 
-                Expr right = binExpr.right.deNOP();
+                Expr right = PortusUtil.stripPortusNoops(binExpr.right);
                 if (!(right instanceof Sig.Field)) {
                     return null;
                 }

@@ -69,6 +69,7 @@ abstract class ContextVisitReturn<T> extends FortressVisitReturn<T> {
 
     public abstract T visitQuantifier(ExprQt x, List<T> argResults) throws Err;
 
+    /** Called for each quantified variable expression; results are passed in argResults in visitQuantifier. */
     public T visitQuantifierArg(Expr arg) throws Err {
         return null;
     }

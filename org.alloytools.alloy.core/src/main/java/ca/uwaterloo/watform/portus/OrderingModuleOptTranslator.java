@@ -328,6 +328,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
     }
 
     /** Try to cast expr to a scalar representing a "first" field. */
+    // TODO: deal with Ord.first scalar ("first" doesn't appear on its own, same with next, it needs Ord)
     private Pair<AnnotatedTerm, Term> castToFirstScalar(Expr expr, TranslationContext context) {
         if (!(expr instanceof Sig.Field)) return null;
 
