@@ -263,12 +263,12 @@ public class OrderingModuleOptTranslatorTest {
 
     @Test
     public void testCastToScalar_first() {
-        // test castToScalar(first) = (@1: Int, Top)
+        // test castToScalar(Ord.first) = (@1: Int, Top)
         when(scoper.sig2scope(orderedSig)).thenReturn(3);
         when(rangeAssigner.getDomainElementRange(orderedSig, context)).thenReturn(new Pair<>(1, 3));
         translator.translate(ordSig, context);
 
-        Pair<AnnotatedTerm, Term> scalar = translator.castToScalar(firstField, context);
+        Pair<AnnotatedTerm, Term> scalar = translator.castToScalar(ordSig.join(firstField), context);
 
         // there should be one function, next: orderedSigSort -> orderedSigSort
         assertEquals(1, context.getTheory().functionDeclarations().size());
@@ -286,7 +286,7 @@ public class OrderingModuleOptTranslatorTest {
 
     @Test
     public void testCastToScalar_next() {
-        // test castToScalar(x.next) = (next(x): Sort, guardX && (inOrderedSig(x) && x != @last))
+        // test castToScalar(x.(Ord.next)) = (next(x): Sort, guardX && (inOrderedSig(x) && x != @last))
         when(scoper.sig2scope(orderedSig)).thenReturn(3);
         when(rangeAssigner.getDomainElementRange(orderedSig, context)).thenReturn(new Pair<>(1, 3));
         translator.translate(ordSig, context);
@@ -297,7 +297,7 @@ public class OrderingModuleOptTranslatorTest {
         when(scalarCaster.castToScalar(eq(alloyX), any()))
                 .thenReturn(new Pair<>(new AnnotatedTerm(x.of(orderedSigSort)), guardX));
 
-        Pair<AnnotatedTerm, Term> scalar = translator.castToScalar(alloyX.join(nextField), context);
+        Pair<AnnotatedTerm, Term> scalar = translator.castToScalar(alloyX.join(ordSig.join(nextField)), context);
 
         // there should be one function, next: orderedSigSort -> orderedSigSort
         assertEquals(1, context.getTheory().functionDeclarations().size());

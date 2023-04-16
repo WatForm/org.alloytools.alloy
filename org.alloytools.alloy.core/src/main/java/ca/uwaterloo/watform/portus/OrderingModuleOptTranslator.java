@@ -327,15 +327,11 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
         return castToJoinWithNextScalar(expr, context);
     }
 
-    /** Try to cast expr to a scalar representing a "first" field. */
-    // TODO: deal with Ord.first scalar ("first" doesn't appear on its own, same with next, it needs Ord)
+    /** Try to cast expr to a scalar representing a "first" field. We actually have to recognize "Ord.first". */
     private Pair<AnnotatedTerm, Term> castToFirstScalar(Expr expr, TranslationContext context) {
-        if (!(expr instanceof Sig.Field)) return null;
-
-        Sig.Field firstField = (Sig.Field) expr;
         for (OrderInfo order : orders) {
-            if (order.matchesFirstField(firstField)) {
-                // No guard is necessary since it's a plain domain element
+            if (order.matchesFirstUsage(expr)) {
+                // No guard is necessary since it's a plain domain element.
                 return new Pair<>(order.getFirstScalar(context), Term.mkTop());
             }
         }
@@ -343,18 +339,17 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
     }
 
     /**
-     * Try to cast expr to a scalar representing "x.next" for a scalar x.
+     * Try to cast expr to a scalar representing "x.next" for a scalar x. (Actually "x.(Ord.next)".)
      * Note: we can't readily translate "next.x" as a scalar.
      */
     private Pair<AnnotatedTerm, Term> castToJoinWithNextScalar(Expr expr, TranslationContext context) {
         if (!(expr instanceof ExprBinary)) return null;
         ExprBinary exprBinary = (ExprBinary) expr;
         if (exprBinary.op != ExprBinary.Op.JOIN) return null;
-        if (!(exprBinary.right instanceof Sig.Field)) return null;
 
-        Sig.Field nextField = (Sig.Field) exprBinary.right;
+        Expr nextField = exprBinary.right;
         for (OrderInfo order : orders) {
-            if (order.matchesNextField(nextField)) {
+            if (order.matchesNextUsage(nextField)) {
                 Pair<AnnotatedTerm, Term> leftScalar = rootScalarCaster.castToScalar(exprBinary.left, context);
                 if (leftScalar == null) {
                     return null;
