@@ -2,7 +2,9 @@ package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.ast.Attr;
+import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprList;
+import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.ScopeComputer;
@@ -16,7 +18,6 @@ import org.junit.Before;
 import org.junit.Test;
 import scala.jdk.javaapi.CollectionConverters;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Set;
 
@@ -51,8 +52,16 @@ public class OrderingModuleOptTranslatorTest {
 
     @Before
     public void setUp() {
+        orderedSig = new Sig.PrimSig("Ordered");
+        orderedSigSort = Sort.mkSortConst("OrderedSort");
+        ordSig = new Sig.PrimSig("Ord", Attr.ONE);
+        Sort ordSigSort = Sort.mkSortConst("OrdSort");
+        firstField = ordSig.addField("First", orderedSig.setOf());
+        nextField = ordSig.addField("Next", orderedSig.product(orderedSig));
+
         SortPolicy policy = mock(SortPolicy.class);
-        rangeAssigner = mock(RangeAssigner.class, withSettings().useConstructor(new ArrayList<>()));
+        rangeAssigner = mock(RangeAssigner.class, withSettings()
+                .useConstructor(Arrays.asList(ordSig, orderedSig)));
         scoper = mock(ScopeComputer.class);
         scalarCaster = mock(ScalarCaster.class);
         translator = new OrderingModuleOptTranslator((expr, context) -> {
@@ -64,17 +73,11 @@ public class OrderingModuleOptTranslatorTest {
             return Term.mkApp("inOrderedSig", exprElementOf.tuple.getTerm(0));
         }, scalarCaster);
 
-        orderedSig = new Sig.PrimSig("Ordered");
-        orderedSigSort = Sort.mkSortConst("OrderedSort");
         when(scoper.isExact(orderedSig)).thenReturn(true);
         when(policy.getSort(orderedSig)).thenReturn(orderedSigSort);
-        ordSig = new Sig.PrimSig("Ord", Attr.ONE);
-        Sort ordSigSort = Sort.mkSortConst("OrdSort");
         when(policy.addSortsToTheory(any())).thenReturn(Theory.empty().withSort(orderedSigSort).withSort(ordSigSort));
         when(policy.getSort(ordSig)).thenReturn(ordSigSort);
         when(rangeAssigner.getDomainElementRange(eq(ordSig), any())).thenReturn(new Pair<>(1, 1));
-        firstField = ordSig.addField("First", orderedSig.setOf());
-        nextField = ordSig.addField("Next", orderedSig.product(orderedSig));
         ordSig.addFact(ExprList.makeTOTALORDER(null, null, Arrays.asList(
                 orderedSig, ordSig.join(firstField), ordSig.join(nextField))));
 
@@ -298,6 +301,41 @@ public class OrderingModuleOptTranslatorTest {
                 .thenReturn(new Pair<>(new AnnotatedTerm(x.of(orderedSigSort)), guardX));
 
         Pair<AnnotatedTerm, Term> scalar = translator.castToScalar(alloyX.join(ordSig.join(nextField)), context);
+
+        // there should be one function, next: orderedSigSort -> orderedSigSort
+        assertEquals(1, context.getTheory().functionDeclarations().size());
+        FuncDecl nextFunc = context.getTheory().functionDeclarations().head();
+        assertEquals(1, nextFunc.argSorts().size());
+        assertEquals(orderedSigSort, nextFunc.argSorts().head());
+        assertEquals(orderedSigSort, nextFunc.resultSort());
+
+        assertNotNull(scalar);
+        assertEquals(Term.mkApp(nextFunc.name(), x), scalar.a.getTerm());
+        assertEquals(orderedSigSort, scalar.a.getSort());
+        assertTrue(scalar.a.getFreeVars().isEmpty());
+
+        Term expectedGuard = Term.mkAnd(guardX, Term.mkAnd(
+                Term.mkApp("inOrderedSig", x),
+                Term.mkNot(Term.mkEq(x, Term.mkDomainElement(3, orderedSigSort)))));
+        assertEquals(expectedGuard, scalar.b);
+    }
+
+    @Test
+    public void testCastToScalar_nextWithNoops() {
+        // test castToScalar(x.NOOP(Ord.next)) = (next(x): Sort, guardX && (inOrderedSig(x) && x != @last))
+        when(scoper.sig2scope(orderedSig)).thenReturn(3);
+        when(rangeAssigner.getDomainElementRange(orderedSig, context)).thenReturn(new Pair<>(1, 3));
+        translator.translate(ordSig, context);
+
+        ExprVar alloyX = ExprVar.make(null, "x");
+        Var x = Term.mkVar("x");
+        Var guardX = Term.mkVar("guardX");
+        when(scalarCaster.castToScalar(eq(alloyX), any()))
+                .thenReturn(new Pair<>(new AnnotatedTerm(x.of(orderedSigSort)), guardX));
+
+        Expr rhs = ExprUnary.Op.NOOP.make(null, ExprUnary.Op.NOOP.make(null, ordSig).cast2int()
+                .join(nextField.cast2int().cast2sigint()).cast2int());
+        Pair<AnnotatedTerm, Term> scalar = translator.castToScalar(alloyX.join(rhs), context);
 
         // there should be one function, next: orderedSigSort -> orderedSigSort
         assertEquals(1, context.getTheory().functionDeclarations().size());

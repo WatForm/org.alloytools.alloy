@@ -97,7 +97,6 @@ public class DefaultScalarCasterTest {
     @Test
     public void testCastToScalar_oneSig() {
         // test castToScalar(A) = (@1: sortA, Top) when A is a one sig and @1 is its one domain element
-//        when(mockRangeAssigner.getDomainElementRange(eq(testOneSig), any())).thenReturn(new Pair<>(1, 1));
         Term flagRangeAxiom = Term.mkVar("rangeAxiom");
         when(mockTranslator.translate(any(), any())).thenReturn(flagRangeAxiom);
 
@@ -128,13 +127,14 @@ public class DefaultScalarCasterTest {
         Sort sort = Sort.mkSortConst("Sort");
         ExprVar mapping = ExprVar.make(null, "mapping");
         AnnotatedTerm flag = new AnnotatedTerm(Term.mkVar("flag").of(sort));
-        context.addTermMapping("mapping", flag);
+        Term flagGuard = Term.mkVar("flagGuard");
+        when(mockRoot.castToScalar(eq(mapping), any())).thenReturn(new Pair<>(flag, flagGuard));
         context.addLetMapping("x", mapping);
 
         Pair<AnnotatedTerm, Term> result = scalarCaster.castToScalar(ExprVar.make(null, "x"), context);
         assertNotNull(result);
         assertEquals(flag, result.a);
-        assertEquals(Term.mkTop(), result.b);
+        assertEquals(flagGuard, result.b);
     }
 
     @Test

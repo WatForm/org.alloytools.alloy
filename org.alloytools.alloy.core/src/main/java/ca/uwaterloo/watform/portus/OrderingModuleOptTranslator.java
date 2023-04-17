@@ -1,10 +1,13 @@
 package ca.uwaterloo.watform.portus;
 
+import edu.mit.csail.sdg.alloy4.Err;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprBinary;
+import edu.mit.csail.sdg.ast.ExprCall;
 import edu.mit.csail.sdg.ast.ExprList;
+import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.Sig;
 import fortress.msfol.DomainElement;
 import fortress.msfol.FuncDecl;
@@ -71,10 +74,10 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
                 throw new ErrorFatal("Sig " + sig.label + " can't be ordered for unknown reasons");
             }
 
-            if (!first.decl().expr.deNOP().isSame(sig.setOf())) {
+            if (!PortusUtil.stripPortusNoops(first.decl().expr).isSame(sig.setOf())) {
                 throw new ErrorFatal("The First field in pred/totalOrder must be have the type of the ordered sig");
             }
-            if (!next.decl().expr.deNOP().isSame(sig.product(sig))) {
+            if (!PortusUtil.stripPortusNoops(next.decl().expr).isSame(sig.product(sig))) {
                 throw new ErrorFatal(
                         "The Next field in pred/totalOrder must have type S->S, where S is the ordered sig");
             }
@@ -245,6 +248,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
     }
 
     private static Sig.Field extractDottedField(Sig ordSig, Expr expr, boolean shouldError) {
+        expr = PortusUtil.stripPortusNoops(expr);
         if (!(expr instanceof ExprBinary) || ((ExprBinary) expr).op != ExprBinary.Op.JOIN) {
             if (shouldError) {
                 throw new ErrorFatal("Expected join expression for second/third parameters of pred/totalOrder");
@@ -252,13 +256,14 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
             return null;
         }
         ExprBinary join = (ExprBinary) expr;
-        if (!join.left.deNOP().isSame(ordSig) || !(join.right.deNOP() instanceof Sig.Field)) {
+        if (!PortusUtil.stripPortusNoops(join.left).isSame(ordSig)
+                || !(PortusUtil.stripPortusNoops(join.right) instanceof Sig.Field)) {
             if (shouldError) {
                 throw new ErrorFatal("Expected Ord.first / Ord.next for second/third parameters of pred/totalOrder");
             }
             return null;
         }
-        return (Sig.Field) join.right.deNOP();
+        return (Sig.Field) PortusUtil.stripPortusNoops(join.right);
     }
 
     @Override
@@ -347,24 +352,50 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
         ExprBinary exprBinary = (ExprBinary) expr;
         if (exprBinary.op != ExprBinary.Op.JOIN) return null;
 
-        Expr nextField = exprBinary.right;
-        for (OrderInfo order : orders) {
-            if (order.matchesNextUsage(nextField)) {
-                Pair<AnnotatedTerm, Term> leftScalar = rootScalarCaster.castToScalar(exprBinary.left, context);
-                if (leftScalar == null) {
-                    return null;
+        // Strip any noops and go through any call/let indirection
+        // (Note: this returns null for each unmentioned node, not natural recursion.)
+        return new ContextVisitReturn.Default<Pair<AnnotatedTerm, Term>>(context) {
+            @Override
+            public Pair<AnnotatedTerm, Term> visit(ExprUnary x) {
+                // Strip any noops
+                Expr stripped = PortusUtil.stripPortusNoops(x);
+                if (stripped != x) {
+                    return visitThis(stripped);
                 }
-
-                // Combine the guards and use the resulting scalar
-                Pair<AnnotatedTerm, Term> nextScalar = order.getNextScalarAndGuard(leftScalar.a, context);
-                if (nextScalar == null) {
-                    return null; // sort don't work out - let someone else deal with it
-                }
-                Term guard = Term.mkAnd(leftScalar.b, nextScalar.b);
-                return new Pair<>(nextScalar.a, guard);
+                return null;
             }
-        }
-        return null;
+
+            @Override
+            public Pair<AnnotatedTerm, Term> visit(ExprCall x) throws Err {
+                context.addLetMappingsFromCall(x);
+                try {
+                    return visitThis(x.fun.getBody());
+                } finally {
+                    context.removeLetMappingsFromCall(x);
+                }
+            }
+
+            @Override
+            public Pair<AnnotatedTerm, Term> visit(ExprBinary x) {
+                for (OrderInfo order : orders) {
+                    if (order.matchesNextUsage(x)) {
+                        Pair<AnnotatedTerm, Term> leftScalar = rootScalarCaster.castToScalar(exprBinary.left, context);
+                        if (leftScalar == null) {
+                            return null;
+                        }
+
+                        // Combine the guards and use the resulting scalar
+                        Pair<AnnotatedTerm, Term> nextScalar = order.getNextScalarAndGuard(leftScalar.a, context);
+                        if (nextScalar == null) {
+                            return null; // sort don't work out - let someone else deal with it
+                        }
+                        Term guard = Term.mkAnd(leftScalar.b, nextScalar.b);
+                        return new Pair<>(nextScalar.a, guard);
+                    }
+                }
+                return null;
+            }
+        }.visitThis(exprBinary.right);
     }
 
 }

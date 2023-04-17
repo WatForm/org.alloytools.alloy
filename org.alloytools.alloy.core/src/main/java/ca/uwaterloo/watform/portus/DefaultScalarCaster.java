@@ -218,6 +218,12 @@ final class DefaultScalarCaster implements ScalarCaster {
             }
 
             @Override
+            public Pair<AnnotatedTerm, Term> visitLetVarExpr(Expr expr) throws Err {
+                // When super unwraps a let var for us, let all casters have a chance to cast it.
+                return rootScalarCaster.castToScalar(expr, context);
+            }
+
+            @Override
             public Pair<AnnotatedTerm, Term> visit(Func x) throws Err {
                 return null; // This probably shouldn't appear
             }
