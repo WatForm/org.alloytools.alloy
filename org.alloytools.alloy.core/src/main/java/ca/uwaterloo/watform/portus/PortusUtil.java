@@ -4,7 +4,6 @@ import edu.mit.csail.sdg.alloy4.Err;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.ast.Assert;
-import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprBinary;
 import edu.mit.csail.sdg.ast.ExprCall;
@@ -29,7 +28,6 @@ import fortress.operations.Substituter;
 import scala.jdk.javaapi.CollectionConverters;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -207,13 +205,6 @@ final class PortusUtil {
     }
 
     /**
-     * A convenience overload of the above for only one var/term pair.
-     */
-    public static Term substitute(AnnotatedVar a, Term b, Term term) {
-        return substitute(Collections.singletonList(a), Collections.singletonList(b), term);
-    }
-
-    /**
      * Generate the term (v1 = u1) && (v2 = u2) && ... && (vn = un) for each pair
      * (vi, ui) in zip(a, b). We require that a and b have the same size.
      */
@@ -232,11 +223,17 @@ final class PortusUtil {
      * Generate a term asserting that sig1 and sig2 are disjoint.
      */
     public static Term mkSigsDisjoint(Sig sig1, Sig sig2, Translator translator, TranslationContext context) {
-        // Alloy: "all x1: child1, x2: child2 | not (x = y)" (KT 4.2)
-        Decl x1 = sig1.oneOf("x1");
-        Decl x2 = sig2.oneOf("x2");
-        Expr disjointnessAxiom = x1.get().equal(x2.get()).not().forAll(x1, x2);
-        return translator.translate(disjointnessAxiom, context);
+        // "forall x: S | !([[x \in sig1]] && [[x \in sig2]])
+        Sort sort = context.sortPolicy.getSort(sig1);
+        if (sort == null || sort != context.sortPolicy.getSort(sig2)) {
+            // short-circuit: they must be disjoint since they're in different sorts
+            return Term.mkTop();
+        }
+
+        AnnotatedVar x = Term.mkVar(context.nameGenerator.freshName("x")).of(sort);
+        Term inSig1 = translator.translate(ExprElementOf.make(x, sig1), context);
+        Term inSig2 = translator.translate(ExprElementOf.make(x, sig2), context);
+        return Term.mkForall(x, Term.mkNot(Term.mkAnd(inSig1, inSig2)));
     }
 
     /**

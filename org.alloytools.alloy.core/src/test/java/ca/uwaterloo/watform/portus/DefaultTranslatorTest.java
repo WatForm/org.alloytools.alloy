@@ -422,15 +422,6 @@ public class DefaultTranslatorTest {
         when(mockRoot.translate(argThat(isAlphaEquivalent(coverAxiom)), any()))
                 .thenReturn(coverFlag);
 
-        // mock out the disjointness axiom
-        // all x1: child1, x2: child2 | not (x1 = x2)
-        Decl xChild1 = child1.oneOf("x1");
-        Decl xChild2 = child2.oneOf("x2");
-        Expr disjointAxiom = xChild1.get().equal(xChild2.get()).not().forAll(xChild1, xChild2);
-        Term disjointFlag = makeFlagConstant("disjoint");
-        when(mockRoot.translate(argThat(isAlphaEquivalent(disjointAxiom)), any()))
-                .thenReturn(disjointFlag);
-
         // mock out the exact and non-exact scope axiom's [[xi \in sig]]
         Expr inChild = ExprElementOf.make(Term.mkVar("x").of(univ), child1);
         Expr inParent = ExprElementOf.make(Term.mkVar("x").of(univ), parent);
@@ -447,6 +438,11 @@ public class DefaultTranslatorTest {
         Term result = translator.translate(parent, context);
         assertThat(result, is(notNullValue()));
 
+        // create the expected disjoint axiom
+        Var x = Term.mkVar("x");
+        Term disjointnessAxiom = Term.mkForall(x.of(univ),
+                Term.mkNot(Term.mkAnd(makeFlagConstant("inFlag_x_0"), makeFlagConstant("inFlag_x_0"))));
+
         // create the expected exact scope axiom for the parent
         // "exists x1, x2: univ . forall y: univ . !(x1 = x2) && ([[y \in S]] <=> y = x1 || y = x2)"
         Var x1 = Term.mkVar("x1");
@@ -462,7 +458,6 @@ public class DefaultTranslatorTest {
 
         // create the expected exact scope axiom for the child
         // "exists x1: univ . forall x: univ . [[x \in child1]] <=> x = x1"
-        Var x = Term.mkVar("x");
         Term exactScopeAxiom2 = Term.mkExists(x1.of(univ), Term.mkForall(x.of(univ),
                 Term.mkIff(makeFlagConstant("inFlag_x"), Term.mkEq(x, x1))));
 
@@ -483,8 +478,8 @@ public class DefaultTranslatorTest {
         assertThat(axioms, containsInAnyOrder(
                 is(makeFlagConstant("subset_Child1")), // subset axiom, child1
                 is(makeFlagConstant("subset_Child2")), // subset axiom, child2
-                is(disjointFlag), // disjoint axiom
                 is(coverFlag), // cover/abstract axiom
+                isAlphaEquivalentTerm(disjointnessAxiom), // disjoint axiom
                 isAlphaEquivalentTerm(exactScopeAxiom1), // exact scope axiom, parent
                 isAlphaEquivalentTerm(exactScopeAxiom2), // exact scope axiom, child1
                 isAlphaEquivalentTerm(nonExactScopeAxiom))); // non-exact scope axiom, child2
