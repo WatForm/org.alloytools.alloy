@@ -228,7 +228,6 @@ public final class FortressSolution implements AlloySolution {
         // Check if it's an integer
         Expr intExpr = expr.typecheck_as_int();
         if (intExpr.errors.isEmpty()) {
-            // Integer - TODO integers
             throw new ErrorAPI("Can't eval() int expression!");
         }
 

@@ -4,7 +4,6 @@ import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.ScopeComputer;
-import fortress.msfol.AnnotatedVar;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
 
@@ -167,12 +166,10 @@ class RangeAssigner {
     }
 
     private Term getDEInSigAxiom(Sig sig, int deIdx, Sort sort, Translator translator, TranslationContext context) {
-        // We want [[_@deIdx \in sig]], but ExprElementOf only supports Vars on the LHS, so do this sub hack
-        // Use a fresh name to be safe, but it's probably unnecessary
-        AnnotatedVar subVar = Term.mkVar(context.nameGenerator.freshName("tempSubVar")).of(sort);
-        Expr alloyAxiom = ExprElementOf.make(subVar, sig);
-        Term unsubbedAxiom = translator.translate(alloyAxiom, context);
-        return PortusUtil.substitute(subVar, Term.mkDomainElement(deIdx, sort), unsubbedAxiom);
+        // [[_@deIdx \in sig]]
+        AnnotatedTerm domainElement = new AnnotatedTerm(Term.mkDomainElement(deIdx, sort), sort, new ArrayList<>());
+        Expr axiom = ExprElementOf.make(domainElement, sig);
+        return translator.translate(axiom, context);
     }
 
 }

@@ -39,8 +39,8 @@ abstract class ContextVisitReturn<T> extends FortressVisitReturn<T> {
     protected final AnnotatedVar boundPlaceholderVar = Term.mkVar("%boundPlaceholderVar").of(Sort.Int());
 
     public ContextVisitReturn(TranslationContext context) {
-        // Make a copy just in case
-        this.context = new TranslationContext(context);
+        // Don't copy because rangeAssigner has side effects which need to be persisted
+        this.context = context;
     }
 
     @Override
