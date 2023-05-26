@@ -20,11 +20,15 @@ import java.util.List;
  *
  * It also acts as a root ScalarCaster similarly, keeping a list of scalar casters
  * and delegating to them to attempt to cast an expression to scalar.
+ *
+ * Similarly, it also acts as a root Evaluator.
+ * TODO: This is getting unsustainable. Also, caching.
  */
-final class TranslatorManager implements Translator, ScalarCaster {
+final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
 
     private final List<Translator> translators = new ArrayList<>();
     private final List<ScalarCaster> scalarCasters = new ArrayList<>();
+    private final List<Evaluator> evaluators = new ArrayList<>();
 
     /**
      * Create a TranslatorManager that uses the given reporter and options
@@ -36,17 +40,23 @@ final class TranslatorManager implements Translator, ScalarCaster {
     public TranslatorManager(PortusOptions options) {
         // TODO: use options to come up with a list of translators
         // but for now:
-        FunctionOptTranslator functionOpt = new FunctionOptTranslator(this, this, true);
+        FunctionOptTranslator functionOpt = new FunctionOptTranslator(this, this, this, true);
         OrderingModuleOptTranslator orderingModuleOpt = new OrderingModuleOptTranslator(this, this);
+        DefaultTranslator defaultTranslator = new DefaultTranslator(this, new CardinalityScopeAxiomStrategy());
         translators.add(new SimpleScalarOptTranslator(this, this));
         translators.add(functionOpt);
         translators.add(new JoinOptTranslator(this, this));
         translators.add(orderingModuleOpt);
-        translators.add(new DefaultTranslator(this, new CardinalityScopeAxiomStrategy()));
+        translators.add(defaultTranslator);
 
         scalarCasters.add(functionOpt);
         scalarCasters.add(orderingModuleOpt);
         scalarCasters.add(new DefaultScalarCaster(this, this));
+
+        evaluators.add(functionOpt);
+        evaluators.add(defaultTranslator);
+        evaluators.add(new SimpleEvaluator(this));
+        evaluators.add(new BruteForceEvaluator(this));
     }
 
     /**
@@ -78,6 +88,21 @@ final class TranslatorManager implements Translator, ScalarCaster {
             }
         }
         return null;
+    }
+
+    /**
+     * Evaluate expr under the solution by delegating to the list of evaluators.
+     * @return a tuple set corresponding to the expr's evaluation under the solution.
+     */
+    @Override
+    public TupleSet evaluate(Expr expr, FortressSolution solution, TranslationContext context) {
+        for (Evaluator evaluator : evaluators) {
+            TupleSet attempt = evaluator.evaluate(expr, solution, context);
+            if (attempt != null) {
+                return attempt;
+            }
+        }
+        throw new ErrorFatal("Cannot evaluate: " + expr);
     }
 
 }

@@ -38,7 +38,7 @@ import java.util.stream.IntStream;
 /**
  * The basic translator that provides unoptimized translations of every supported node.
  */
-final class DefaultTranslator extends AbstractTranslator {
+final class DefaultTranslator extends AbstractTranslator implements Evaluator {
 
     // For creating the scope axioms.
     private final ScopeAxiomStrategy scopeAxiomStrategy;
@@ -48,6 +48,9 @@ final class DefaultTranslator extends AbstractTranslator {
     // (For some arguments the function might not just return inA(x) - it could return Top or Bottom as opts.)
     private final Map<Sig, Function<AnnotatedTerm, Term>> sigMemberPredicates = new HashMap<>();
 
+    // Names of the above sig member predicates for easy access.
+    private final Map<Sig, FuncDecl> sigMemberPredicateDecls = new HashMap<>();
+
     // Relation predicates for each field (see KT 4.2).
     // Note: the function optimization is in FunctionOptTranslator instead.
     // Represent relations by a Java function taking "x1,...,xn" to "f(x1,...,xn)".
@@ -55,7 +58,7 @@ final class DefaultTranslator extends AbstractTranslator {
     private final Map<Sig.Field, Function<TermTuple, Term>> relationPredicates = new HashMap<>();
 
     // Names of the above relation predicates for easy access.
-    private final Map<Sig.Field, String> relationPredicateNames = new HashMap<>();
+    private final Map<Sig.Field, FuncDecl> relationPredicateDecls = new HashMap<>();
 
     // When "^expr" or "*expr" is translated, this "maps" expr and the auxiliary function's signature
     // to the name of an auxiliary function f_sort(x,y,extras) = [[(x,y,extras) \in expr]], used in the translation.
@@ -88,7 +91,9 @@ final class DefaultTranslator extends AbstractTranslator {
             }
             return Term.mkApp(memPredName, term.getTerm());
         });
-        context.addFunctionDeclaration(FuncDecl.mkFuncDecl(memPredName, sigSort, Sort.Bool()));
+        FuncDecl decl = FuncDecl.mkFuncDecl(memPredName, sigSort, Sort.Bool());
+        sigMemberPredicateDecls.put(sig, decl);
+        context.addFunctionDeclaration(decl);
 
         if (sig instanceof Sig.PrimSig) {
             Sig.PrimSig primSig = (Sig.PrimSig) sig;
@@ -237,10 +242,11 @@ final class DefaultTranslator extends AbstractTranslator {
             }
             return Term.mkApp(relName, terms.getTerms());
         });
-        relationPredicateNames.put(field, relName);
 
         // the predicate signature is S1->S2->...->Sn->Bool, where Si is the ith product type's sort
-        context.addFunctionDeclaration(FuncDecl.mkFuncDecl(relName, argSorts, Sort.Bool()));
+        FuncDecl decl = FuncDecl.mkFuncDecl(relName, argSorts, Sort.Bool());
+        relationPredicateDecls.put(field, decl);
+        context.addFunctionDeclaration(decl);
 
         // constrain the bound of the field
         context.addAxiom(makeFieldBoundConstraint(field, argSorts, context));
@@ -269,6 +275,23 @@ final class DefaultTranslator extends AbstractTranslator {
                 recursivelyTranslate(ExprElementOf.make(vars.get(0), field.sig), context)));
 
         return Term.mkAnd(domainAxiom, rangeAxiom);
+    }
+
+    /** Evaluate a sig given a solution. */
+    private TupleSet evaluateSig(Sig sig, FortressSolution solution) {
+        // Evaluate only sigs which we've translated here
+        if (!sigMemberPredicateDecls.containsKey(sig)) return null; // not translated here
+
+        // Take the preimage of "true" in the predicate.
+        return solution.functionPreimage(sigMemberPredicateDecls.get(sig), Term.mkTop());
+    }
+
+    private TupleSet evaluateField(Sig.Field field, FortressSolution solution) {
+        // Evaluate only fields we've translated here
+        if (!relationPredicateDecls.containsKey(field)) return null;
+
+        // Take the preimage of "true" in the relation predicate.
+        return solution.functionPreimage(relationPredicateDecls.get(field), Term.mkTop());
     }
 
     @Override
@@ -868,8 +891,8 @@ final class DefaultTranslator extends AbstractTranslator {
             Sig.Field field = (Sig.Field) expr;
             // It's possible that the function optimization optimized this field, so we don't have it.
             // TODO: is it possible to close over a binary function in the function optimization?
-            if (field.type().arity() == 2 && relationPredicateNames.containsKey(field)) {
-                return relationPredicateNames.get(field);
+            if (field.type().arity() == 2 && relationPredicateDecls.containsKey(field)) {
+                return relationPredicateDecls.get(field).name();
             }
         }
 
@@ -1390,6 +1413,16 @@ final class DefaultTranslator extends AbstractTranslator {
             return Term.mkBottom();
         }
         return Term.mkEq(tuple.getTerm(0), recursivelyTranslate(intExpr, context));
+    }
+
+    @Override
+    public TupleSet evaluate(Expr expr, FortressSolution solution, TranslationContext context) {
+        if (expr instanceof Sig) {
+            return evaluateSig((Sig) expr, solution);
+        } else if (expr instanceof Sig.Field) {
+            return evaluateField((Sig.Field) expr, solution);
+        }
+        return null;
     }
 
     /** Map an Alloy variable name to a Fortress term, or throw an error. */

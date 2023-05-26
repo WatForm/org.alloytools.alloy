@@ -91,19 +91,19 @@ public final class TranslateAlloyToFortress implements CommandRunner {
         SortPolicy sortPolicy = options.portusOptions.getSortPolicy(sigs, scoper);
         RangeAssigner rangeAssigner = new RangeAssigner(sigs);
 
-        Translator translator = new TranslatorManager(options.portusOptions);
+        TranslatorManager translatorManager = new TranslatorManager(options.portusOptions);
         TranslationContext context = new TranslationContext(options.portusOptions, scoper, sortPolicy, rangeAssigner);
 
         // Do sigs first, then fields, then the formula.
         // We have to do fields after sigs because a field can refer to sigs that come after it.
-        translateSigs(sigs, translator, context);
-        translateFields(sigs, translator, context);
+        translateSigs(sigs, translatorManager, context);
+        translateFields(sigs, translatorManager, context);
 
         // Add extra axioms: the top level sigs are disjoint and complete
-        addDisjointnessAndCoverAxioms(sigs, translator, context);
+        addDisjointnessAndCoverAxioms(sigs, translatorManager, context);
 
         // TODO: append all the facts and field facts to the formula (copy/abstract makeFacts)
-        context.addAxiom(translator.translate(command.formula, context));
+        context.addAxiom(translatorManager.translate(command.formula, context));
         logger.translationFinished(context.getTheory());
 
         // Write raw MSFOL or SMTLIB+ to file if the appropriate solver is chosen
@@ -133,7 +133,8 @@ public final class TranslateAlloyToFortress implements CommandRunner {
 
             Interpretation interpretation = (result == ModelFinderResult.Sat()) ? finder.viewModel() : null;
             return new FortressSolution(
-                    interpretation, translator, context, sigs, options.originalFilename, command.toString());
+                    interpretation, translatorManager, context, sigs, options.originalFilename,
+                    command.toString());
         }
     }
 

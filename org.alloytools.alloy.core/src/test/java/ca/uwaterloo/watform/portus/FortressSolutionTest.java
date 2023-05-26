@@ -9,6 +9,7 @@ import fortress.interpretation.Interpretation;
 import fortress.msfol.AnnotatedVar;
 import fortress.msfol.DomainElement;
 import fortress.msfol.FuncDecl;
+import fortress.msfol.FunctionDefinition;
 import fortress.msfol.IntegerLiteral;
 import fortress.msfol.Sort;
 import fortress.msfol.Value;
@@ -66,10 +67,11 @@ public class FortressSolutionTest {
                 PortusUtil.<Sort, Seq<Value>>toScalaMap(sorts),
                 PortusUtil.<AnnotatedVar, Value>toScalaMap(constants),
                 PortusUtil.<FuncDecl, scala.collection.immutable.Map<Seq<Value>, Value>>toScalaMap(functions),
-                Set$.MODULE$.empty());
+                Set$.MODULE$.<FunctionDefinition>empty());
 
+        TranslatorManager manager = new TranslatorManager(context.options);
         solution = new FortressSolution(
-                interpretation, new TranslatorManager(context.options), context,
+                interpretation, manager, context,
                 Collections.singletonList(Sig.UNIV), "", "");
     }
 

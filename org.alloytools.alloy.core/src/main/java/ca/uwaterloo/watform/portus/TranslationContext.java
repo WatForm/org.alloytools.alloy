@@ -164,7 +164,7 @@ final class TranslationContext {
     }
 
     public void addConstant(AnnotatedVar constant) {
-        theory = theory.withConstant(constant);
+        theory = theory.withConstantDeclaration(constant);
     }
 
     public void addFunctionDeclaration(FuncDecl funcDecl) {

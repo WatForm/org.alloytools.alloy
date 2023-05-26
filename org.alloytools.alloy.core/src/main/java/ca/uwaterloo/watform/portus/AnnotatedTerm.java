@@ -34,6 +34,13 @@ final class AnnotatedTerm {
     }
 
     /**
+     * Construct an annotated term, assuming there are no free variables.
+     */
+    public AnnotatedTerm(Term term, Sort sort) {
+        this(term, sort, Collections.emptyList());
+    }
+
+    /**
      * Construct an annotated term from an annotated var. It is taken to be the only free variable.
      */
     public AnnotatedTerm(AnnotatedVar annotatedVar) {

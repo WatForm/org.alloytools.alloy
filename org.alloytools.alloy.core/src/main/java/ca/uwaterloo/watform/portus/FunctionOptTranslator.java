@@ -16,6 +16,7 @@ import fortress.msfol.Var;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -24,7 +25,7 @@ import java.util.Map;
  * A translator for the function optimization, based on KT 5.5.
  * For now, we optimize only S1->S2->...->[l]one Sn (and they're partial functions).
  */
-final class FunctionOptTranslator extends AbstractTranslator implements ScalarCaster {
+final class FunctionOptTranslator extends AbstractTranslator implements ScalarCaster, Evaluator {
 
     // The list of arrow operators which define (partial) functions using "one".
     private static final ConstList<ExprBinary.Op> FUNCTION_ONE_OPS = ConstList.make(Arrays.asList(
@@ -43,12 +44,14 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
 
     // A POJO collecting information about a field subject to this optimization.
     private static final class FieldFuncInfo {
-        // Invariant: argSorts.size() + 1 == sum of boundExpr.type().arity() for each boundExpr in boundExprs
+        // Invariant: argSorts.size() + 1 == arity == sum of boundExpr.type().arity() for each boundExpr in boundExprs
         // Also, we must have at least one arg sort.
         public final String funcName;
         public final List<Sort> argSorts;
         public final Sort resultSort;
         public final List<Expr> boundExprs;
+
+        public final int arity;
 
         // May be null if there's no domain predicate.
         public final String domainPredName;
@@ -62,27 +65,36 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
             this.domainPredName = domainPredName;
 
             // enforce the invariant
-            int totalArity = boundExprs.stream().mapToInt(expr -> expr.type().arity()).sum();
-            if (totalArity != argSorts.size() + 1) {
+            this.arity = boundExprs.stream().mapToInt(expr -> expr.type().arity()).sum();
+            if (this.arity != argSorts.size() + 1) {
                 throw new ErrorFatal("Internal Portus error: function optimization arities do not match!");
             }
             if (argSorts.isEmpty()) {
                 throw new ErrorFatal("Internal Portus error: function optimization field with no arg sorts!");
             }
         }
+
+        public FuncDecl getDecl() {
+            return FuncDecl.mkFuncDecl(funcName, argSorts, resultSort);
+        }
     }
 
     // The base scalar caster; use this instead of calling castToScalar directly for generality.
     private final ScalarCaster rootScalarCaster;
+
+    // The base evaluator; use this instead of calling evaluate directly for generality.
+    private final Evaluator rootEvaluator;
 
     // Should we optimize "A->lone B" as well as "A->one B"?
     private final boolean optimizeLone;
 
     private final Map<Sig.Field, FieldFuncInfo> optimizedFieldsInfo = new HashMap<>();
 
-    public FunctionOptTranslator(Translator topLevel, ScalarCaster rootScalarCaster, boolean optimizeLone) {
+    public FunctionOptTranslator(
+            Translator topLevel, ScalarCaster rootScalarCaster, Evaluator rootEvaluator, boolean optimizeLone) {
         super(topLevel);
         this.rootScalarCaster = rootScalarCaster;
+        this.rootEvaluator = rootEvaluator;
         this.optimizeLone = optimizeLone;
     }
 
@@ -367,6 +379,22 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
         return null;
     }
 
+    /** Evaluate fields we optimized here. */
+    @Override
+    public TupleSet evaluate(Expr expr, FortressSolution solution, TranslationContext context) {
+        if (!(expr instanceof Sig.Field)) return null;
+        Sig.Field field = (Sig.Field) expr;
+        if (!optimizedFieldsInfo.containsKey(field)) return null;
+
+        FieldFuncInfo info = optimizedFieldsInfo.get(field);
+
+        // Find the sets of n-1 atoms for which the domain predicate is true then map to get the final atoms
+        TupleSet domain = getTuplesInDomain(info, solution, context);
+        return domain.stream()
+                .map(args -> SetOps.concatenate(args, solution.evaluateTerm(Term.mkApp(info.funcName, args))))
+                .collect(TupleSet.collect(info.arity));
+    }
+
     private List<AnnotatedVar> makeArgVars(FieldFuncInfo info, TranslationContext context) {
         List<AnnotatedVar> varList = new ArrayList<>();
         for (int i = 0; i < info.argSorts.size(); i++) {
@@ -411,6 +439,61 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
         } finally {
             context.removeMapping("this");
         }
+    }
+
+    // TODO: test this (significantly!)
+    private TupleSet getTuplesInDomain(
+            FieldFuncInfo info, FortressSolution solution, TranslationContext context) {
+        if (info.domainPredName != null) {
+            // reverse the domain predicate if available
+            return solution.functionPreimage(info.getDecl(), Term.mkTop());
+        }
+
+        // Take the product of all the bound exprs in the domain formula above
+        // If there's no "this", just evaluate the exprs
+        TupleSet first = null;
+        TupleSet result = TupleSet.singleton(Collections.emptyList()); // the identity for cartesian product
+        for (Expr expr : info.boundExprs.subList(0, info.boundExprs.size() - 1)) {
+            int arity = expr.type().arity();
+
+            // TODO: this is overkill, if this is a bottleneck then just write a search-for-free-var routine
+            boolean hasThis = PortusUtil.computeFreeVariables(expr, context).stream()
+                    .anyMatch(var -> var.name().equals("this"));
+
+            TupleSet exprResult;
+            if (hasThis) {
+                if (first == null) {
+                    // first should be the sig and defines this, so it shouldn't contain this
+                    throw new ErrorFatal("First bound expr can't contain this!");
+                }
+                if (first.arity() != 1) {
+                    // first should be the sig so it should translate to a pure set (arity 1)
+                    throw new ErrorFatal("First bound expr should be a pure set!");
+                }
+
+                // Use each value in the sig in turn as "this" and then union the results together
+                Sort sigSort = info.argSorts.get(0);
+                exprResult = first.singleValueStream().map(thisValue -> {
+                    context.addTermMapping("this", new AnnotatedTerm(thisValue, sigSort));
+                    try {
+                        return rootEvaluator.evaluate(expr, solution, context);
+                    } finally {
+                        context.removeMapping("this");
+                    }
+                }).reduce(TupleSet.empty(arity), TupleSet::union);
+            } else {
+                exprResult = rootEvaluator.evaluate(expr, solution, context);
+            }
+
+            if (first == null) {
+                first = exprResult;
+            }
+
+            // Take the product of the results for each expression
+            result = result.cartesianProduct(exprResult);
+        }
+
+        return result;
     }
 
 }

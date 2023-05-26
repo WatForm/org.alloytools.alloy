@@ -19,17 +19,17 @@ import edu.mit.csail.sdg.translator.A4TupleSet;
 import edu.mit.csail.sdg.translator.AlloySolution;
 import fortress.interpretation.Interpretation;
 import fortress.msfol.AnnotatedVar;
+import fortress.msfol.FuncDecl;
+import fortress.msfol.FunctionDefinition;
 import fortress.msfol.IntegerLiteral;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
 import fortress.msfol.Theory;
 import fortress.msfol.Value;
+import fortress.operations.InterpretationEvaluator;
 import fortress.operations.InterpretationVerifier;
-import fortress.operations.Substituter;
-import kodkod.instance.Tuple;
-import kodkod.instance.TupleFactory;
-import kodkod.instance.TupleSet;
 import kodkod.instance.Universe;
+import scala.Option;
 
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -41,15 +41,14 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 public final class FortressSolution implements AlloySolution {
 
     /** The Fortress interpretation corresponding to this solution (null if unsat). */
     private final Interpretation interpretation;
 
-    /** The translator used to produce the input to Fortress which produced the interpretation.. */
-    private final Translator translator;
+    /** An evaluator which contains the state necessary to evaluate expressions in this interpretation.. */
+    private final Evaluator evaluator;
 
     /** The context of the translation used to produce the interpretation. */
     private final TranslationContext context;
@@ -69,10 +68,10 @@ public final class FortressSolution implements AlloySolution {
     /** The single Kodkod universe of atoms - Alloy requires a consistent Universe object. */
     private final Universe universe;
 
-    FortressSolution(Interpretation interpretation, Translator translator, TranslationContext context,
-                     Iterable<Sig> sigs, String originalFilename, String originalCommand) {
+    FortressSolution(Interpretation interpretation, Evaluator evaluator, TranslationContext context, Iterable<Sig> sigs,
+                     String originalFilename, String originalCommand) {
         this.interpretation = interpretation;
-        this.translator = translator;
+        this.evaluator = evaluator;
         this.context = context;
         this.sigs = new SafeList<>(sigs);
         this.originalFilename = originalFilename;
@@ -92,6 +91,11 @@ public final class FortressSolution implements AlloySolution {
 
             List<Value> fortressAtoms = new ArrayList<>();
             for (Sort sort : sortInterpretations.keySet()) {
+                // Booleans will cause an error if they're included in the universe, so manually exclude them if needed
+                if (sort == Sort.Bool()) {
+                    continue;
+                }
+
                 List<Value> sortAtoms = sortInterpretations.get(sort);
                 fortressAtoms.addAll(sortAtoms);
                 sortsToAtoms.put(sort, sortAtoms);
@@ -100,10 +104,18 @@ public final class FortressSolution implements AlloySolution {
                     fortressToAlloyAtoms.put(atom, alloyAtom);
                 }
             }
-            this.universe = new Universe(sanitizeIntLiteralsForKodkod(fortressAtoms));
+            this.universe = new Universe(sanitizeLiteralsForKodkod(fortressAtoms));
         } else {
             this.universe = null;
         }
+    }
+
+    List<Value> getSortAtoms(Sort sort) {
+        return sortsToAtoms.get(sort);
+    }
+
+    Universe getUniverse() {
+        return universe;
     }
 
     @Override
@@ -217,89 +229,17 @@ public final class FortressSolution implements AlloySolution {
 
     @Override
     public Object eval(Expr expr) throws Err {
-        if (expr.type().is_bool) {
-            // A formula - just check it and return the boolean
-            // Translate to Fortress - copy the translation context to avoid any modifications
-            TranslationContext contextCopy = new TranslationContext(context);
-            Term fortressTerm = translator.translate(expr, contextCopy);
-            return evaluateFormula(fortressTerm, interpretation);
+        TupleSet tupleSet = evaluator.evaluate(expr, this, context);
+
+        // Pure booleans and ints are expected to be returned as Java booleans and ints.
+        if (tupleSet.isPureBoolean()) {
+            return tupleSet.getPureBoolean();
+        }
+        if (tupleSet.isPureInt()) {
+            return tupleSet.getPureInt();
         }
 
-        // Check if it's an integer
-        Expr intExpr = expr.typecheck_as_int();
-        if (intExpr.errors.isEmpty()) {
-            throw new ErrorAPI("Can't eval() int expression!");
-        }
-
-        // It's a tuple set - manually evaluate {(x1,...,xn) : sorts | [[(x1,...,xn) \in expr]]}
-        List<List<Value>> tupleSet = new ArrayList<>();
-        List<Sort> sorts = context.sortPolicy.getAllSorts();
-        int arity = expr.type().arity();
-
-        // Optimization: if we can determine that some positions can only have atoms of a certain sort,
-        // only try values from that sort
-        List<Sort> exprSorts = context.sortPolicy.getMinimalExprSorts(expr, context);
-        if (exprSorts == null) {
-            // if we couldn't get the sorts for some reason, just try all sorts
-            exprSorts = Collections.nCopies(arity, null);
-        }
-        if (arity != exprSorts.size()) {
-            throw new ErrorFatal("Evaluating " + expr + ": type arity " + arity + " conflicts with determined arity "
-                + exprSorts.size());
-        }
-        List<List<Sort>> sortsPerPosition = exprSorts.stream()
-                .map(sort -> SortPolicy.isSortDefinite(sort) ? Collections.singletonList(sort) : sorts)
-                .collect(Collectors.toList());
-
-        cartesianProduct(sortsPerPosition).forEach(sortCombo -> {
-            // Use this trick to avoid calling translate() for every combination of atoms:
-            // for (v1,...,vn) \in expr, make vars x1,...,xn and translate [[(x1,...,xn) \in expr]]
-            // and then substitute xi->vi for i=1..n.
-            List<AnnotatedVar> vars = sortCombo.stream()
-                    .map(sort -> Term.mkVar(context.nameGenerator.freshName("var_" + sort)).of(sort))
-                    .collect(Collectors.toList());
-
-            TranslationContext contextCopy = new TranslationContext(context);
-            Expr inExpr = ExprElementOf.make(TermTuple.fromVars(vars), expr);
-            Term formula = translator.translate(inExpr, contextCopy);
-
-            List<List<Value>> sortAtoms = sortCombo.stream()
-                    .map(sortsToAtoms::get)
-                    .collect(Collectors.toList());
-            cartesianProduct(sortAtoms).forEach(tuple -> {
-                // Substitute for the values we want to evaluate
-                Term substitutedFormula = formula;
-                for (int i = 0; i < tuple.size(); i++) {
-                    substitutedFormula = Substituter.apply(
-                            vars.get(i).variable(), tuple.get(i), substitutedFormula, contextCopy.nameGenerator);
-                }
-
-                boolean inSet = evaluateFormula(substitutedFormula, interpretation);
-                if (inSet) {
-                    tupleSet.add(tuple);
-                }
-            });
-        });
-
-        // A4SolutionWriter/Reader don't process Int normally but instead assume that int literals are represented
-        // by actual integers - so make sure that's the case.
-        List<List<Object>> processedTuples = tupleSet.stream()
-                .map(this::sanitizeIntLiteralsForKodkod)
-                .collect(Collectors.toList());
-
-        // Convert the tuple set to the A4TupleSet that Alloy expects
-        TupleFactory tupleFactory = universe.factory();
-        List<Tuple> tuples = processedTuples.stream()
-                .map(tupleFactory::tuple)
-                .collect(Collectors.toList());
-        TupleSet result;
-        if (tuples.isEmpty()) {
-            // TupleFactory.setOf() can't determine the arity if there are no tuples
-            result = tupleFactory.noneOf(arity);
-        } else {
-            result = tupleFactory.setOf(tuples);
-        }
-        return new A4TupleSet(result, this);
+        return tupleSet.toAlloy(this);
     }
 
     @Override
@@ -308,42 +248,67 @@ public final class FortressSolution implements AlloySolution {
         return eval(expr);
     }
 
-    // Is 'formula' true in the interpretation?
-    private static boolean evaluateFormula(
-            Term formula, Interpretation interpretation) {
+    /** Is this given Fortress formula true in this theory's interpretation? It must be a boolean formula. */
+    boolean evaluateFormula(Term formula) {
         // Check whether the interpretation satisfies a theory with the term as the only axiom.
         Theory theory = Theory.empty()
                 .withSorts(interpretation.sortInterpretationsJava().keySet())
                 .withFunctionDeclarations(interpretation.functionInterpretations().keys())
-                .withConstants(interpretation.constantInterpretationsJava().keySet())
+                .withConstantDeclarations(interpretation.constantInterpretationsJava().keySet())
                 .withAxiom(formula);
         InterpretationVerifier verifier = new InterpretationVerifier(theory);
         return verifier.verifyInterpretation(interpretation);
     }
 
-    // Compute the Cartesian product of the lists recursively and lazily
-    private <T> Stream<? extends List<T>> cartesianProduct(List<List<T>> lists) {
-        if (lists.size() == 0) {
-            // Singleton list with just ()
-            return Stream.of(new ArrayList<>());
-        } else {
-            // Compute product(lists[:-1]) x lists[-1]
-            Stream<? extends List<T>> prev = cartesianProduct(lists.subList(0, lists.size() - 1));
-            List<T> last = lists.get(lists.size() - 1);
-            return prev.flatMap(tuple -> last.stream().map(value -> {
-                List<T> addedTuple = new ArrayList<>(tuple);
-                addedTuple.add(value);
-                return addedTuple;
-            }));
+    /**
+     * Find the Value this term is interpreted as.
+     * Note: This does not support quantifiers. Use evaluateFormula for general formulas.
+     */
+    Value evaluateTerm(Term term) {
+        return interpretation.visitFunctionBody(term, scala.collection.immutable.Map$.MODULE$.<Term, Value>empty());
+    }
+
+    /**
+     * Get the preimage of the output value in the function func.
+     */
+    TupleSet functionPreimage(FuncDecl func, Value output) {
+        // Note: a Map is the wrong data structure for this! This is very inefficient, no better than naive iteration!
+        // Functions should always show up in the function interpretations, even if it's filled by a definition
+        if (!interpretation.functionInterpretationsJava().containsKey(func)) {
+            throw new ErrorFatal("Function " + func + " does not exist in this solution!");
         }
+
+        TupleSet result = interpretation.functionInterpretationsJava().get(func).entrySet().stream()
+                .filter(entry -> entry.getValue() == output)
+                .map(Map.Entry::getKey)
+                .collect(TupleSet.collect(func.arity()));
+
+        // If there's a function definition, include it too
+        Option<FunctionDefinition> definitionOption = interpretation.functionDefinitions().find(
+                def -> def.name().equals(func.name())
+                        && def.argSortedVar().map(AnnotatedVar::sort).equals(func.argSorts())
+                        && def.resultSort().equals(func.resultSort()));
+        if (definitionOption.isDefined()) {
+            FunctionDefinition definition = definitionOption.get();
+            int arity = definition.argSortedVar().size();
+            result = result.union(TupleSet.fromScala(InterpretationEvaluator.findPreimage(interpretation,
+                    definition.argSortedVar(),
+                    definition.body(),
+                    output), arity));
+        }
+
+        return result;
     }
 
     // A4SolutionReader/Writer want the int literals to be actual Integer objects, so convert IntegerLiterals.
-    private List<Object> sanitizeIntLiteralsForKodkod(List<Value> values) {
+    // TODO: duplicates TupleSet
+    private List<Object> sanitizeLiteralsForKodkod(List<Value> values) {
         return values.stream()
                 .map(value -> {
                     if (value instanceof IntegerLiteral) {
                         return ((IntegerLiteral) value).value();
+                    } else if (value == Term.mkTop() || value == Term.mkBottom()) {
+                        throw new ErrorFatal("Booleans are invalid in Kodkod tuples!");
                     } else {
                         return value;
                     }

@@ -218,7 +218,7 @@ public class DefaultTranslatorTest {
         assertThat(axioms, contains(isAlphaEquivalentTerm(exactScopeAxiom)));
 
         // should have no constants, one function for the membership predicate
-        assertThat(context.getTheory().constants().size(), is(0));
+        assertThat(context.getTheory().constantDeclarations().size(), is(0));
         assertThat(context.getTheory().enumConstants().size(), is(0));
         assertThat(context.getTheory().functionDeclarations().size(), is(1));
         FuncDecl func = context.getTheory().functionDeclarations().head();
@@ -264,7 +264,7 @@ public class DefaultTranslatorTest {
         assertThat(axioms, contains(isAlphaEquivalentTerm(nonExactScopeAxiom)));
 
         // should have no constants, one function for the membership predicate
-        assertThat(context.getTheory().constants().size(), is(0));
+        assertThat(context.getTheory().constantDeclarations().size(), is(0));
         assertThat(context.getTheory().enumConstants().size(), is(0));
         assertThat(context.getTheory().functionDeclarations().size(), is(1));
         FuncDecl func = context.getTheory().functionDeclarations().head();
@@ -310,7 +310,7 @@ public class DefaultTranslatorTest {
         assertThat(axioms, contains(isAlphaEquivalentTerm(nonExactScopeAxiom)));
 
         // should have no constants, one function for the membership predicate
-        assertThat(context.getTheory().constants().size(), is(0));
+        assertThat(context.getTheory().constantDeclarations().size(), is(0));
         assertThat(context.getTheory().enumConstants().size(), is(0));
         assertThat(context.getTheory().functionDeclarations().size(), is(1));
         FuncDecl func = context.getTheory().functionDeclarations().head();
@@ -386,7 +386,7 @@ public class DefaultTranslatorTest {
         assertIsMembershipPredicate(inChildPred, "inChild");
 
         // should have no constants
-        assertThat(context.getTheory().constants().size(), is(0));
+        assertThat(context.getTheory().constantDeclarations().size(), is(0));
         assertThat(context.getTheory().enumConstants().size(), is(0));
     }
 
@@ -495,7 +495,7 @@ public class DefaultTranslatorTest {
         assertIsMembershipPredicate(inChild2Pred, "inChild2");
 
         // should have no constants
-        assertThat(context.getTheory().constants().size(), is(0));
+        assertThat(context.getTheory().constantDeclarations().size(), is(0));
         assertThat(context.getTheory().enumConstants().size(), is(0));
     }
 
@@ -697,7 +697,7 @@ public class DefaultTranslatorTest {
         assertThat(axioms, containsInAnyOrder(boundAxiom));
 
         // should have no constants
-        assertThat(context.getTheory().constants().size(), is(0));
+        assertThat(context.getTheory().constantDeclarations().size(), is(0));
         assertThat(context.getTheory().enumConstants().size(), is(0));
     }
 
@@ -744,7 +744,7 @@ public class DefaultTranslatorTest {
         assertThat(axioms, containsInAnyOrder(boundAxiom));
 
         // should have no constants
-        assertThat(context.getTheory().constants().size(), is(0));
+        assertThat(context.getTheory().constantDeclarations().size(), is(0));
         assertThat(context.getTheory().enumConstants().size(), is(0));
     }
 
@@ -790,7 +790,7 @@ public class DefaultTranslatorTest {
         assertThat(axioms, containsInAnyOrder(boundAxiom));
 
         // should have no constants
-        assertThat(context.getTheory().constants().size(), is(0));
+        assertThat(context.getTheory().constantDeclarations().size(), is(0));
         assertThat(context.getTheory().enumConstants().size(), is(0));
     }
 
@@ -836,7 +836,7 @@ public class DefaultTranslatorTest {
         assertThat(axioms, containsInAnyOrder(boundAxiom));
 
         // should have no constants
-        assertThat(context.getTheory().constants().size(), is(0));
+        assertThat(context.getTheory().constantDeclarations().size(), is(0));
         assertThat(context.getTheory().enumConstants().size(), is(0));
     }
 
@@ -882,7 +882,7 @@ public class DefaultTranslatorTest {
         assertThat(axioms, containsInAnyOrder(boundAxiom));
 
         // should have no constants
-        assertThat(context.getTheory().constants().size(), is(0));
+        assertThat(context.getTheory().constantDeclarations().size(), is(0));
         assertThat(context.getTheory().enumConstants().size(), is(0));
     }
 

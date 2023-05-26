@@ -22,6 +22,7 @@ import java.util.List;
  * The ordering module optimization, where we hardcode a "next" function and a "first" element
  * for symmetry breaking.
  */
+// TODO: implement Evaluator
 final class OrderingModuleOptTranslator extends AbstractTranslator implements ScalarCaster {
 
     private final class OrderInfo {
