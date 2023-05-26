@@ -26,7 +26,7 @@ import fortress.msfol.Sort;
 import fortress.msfol.Term;
 import fortress.msfol.Theory;
 import fortress.msfol.Value;
-import fortress.operations.InterpretationEvaluator;
+import fortress.operations.PreimageFinding;
 import fortress.operations.InterpretationVerifier;
 import kodkod.instance.Universe;
 import scala.Option;
@@ -291,7 +291,7 @@ public final class FortressSolution implements AlloySolution {
         if (definitionOption.isDefined()) {
             FunctionDefinition definition = definitionOption.get();
             int arity = definition.argSortedVar().size();
-            result = result.union(TupleSet.fromScala(InterpretationEvaluator.findPreimage(interpretation,
+            result = result.union(TupleSet.fromScala(PreimageFinding.findPreimage(interpretation,
                     definition.argSortedVar(),
                     definition.body(),
                     output), arity));
