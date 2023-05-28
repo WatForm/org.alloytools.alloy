@@ -42,7 +42,7 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
         // but for now:
         FunctionOptTranslator functionOpt = new FunctionOptTranslator(this, this, this, true);
         OrderingModuleOptTranslator orderingModuleOpt = new OrderingModuleOptTranslator(this, this);
-        DefaultTranslator defaultTranslator = new DefaultTranslator(this, new CardinalityScopeAxiomStrategy());
+        DefaultTranslator defaultTranslator = new DefaultTranslator(this, new ConstantsScopeAxiomStrategy());
         translators.add(new SimpleScalarOptTranslator(this, this));
         translators.add(functionOpt);
         translators.add(new JoinOptTranslator(this, this));

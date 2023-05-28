@@ -9,7 +9,8 @@ import fortress.msfol.Term;
 
 /**
  * A scope axiom strategy that uses cardinality to express scopes.
- * TODO: a ScopeAxiomStrategy that uses a heuristic to decide between this and QuantifierScopeAxiomStrategy.
+ * NOTE: Using this requires that the bitwidth is large enough to express the largest sig scope.
+ * Use the '-b' option in the CLI to automatically bump up the bitwidth to be large enough.
  */
 final class CardinalityScopeAxiomStrategy implements ScopeAxiomStrategy {
 
@@ -36,6 +37,9 @@ final class CardinalityScopeAxiomStrategy implements ScopeAxiomStrategy {
         // (This is always at least the scope we're trying to check, so we don't check that explicitly.)
         // TODO: if Fortress's integer implementation changes, this might be unnecessary
         Sort sort = context.sortPolicy.getSort(sig);
+        if (sort == null) {
+            throw new ErrorFatal("Can only generate a cardinality scope axiom for sigs with defined sorts!");
+        }
         int sortScope = context.sortPolicy.getSortScope(sort);
         if (sortScope > Util.max(context.getBitwidth())) {
             throw new ErrorFatal("Cardinality-based scope axioms require a bitwidth of at least "
