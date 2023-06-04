@@ -67,8 +67,8 @@ final class DefaultScalarCaster implements ScalarCaster {
     }
 
     @Override
-    public Pair<AnnotatedTerm, Term> castToScalar(Expr expr, TranslationContext inContext) {
-        return new ContextVisitReturn<Pair<AnnotatedTerm, Term>>(inContext) {
+    public Pair<AnnotatedTerm, Term> castToScalar(Expr expr, TranslationContext context) {
+        return new ContextVisitReturn<Pair<AnnotatedTerm, Term>>(context) {
             private Pair<AnnotatedTerm, Term> castByTranslating(Expr expr, Sort sort) {
                 // Translate as an expression of type `sort` and just use that
                 Term scalar = translator.translate(expr, context);
@@ -88,11 +88,11 @@ final class DefaultScalarCaster implements ScalarCaster {
             @Override
             public Pair<AnnotatedTerm, Term> visit(ExprCall call) {
                 // Cast the body
-                context.addLetMappingsFromCall(call);
+                varMappingContext.addLetMappingsFromCall(call);
                 try {
                     return rootScalarCaster.castToScalar(call.fun.getBody(), context);
                 } finally {
-                    context.removeLetMappingsFromCall(call);
+                    varMappingContext.removeLetMappingsFromCall(call);
                 }
             }
 
@@ -211,8 +211,8 @@ final class DefaultScalarCaster implements ScalarCaster {
             @Override
             public Pair<AnnotatedTerm, Term> visitVar(ExprVar x) {
                 // Check for mappings to scalars - lets handled for us
-                if (context.hasTermMapping(x.label)) {
-                    AnnotatedTerm fortressTerm = context.getTermMapping(x.label);
+                if (varMappingContext.hasTermMapping(x.label)) {
+                    AnnotatedTerm fortressTerm = varMappingContext.getTermMapping(x.label);
                     assert fortressTerm != null;
                     // no guard on the variable usage is needed
                     return new Pair<>(fortressTerm, Term.mkTop());

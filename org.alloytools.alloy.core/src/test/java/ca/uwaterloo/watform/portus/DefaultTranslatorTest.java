@@ -3678,7 +3678,7 @@ public class DefaultTranslatorTest {
         when(mockRoot.translate(eq(f), any())).then(ctx -> {
             TranslationContext context = ctx.getArgument(1);
             assertTrue(context.hasLetMapping("x"));
-            TranslationContext.LetContext letContext = context.getLetMapping("x");
+            VarMappingContext.LetContext letContext = context.getLetMapping("x");
             assertNotNull(letContext);
             assertEquals(e, letContext.getExpr());
 
@@ -3752,7 +3752,7 @@ public class DefaultTranslatorTest {
         when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(x0.of(univ), f))), any())).then(ctx -> {
             TranslationContext context = ctx.getArgument(1);
             assertTrue(context.hasLetMapping("x"));
-            TranslationContext.LetContext letContext = context.getLetMapping("x");
+            VarMappingContext.LetContext letContext = context.getLetMapping("x");
             assertNotNull(letContext);
             assertEquals(e, letContext.getExpr());
 
@@ -3985,7 +3985,7 @@ public class DefaultTranslatorTest {
             assertEquals(argA, Objects.requireNonNull(context.getLetMapping("b")).getExpr());
 
             // Make sure a's let mapping doesn't further translate it (to x)
-            TranslationContext.LetContext aLetMapping = Objects.requireNonNull(context.getLetMapping("b"));
+            VarMappingContext.LetContext aLetMapping = Objects.requireNonNull(context.getLetMapping("b"));
             aLetMapping.useLetMapping(context);
             assertFalse(context.hasLetMapping("a"));
             assertFalse(context.hasLetMapping("b")); // for good measure

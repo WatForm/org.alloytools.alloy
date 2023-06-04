@@ -3,6 +3,7 @@ package ca.uwaterloo.watform.portus;
 import edu.mit.csail.sdg.alloy4.Err;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.ast.Assert;
+import edu.mit.csail.sdg.ast.Command;
 import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprBinary;
@@ -19,6 +20,7 @@ import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.ast.Type;
 import edu.mit.csail.sdg.ast.VisitReturn;
 import edu.mit.csail.sdg.parser.Macro;
+import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.msfol.Sort;
 import fortress.msfol.Theory;
 import fortress.problemstate.ExactScope;
@@ -45,7 +47,7 @@ final class PartitionSortPolicy extends SortPolicy {
     private final List<Sort> allSorts = new ArrayList<>();
     private final Map<Sort, Scope> sortsToScopes = new HashMap<>();
 
-    public PartitionSortPolicy(Iterable<Sig> allSigs, Expr fullExpr, TranslationContext context) {
+    public PartitionSortPolicy(Iterable<Sig> allSigs, Command command, ScopeComputer scoper) {
         super(allSigs);
 
         List<Sig> topLevelSigs = StreamSupport.stream(allSigs.spliterator(), false)
@@ -54,7 +56,7 @@ final class PartitionSortPolicy extends SortPolicy {
         sortPartition = new DisjointSets<>(topLevelSigs);
 
         // Merge together all sigs' sorts that need to be merged.
-        VisitReturn<Void> merger = new ContextVisitReturn<Void>(context) {
+        VisitReturn<Void> merger = new ContextVisitReturn<Void>(new VarMappingContext()) {
             @Override
             public Void visit(ExprBinary x) throws Err {
                 switch (x.op) {
@@ -183,7 +185,7 @@ final class PartitionSortPolicy extends SortPolicy {
                 throw new ErrorFatal("Cannot visit Macro!");
             }
         };
-        merger.visitThis(fullExpr);
+        merger.visitThis(command.formula);
 
         // Also make sure every in field declaration "f: e", e has definite sorts
         for (Sig sig : allSigs) {
@@ -195,13 +197,13 @@ final class PartitionSortPolicy extends SortPolicy {
         // Now that we've figured out what sigs need to be in the same sorts, generate the sorts
         List<List<Sig>> partition = sortPartition.getPartition();
         for (List<Sig> sigsInSameSort : partition) {
-            String name = context.nameGenerator.freshName(getSortNameFromSigs(sigsInSameSort));
+            String name = getSortNameFromSigs(sigsInSameSort);
             Sort sort = Sort.mkSortConst(name);
 
             int sortScope = 0;
             for (Sig sig : sigsInSameSort) {
                 sigsToSorts.put(sig, sort);
-                sortScope += context.scoper.sig2scope(sig);
+                sortScope += scoper.sig2scope(sig);
             }
             allSorts.add(sort);
             // TODO: If this is the only top-level sort, we can save on a scope axiom using non-exact scopes here!
@@ -210,7 +212,7 @@ final class PartitionSortPolicy extends SortPolicy {
 
         // Special cases for int
         allSorts.add(Sort.Int());
-        sortsToScopes.put(Sort.Int(), ExactScope.apply(1 << context.scoper.getBitwidth())); // 2^bitwidth, # of ints
+        sortsToScopes.put(Sort.Int(), ExactScope.apply(1 << scoper.getBitwidth())); // 2^bitwidth, # of ints
         sigsToSorts.put(Sig.SIGINT, Sort.Int());
         sigsToSorts.put(Sig.SEQIDX, Sort.Int());
     }

@@ -111,7 +111,7 @@ final class SimpleEvaluator implements Evaluator {
 
     private TupleSet evaluate(ExprVar var, FortressSolution solution, TranslationContext context) {
         if (context.hasLetMapping(var.label)) {
-            TranslationContext.LetContext letContext = context.getLetMapping(var.label);
+            VarMappingContext.LetContext letContext = context.getLetMapping(var.label);
             assert letContext != null;
             letContext.useLetMapping(context);
             try {

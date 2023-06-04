@@ -259,12 +259,12 @@ public abstract class SortPolicy {
 
         @Override
         public List<Sort> visit(ExprCall x) throws Err {
-            context.addLetMappingsFromCall(x);
+            varMappingContext.addLetMappingsFromCall(x);
             try {
                 return visitThis(x.fun.getBody());
             } finally {
                 // remove the let mappings even if there's an exception
-                context.removeLetMappingsFromCall(x);
+                varMappingContext.removeLetMappingsFromCall(x);
             }
         }
 
@@ -362,8 +362,8 @@ public abstract class SortPolicy {
         public List<Sort> visitVar(ExprVar x) throws Err {
             // use the sort it's mapped to in the context
             // Note: let mappings are automatically expanded in superclass
-            if (context.hasTermMapping(x.label)) {
-                AnnotatedTerm mapped = context.getTermMapping(x.label);
+            if (varMappingContext.hasTermMapping(x.label)) {
+                AnnotatedTerm mapped = varMappingContext.getTermMapping(x.label);
                 assert mapped != null;
                 return Collections.singletonList(mapped.getSort());
             } else {

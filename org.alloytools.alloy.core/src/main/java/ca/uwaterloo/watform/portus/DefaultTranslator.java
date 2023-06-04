@@ -1260,7 +1260,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
     public Term translate(TermTuple tuple, ExprVar expr, TranslationContext context) {
         // Check if it's mapped to a let-expression - if so, use that instead
         if (context.hasLetMapping(expr.label)) {
-            TranslationContext.LetContext letContext = context.getLetMapping(expr.label);
+            VarMappingContext.LetContext letContext = context.getLetMapping(expr.label);
             assert letContext != null;
 
             // Ensure we use the variable mappings from the let expression's location;
@@ -1291,7 +1291,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
     public Term translate(ExprVar expr, TranslationContext context) {
         // Check if it's mapped to a let-expression - if so, use that instead
         if (context.hasLetMapping(expr.label)) {
-            TranslationContext.LetContext letContext = context.getLetMapping(expr.label);
+            VarMappingContext.LetContext letContext = context.getLetMapping(expr.label);
             assert letContext != null;
             letContext.useLetMapping(context);
             try {

@@ -370,11 +370,11 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
 
             @Override
             public Pair<AnnotatedTerm, Term> visit(ExprCall x) throws Err {
-                context.addLetMappingsFromCall(x);
+                varMappingContext.addLetMappingsFromCall(x);
                 try {
                     return visitThis(x.fun.getBody());
                 } finally {
-                    context.removeLetMappingsFromCall(x);
+                    varMappingContext.removeLetMappingsFromCall(x);
                 }
             }
 
@@ -382,13 +382,15 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
             public Pair<AnnotatedTerm, Term> visit(ExprBinary x) {
                 for (OrderInfo order : orders) {
                     if (order.matchesNextUsage(x)) {
-                        Pair<AnnotatedTerm, Term> leftScalar = rootScalarCaster.castToScalar(exprBinary.left, context);
+                        Pair<AnnotatedTerm, Term> leftScalar = rootScalarCaster.castToScalar(
+                                exprBinary.left, context);
                         if (leftScalar == null) {
                             return null;
                         }
 
                         // Combine the guards and use the resulting scalar
-                        Pair<AnnotatedTerm, Term> nextScalar = order.getNextScalarAndGuard(leftScalar.a, context);
+                        Pair<AnnotatedTerm, Term> nextScalar = order.getNextScalarAndGuard(
+                                leftScalar.a, context);
                         if (nextScalar == null) {
                             return null; // sort don't work out - let someone else deal with it
                         }

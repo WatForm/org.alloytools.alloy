@@ -271,10 +271,10 @@ final class PortusUtil {
      * Get a list of the variables which are free in the translation of expr, with sorts determined by the context
      * (which should assign a Fortress var for each free Alloy var).
      */
-    public static List<AnnotatedVar> computeFreeVariables(Expr expr, final TranslationContext inContext) {
+    public static List<AnnotatedVar> computeFreeVariables(Expr expr, final TranslationContext context) {
         // TODO: find sorts of free vars via earlier quantifiers
         // simple recursive implementation
-        return expr.accept(new ContextVisitReturn<List<AnnotatedVar>>(inContext) {
+        return expr.accept(new ContextVisitReturn<List<AnnotatedVar>>(context) {
             @SafeVarargs
             private final List<AnnotatedVar> union(List<AnnotatedVar>... lists) {
                 // this is O(n^2) to union two lists of length n, but this shouldn't be a bottleneck
@@ -349,10 +349,10 @@ final class PortusUtil {
             @Override
             public List<AnnotatedVar> visitVar(ExprVar x) throws Err {
                 // Let mappings are handled for us, so it should be in the context - use it
-                if (!context.hasTermMapping(x.label)) {
+                if (!varMappingContext.hasTermMapping(x.label)) {
                     throw new ErrorFatal("Unknown variable: " + x.label);
                 }
-                AnnotatedTerm mappedTerm = context.getTermMapping(x.label);
+                AnnotatedTerm mappedTerm = varMappingContext.getTermMapping(x.label);
                 assert mappedTerm != null;
                 return new ArrayList<>(mappedTerm.getFreeVars());
             }

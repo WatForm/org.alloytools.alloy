@@ -33,23 +33,27 @@ import java.util.List;
  */
 abstract class ContextVisitReturn<T> extends FortressVisitReturn<T> {
 
-    protected final TranslationContext context;
+    protected final VarMappingContext varMappingContext;
 
     // The placeholder which bound variables will be mapped to in the context.
     protected final AnnotatedVar boundPlaceholderVar = Term.mkVar("%boundPlaceholderVar").of(Sort.Int());
 
-    public ContextVisitReturn(TranslationContext context) {
+    public ContextVisitReturn(VarMappingContext varMappingContext) {
         // Don't copy because rangeAssigner has side effects which need to be persisted
-        this.context = context;
+        this.varMappingContext = varMappingContext;
+    }
+
+    public ContextVisitReturn(TranslationContext context) {
+        this(context.varMappingContext);
     }
 
     @Override
     public final T visit(ExprLet x) throws Err {
-        context.addLetMapping(x.var.label, x.expr);
+        varMappingContext.addLetMapping(x.var.label, x.expr);
         try {
             return visitLet(x);
         } finally {
-            context.removeMapping(x.var.label);
+            varMappingContext.removeMapping(x.var.label);
         }
     }
 
@@ -62,7 +66,7 @@ abstract class ContextVisitReturn<T> extends FortressVisitReturn<T> {
         for (Decl decl : x.decls) {
             for (ExprHasName name : decl.names) {
                 argResults.add(visitQuantifierArg(decl.expr));
-                context.addTermMapping(name.label, new AnnotatedTerm(boundPlaceholderVar));
+                varMappingContext.addTermMapping(name.label, new AnnotatedTerm(boundPlaceholderVar));
             }
         }
         try {
@@ -71,7 +75,7 @@ abstract class ContextVisitReturn<T> extends FortressVisitReturn<T> {
             // remove the var mappings
             for (Decl decl : x.decls) {
                 for (ExprHasName name : decl.names) {
-                    context.removeMapping(name.label);
+                    varMappingContext.removeMapping(name.label);
                 }
             }
         }
@@ -87,10 +91,10 @@ abstract class ContextVisitReturn<T> extends FortressVisitReturn<T> {
     @Override
     public final T visit(ExprVar x) throws Err {
         // Expand the let mapping if it has it
-        if (context.hasLetMapping(x.label)) {
-            TranslationContext.LetContext letContext = context.getLetMapping(x.label);
+        if (varMappingContext.hasLetMapping(x.label)) {
+            VarMappingContext.LetContext letContext = varMappingContext.getLetMapping(x.label);
             assert letContext != null;
-            letContext.useLetMapping(context);
+            letContext.useLetMapping(varMappingContext);
             try {
                 return visitLetVarExpr(letContext.getExpr());
             } finally {

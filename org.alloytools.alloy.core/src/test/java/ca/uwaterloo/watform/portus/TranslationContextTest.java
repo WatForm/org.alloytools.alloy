@@ -44,7 +44,7 @@ public class TranslationContextTest {
         assertFalse(context.hasTermMapping("x"));
         assertFalse(context.hasTermMapping("y"));
 
-        TranslationContext.LetContext letContext = context.getLetMapping("x");
+        VarMappingContext.LetContext letContext = context.getLetMapping("x");
         assertNotNull(letContext);
         assertEquals(x, letContext.getExpr());
 
@@ -90,7 +90,7 @@ public class TranslationContextTest {
         assertTrue(contextCopy.hasLetMapping("x"));
         assertFalse(contextCopy.hasTermMapping("x"));
 
-        TranslationContext.LetContext copyLetContext = contextCopy.getLetMapping("x");
+        VarMappingContext.LetContext copyLetContext = contextCopy.getLetMapping("x");
         assertNotNull(copyLetContext);
         assertEquals(x, copyLetContext.getExpr());
 
@@ -128,7 +128,7 @@ public class TranslationContextTest {
 
         // y should be mapped to the original x and not a
         // that is, there should be no let mapping for x within y's let mapping
-        TranslationContext.LetContext letContext = context.getLetMapping("y");
+        VarMappingContext.LetContext letContext = context.getLetMapping("y");
         assertNotNull(letContext);
         letContext.useLetMapping(context);
         assertFalse(context.hasLetMapping("x"));
