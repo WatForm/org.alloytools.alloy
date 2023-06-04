@@ -69,7 +69,7 @@ public class FortressSolutionTest {
                 PortusUtil.<FuncDecl, scala.collection.immutable.Map<Seq<Value>, Value>>toScalaMap(functions),
                 Set$.MODULE$.<FunctionDefinition>empty());
 
-        TranslatorManager manager = new TranslatorManager(context.options);
+        TranslatorManager manager = new TranslatorManager(context.options, sortPolicy);
         solution = new FortressSolution(
                 interpretation, manager, context,
                 Collections.singletonList(Sig.UNIV), "", "");

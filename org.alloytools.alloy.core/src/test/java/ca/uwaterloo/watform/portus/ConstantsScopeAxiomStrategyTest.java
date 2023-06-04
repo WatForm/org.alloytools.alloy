@@ -65,7 +65,7 @@ public class ConstantsScopeAxiomStrategyTest {
         RangeAssigner mockRangeAssigner = mock(RangeAssigner.class);
         context = new TranslationContext(new PortusOptions(), mockScoper, mockSortPolicy, mockRangeAssigner);
 
-        strategy = new ConstantsScopeAxiomStrategy();
+        strategy = new ConstantsScopeAxiomStrategy(mockSortPolicy);
     }
 
     @Test

@@ -14,6 +14,12 @@ import fortress.msfol.Term;
  */
 final class CardinalityScopeAxiomStrategy implements ScopeAxiomStrategy {
 
+    private final SortPolicy sortPolicy;
+
+    public CardinalityScopeAxiomStrategy(SortPolicy sortPolicy) {
+        this.sortPolicy = sortPolicy;
+    }
+
     @Override
     public Term makeExactScopeAxiom(Sig sig, int scope, Translator recursiveTranslator, TranslationContext context) {
         // "#sig = scope"
@@ -36,11 +42,11 @@ final class CardinalityScopeAxiomStrategy implements ScopeAxiomStrategy {
         // To use this technique, we require the max size of the sig's sort to be representable as an integer.
         // (This is always at least the scope we're trying to check, so we don't check that explicitly.)
         // TODO: if Fortress's integer implementation changes, this might be unnecessary
-        Sort sort = context.sortPolicy.getSort(sig);
+        Sort sort = sortPolicy.getSort(sig);
         if (sort == null) {
             throw new ErrorFatal("Can only generate a cardinality scope axiom for sigs with defined sorts!");
         }
-        int sortScope = context.sortPolicy.getSortScope(sort);
+        int sortScope = sortPolicy.getSortScope(sort);
         if (sortScope > Util.max(context.getBitwidth())) {
             throw new ErrorFatal("Cardinality-based scope axioms require a bitwidth of at least "
                     + requiredBitwidthForScope(sortScope)

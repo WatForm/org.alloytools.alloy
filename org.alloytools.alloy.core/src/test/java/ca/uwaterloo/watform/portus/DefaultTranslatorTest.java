@@ -82,12 +82,12 @@ public class DefaultTranslatorTest {
     @Before
     public void setUp() {
         mockRoot = mock(Translator.class);
-        translator = new DefaultTranslator(mockRoot, new QuantifierScopeAxiomStrategy());
-        // Use the constructor so RangeAssigner's list of sigs isn't null (causes issues with copy constructor)
-        RangeAssigner mockRangeAssigner = mock(RangeAssigner.class, withSettings().useConstructor(new ArrayList<>()));
         mockScoper = mock(ScopeComputer.class);
         mockSortPolicy = mock(SortPolicy.class, delegatesTo(
                 new UnivSortPolicy(univ, Collections.emptyList(), mockScoper)));
+        translator = new DefaultTranslator(mockRoot, new QuantifierScopeAxiomStrategy(mockSortPolicy), mockSortPolicy);
+        // Use the constructor so RangeAssigner's list of sigs isn't null (causes issues with copy constructor)
+        RangeAssigner mockRangeAssigner = mock(RangeAssigner.class, withSettings().useConstructor(new ArrayList<>()));
         context = new TranslationContext(new PortusOptions(), mockScoper, mockSortPolicy, mockRangeAssigner);
     }
 

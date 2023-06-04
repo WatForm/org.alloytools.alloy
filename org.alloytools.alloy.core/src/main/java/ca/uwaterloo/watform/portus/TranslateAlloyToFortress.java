@@ -91,7 +91,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
         SortPolicy sortPolicy = options.portusOptions.getSortPolicy(sigs, scoper);
         RangeAssigner rangeAssigner = new RangeAssigner(sigs);
 
-        TranslatorManager translatorManager = new TranslatorManager(options.portusOptions);
+        TranslatorManager translatorManager = new TranslatorManager(options.portusOptions, sortPolicy);
         TranslationContext context = new TranslationContext(options.portusOptions, scoper, sortPolicy, rangeAssigner);
 
         // Do sigs first, then fields, then the formula.
@@ -100,7 +100,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
         translateFields(sigs, translatorManager, context);
 
         // Add extra axioms: the top level sigs are disjoint and complete
-        addDisjointnessAndCoverAxioms(sigs, translatorManager, context);
+        addDisjointnessAndCoverAxioms(sigs, translatorManager, sortPolicy, context);
 
         // TODO: append all the facts and field facts to the formula (copy/abstract makeFacts)
         context.addAxiom(translatorManager.translate(command.formula, context));
@@ -108,18 +108,18 @@ public final class TranslateAlloyToFortress implements CommandRunner {
 
         // Write raw MSFOL or SMTLIB+ to file if the appropriate solver is chosen
         if (options.solver.id().equals(A4Options.SatSolver.FORTRESS_MSFOL.id())) {
-            writeFortressToFile(logger, options, context);
+            writeFortressToFile(logger, options, sortPolicy, context);
             return null;
         }
         if (options.solver.id().equals(A4Options.SatSolver.POST_FORTRESS_SMTLIB.id())
             || options.solver.id().equals(A4Options.SatSolver.PRE_FORTRESS_SMTLIB.id())) {
-            writeSmtlibToFile(logger, options, context);
+            writeSmtlibToFile(logger, options, sortPolicy, context);
             return null;
         }
 
         // TODO: choose a solver based on options
         try (ModelFinder finder = createModelFinder(Z3CliInterface$.MODULE$)) {
-            context.configureModelFinder(finder);
+            context.configureModelFinder(finder, sortPolicy);
             finder.setTimeout(Milliseconds.apply(options.portusOptions.timeoutMillis));
             finder.addLogger(logger);
             ModelFinderResult result = finder.checkSat();
@@ -213,13 +213,14 @@ public final class TranslateAlloyToFortress implements CommandRunner {
         }
     }
 
-    private void addDisjointnessAndCoverAxioms(Iterable<Sig> sigs, Translator translator, TranslationContext context) {
+    private void addDisjointnessAndCoverAxioms(
+            Iterable<Sig> sigs, Translator translator, SortPolicy sortPolicy, TranslationContext context) {
         // Add axioms asserting that the top-level sigs in each sort are disjoint and cover the whole sort
         for (Sort sort : context.getTheory().sortsJava()) {
             List<Sig> sortTLSigs = StreamSupport.stream(sigs.spliterator(), false)
                     // Ignore String for now, we don't support it - TODO support Sig.STRING
                     .filter(sig -> sig != Sig.STRING)
-                    .filter(sig -> sig.isTopLevel() && context.sortPolicy.getSort(sig) == sort)
+                    .filter(sig -> sig.isTopLevel() && sortPolicy.getSort(sig) == sort)
                     .collect(Collectors.toList());
             if (sortTLSigs.isEmpty()) {
                 return; // no axioms if there are no sigs
@@ -232,7 +233,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
             for (int i = 1; i < sortTLSigs.size(); i++) {
                 for (int j = 0; j < i; j++) {
                     context.addAxiom(PortusUtil.mkSigsDisjoint(
-                            sortTLSigs.get(i), sortTLSigs.get(j), translator, context));
+                            sortTLSigs.get(i), sortTLSigs.get(j), translator, sortPolicy, context));
                 }
             }
         }
@@ -250,13 +251,14 @@ public final class TranslateAlloyToFortress implements CommandRunner {
         return Term.mkForall(var, Term.mkOr(disjuncts));
     }
 
-    private void writeFortressToFile(PortusLogger logger, A4Options options, TranslationContext context)
+    private void writeFortressToFile(
+            PortusLogger logger, A4Options options, SortPolicy sortPolicy, TranslationContext context)
             throws IOException {
         List<String> lines = new ArrayList<>();
         lines.add(context.getTheory().toString());
         lines.add("Bitwidth: " + context.getBitwidth());
         for (Sort sort : context.getTheory().sortsJava()) {
-            lines.add("Scope of " + sort.name() + ": " + context.sortPolicy.getSortScope(sort));
+            lines.add("Scope of " + sort.name() + ": " + sortPolicy.getSortScope(sort));
         }
 
         File fortressFile = options.portusOptions.createOutputFile(PortusOptions.MSFOL_EXTENSION);
@@ -264,7 +266,8 @@ public final class TranslateAlloyToFortress implements CommandRunner {
         logger.outputFilename(fortressFile.getAbsolutePath());
     }
 
-    private void writeSmtlibToFile(PortusLogger logger, A4Options options, TranslationContext context)
+    private void writeSmtlibToFile(
+            PortusLogger logger, A4Options options, SortPolicy sortPolicy, TranslationContext context)
             throws IOException {
         // Output the SMT-LIB generated by Fortress to a file
         File smtlibFile = options.portusOptions.createOutputFile(PortusOptions.SMTLIBPLUS_EXTENSION);
@@ -278,7 +281,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
                     // In order to dump the scope info as well, we need to create a problem state from the theory
                     // and scopes and dump that.
                     ProblemState problemState = ProblemState.apply(theory,
-                            PortusUtil.<Sort, Scope>toScalaMap(context.getSortToScopeMap()));
+                            PortusUtil.<Sort, Scope>toScalaMap(context.getSortToScopeMap(sortPolicy)));
                     try {
                         writer.write(Dump.problemStateToSmtlib(problemState));
                     } catch (IOException e) {
@@ -324,7 +327,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
                 };
             }
 
-            context.configureModelFinder(finder);
+            context.configureModelFinder(finder, sortPolicy);
             finder.checkSat();
             writer.flush();
         }

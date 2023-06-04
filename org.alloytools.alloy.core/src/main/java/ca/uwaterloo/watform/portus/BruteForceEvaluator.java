@@ -20,9 +20,11 @@ import java.util.stream.Stream;
 final class BruteForceEvaluator implements Evaluator {
 
     private final Translator translator;
+    private final SortPolicy sortPolicy;
 
-    public BruteForceEvaluator(Translator translator) {
+    public BruteForceEvaluator(Translator translator, SortPolicy sortPolicy) {
         this.translator = translator;
+        this.sortPolicy = sortPolicy;
     }
 
     @Override
@@ -46,12 +48,12 @@ final class BruteForceEvaluator implements Evaluator {
     private TupleSet bruteForceEval(Expr expr, FortressSolution solution, TranslationContext context) {
         // Manually evaluate {(x1,...,xn) : sorts | [[(x1,...,xn) \in expr]]}
         Set<List<Value>> tupleSet = new HashSet<>();
-        List<Sort> sorts = context.sortPolicy.getAllSorts();
+        List<Sort> sorts = sortPolicy.getAllSorts();
         int arity = expr.type().arity();
 
         // Optimization: if we can determine that some positions can only have atoms of a certain sort,
         // only try values from that sort
-        List<Sort> exprSorts = context.sortPolicy.getMinimalExprSorts(expr, context);
+        List<Sort> exprSorts = sortPolicy.getMinimalExprSorts(expr, context);
         if (exprSorts == null) {
             // if we couldn't get the sorts for some reason, just try all sorts
             exprSorts = Collections.nCopies(arity, null);

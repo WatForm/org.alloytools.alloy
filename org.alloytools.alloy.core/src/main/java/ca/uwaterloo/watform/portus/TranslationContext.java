@@ -92,9 +92,6 @@ final class TranslationContext {
     // Calculates the scopes for each signature.
     public final ScopeComputer scoper;
 
-    // The policy for how we should assign Alloy sigs to Fortress sorts.
-    public final SortPolicy sortPolicy;
-
     // In charge of assigning ranges of Fortress domain elements in sigs to sorts when necessary.
     public final RangeAssigner rangeAssigner;
 
@@ -120,7 +117,6 @@ final class TranslationContext {
             PortusOptions options, ScopeComputer scoper, SortPolicy sortPolicy, RangeAssigner rangeAssigner) {
         this.options = options;
         this.scoper = scoper;
-        this.sortPolicy = sortPolicy;
         this.rangeAssigner = rangeAssigner;
         this.alloyVarMapping = new Env<>();
         this.theory = sortPolicy.addSortsToTheory(Theory.empty());
@@ -138,7 +134,6 @@ final class TranslationContext {
         this.options = context.options;
         this.scoper = context.scoper;
         this.theory = context.theory; // theory is immutable
-        this.sortPolicy = context.sortPolicy;
         this.rangeAssigner = new RangeAssigner(context.rangeAssigner); // deep-copy state
         this.alloyVarMapping = context.alloyVarMapping.dup();
         this.nameGenerator = context.nameGenerator;
@@ -287,7 +282,7 @@ final class TranslationContext {
     }
 
     /** Configure a model finder's theory and scopes to check this translation. */
-    public void configureModelFinder(ModelFinder finder) {
+    public void configureModelFinder(ModelFinder finder, SortPolicy sortPolicy) {
         finder.setTheory(theory);
         sortPolicy.configureModelFinderScopes(finder, unchangingSorts);
         // TODO - allow configuring modular vs unbounded ints?
@@ -298,13 +293,14 @@ final class TranslationContext {
         unchangingSorts.add(sort);
     }
 
-    public Map<Sort, Scope> getSortToScopeMap() {
+    /** Given a sort policy, use its information with our unchanging sort list to get the sort to scope map. */
+    public Map<Sort, Scope> getSortToScopeMap(SortPolicy sortPolicy) {
         return sortPolicy.getSortToScopeMap(unchangingSorts);
     }
 
     /**
      * Get the theory being built. This is for debugging and visibility; for solving prefer
-     * {@link #configureModelFinder(ModelFinder)}.
+     * {@link #configureModelFinder(ModelFinder, SortPolicy)}.
      */
     public Theory getTheory() {
         return theory;

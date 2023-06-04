@@ -14,13 +14,19 @@ import java.util.stream.Collectors;
  */
 final class QuantifierScopeAxiomStrategy implements ScopeAxiomStrategy {
 
+    private final SortPolicy sortPolicy;
+
+    public QuantifierScopeAxiomStrategy(SortPolicy sortPolicy) {
+        this.sortPolicy = sortPolicy;
+    }
+
     @Override
     public Term makeExactScopeAxiom(Sig sig, int scope, Translator recursiveTranslator, TranslationContext context) {
         // Fortress: "exists x1, ..., xn: sort . forall x: sort . !(x1 = x2) && ...
         // && !(x1 = xn) && !(x2 = x3) && ... && !(x{n-1} = xn) && ([[x \in sig]] <=> x = x1
         // || ... || x = xn)" (KT 4.3)
         List<AnnotatedVar> vars = makeVars(scope, sig, context);
-        AnnotatedVar x = AnnotatedVar.apply(Term.mkVar("x"), context.sortPolicy.getSort(sig));
+        AnnotatedVar x = AnnotatedVar.apply(Term.mkVar("x"), sortPolicy.getSort(sig));
 
         // construct the !(xi = xj) conjuncts
         List<Term> conjuncts = new ArrayList<>();
@@ -72,7 +78,7 @@ final class QuantifierScopeAxiomStrategy implements ScopeAxiomStrategy {
 
     private List<AnnotatedVar> makeVars(int numVars, Sig sig, TranslationContext context) {
         List<AnnotatedVar> vars = new ArrayList<>(numVars);
-        Sort sigSort = context.sortPolicy.getSort(sig);
+        Sort sigSort = sortPolicy.getSort(sig);
         assert sigSort != null;
         for (int i = 0; i < numVars; i++) {
             vars.add(AnnotatedVar.apply(Term.mkVar("x" + i), sigSort));

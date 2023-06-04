@@ -43,6 +43,7 @@ public class DefaultScalarCasterTest {
     private ScalarCaster mockRoot;
 
     private Translator mockTranslator;
+    private SortPolicy mockSortPolicy;
     private RangeAssigner mockRangeAssigner;
     private TranslationContext context;
 
@@ -51,14 +52,14 @@ public class DefaultScalarCasterTest {
         mockRoot = mock(ScalarCaster.class);
         mockTranslator = mock(Translator.class);
         ScopeComputer mockScopeComputer = mock(ScopeComputer.class);
-        SortPolicy mockSortPolicy = mock(SortPolicy.class);
+        mockSortPolicy = mock(SortPolicy.class);
         when(mockSortPolicy.addSortsToTheory(any())).thenReturn(Theory.empty().withSort(testSort));
         // Use the constructor so the range assigner can be copied without issue
         mockRangeAssigner = mock(RangeAssigner.class, withSettings()
                 .useConstructor(Collections.singleton(testOneSig)));
         context = new TranslationContext(
                 new PortusOptions(), mockScopeComputer, mockSortPolicy, mockRangeAssigner);
-        scalarCaster = new DefaultScalarCaster(mockTranslator, mockRoot);
+        scalarCaster = new DefaultScalarCaster(mockTranslator, mockRoot, mockSortPolicy);
 
         when(mockSortPolicy.getSort(testOneSig)).thenReturn(testSort);
         when(mockSortPolicy.getSortScope(testSort)).thenReturn(3);
@@ -102,7 +103,7 @@ public class DefaultScalarCasterTest {
         // test castToScalar(A) = (@1: sortA, Top) when A is a one sig and @1 is its one domain element
         Term flagRangeAxiom = Term.mkVar("rangeAxiom");
         when(mockTranslator.translate(any(), any())).thenReturn(flagRangeAxiom);
-        when(mockRangeAssigner.getDomainElementRange(testOneSig, context)).thenReturn(new Pair<>(1, 1));
+        when(mockRangeAssigner.getDomainElementRange(testOneSig, mockSortPolicy, context)).thenReturn(new Pair<>(1, 1));
 
         Pair<AnnotatedTerm, Term> result = scalarCaster.castToScalar(testOneSig, context);
         assertNotNull(result);
@@ -112,7 +113,7 @@ public class DefaultScalarCasterTest {
         assertEquals(Term.mkTop(), result.b);
 
         // The range axiom should have been added
-        verify(mockRangeAssigner, atLeastOnce()).addRangeAxiom(eq(testOneSig), any(), any());
+        verify(mockRangeAssigner, atLeastOnce()).addRangeAxiom(eq(testOneSig), any(), any(), any());
     }
 
     @Test

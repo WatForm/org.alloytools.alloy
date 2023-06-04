@@ -55,7 +55,7 @@ public class RangeAssignerTest {
         when(scoper.isExact(sig)).thenReturn(true);
         when(scoper.sig2scope(sig)).thenReturn(5);
         when(policy.getSort(sig)).thenReturn(sort);
-        Pair<Integer, Integer> range = rangeAssigner.getDomainElementRange(sig, context);
+        Pair<Integer, Integer> range = rangeAssigner.getDomainElementRange(sig, policy, context);
         assertRange(1, 5, range);
     }
 
@@ -74,9 +74,9 @@ public class RangeAssignerTest {
         when(policy.getSort(sig1)).thenReturn(sort);
         when(policy.getSort(sig2)).thenReturn(sort);
 
-        Pair<Integer, Integer> range1 = rangeAssigner.getDomainElementRange(sig1, context);
+        Pair<Integer, Integer> range1 = rangeAssigner.getDomainElementRange(sig1, policy, context);
         assertRange(1, 3, range1);
-        Pair<Integer, Integer> range2 = rangeAssigner.getDomainElementRange(sig2, context);
+        Pair<Integer, Integer> range2 = rangeAssigner.getDomainElementRange(sig2, policy, context);
         assertRange(4, 10, range2);
     }
 
@@ -95,9 +95,9 @@ public class RangeAssignerTest {
         when(policy.getSort(parent)).thenReturn(sort);
         when(policy.getSort(child)).thenReturn(sort);
 
-        Pair<Integer, Integer> range1 = rangeAssigner.getDomainElementRange(parent, context);
+        Pair<Integer, Integer> range1 = rangeAssigner.getDomainElementRange(parent, policy, context);
         assertRange(1, 3, range1);
-        Pair<Integer, Integer> range2 = rangeAssigner.getDomainElementRange(child, context);
+        Pair<Integer, Integer> range2 = rangeAssigner.getDomainElementRange(child, policy, context);
         assertRange(1, 3, range2);
     }
 
@@ -120,11 +120,11 @@ public class RangeAssignerTest {
         when(policy.getSort(child1)).thenReturn(sort);
         when(policy.getSort(child2)).thenReturn(sort);
 
-        Pair<Integer, Integer> parentRange = rangeAssigner.getDomainElementRange(parent, context);
+        Pair<Integer, Integer> parentRange = rangeAssigner.getDomainElementRange(parent, policy, context);
         assertRange(1, 8, parentRange);
-        Pair<Integer, Integer> child1Range = rangeAssigner.getDomainElementRange(child1, context);
+        Pair<Integer, Integer> child1Range = rangeAssigner.getDomainElementRange(child1, policy, context);
         assertRange(1, 5, child1Range);
-        Pair<Integer, Integer> child2Range = rangeAssigner.getDomainElementRange(child2, context);
+        Pair<Integer, Integer> child2Range = rangeAssigner.getDomainElementRange(child2, policy, context);
         assertRange(6, 8, child2Range);
     }
 
@@ -147,11 +147,11 @@ public class RangeAssignerTest {
         when(policy.getSort(parent)).thenReturn(sort);
         when(policy.getSort(child)).thenReturn(sort);
 
-        Pair<Integer, Integer> topLevelRange = rangeAssigner.getDomainElementRange(topLevel, context);
+        Pair<Integer, Integer> topLevelRange = rangeAssigner.getDomainElementRange(topLevel, policy, context);
         assertRange(1, 3, topLevelRange);
-        Pair<Integer, Integer> parentRange = rangeAssigner.getDomainElementRange(parent, context);
+        Pair<Integer, Integer> parentRange = rangeAssigner.getDomainElementRange(parent, policy, context);
         assertRange(4, 11, parentRange);
-        Pair<Integer, Integer> childRange = rangeAssigner.getDomainElementRange(child, context);
+        Pair<Integer, Integer> childRange = rangeAssigner.getDomainElementRange(child, policy, context);
         assertRange(4, 8, childRange);
     }
 
@@ -165,7 +165,7 @@ public class RangeAssignerTest {
         when(policy.getSort(sig)).thenReturn(sort);
         when(scoper.isExact(sig)).thenReturn(false);
         when(scoper.sig2scope(sig)).thenReturn(3);
-        assertRange(1, 0, rangeAssigner.getDomainElementRange(sig, context));
+        assertRange(1, 0, rangeAssigner.getDomainElementRange(sig, policy, context));
     }
 
     @Test
@@ -182,8 +182,8 @@ public class RangeAssignerTest {
         when(policy.getSort(child)).thenReturn(sort);
         when(scoper.isExact(child)).thenReturn(true);
         when(scoper.sig2scope(child)).thenReturn(3);
-        assertRange(1, 3, rangeAssigner.getDomainElementRange(child, context));
-        assertRange(1, 3, rangeAssigner.getDomainElementRange(parent, context));
+        assertRange(1, 3, rangeAssigner.getDomainElementRange(child, policy, context));
+        assertRange(1, 3, rangeAssigner.getDomainElementRange(parent, policy, context));
     }
 
     @Test
@@ -204,8 +204,8 @@ public class RangeAssignerTest {
         when(policy.getSort(childExact)).thenReturn(sort);
         when(scoper.isExact(childExact)).thenReturn(true);
         when(scoper.sig2scope(childExact)).thenReturn(3);
-        assertRange(1, 3, rangeAssigner.getDomainElementRange(childExact, context));
-        assertRange(1, 3, rangeAssigner.getDomainElementRange(parent, context));
+        assertRange(1, 3, rangeAssigner.getDomainElementRange(childExact, policy, context));
+        assertRange(1, 3, rangeAssigner.getDomainElementRange(parent, policy, context));
         // don't check childNonExact because getDomainElementRange is explicitly not accurate for it
     }
 
@@ -237,10 +237,10 @@ public class RangeAssignerTest {
         when(policy.getSort(sigD)).thenReturn(sort);
         when(scoper.isExact(sigD)).thenReturn(true);
         when(scoper.sig2scope(sigD)).thenReturn(1);
-        assertRange(1, 2, rangeAssigner.getDomainElementRange(sigB, context));
-        assertRange(3, 3, rangeAssigner.getDomainElementRange(sigD, context));
-        assertRange(3, 3, rangeAssigner.getDomainElementRange(sigC, context));
-        assertRange(1, 3, rangeAssigner.getDomainElementRange(sigA, context));
+        assertRange(1, 2, rangeAssigner.getDomainElementRange(sigB, policy, context));
+        assertRange(3, 3, rangeAssigner.getDomainElementRange(sigD, policy, context));
+        assertRange(3, 3, rangeAssigner.getDomainElementRange(sigC, policy, context));
+        assertRange(1, 3, rangeAssigner.getDomainElementRange(sigA, policy, context));
     }
 
     @Test
@@ -271,17 +271,17 @@ public class RangeAssignerTest {
         when(policy.getSort(sigD)).thenReturn(sort);
         when(scoper.isExact(sigD)).thenReturn(true);
         when(scoper.sig2scope(sigD)).thenReturn(2);
-        assertRange(1, 2, rangeAssigner.getDomainElementRange(sigD, context));
-        assertRange(1, 2, rangeAssigner.getDomainElementRange(sigB, context));
-        assertRange(3, 3, rangeAssigner.getDomainElementRange(sigC, context));
-        assertRange(1, 3, rangeAssigner.getDomainElementRange(sigA, context));
+        assertRange(1, 2, rangeAssigner.getDomainElementRange(sigD, policy, context));
+        assertRange(1, 2, rangeAssigner.getDomainElementRange(sigB, policy, context));
+        assertRange(3, 3, rangeAssigner.getDomainElementRange(sigC, policy, context));
+        assertRange(1, 3, rangeAssigner.getDomainElementRange(sigA, policy, context));
     }
 
     @Test
     public void testGetDomainElementRange_int() {
         // we don't support DE ranges for SIGINT because that's an annoying special case that will never happen
         RangeAssigner rangeAssigner = new RangeAssigner(new ArrayList<>());
-        assertNull(rangeAssigner.getDomainElementRange(Sig.SIGINT, context));
+        assertNull(rangeAssigner.getDomainElementRange(Sig.SIGINT, policy, context));
     }
 
     @Test
@@ -290,7 +290,7 @@ public class RangeAssignerTest {
         Sig parent = new Sig.PrimSig("Parent");
         Sig sig = new Sig.SubsetSig(null, "S", null, Collections.singletonList(parent));
         RangeAssigner rangeAssigner = new RangeAssigner(Arrays.asList(parent, sig));
-        assertNull(rangeAssigner.getDomainElementRange(sig, context));
+        assertNull(rangeAssigner.getDomainElementRange(sig, policy, context));
     }
 
     @Test
@@ -308,7 +308,7 @@ public class RangeAssignerTest {
         when(scoper.sig2scope(any())).thenReturn(-1); // this is returned by sig2scope when not set
         when(scoper.sig2scope(sig)).thenReturn(3);
 
-        Pair<Integer, Integer> result = rangeAssigner.getDomainElementRange(sig, context);
+        Pair<Integer, Integer> result = rangeAssigner.getDomainElementRange(sig, policy, context);
         assertRange(1, 3, result);
     }
 
@@ -321,7 +321,7 @@ public class RangeAssignerTest {
         RangeAssigner rangeAssigner = mock(RangeAssigner.class, withSettings()
                 .useConstructor(Collections.singletonList(sig))
                 .defaultAnswer(CALLS_REAL_METHODS));
-        when(rangeAssigner.getDomainElementRange(eq(sig), any())).thenReturn(new Pair<>(2, 2));
+        when(rangeAssigner.getDomainElementRange(eq(sig), any(), any())).thenReturn(new Pair<>(2, 2));
 
         Translator mockTranslator = mock(Translator.class);
         when(mockTranslator.translate(any(), any())).then(args -> {
@@ -333,7 +333,7 @@ public class RangeAssignerTest {
             return Term.mkApp("flag", exprElementOf.tuple.getTerm(0));
         });
 
-        rangeAssigner.addRangeAxiom(sig, mockTranslator, context);
+        rangeAssigner.addRangeAxiom(sig, mockTranslator, policy, context);
 
         // Should have one axiom matching flag(@2)
         assertEquals(1, context.getTheory().axioms().size());
@@ -350,7 +350,7 @@ public class RangeAssignerTest {
         RangeAssigner rangeAssigner = mock(RangeAssigner.class, withSettings()
                 .useConstructor(Collections.singletonList(sig))
                 .defaultAnswer(CALLS_REAL_METHODS));
-        when(rangeAssigner.getDomainElementRange(eq(sig), any())).thenReturn(new Pair<>(1, 2));
+        when(rangeAssigner.getDomainElementRange(eq(sig), any(), any())).thenReturn(new Pair<>(1, 2));
 
         Translator mockTranslator = mock(Translator.class);
         when(mockTranslator.translate(any(), any())).then(args -> {
@@ -362,7 +362,7 @@ public class RangeAssignerTest {
             return Term.mkApp("flag", exprElementOf.tuple.getTerm(0));
         });
 
-        rangeAssigner.addRangeAxiom(sig, mockTranslator, context);
+        rangeAssigner.addRangeAxiom(sig, mockTranslator, policy, context);
 
         // Should have one axiom matching flag(@1) & flag(@2)
         assertEquals(1, context.getTheory().axioms().size());
@@ -382,7 +382,7 @@ public class RangeAssignerTest {
         RangeAssigner rangeAssigner = mock(RangeAssigner.class, withSettings()
                 .useConstructor(Collections.singletonList(sig))
                 .defaultAnswer(CALLS_REAL_METHODS));
-        when(rangeAssigner.getDomainElementRange(eq(sig), any())).thenReturn(new Pair<>(2, 2));
+        when(rangeAssigner.getDomainElementRange(eq(sig), any(), any())).thenReturn(new Pair<>(2, 2));
 
         Translator mockTranslator = mock(Translator.class);
         when(mockTranslator.translate(any(), any())).then(args -> {
@@ -394,8 +394,8 @@ public class RangeAssignerTest {
             return Term.mkApp("flag", exprElementOf.tuple.getTerm(0));
         });
 
-        rangeAssigner.addRangeAxiom(sig, mockTranslator, context);
-        rangeAssigner.addRangeAxiom(sig, mockTranslator, context);
+        rangeAssigner.addRangeAxiom(sig, mockTranslator, policy, context);
+        rangeAssigner.addRangeAxiom(sig, mockTranslator, policy, context);
 
         // Should have (only) one axiom matching flag(@2)
         assertEquals(1, context.getTheory().axioms().size());

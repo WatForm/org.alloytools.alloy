@@ -58,9 +58,12 @@ final class DefaultScalarCaster implements ScalarCaster {
     // The scalar caster to use for recursive casting.
     private final ScalarCaster rootScalarCaster;
 
-    public DefaultScalarCaster(Translator translator, ScalarCaster rootScalarCaster) {
+    private final SortPolicy sortPolicy;
+
+    public DefaultScalarCaster(Translator translator, ScalarCaster rootScalarCaster, SortPolicy sortPolicy) {
         this.translator = translator;
         this.rootScalarCaster = rootScalarCaster;
+        this.sortPolicy = sortPolicy;
     }
 
     @Override
@@ -166,9 +169,9 @@ final class DefaultScalarCaster implements ScalarCaster {
                 // subset sigs aren't supported by RangeAssigner, so don't bother since they aren't common
                 if (sig.isOne != null && sig instanceof Sig.PrimSig) {
                     // use its first/only domain element as the term
-                    context.rangeAssigner.addRangeAxiom(sig, translator, context);
-                    Term domainElement = PortusUtil.getOneSigDomainElement((Sig.PrimSig) sig, context);
-                    Sort sort = context.sortPolicy.getSort(sig);
+                    context.rangeAssigner.addRangeAxiom(sig, translator, sortPolicy, context);
+                    Term domainElement = PortusUtil.getOneSigDomainElement((Sig.PrimSig) sig, sortPolicy, context);
+                    Sort sort = sortPolicy.getSort(sig);
 
                     // no guard on the domain element usage is needed, and there should be no free variables
                     List<AnnotatedVar> freeVars = ConstList.make();

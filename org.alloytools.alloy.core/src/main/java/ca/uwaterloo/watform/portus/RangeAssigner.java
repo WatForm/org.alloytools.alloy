@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
 
 /**
  * A range assigner is in charge of assigning ranges of domain elements to signatures.
- * @see #getDomainElementRange(Sig, TranslationContext) 
+ * @see #getDomainElementRange(Sig, SortPolicy, TranslationContext) 
  */
 class RangeAssigner {
 
@@ -40,7 +40,7 @@ class RangeAssigner {
      * Get the inclusive range of domain element indices in the sort spanned by the sig.
      * May be null if an exact domain element range cannot be determined.
      * To ensure that the domain elements in the range actually are assigned to the sig,
-     * call {@link #addRangeAxiom(Sig, Translator, TranslationContext)}.
+     * call {@link #addRangeAxiom(Sig, Translator, SortPolicy, TranslationContext)}.
      *
      * WARNING: If sig has a non-exact scope, we return a range of the minimum size that is forced by any child with an
      * exact scope. (For example, if A has a non-exact scope but its (only) child A1 has an exact scope of 2, we return
@@ -52,7 +52,7 @@ class RangeAssigner {
      * beginning, with the DEs which are fluid between non-exact-scope sigs at the end. This ensures that each exact-
      * scope sig has a continuous range of DEs which fits in the actual list of DEs.
      */
-    public Pair<Integer, Integer> getDomainElementRange(Sig sig, TranslationContext context) {
+    public Pair<Integer, Integer> getDomainElementRange(Sig sig, SortPolicy sortPolicy, TranslationContext context) {
         if (!(sig instanceof Sig.PrimSig)) {
             // TODO: can we support subset sigs?
             return null;
@@ -63,7 +63,7 @@ class RangeAssigner {
         }
 
         Sig.PrimSig primSig = (Sig.PrimSig) sig;
-        Sort sort = context.sortPolicy.getSort(primSig);
+        Sort sort = sortPolicy.getSort(primSig);
         if (sort == null) {
             // they've passed in something we can't deal with
             return null;
@@ -77,7 +77,7 @@ class RangeAssigner {
                 // if the scope isn't specified (which is the case for strings)
                 .filter(otherSig -> otherSig != Sig.STRING)
                 .filter(otherSig -> primSig.isTopLevel()
-                        ? otherSig.isTopLevel() && sort == context.sortPolicy.getSort(otherSig)
+                        ? otherSig.isTopLevel() && sort == sortPolicy.getSort(otherSig)
                         : primSig.parent == otherSig.parent)
                 .sorted(Comparator.comparing(s -> s.label)) // hopefully the labels are unique
                 .collect(Collectors.toList());
@@ -92,7 +92,7 @@ class RangeAssigner {
             if (primSig.isTopLevel()) {
                 domainElementStart = 1; // the range of the univ sig starts at 1
             } else {
-                Pair<Integer, Integer> parentRange = getDomainElementRange(primSig.parent, context);
+                Pair<Integer, Integer> parentRange = getDomainElementRange(primSig.parent, sortPolicy, context);
                 if (parentRange == null) {
                     // We can't get the range of the parent sig, so we can't get the range of this sig
                     return null;
@@ -103,7 +103,7 @@ class RangeAssigner {
             // Otherwise, go after the range of the closest sibling behind us with a valid range
             // (Note this will always succeed since siblings contains primSig and we checked it isn't first)
             for (int i = 0; i < siblings.size() - 1; i++) {
-                Pair<Integer, Integer> siblingRange = getDomainElementRange(siblings.get(i), context);
+                Pair<Integer, Integer> siblingRange = getDomainElementRange(siblings.get(i), sortPolicy, context);
                 domainElementStart = siblingRange.b + 1;
                 if (siblings.get(i+1) == primSig) {
                     break;
@@ -135,8 +135,8 @@ class RangeAssigner {
      * to this sig. This must be called for any sig for which we rely on the domain element range.
      * This object handles not adding duplicate axioms.
      */
-    public void addRangeAxiom(Sig sig, Translator translator, TranslationContext context) {
-        Pair<Integer, Integer> range = getDomainElementRange(sig, context);
+    public void addRangeAxiom(Sig sig, Translator translator, SortPolicy sortPolicy, TranslationContext context) {
+        Pair<Integer, Integer> range = getDomainElementRange(sig, sortPolicy, context);
         if (range == null) {
             return; // Don't bother if we can't assign a range
         }
@@ -151,7 +151,7 @@ class RangeAssigner {
         // ranges specified, then the parent one is redundant due to the inChild => inParent axiom.
         // But I don't know if that would save any time in the SMT solver.
         List<Term> conjuncts = new ArrayList<>();
-        Sort sort = context.sortPolicy.getSort(sig);
+        Sort sort = sortPolicy.getSort(sig);
         for (int deIdx = range.a; deIdx <= range.b; deIdx++) {
             Term deInSig = getDEInSigAxiom(sig, deIdx, sort, translator, context);
             conjuncts.add(deInSig);

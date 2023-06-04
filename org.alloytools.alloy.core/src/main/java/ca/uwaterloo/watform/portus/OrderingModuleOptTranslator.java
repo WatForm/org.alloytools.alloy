@@ -43,7 +43,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
             this.nextFuncName = generateNextFuncName();
             validate(context);
 
-            this.ordDE = PortusUtil.getOneSigDomainElement((Sig.PrimSig) ordSig, context);
+            this.ordDE = PortusUtil.getOneSigDomainElement((Sig.PrimSig) ordSig, sortPolicy, context);
 
             // Add the predicate immediately instead of lazily - if we do it lazily and don't end up adding it,
             // then when we go to evaluate ordering/Ord.Next, we get errors since the predicate doesn't exist.
@@ -67,10 +67,10 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
                 // This should be caught by typechecking anyways
                 throw new ErrorFatal("Only primitive signatures can be ordered.");
             }
-            if (context.sortPolicy.getSort(sig) == null) {
+            if (sortPolicy.getSort(sig) == null) {
                 throw new ErrorFatal("Sig " + sig.label + " can't be ordered because Portus can't determine a sort");
             }
-            if (context.rangeAssigner.getDomainElementRange(sig, context) == null) {
+            if (context.rangeAssigner.getDomainElementRange(sig, sortPolicy, context) == null) {
                 // this probably shouldn't happen
                 throw new ErrorFatal("Sig " + sig.label + " can't be ordered for unknown reasons");
             }
@@ -97,7 +97,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
             // Add the range axiom here rather than in the constructor because ordSig hasn't been parsed by the
             // rest of the translators then, so translating [[@de \in ordSig]] will fail.
             // At this point ordSig has been run through all translators, so this is safe.
-            context.rangeAssigner.addRangeAxiom(ordSig, topLevelTranslator, context);
+            context.rangeAssigner.addRangeAxiom(ordSig, topLevelTranslator, sortPolicy, context);
             return Term.mkEq(term, ordDE);
         }
 
@@ -131,7 +131,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
             }
 
             // Short-circuit if the sorts are wrong
-            Sort sort = context.sortPolicy.getSort(sig);
+            Sort sort = sortPolicy.getSort(sig);
             if (tuple.getSort(0) != sort || tuple.getSort(1) != sort) {
                 return Term.mkBottom();
             }
@@ -148,15 +148,15 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
 
         public AnnotatedTerm getFirstScalar(TranslationContext context) {
             // Use the first in the range of domain elements
-            context.rangeAssigner.addRangeAxiom(sig, topLevelTranslator, context); // ensure range is valid
-            Sort sort = context.sortPolicy.getSort(sig);
-            Pair<Integer, Integer> range = context.rangeAssigner.getDomainElementRange(sig, context);
+            context.rangeAssigner.addRangeAxiom(sig, topLevelTranslator, sortPolicy, context); // ensure range is valid
+            Sort sort = sortPolicy.getSort(sig);
+            Pair<Integer, Integer> range = context.rangeAssigner.getDomainElementRange(sig, sortPolicy, context);
             return new AnnotatedTerm(DomainElement.apply(range.a, sort), sort, Collections.emptyList());
         }
 
         public Pair<AnnotatedTerm, Term> getNextScalarAndGuard(AnnotatedTerm left, TranslationContext context) {
-            context.rangeAssigner.addRangeAxiom(sig, topLevelTranslator, context); // ensure range is valid
-            Sort sort = context.sortPolicy.getSort(sig);
+            context.rangeAssigner.addRangeAxiom(sig, topLevelTranslator, sortPolicy, context); // ensure range is valid
+            Sort sort = sortPolicy.getSort(sig);
             if (left.getSort() != sort) {
                 // Sorts don't match - ignore
                 return null;
@@ -164,7 +164,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
 
             // Use [[x \in sig]] && x != last as the guard, and next(x) as the scalar
             // We check x != last because next(last) is left undefined, and x \in sig to avoid extraneous entries
-            Pair<Integer, Integer> range = context.rangeAssigner.getDomainElementRange(sig, context);
+            Pair<Integer, Integer> range = context.rangeAssigner.getDomainElementRange(sig, sortPolicy, context);
             DomainElement lastDE = DomainElement.apply(range.b, sort);
 
             Term guard = Term.mkAnd(
@@ -180,14 +180,14 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
             }
 
             // Generate the function itself (next: sort->sort)
-            Sort sort = context.sortPolicy.getSort(sig);
+            Sort sort = sortPolicy.getSort(sig);
             FuncDecl funcDecl = FuncDecl.mkFuncDecl(nextFuncName, sort, sort);
             context.addFunctionDeclaration(funcDecl);
 
             // Constrain it by hardcoding the order, leaving next(last) undefined
             // Note: deRange is inclusive, so we exclude the last element in the range
-            context.rangeAssigner.addRangeAxiom(sig, topLevelTranslator, context); // ensure range is valid
-            Pair<Integer, Integer> deRange = context.rangeAssigner.getDomainElementRange(sig, context);
+            context.rangeAssigner.addRangeAxiom(sig, topLevelTranslator, sortPolicy, context); // ensure range is valid
+            Pair<Integer, Integer> deRange = context.rangeAssigner.getDomainElementRange(sig, sortPolicy, context);
             for (int de = deRange.a; de < deRange.b; de++) {
                 // "next(_@de) = _@(de+1)"
                 Term axiom = Term.mkEq(
@@ -201,10 +201,12 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
     private final List<OrderInfo> orders = new ArrayList<>();
 
     private final ScalarCaster rootScalarCaster;
+    private final SortPolicy sortPolicy;
 
-    public OrderingModuleOptTranslator(Translator topLevel, ScalarCaster rootScalarCaster) {
+    public OrderingModuleOptTranslator(Translator topLevel, ScalarCaster rootScalarCaster, SortPolicy sortPolicy) {
         super(topLevel);
         this.rootScalarCaster = rootScalarCaster;
+        this.sortPolicy = sortPolicy;
     }
 
     @Override

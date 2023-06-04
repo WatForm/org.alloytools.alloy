@@ -43,6 +43,9 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
     // For creating the scope axioms.
     private final ScopeAxiomStrategy scopeAxiomStrategy;
 
+    // For determining sorts.
+    private final SortPolicy sortPolicy;
+
     // Membership predicates for each signature (see KT 4.2).
     // Represent it by a Java function taking "x" to "inA(x)".
     // (For some arguments the function might not just return inA(x) - it could return Top or Bottom as opts.)
@@ -65,9 +68,11 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
     // It's not a real map because Expr doesn't support equals()/hashCode() easily, and we can tolerate O(n) lookup.
     private final List<Pair<Pair<Expr, List<Sort>>, String>> auxClosureRelationNames = new ArrayList<>();
 
-    public DefaultTranslator(Translator topLevelTranslator, ScopeAxiomStrategy scopeAxiomStrategy) {
+    public DefaultTranslator(
+            Translator topLevelTranslator, ScopeAxiomStrategy scopeAxiomStrategy, SortPolicy sortPolicy) {
         super(topLevelTranslator);
         this.scopeAxiomStrategy = scopeAxiomStrategy;
+        this.sortPolicy = sortPolicy;
     }
 
     /** Translate a signature declaration. */
@@ -78,7 +83,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
         }
 
         // Make a new predicate for membership, inSig: S -> Bool where S is sig's corresponding sort
-        Sort sigSort = context.sortPolicy.getSort(sig);
+        Sort sigSort = sortPolicy.getSort(sig);
         if (sigSort == null) {
             throw new ErrorFatal("Internal Portus error: signature " + sig + " cannot be assigned a sort");
         }
@@ -112,7 +117,8 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
             for (int i = 0; i < primSig.children().size(); i++) {
                 for (int j = i + 1; j < primSig.children().size(); j++) {
                     context.addAxiom(PortusUtil.mkSigsDisjoint(
-                            primSig.children().get(i), primSig.children().get(j), topLevelTranslator, context));
+                            primSig.children().get(i), primSig.children().get(j), topLevelTranslator,
+                            sortPolicy, context));
                 }
             }
 
@@ -226,7 +232,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
     @Override
     public Term translate(Sig.Field field, TranslationContext context) {
         // Find the Fortress sorts corresponding to the arguments of this field's predicate.
-        List<Sort> argSorts = context.sortPolicy.getMinimalExprSorts(field,
+        List<Sort> argSorts = sortPolicy.getMinimalExprSorts(field,
                 "A field declaration must have definite Portus sorts!", context);
 
         // Make a new predicate for the field relation (function optimization is elsewhere).
@@ -379,8 +385,8 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
         // getMinimalExprSorts to signify it's compatible with both. (If both are null, we can't determine a sort.)
         int partitionIdx = left.type().arity() - 1; // so that adding y gives the arity
         String errorMsg = "Argument of join is ill-typed according to Portus sorts!";
-        Sort leftYSort = context.sortPolicy.getMinimalExprSorts(left, errorMsg, context).get(partitionIdx);
-        Sort rightYSort = context.sortPolicy.getMinimalExprSorts(right, errorMsg, context).get(0);
+        Sort leftYSort = sortPolicy.getMinimalExprSorts(left, errorMsg, context).get(partitionIdx);
+        Sort rightYSort = sortPolicy.getMinimalExprSorts(right, errorMsg, context).get(0);
         Sort ySort;
         if (leftYSort == null) {
             ySort = rightYSort;
@@ -470,7 +476,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
         Term inOverride = recursivelyTranslate(ExprElementOf.make(tuple, override), context);
 
         // TODO: the *first* argument doesn't actually need a definite sort, can we not require it?
-        List<Sort> overrideSorts = context.sortPolicy.getMinimalExprSorts(override,
+        List<Sort> overrideSorts = sortPolicy.getMinimalExprSorts(override,
                 "The second argument to ++ must have definite Portus sorts!", context);
 
         // build up the terms x1,y2,...,yn and the annotated vars y2,...,yn
@@ -503,12 +509,12 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
         switch (expr.op) {
             // see KT figure 4.6
             case IMPLIES:
-                context.sortPolicy.checkIsFormula("'=>' requires formulas on both sides", expr.left, expr.right);
+                sortPolicy.checkIsFormula("'=>' requires formulas on both sides", expr.left, expr.right);
                 return Term.mkImp(
                         recursivelyTranslate(expr.left, context),
                         recursivelyTranslate(expr.right, context));
             case IFF:
-                context.sortPolicy.checkIsFormula("'<=>' requires formulas on both sides", expr.left, expr.right);
+                sortPolicy.checkIsFormula("'<=>' requires formulas on both sides", expr.left, expr.right);
                 return Term.mkIff(
                         recursivelyTranslate(expr.left, context),
                         recursivelyTranslate(expr.right, context));
@@ -622,8 +628,8 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
         //   We will quantify over e1's sorts. This disallows "iden in f" but allows "f in iden", which is common.
         // Currently we reject formulas that don't meet these standards, but there's room for short-circuiting.
         String sortErrMsg = "Both sides in an 'in' or '=' formula must have well-defined Portus sorts!";
-        List<Sort> e1Sorts = context.sortPolicy.getMinimalExprSorts(e1, sortErrMsg, context);
-        List<Sort> e2Sorts = context.sortPolicy.getMinimalExprSorts(e2, sortErrMsg, context);
+        List<Sort> e1Sorts = sortPolicy.getMinimalExprSorts(e1, sortErrMsg, context);
+        List<Sort> e2Sorts = sortPolicy.getMinimalExprSorts(e2, sortErrMsg, context);
         assert e1Sorts.size() == e2Sorts.size(); // typechecker should have ensured this
         List<Sort> sorts = new ArrayList<>();
         for (int i = 0; i < e1Sorts.size(); i++) {
@@ -690,7 +696,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
 
     /** Translate "lhs op rhs", where op is an arithmetic comparison like <, >, =<, >=.  */
     private Term translateArithmeticComparison(ExprBinary.Op op, Expr lhs, Expr rhs, TranslationContext context) {
-        context.sortPolicy.checkIsInt(op + " requires both sides to be integers!", lhs, rhs);
+        sortPolicy.checkIsInt(op + " requires both sides to be integers!", lhs, rhs);
 
         Term left = recursivelyTranslate(lhs, context);
         Term right = recursivelyTranslate(rhs, context);
@@ -714,7 +720,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
 
     /** Translate "lhs op rhs", where op is an arithmetic operation. */
     private Term translateArithmeticOperation(ExprBinary.Op op, Expr lhs, Expr rhs, TranslationContext context) {
-        context.sortPolicy.checkIsInt(op + " requires both sides to be integer expressions!", lhs, rhs);
+        sortPolicy.checkIsInt(op + " requires both sides to be integer expressions!", lhs, rhs);
 
         Term left = recursivelyTranslate(lhs, context);
         Term right = recursivelyTranslate(rhs, context);
@@ -738,7 +744,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
     @Override
     public Term translate(ExprITE expr, TranslationContext context) {
         // use Fortress's built-in if-then-else
-        context.sortPolicy.checkIsFormula("The condition of if-then-else must be a formula!", expr.cond);
+        sortPolicy.checkIsFormula("The condition of if-then-else must be a formula!", expr.cond);
         Term cond = recursivelyTranslate(expr.cond, context);
         Term left = recursivelyTranslate(expr.left, context);
         Term right = recursivelyTranslate(expr.right, context);
@@ -749,7 +755,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
     @Override
     public Term translate(TermTuple tuple, ExprITE expr, TranslationContext context) {
         // Similar to the above: "IfThenElse([[f]], [[tuple \in e1]], [[tuple \in e2]])"
-        context.sortPolicy.checkIsFormula("The condition of if-then-else must be a formula!", expr.cond);
+        sortPolicy.checkIsFormula("The condition of if-then-else must be a formula!", expr.cond);
         Term cond = recursivelyTranslate(expr.cond, context);
         Term left = recursivelyTranslate(ExprElementOf.make(tuple, expr.left), context);
         Term right = recursivelyTranslate(ExprElementOf.make(tuple, expr.right), context);
@@ -762,7 +768,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
         switch (expr.op) {
             case NOT:
                 // see KT figure 4.6
-                context.sortPolicy.checkIsFormula("The argument of '!' must be a formula!", expr.sub);
+                sortPolicy.checkIsFormula("The argument of '!' must be a formula!", expr.sub);
                 return Term.mkNot(
                         recursivelyTranslate(expr.sub, context));
             case NOOP:
@@ -801,7 +807,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
         // to translate the Alloy above directly, we'd need to augment ExprElementOf to allow taking ExprVars and
         // delaying their evaluation into Fortress Vars until we're within the sum's scope and x1,...,xn are bound.
         List<AnnotatedVar> vars = new ArrayList<>();
-        List<Sort> sorts = context.sortPolicy.getMinimalExprSorts(expr, "", context);
+        List<Sort> sorts = sortPolicy.getMinimalExprSorts(expr, "", context);
         for (int i = 0; i < expr.type().arity(); i++) {
             Var var = Term.mkVar("x" + i);
             vars.add(var.of(sorts.get(i)));
@@ -954,7 +960,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
         }
 
         // first, just translate all the args (they all must be formulas)
-        context.sortPolicy.checkIsFormula("AND or OR arguments must all be formulas", expr.args);
+        sortPolicy.checkIsFormula("AND or OR arguments must all be formulas", expr.args);
         List<Term> translatedArgs = expr.args.stream()
                 .map(arg -> recursivelyTranslate(arg, context))
                 .collect(Collectors.toList());
@@ -1013,7 +1019,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
         }
         List<AnnotatedVar> vars = new ArrayList<>(arity);
 
-        List<Sort> exprSorts = context.sortPolicy.getMinimalExprSorts(expr,
+        List<Sort> exprSorts = sortPolicy.getMinimalExprSorts(expr,
                 "Translating a quantified expression requires the inner expression to have well-defined sorts!",
                 context);
         SortPolicy.requireAllSortsDefinite(exprSorts,
@@ -1120,7 +1126,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
             Sort sort = var.sort();
             sorts.add(sort);
             // Note: this is OK for Int because getSortScope(Sort.Int()) returns the number of ints, not the bitwidth
-            sortScopes.add(context.sortPolicy.getSortScope(sort));
+            sortScopes.add(sortPolicy.getSortScope(sort));
             currentIdxs.add(1);
 
             // We're expanding over the domain elements of the sort, so its scope can't be changed arbitrarily
@@ -1477,7 +1483,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
                 // Note that the decl expr has to be unary since typechecking should have caught anything else
                 String definiteSortsError = "Translating a quantification requires the variable declarations " +
                         "to have definite and well-defined Portus sorts!";
-                List<Sort> exprSorts = context.sortPolicy.getMinimalExprSorts(declExpr, definiteSortsError, context);
+                List<Sort> exprSorts = sortPolicy.getMinimalExprSorts(declExpr, definiteSortsError, context);
                 if (exprSorts.size() != 1) {
                     // Could happen for cases Kodkod skolemizes, like e.g. "some s: one A->B | ..."
                     // Also occurs e.g. with "pred foo[s: A->B] {...}; run foo" since that runs "some s: A->B | foo[s]"

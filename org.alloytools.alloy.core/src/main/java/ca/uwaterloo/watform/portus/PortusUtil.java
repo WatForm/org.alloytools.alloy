@@ -157,15 +157,16 @@ final class PortusUtil {
     /**
      * Given a one sig, return the domain element corresponding to its single atom. The context is used
      * to assign the domain element, which is the first/only one in its domain element range.
-     * {@link RangeAssigner#addRangeAxiom(Sig, Translator, TranslationContext)} must still be used to ensure the
-     * domain element is actually assigned to the sig.
+     * {@link RangeAssigner#addRangeAxiom(Sig, Translator, SortPolicy, TranslationContext)} must still be used to ensure
+     * the domain element is actually assigned to the sig.
      */
-    public static DomainElement getOneSigDomainElement(Sig.PrimSig sig, TranslationContext context) {
+    public static DomainElement getOneSigDomainElement(
+            Sig.PrimSig sig, SortPolicy sortPolicy, TranslationContext context) {
         if (sig.isOne == null) {
             throw new IllegalArgumentException("getOneSigDomainElement expects a one sig");
         }
-        Pair<Integer, Integer> deRange = context.rangeAssigner.getDomainElementRange(sig, context);
-        Sort sort = context.sortPolicy.getSort(sig);
+        Pair<Integer, Integer> deRange = context.rangeAssigner.getDomainElementRange(sig, sortPolicy, context);
+        Sort sort = sortPolicy.getSort(sig);
         if (deRange == null || sort == null) {
             throw new ErrorFatal("Portus error: one sig " + sig + " has null domain element range or sort");
         }
@@ -222,10 +223,11 @@ final class PortusUtil {
     /**
      * Generate a term asserting that sig1 and sig2 are disjoint.
      */
-    public static Term mkSigsDisjoint(Sig sig1, Sig sig2, Translator translator, TranslationContext context) {
+    public static Term mkSigsDisjoint(Sig sig1, Sig sig2, Translator translator,
+                                      SortPolicy sortPolicy, TranslationContext context) {
         // "forall x: S | !([[x \in sig1]] && [[x \in sig2]])
-        Sort sort = context.sortPolicy.getSort(sig1);
-        if (sort == null || sort != context.sortPolicy.getSort(sig2)) {
+        Sort sort = sortPolicy.getSort(sig1);
+        if (sort == null || sort != sortPolicy.getSort(sig2)) {
             // short-circuit: they must be disjoint since they're in different sorts
             return Term.mkTop();
         }

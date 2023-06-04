@@ -85,16 +85,20 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
     // The base evaluator; use this instead of calling evaluate directly for generality.
     private final Evaluator rootEvaluator;
 
+    private final SortPolicy sortPolicy;
+
     // Should we optimize "A->lone B" as well as "A->one B"?
     private final boolean optimizeLone;
 
     private final Map<Sig.Field, FieldFuncInfo> optimizedFieldsInfo = new HashMap<>();
 
     public FunctionOptTranslator(
-            Translator topLevel, ScalarCaster rootScalarCaster, Evaluator rootEvaluator, boolean optimizeLone) {
+            Translator topLevel, ScalarCaster rootScalarCaster, Evaluator rootEvaluator,
+            SortPolicy sortPolicy, boolean optimizeLone) {
         super(topLevel);
         this.rootScalarCaster = rootScalarCaster;
         this.rootEvaluator = rootEvaluator;
+        this.sortPolicy = sortPolicy;
         this.optimizeLone = optimizeLone;
     }
 
@@ -105,7 +109,7 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
         Pair<List<Expr>, ExprUnary.Op> funcTypeExprsAndMult = getFunctionTypeExprs(bound);
         if (funcTypeExprsAndMult == null) return null; // not a function, not applicable
 
-        List<Sort> allSorts = context.sortPolicy.getMinimalExprSorts(field,
+        List<Sort> allSorts = sortPolicy.getMinimalExprSorts(field,
                 "A field declaration must have definite Portus sorts!", context);
         List<Sort> argSorts = allSorts.subList(0, allSorts.size() - 1);
         Sort resultSort = allSorts.get(allSorts.size() - 1);

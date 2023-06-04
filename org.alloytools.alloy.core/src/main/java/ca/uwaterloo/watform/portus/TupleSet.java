@@ -22,7 +22,7 @@ import java.util.stream.Stream;
  * A set of Fortress tuples, for use when evaluating. Immutable.
  * This is like Kodkod's TupleSet class but not Kodkod-specific.
  */
-class TupleSet {
+final class TupleSet {
 
     private final Set<List<Value>> tuples;
     private final int arity;

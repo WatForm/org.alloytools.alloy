@@ -16,15 +16,21 @@ import java.util.function.Function;
  * Then "sig has scope at most k" is equivalent to "there exist n-k distinct constants in S which are not in sig".
  * For an exact scope of k, we also assert the existance of k distinct constants which *are* in sig.
  */
-class ConstantsScopeAxiomStrategy implements ScopeAxiomStrategy {
+final class ConstantsScopeAxiomStrategy implements ScopeAxiomStrategy {
+
+    private final SortPolicy sortPolicy;
+
+    public ConstantsScopeAxiomStrategy(SortPolicy sortPolicy) {
+        this.sortPolicy = sortPolicy;
+    }
 
     @Override
     public Term makeNonExactScopeAxiom(Sig sig, int scope, Translator recursiveTranslator, TranslationContext context) {
-        Sort sort = context.sortPolicy.getSort(sig);
+        Sort sort = sortPolicy.getSort(sig);
         if (sort == null) {
             throw new ErrorFatal("Can only generate a constants scope axiom for sigs with defined sorts!");
         }
-        int sortScope = context.sortPolicy.getSortScope(sort);
+        int sortScope = sortPolicy.getSortScope(sort);
 
         // Generate sortScope - scope constants and assert that they are distinct and not in sig
         Function<AnnotatedVar, Term> notInSig = var ->
@@ -34,7 +40,7 @@ class ConstantsScopeAxiomStrategy implements ScopeAxiomStrategy {
 
     @Override
     public Term makeExactScopeAxiom(Sig sig, int scope, Translator recursiveTranslator, TranslationContext context) {
-        Sort sort = context.sortPolicy.getSort(sig);
+        Sort sort = sortPolicy.getSort(sig);
         if (sort == null) {
             throw new ErrorFatal("Can only generate a constants scope axiom for sigs with defined sorts!");
         }

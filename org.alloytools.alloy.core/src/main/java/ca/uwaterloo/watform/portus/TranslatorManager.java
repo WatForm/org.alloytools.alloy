@@ -37,12 +37,13 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
      *                This usually means enabling/disabling optimizations based
      *                on the options selected by the user.
      */
-    public TranslatorManager(PortusOptions options) {
+    public TranslatorManager(PortusOptions options, SortPolicy sortPolicy) {
         // TODO: use options to come up with a list of translators
         // but for now:
-        FunctionOptTranslator functionOpt = new FunctionOptTranslator(this, this, this, true);
-        OrderingModuleOptTranslator orderingModuleOpt = new OrderingModuleOptTranslator(this, this);
-        DefaultTranslator defaultTranslator = new DefaultTranslator(this, new ConstantsScopeAxiomStrategy());
+        FunctionOptTranslator functionOpt = new FunctionOptTranslator(this, this, this, sortPolicy, true);
+        OrderingModuleOptTranslator orderingModuleOpt = new OrderingModuleOptTranslator(this, this, sortPolicy);
+        DefaultTranslator defaultTranslator = new DefaultTranslator(
+                this, new ConstantsScopeAxiomStrategy(sortPolicy), sortPolicy);
         translators.add(new SimpleScalarOptTranslator(this, this));
         translators.add(functionOpt);
         translators.add(new JoinOptTranslator(this, this));
@@ -51,12 +52,12 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
 
         scalarCasters.add(functionOpt);
         scalarCasters.add(orderingModuleOpt);
-        scalarCasters.add(new DefaultScalarCaster(this, this));
+        scalarCasters.add(new DefaultScalarCaster(this, this, sortPolicy));
 
         evaluators.add(functionOpt);
         evaluators.add(defaultTranslator);
         evaluators.add(new SimpleEvaluator(this));
-        evaluators.add(new BruteForceEvaluator(this));
+        evaluators.add(new BruteForceEvaluator(this, sortPolicy));
     }
 
     /**

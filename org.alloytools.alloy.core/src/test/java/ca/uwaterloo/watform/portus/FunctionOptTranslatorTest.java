@@ -74,7 +74,8 @@ public class FunctionOptTranslatorTest {
         Sig.PrimSig sigA = new Sig.PrimSig("A");
         Sig.PrimSig sigB = new Sig.PrimSig("B");
         Sig.Field field = sigA.addField("f", sigB.setOf());
-        Translator translator = new FunctionOptTranslator(mockRoot, mockScalarCaster, mockEvaluator, true);
+        Translator translator = new FunctionOptTranslator(
+                mockRoot, mockScalarCaster, mockEvaluator, mockSortPolicy, true);
         assertNull(translator.translate(field, context));
     }
 
@@ -84,7 +85,8 @@ public class FunctionOptTranslatorTest {
         Sig.PrimSig sigA = new Sig.PrimSig("A");
         Sig.PrimSig sigB = new Sig.PrimSig("B");
         Sig.Field field = sigA.addField("f", sigB.loneOf());
-        Translator translator = new FunctionOptTranslator(mockRoot, mockScalarCaster, mockEvaluator, false);
+        Translator translator = new FunctionOptTranslator(
+                mockRoot, mockScalarCaster, mockEvaluator, mockSortPolicy, false);
         assertNull(translator.translate(field, context));
     }
 
@@ -100,7 +102,8 @@ public class FunctionOptTranslatorTest {
         Sig.Field field = sigA.addField("f", sigB.oneOf());
 
         // even when lone opt is on
-        Translator translator = new FunctionOptTranslator(mockRoot, mockScalarCaster, mockEvaluator, true);
+        Translator translator = new FunctionOptTranslator(
+                mockRoot, mockScalarCaster, mockEvaluator, mockSortPolicy, true);
         when(mockRoot.translate(any(), any()))
                 .then(useTestFunction("inA", sigA))
                 .then(useTestFunction("inB", sigB));
@@ -136,7 +139,8 @@ public class FunctionOptTranslatorTest {
         when(mockScalarCaster.castToScalar(argThat(isSameAs(x.join(y))), any()))
                 .thenReturn(new Pair<>(new AnnotatedTerm(scalar.of(Sort.Int())), guard));
 
-        Translator translator = new FunctionOptTranslator(mockRoot, mockScalarCaster, mockEvaluator, true);
+        Translator translator = new FunctionOptTranslator(
+                mockRoot, mockScalarCaster, mockEvaluator, mockSortPolicy, true);
         //noinspection SuspiciousNameCombination
         Term result = translator.translate(x.join(y), context);
 
@@ -160,7 +164,8 @@ public class FunctionOptTranslatorTest {
         Sig.Field f = sigA.addField("f", sigA);
 
         // put the field in the system and get the generated function name
-        FunctionOptTranslator translator = new FunctionOptTranslator(mockRoot, mockScalarCaster, mockEvaluator, true);
+        FunctionOptTranslator translator = new FunctionOptTranslator(
+                mockRoot, mockScalarCaster, mockEvaluator, mockSortPolicy, true);
         assertNotNull(translator.translate(f, context));
         Theory theory = context.getTheory();
         assertEquals(1, theory.functionDeclarations().size());
