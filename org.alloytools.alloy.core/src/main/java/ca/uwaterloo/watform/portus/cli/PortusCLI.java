@@ -37,7 +37,7 @@ public final class PortusCLI {
             Module world, Command command, A4Options options) {
         Iterable<Sig> sigs = world.getAllReachableSigs();
         ScopeComputer scoper = ScopeComputer.compute(A4Reporter.NOP, options, sigs, command).b;
-        SortPolicy sortPolicy = options.portusOptions.getSortPolicy(sigs, scoper);
+        SortPolicy sortPolicy = options.portusOptions.getSortPolicy(sigs, command, scoper);
 
         // find the smallest bitwidth >= the command's bitwidth such that the max int representable is >= the size
         // of all sorts created by the sort policy

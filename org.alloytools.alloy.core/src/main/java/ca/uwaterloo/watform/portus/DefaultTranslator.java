@@ -383,21 +383,25 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
         // Both the rightmost index in the left expression and the leftmost index in the right expression should
         // have compatible sorts: either both the same sort, or one should be indeterminate (null) according to
         // getMinimalExprSorts to signify it's compatible with both. (If both are null, we can't determine a sort.)
+        // If the sorts are incompatible, then there can be no overlap between the rightmost column on the left and
+        // the leftmost column on the right, so we short-circuit to false.
         int partitionIdx = left.type().arity() - 1; // so that adding y gives the arity
         String errorMsg = "Argument of join is ill-typed according to Portus sorts!";
         Sort leftYSort = sortPolicy.getMinimalExprSorts(left, errorMsg, context).get(partitionIdx);
         Sort rightYSort = sortPolicy.getMinimalExprSorts(right, errorMsg, context).get(0);
         Sort ySort;
-        if (leftYSort == null) {
+        if (!SortPolicy.isSortDefinite(leftYSort)) {
             ySort = rightYSort;
-        } else if (rightYSort == null) {
+        } else if (!SortPolicy.isSortDefinite(rightYSort)) {
             ySort = leftYSort;
         } else if (leftYSort != rightYSort) {
-            throw new ErrorFatal("Joined column does not have consistent Fortress sort!");
+            // There cannot be any overlap, so the join is empty
+            // TODO: UNIT TEST THIS
+            return Term.mkBottom();
         } else {
             ySort = leftYSort;
         }
-        if (ySort == null) {
+        if (!SortPolicy.isSortDefinite(ySort)) {
             // technical restriction: we need a definite sort for the exists variable
             throw new ErrorFatal("Joined column requires a definite Portus sort!");
         }
@@ -626,20 +630,32 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
         // - in "e1 = e2", e1 and e2 must have equal definite sorts. This disallows tricky cases like "f = iden".
         // - in "e1 in e2", e1 must have definite sorts which are subsets of the (definite or indefinite) sorts of e2.
         //   We will quantify over e1's sorts. This disallows "iden in f" but allows "f in iden", which is common.
-        // Currently we reject formulas that don't meet these standards, but there's room for short-circuiting.
+        // We do the following short-circuiting:
+        // - in both "e1 = e2" and "e1 in e2", if e1 and e2 both have definite sorts in some index which aren't equal,
+        //   we short-circuit to false because they could not possibly match.
+        // There is room for more short-circuiting.
+
         String sortErrMsg = "Both sides in an 'in' or '=' formula must have well-defined Portus sorts!";
         List<Sort> e1Sorts = sortPolicy.getMinimalExprSorts(e1, sortErrMsg, context);
         List<Sort> e2Sorts = sortPolicy.getMinimalExprSorts(e2, sortErrMsg, context);
         assert e1Sorts.size() == e2Sorts.size(); // typechecker should have ensured this
         List<Sort> sorts = new ArrayList<>();
+
         for (int i = 0; i < e1Sorts.size(); i++) {
             // Merge the sorts as described above.
             Sort e1Sort = e1Sorts.get(i), e2Sort = e2Sorts.get(i);
+
+            // If both sorts are definite but different, we know they can't be equal - short-circuit.
+            // TODO UNIT TESTS FOR THIS
+            if (e1Sort != e2Sort && SortPolicy.isSortDefinite(e1Sort) && SortPolicy.isSortDefinite(e2Sort)) {
+                return Term.mkBottom();
+            }
+
             if (op == ExprBinary.Op.EQUALS) {
-                // they must be equal definite sorts: disallow "f = iden"
+                // they have to be equal definite sorts: disallow "f = iden"
                 boolean ok = (e1Sort == e2Sort && SortPolicy.isSortDefinite(e1Sort));
                 if (!ok) {
-                    // TODO: can we short-circuit here? Requires knowing whether there are other sorts
+                    // TODO: can we further short-circuit here? Requires knowing whether there are other sorts
                     throw new ErrorFatal("Both sides of an '=' formula must have the same definite Portus sorts.");
                 }
             } else { // ExprBinary.Op.IN
@@ -647,11 +663,12 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
                 // so we allow "f in iden", but not "iden in f"
                 boolean ok = (SortPolicy.isSortDefinite(e1Sort) && SortPolicy.isSortSubset(e1Sort, e2Sort));
                 if (!ok) {
-                    // TODO: short-circuiting here as well?
+                    // TODO: can we further short-circuit here?
                     throw new ErrorFatal("The left side of an 'in' must have definite Portus sorts that are a" +
                             " subset of the right side's sorts.");
                 }
             }
+
             // Use the left side's sorts in either case (they'll be equal if it's an '=' formula).
             sorts.add(e1Sort);
         }

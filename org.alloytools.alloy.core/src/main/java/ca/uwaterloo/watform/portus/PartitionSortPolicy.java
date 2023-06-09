@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.StreamSupport;
 
 /**
@@ -51,6 +52,7 @@ final class PartitionSortPolicy extends SortPolicy {
         super(allSigs);
 
         List<Sig> topLevelSigs = StreamSupport.stream(allSigs.spliterator(), false)
+                .filter(sig -> !sig.builtin) // only handle custom top-level sigs
                 .filter(Sig::isTopLevel)
                 .collect(Collectors.toList());
         sortPartition = new DisjointSets<>(topLevelSigs);
@@ -63,27 +65,30 @@ final class PartitionSortPolicy extends SortPolicy {
                     case PLUSPLUS:
                         // a ++ b requires all the positions to have matching sorts
                         // TODO: technically the first position doesn't but DefaultTranslator requires it
-                        mergeType(x.type());
+                        uniteTypeSigs(x.type());
                         break;
-                    case IN:
-                    case EQUALS:
-                    case NOT_IN:
-                    case NOT_EQUALS:
-                        // a in b or a = b require both positions to have matching sorts
-                        // TODO: we could probably short circuit instead (see DefaultTranslator)
-                        mergeType(x.left.type().merge(x.right.type()));
-                        break;
-                    case JOIN:
-                        // We require the middle position to have matching sorts
-                        // Note this holds even when the join is optimized
-                        for (Type.ProductType productTypeLeft : x.left.type()) {
-                            Sig sigLeft = getTopLevel(productTypeLeft.get(productTypeLeft.arity() - 1));
-                            for (Type.ProductType productTypeRight : x.right.type()) {
-                                Sig sigRight = getTopLevel(productTypeRight.get(0));
-                                sortPartition.unite(sigLeft, sigRight);
-                            }
-                        }
-                        break;
+//                    case IN:
+//                    case NOT_IN:
+//                        // a in b requires left and right to have matching sorts, but right could be univ
+//                        uniteTypeSigs(mergeTypesExcludingUnivOnRight(x.left.type(), x.right.type()));
+//                        break;
+//                    case EQUALS:
+//                    case NOT_EQUALS:
+//                        // a = b requires both positions to have matching sorts
+//                        // TODO: we could probably short circuit instead (see DefaultTranslator)
+//                        uniteTypeSigs(x.left.type().merge(x.right.type()));
+//                        break;
+//                    case JOIN:
+//                        // We require the middle position to have matching sorts
+//                        // Note this holds even when the join is optimized
+//                        for (Type.ProductType productTypeLeft : x.left.type()) {
+//                            Sig sigLeft = getTopLevel(productTypeLeft.get(productTypeLeft.arity() - 1));
+//                            for (Type.ProductType productTypeRight : x.right.type()) {
+//                                Sig sigRight = getTopLevel(productTypeRight.get(0));
+//                                sortPartition.unite(sigLeft, sigRight);
+//                            }
+//                        }
+//                        break;
                 }
 
                 visitThis(x.left);
@@ -122,7 +127,7 @@ final class PartitionSortPolicy extends SortPolicy {
                         || x.op == ExprUnary.Op.LONE
                         || x.op == ExprUnary.Op.ONE) {
                     // the expression in a quantification like "some e" must have definite sorts
-                    mergeType(x.sub.type());
+                    uniteTypeSigs(x.sub.type());
                 }
                 return visitThis(x.sub);
             }
@@ -160,7 +165,7 @@ final class PartitionSortPolicy extends SortPolicy {
             public Void visitQuantifier(ExprQt x, List<Void> argResults) throws Err {
                 // In e.g. "all x: e | ...", e must have definite sorts
                 for (Decl decl : x.decls) {
-                    mergeType(decl.expr.type());
+                    uniteTypeSigs(decl.expr.type());
                 }
                 return visitThis(x.sub);
             }
@@ -190,7 +195,15 @@ final class PartitionSortPolicy extends SortPolicy {
         // Also make sure every in field declaration "f: e", e has definite sorts
         for (Sig sig : allSigs) {
             for (Sig.Field field : sig.getFields()) {
-                mergeType(field.decl().expr.type());
+                uniteTypeSigs(field.decl().expr.type());
+            }
+        }
+
+        // In every subset signature, all parents must have the same sort
+        // Luckily, the type of the subset signature is the union of the parents' top level signatures
+        for (Sig sig : allSigs) {
+            if (sig instanceof Sig.SubsetSig) {
+                uniteTypeSigs(sig.type());
             }
         }
 
@@ -203,7 +216,11 @@ final class PartitionSortPolicy extends SortPolicy {
             int sortScope = 0;
             for (Sig sig : sigsInSameSort) {
                 sigsToSorts.put(sig, sort);
-                sortScope += scoper.sig2scope(sig);
+                int scope = scoper.sig2scope(sig);
+                if (scope <= 0) {
+                    throw new ErrorFatal("Sig " + sig + " should be a user-defined sig with a scope, not " + scope);
+                }
+                sortScope += scope;
             }
             allSorts.add(sort);
             // TODO: If this is the only top-level sort, we can save on a scope axiom using non-exact scopes here!
@@ -237,21 +254,40 @@ final class PartitionSortPolicy extends SortPolicy {
         return sig;
     }
 
-    private void mergeType(Type type) {
-        // Merge all the corresponding sigs in the product types
+    // Merge all the corresponding sigs in the product types in the partition
+    private void uniteTypeSigs(Type type) {
         for (int idx = 0; idx < getArity(type); idx++) {
             Sig first = null;
             for (Type.ProductType productType : type) {
-                Sig sig = getTopLevel(productType.get(idx));
+                Sig.PrimSig sig = productType.get(idx);
+                if (sig == Sig.NONE) {
+                    // Ignore Sig.NONE: never unite with anything (it always short-circuits)
+                    continue;
+                }
+                Sig topLevel = getTopLevel(sig);
                 if (first == null) {
-                    first = sig;
+                    first = topLevel;
                 } else {
-                    sortPartition.unite(first, sig);
+                    sortPartition.unite(first, topLevel);
                 }
             }
         }
     }
 
+//    // Merge left and right like left.merge(right), but allow (i.e. ignore) univ on the right-hand side.
+//    private Type mergeTypesExcludingUnivOnRight(Type left, Type right) {
+//        // Filter out univ from right by replacing it with NONE, which gets ignored in merging
+//        Type newRight = Type.EMPTY;
+//        for (Type.ProductType productType : right) {
+//            List<Sig.PrimSig> newProductType = IntStream.range(0, productType.arity())
+//                    .mapToObj(productType::get)
+//                    .map(sig -> sig == Sig.UNIV ? Sig.NONE : sig)
+//                    .collect(Collectors.toList());
+//            newRight.merge(newProductType);
+//        }
+//        return left.merge(newRight);
+//    }
+//
     /** Generate a not-useless name for a sort containing the list of sigs. */
     private String getSortNameFromSigs(List<Sig> sigs) {
         return sigs.stream()
@@ -261,7 +297,19 @@ final class PartitionSortPolicy extends SortPolicy {
 
     @Override
     public Sort getSort(Sig sig) {
-        return sigsToSorts.get(sig);
+        if (sig instanceof Sig.PrimSig) {
+            if (sig == Sig.UNIV || sig == Sig.NONE) {
+                // We can't assign a sort to univ or none
+                return null;
+            }
+            return sigsToSorts.get(getTopLevel((Sig.PrimSig) sig));
+        } else {
+            // it's a subset signature - all parents have same sort, so pick one
+            while (sig instanceof Sig.SubsetSig) {
+                sig = ((Sig.SubsetSig) sig).parents.get(0);
+            }
+            return getSort(sig);
+        }
     }
 
     @Override
