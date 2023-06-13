@@ -357,7 +357,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
 
         // Strip any noops and go through any call/let indirection
         // (Note: this returns null for each unmentioned node, not natural recursion.)
-        return new ContextVisitReturn.Default<Pair<AnnotatedTerm, Term>>(context) {
+        return new ContextVisitReturn.Default<Pair<AnnotatedTerm, Term>>(context, sortPolicy) {
             @Override
             public Pair<AnnotatedTerm, Term> visit(ExprUnary x) {
                 // Strip any noops

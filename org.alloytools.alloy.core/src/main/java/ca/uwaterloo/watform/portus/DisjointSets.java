@@ -2,8 +2,10 @@ package ca.uwaterloo.watform.portus;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -100,6 +102,21 @@ final class DisjointSets<T> {
         return partition.stream()
                 .filter(set -> !set.isEmpty())
                 .collect(Collectors.toList());
+    }
+
+    /** Get the disjoint set containing the element. */
+    public Set<T> getSet(T element) {
+        // O(n), but that's okay
+        Set<T> set = new HashSet<>();
+        int representative = find(elementToIndex.get(element));
+
+        for (T el : elementToIndex.keySet()) {
+            if (find(elementToIndex.get(el)) == representative) {
+                set.add(el);
+            }
+        }
+
+        return set;
     }
 
 }

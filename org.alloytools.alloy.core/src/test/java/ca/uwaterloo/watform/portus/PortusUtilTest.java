@@ -145,7 +145,7 @@ public class PortusUtilTest {
                 ExprConstant.makeNUMBER(2).iplus(ExprConstant.makeNUMBER(-2)));
 
         for (Expr expr : noFreeVars) {
-            List<AnnotatedVar> result = PortusUtil.computeFreeVariables(expr, context);
+            List<AnnotatedVar> result = PortusUtil.computeFreeVariables(expr, context, policy);
             assertNotNull(result);
             assertTrue(result.isEmpty());
         }
@@ -158,7 +158,7 @@ public class PortusUtilTest {
         AnnotatedVar var = Var.apply("x").of(sort);
         context.addTermMapping("x", new AnnotatedTerm(var));
 
-        List<AnnotatedVar> result = PortusUtil.computeFreeVariables(expr, context);
+        List<AnnotatedVar> result = PortusUtil.computeFreeVariables(expr, context, policy);
         assertThat(result, containsInAnyOrder(var));
     }
 
@@ -185,7 +185,7 @@ public class PortusUtilTest {
                 expr.reflexiveClosure(),
                 expr.cardinality());
         for (Expr unaryOp : unaryOps) {
-            List<AnnotatedVar> result = PortusUtil.computeFreeVariables(unaryOp, context);
+            List<AnnotatedVar> result = PortusUtil.computeFreeVariables(unaryOp, context, policy);
             assertThat(result, containsInAnyOrder(var));
         }
     }
@@ -229,7 +229,7 @@ public class PortusUtilTest {
                 x.shl(y),
                 x.shr(y));
         for (Expr binaryOp : binaryOps) {
-            List<AnnotatedVar> result = PortusUtil.computeFreeVariables(binaryOp, context);
+            List<AnnotatedVar> result = PortusUtil.computeFreeVariables(binaryOp, context, policy);
             assertThat(result, containsInAnyOrder(xVar, yVar));
         }
     }
@@ -249,7 +249,7 @@ public class PortusUtilTest {
 
         @SuppressWarnings("SuspiciousNameCombination")
         Expr expr = x.ite(y, z);
-        List<AnnotatedVar> result = PortusUtil.computeFreeVariables(expr, context);
+        List<AnnotatedVar> result = PortusUtil.computeFreeVariables(expr, context, policy);
         assertThat(result, containsInAnyOrder(xVar, yVar, zVar));
     }
 
@@ -265,7 +265,7 @@ public class PortusUtilTest {
         context.addTermMapping("z", new AnnotatedTerm(zVar));
 
         Expr expr = ExprElementOf.make(TermTuple.fromVars(xVar, yVar), z);
-        List<AnnotatedVar> result = PortusUtil.computeFreeVariables(expr, context);
+        List<AnnotatedVar> result = PortusUtil.computeFreeVariables(expr, context, policy);
         assertThat(result, containsInAnyOrder(xVar, yVar, zVar));
     }
 
@@ -282,7 +282,7 @@ public class PortusUtilTest {
 
         @SuppressWarnings("SuspiciousNameCombination")
         Expr expr = x.equal(y).and(y.equal(x)).and(x.in(x)).or(y.in(y));
-        List<AnnotatedVar> result = PortusUtil.computeFreeVariables(expr, context);
+        List<AnnotatedVar> result = PortusUtil.computeFreeVariables(expr, context, policy);
         assertThat(result, containsInAnyOrder(xVar, yVar));
     }
 
@@ -296,7 +296,7 @@ public class PortusUtilTest {
         ExprVar x = (ExprVar) xDecl.get();
 
         Expr expr = x.equal(x).forAll(xDecl);
-        List<AnnotatedVar> result = PortusUtil.computeFreeVariables(expr, context);
+        List<AnnotatedVar> result = PortusUtil.computeFreeVariables(expr, context, policy);
         assertTrue(result.isEmpty());
     }
 
@@ -314,7 +314,7 @@ public class PortusUtilTest {
 
         @SuppressWarnings("SuspiciousNameCombination")
         Expr expr = x.equal(y).forAll(xDecl);
-        List<AnnotatedVar> result = PortusUtil.computeFreeVariables(expr, context);
+        List<AnnotatedVar> result = PortusUtil.computeFreeVariables(expr, context, policy);
         assertThat(result, containsInAnyOrder(yVar));
     }
 

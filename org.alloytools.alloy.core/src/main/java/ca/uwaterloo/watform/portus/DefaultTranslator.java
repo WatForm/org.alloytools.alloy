@@ -892,7 +892,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
         // Translate as "^f(x,y)" or "*f(x,y)" where f is an auxiliary relation f(x,y) = [[(x,y) \in sub]].
         // Also include all the free variables as secondary arguments.
         String auxRelationName = makeClosureBinaryRelation(commonSort, sub, context);
-        List<Term> freeVars = PortusUtil.computeFreeVariables(sub, context).stream()
+        List<Term> freeVars = PortusUtil.computeFreeVariables(sub, context, sortPolicy).stream()
                 .map(AnnotatedVar::variable)
                 .collect(Collectors.toList());
         if (reflexive) {
@@ -920,7 +920,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
         }
 
         // The type of the aux relation is (sort,sort,*extras)->Bool
-        List<AnnotatedVar> freeVars = PortusUtil.computeFreeVariables(expr, context);
+        List<AnnotatedVar> freeVars = PortusUtil.computeFreeVariables(expr, context, sortPolicy);
         List<Sort> auxRelSorts = new ArrayList<>();
         auxRelSorts.add(sort);
         auxRelSorts.add(sort);
@@ -928,7 +928,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
 
         // Use this as the key to compare previous expr/sort combos so that we don't get confused by lets
         // (without this otherwise e.g. with "fun f[x] { ^x }", we'd use the same aux function for all arguments x)
-        Expr expandedExpr = PortusUtil.expandLets(expr, context);
+        Expr expandedExpr = PortusUtil.expandLets(expr, context, sortPolicy);
 
         // Have we already translated this expr/sort combo? If so, use its name.
         for (Pair<Pair<Expr, List<Sort>>, String> exprAndClosureName : auxClosureRelationNames) {

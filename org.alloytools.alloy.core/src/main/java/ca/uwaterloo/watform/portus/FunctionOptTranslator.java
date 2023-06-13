@@ -461,7 +461,7 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
             int arity = expr.type().arity();
 
             // TODO: this is overkill, if this is a bottleneck then just write a search-for-free-var routine
-            boolean hasThis = PortusUtil.computeFreeVariables(expr, context).stream()
+            boolean hasThis = PortusUtil.computeFreeVariables(expr, context, sortPolicy).stream()
                     .anyMatch(var -> var.name().equals("this"));
 
             TupleSet exprResult;

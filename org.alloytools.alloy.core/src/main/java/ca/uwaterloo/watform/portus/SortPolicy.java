@@ -87,21 +87,33 @@ public abstract class SortPolicy {
      * Null corresponds to INDEFINITE in the paper.
      * Returns null for the whole list if the sorts are incompatible.
      */
-    public final List<Sort> getMinimalExprSorts(Expr expr, TranslationContext context) {
+    public final List<Sort> getMinimalExprSorts(Expr expr, VarMappingContext varMappingContext) {
         try {
-            return expr.accept(new SortVisitor(context));
-        } catch (SortVisitor.IncompatibleSortsException e) {
+            return getMinimalExprSortsOrThrow(expr, varMappingContext);
+        } catch (IncompatibleSortsException e) {
             return null;
         }
     }
 
+    public final List<Sort> getMinimalExprSorts(Expr expr, TranslationContext context) {
+        return getMinimalExprSorts(expr, context.varMappingContext);
+    }
+
+    protected final List<Sort> getMinimalExprSortsOrThrow(Expr expr, VarMappingContext varMappingContext) {
+        return expr.accept(new SortVisitor(varMappingContext));
+    }
+
     /** Convenience overload: throw with errorMessage if the sorts are incompatible. */
-    public final List<Sort> getMinimalExprSorts(Expr expr, String errorMessage, TranslationContext context) {
-        List<Sort> result = getMinimalExprSorts(expr, context);
+    public final List<Sort> getMinimalExprSorts(Expr expr, String errorMessage, VarMappingContext varMappingContext) {
+        List<Sort> result = getMinimalExprSorts(expr, varMappingContext);
         if (result == null) {
             throw new ErrorFatal(errorMessage);
         }
         return result;
+    }
+
+    public final List<Sort> getMinimalExprSorts(Expr expr, String errorMessage, TranslationContext context) {
+        return getMinimalExprSorts(expr, errorMessage, context.varMappingContext);
     }
 
     /** For convenience, throw an error if any of the sorts aren't definite. */
@@ -123,18 +135,27 @@ public abstract class SortPolicy {
         return a.equals(b) || !isSortDefinite(b);
     }
 
-    private final class SortVisitor extends ContextVisitReturn<List<Sort>> {
+    // Thrown on failure, because exceptions-as-flow-control is the most convenient here (unfortunately)
+    protected static final class IncompatibleSortsException extends RuntimeException {
 
-        // Thrown on failure, because exceptions-as-flow-control is the most convenient here (unfortunately)
-        private final class IncompatibleSortsException extends RuntimeException {}
+        public final List<Sort> incompatibleSorts;
 
-        public SortVisitor(TranslationContext context) {
-            super(context);
+        private IncompatibleSortsException(Sort... incompatibleSorts) {
+            this.incompatibleSorts = Arrays.asList(incompatibleSorts);
+        }
+
+    }
+
+    private class SortVisitor extends ContextVisitReturn<List<Sort>> {
+
+        public SortVisitor(VarMappingContext context) {
+            super(context, SortPolicy.this);
         }
 
         private List<Sort> merge(List<Sort> a, List<Sort> b, BiFunction<Sort, Sort, Sort> merger) {
             if (a.size() != b.size()) {
-                throw new IncompatibleSortsException();
+                // Actually invalid - arities do not match
+                throw new ErrorFatal("Arities of sorts do not match in SortPolicy.SortVisitor.merge!");
             }
             List<Sort> merged = new ArrayList<>();
             for (int i = 0; i < a.size(); i++) {
@@ -159,7 +180,7 @@ public abstract class SortPolicy {
                 return a;
             } else if (!a.equals(b)) {
                 // Incompatible sorts, can't merge!
-                throw new IncompatibleSortsException();
+                throw new IncompatibleSortsException(a, b);
             } else {
                 // They're the same, pick one
                 return a;
@@ -170,8 +191,8 @@ public abstract class SortPolicy {
             if (a == null || b == null) {
                 return null;
             } else if (!a.equals(b)) {
-                // Incompatible sorts!
-                throw new IncompatibleSortsException();
+                // Incompatible sorts! Note that one could be null here
+                throw new IncompatibleSortsException(a, b);
             } else {
                 // They're the same
                 return a;

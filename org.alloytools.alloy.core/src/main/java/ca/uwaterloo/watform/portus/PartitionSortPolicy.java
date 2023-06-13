@@ -4,7 +4,6 @@ import edu.mit.csail.sdg.alloy4.Err;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.ast.Assert;
 import edu.mit.csail.sdg.ast.Command;
-import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprBinary;
 import edu.mit.csail.sdg.ast.ExprCall;
@@ -28,11 +27,11 @@ import fortress.problemstate.Scope;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import java.util.stream.StreamSupport;
 
 /**
@@ -42,30 +41,38 @@ import java.util.stream.StreamSupport;
  */
 final class PartitionSortPolicy extends SortPolicy {
 
-    private final DisjointSets<Sig> sortPartition;
+    private final DisjointSets<Sig.PrimSig> sortPartition;
 
-    private final Map<Sig, Sort> sigsToSorts = new HashMap<>();
-    private final List<Sort> allSorts = new ArrayList<>();
-    private final Map<Sort, Scope> sortsToScopes = new HashMap<>();
+    // Cache so we don't generate multiple sorts with the same name
+    private final Map<String, Sort> sortNameCache = new HashMap<>();
+
+    private final List<Sig.PrimSig> topLevelSigs;
+
+    private final ScopeComputer scoper;
+//    private final Map<Sig, Sort> sigsToSorts = new HashMap<>();
+//    private final List<Sort> allSorts = new ArrayList<>();
+//    private final Map<Sort, Scope> sortsToScopes = new HashMap<>();
 
     public PartitionSortPolicy(Iterable<Sig> allSigs, Command command, ScopeComputer scoper) {
         super(allSigs);
+        this.scoper = scoper;
 
-        List<Sig> topLevelSigs = StreamSupport.stream(allSigs.spliterator(), false)
+        topLevelSigs = StreamSupport.stream(allSigs.spliterator(), false)
                 .filter(sig -> !sig.builtin) // only handle custom top-level sigs
                 .filter(Sig::isTopLevel)
+                .map(sig -> (Sig.PrimSig) sig)
                 .collect(Collectors.toList());
         sortPartition = new DisjointSets<>(topLevelSigs);
 
         // Merge together all sigs' sorts that need to be merged.
-        VisitReturn<Void> merger = new ContextVisitReturn<Void>(new VarMappingContext()) {
+        VisitReturn<Void> merger = new ContextVisitReturn<Void>(new VarMappingContext(), this) {
             @Override
             public Void visit(ExprBinary x) throws Err {
                 switch (x.op) {
                     case PLUSPLUS:
                         // a ++ b requires all the positions to have matching sorts
                         // TODO: technically the first position doesn't but DefaultTranslator requires it
-                        uniteTypeSigs(x.type());
+                        mergeSorts(x, varMappingContext);
                         break;
 //                    case IN:
 //                    case NOT_IN:
@@ -127,7 +134,7 @@ final class PartitionSortPolicy extends SortPolicy {
                         || x.op == ExprUnary.Op.LONE
                         || x.op == ExprUnary.Op.ONE) {
                     // the expression in a quantification like "some e" must have definite sorts
-                    uniteTypeSigs(x.sub.type());
+                    mergeSorts(x.sub, varMappingContext);
                 }
                 return visitThis(x.sub);
             }
@@ -163,15 +170,14 @@ final class PartitionSortPolicy extends SortPolicy {
 
             @Override
             public Void visitQuantifier(ExprQt x, List<Void> argResults) throws Err {
-                // In e.g. "all x: e | ...", e must have definite sorts
-                for (Decl decl : x.decls) {
-                    uniteTypeSigs(decl.expr.type());
-                }
+                // All the quantifier arguments (i.e. e in "all x: e | ...") were already mapped
                 return visitThis(x.sub);
             }
 
             @Override
             public Void visitQuantifierArg(Expr arg) throws Err {
+                // In e.g. "all x: e | ...", e must have definite sorts
+                mergeSorts(arg, varMappingContext);
                 return visitThis(arg);
             }
 
@@ -195,7 +201,7 @@ final class PartitionSortPolicy extends SortPolicy {
         // Also make sure every in field declaration "f: e", e has definite sorts
         for (Sig sig : allSigs) {
             for (Sig.Field field : sig.getFields()) {
-                uniteTypeSigs(field.decl().expr.type());
+                mergeSorts(field.decl().expr, new VarMappingContext());
             }
         }
 
@@ -203,35 +209,35 @@ final class PartitionSortPolicy extends SortPolicy {
         // Luckily, the type of the subset signature is the union of the parents' top level signatures
         for (Sig sig : allSigs) {
             if (sig instanceof Sig.SubsetSig) {
-                uniteTypeSigs(sig.type());
+                mergeSorts(sig, new VarMappingContext());
             }
         }
 
         // Now that we've figured out what sigs need to be in the same sorts, generate the sorts
-        List<List<Sig>> partition = sortPartition.getPartition();
-        for (List<Sig> sigsInSameSort : partition) {
-            String name = getSortNameFromSigs(sigsInSameSort);
-            Sort sort = Sort.mkSortConst(name);
-
-            int sortScope = 0;
-            for (Sig sig : sigsInSameSort) {
-                sigsToSorts.put(sig, sort);
-                int scope = scoper.sig2scope(sig);
-                if (scope <= 0) {
-                    throw new ErrorFatal("Sig " + sig + " should be a user-defined sig with a scope, not " + scope);
-                }
-                sortScope += scope;
-            }
-            allSorts.add(sort);
-            // TODO: If this is the only top-level sort, we can save on a scope axiom using non-exact scopes here!
-            sortsToScopes.put(sort, ExactScope.apply(sortScope));
-        }
+//        List<List<Sig>> partition = sortPartition.getPartition();
+//        for (List<Sig> sigsInSameSort : partition) {
+//            String name = getSortNameFromSigs(sigsInSameSort);
+//            Sort sort = Sort.mkSortConst(name);
+//
+//            int sortScope = 0;
+//            for (Sig sig : sigsInSameSort) {
+//                sigsToSorts.put(sig, sort);
+//                int scope = scoper.sig2scope(sig);
+//                if (scope <= 0) {
+//                    throw new ErrorFatal("Sig " + sig + " should be a user-defined sig with a scope, not " + scope);
+//                }
+//                sortScope += scope;
+//            }
+//            allSorts.add(sort);
+//            // TODO: If this is the only top-level sort, we can save on a scope axiom using non-exact scopes here!
+//            sortsToScopes.put(sort, ExactScope.apply(sortScope));
+//        }
 
         // Special cases for int
-        allSorts.add(Sort.Int());
-        sortsToScopes.put(Sort.Int(), ExactScope.apply(1 << scoper.getBitwidth())); // 2^bitwidth, # of ints
-        sigsToSorts.put(Sig.SIGINT, Sort.Int());
-        sigsToSorts.put(Sig.SEQIDX, Sort.Int());
+//        allSorts.add(Sort.Int());
+//        sortsToScopes.put(Sort.Int(), ExactScope.apply(1 << scoper.getBitwidth())); // 2^bitwidth, # of ints
+//        sigsToSorts.put(Sig.SIGINT, Sort.Int());
+//        sigsToSorts.put(Sig.SEQIDX, Sort.Int());
     }
 
     private int getArity(Type type) {
@@ -254,55 +260,113 @@ final class PartitionSortPolicy extends SortPolicy {
         return sig;
     }
 
-    // Merge all the corresponding sigs in the product types in the partition
-    private void uniteTypeSigs(Type type) {
-        for (int idx = 0; idx < getArity(type); idx++) {
-            Sig first = null;
-            for (Type.ProductType productType : type) {
-                Sig.PrimSig sig = productType.get(idx);
-                if (sig == Sig.NONE) {
-                    // Ignore Sig.NONE: never unite with anything (it always short-circuits)
-                    continue;
-                }
-                Sig topLevel = getTopLevel(sig);
-                if (first == null) {
-                    first = topLevel;
-                } else {
-                    sortPartition.unite(first, topLevel);
-                }
+//    // Merge all the corresponding sigs in the product types in the partition
+//    private void uniteTypeSigs(Type type) {
+//        for (int idx = 0; idx < getArity(type); idx++) {
+//            Sig.PrimSig first = null;
+//            for (Type.ProductType productType : type) {
+//                Sig.PrimSig sig = productType.get(idx);
+//                if (sig == Sig.NONE) {
+//                    // Ignore Sig.NONE: never unite with anything (it always short-circuits)
+//                    continue;
+//                }
+//                Sig.PrimSig topLevel = getTopLevel(sig);
+//                if (first == null) {
+//                    first = topLevel;
+//                } else {
+//                    sortPartition.unite(first, topLevel);
+//                }
+//            }
+//        }
+//    }
+
+    // Merge sorts until we're able to resolve sorts for expr.
+    private void mergeSorts(Expr expr, VarMappingContext varMappingContext) {
+        while (true) {
+            try {
+                getMinimalExprSortsOrThrow(expr, varMappingContext);
+                return;
+            } catch (IncompatibleSortsException e) {
+                // We have a list of sorts we have to merge
+                mergeSorts(e.incompatibleSorts);
             }
         }
     }
 
-//    // Merge left and right like left.merge(right), but allow (i.e. ignore) univ on the right-hand side.
-//    private Type mergeTypesExcludingUnivOnRight(Type left, Type right) {
-//        // Filter out univ from right by replacing it with NONE, which gets ignored in merging
-//        Type newRight = Type.EMPTY;
-//        for (Type.ProductType productType : right) {
-//            List<Sig.PrimSig> newProductType = IntStream.range(0, productType.arity())
-//                    .mapToObj(productType::get)
-//                    .map(sig -> sig == Sig.UNIV ? Sig.NONE : sig)
-//                    .collect(Collectors.toList());
-//            newRight.merge(newProductType);
-//        }
-//        return left.merge(newRight);
-//    }
-//
+    private void mergeSorts(List<Sort> sorts) {
+        Sig.PrimSig first = null;
+        for (Sort sort : sorts) {
+            // We can't merge built-in sorts
+            if (sort.isBuiltin()) {
+                // TODO: this error message is rather cryptic
+                throw new ErrorFatal("Incompatible sorts: cannot merge Int or other built-in sorts!");
+            }
+
+            Sig.PrimSig sig = getAnySigFromSort(sort);
+            if (sig == null) {
+                throw new ErrorFatal("Unknown sort: " + sort);
+            }
+            Sig.PrimSig topLevel = getTopLevel(sig);
+            if (first == null) {
+                first = topLevel;
+            } else {
+                sortPartition.unite(first, topLevel);
+            }
+        }
+    }
+
+    /** Reverse-engineer a top-level sig from a sort returned by getSort.. */
+    private Sig.PrimSig getAnySigFromSort(Sort sort) {
+        // This has time complexity O(scary), but should be fine since there's not that many sigs
+        for (Sig.PrimSig sig : topLevelSigs) {
+            if (getSort(sig) == sort) {
+                return sig;
+            }
+        }
+        return null;
+    }
+
     /** Generate a not-useless name for a sort containing the list of sigs. */
-    private String getSortNameFromSigs(List<Sig> sigs) {
-        return sigs.stream()
+    private String getSortNameFromSigs(Set<Sig.PrimSig> sigs) {
+        if (sigs.isEmpty()) {
+            throw new ErrorFatal("Cannot generate a sort name for zero sigs!");
+        }
+
+        // Just choose the first alphabetically
+        return "SortContaining_" + sigs.stream()
                 .map(sig -> sig.label)
-                .collect(Collectors.joining("_"));
+                .sorted()
+                .findFirst().get();
+    }
+
+    /** Create a sort with the given name, or retrieve one with the same name from the cache. */
+    private Sort makeSort(String name) {
+        if (sortNameCache.containsKey(name)) {
+            return sortNameCache.get(name);
+        }
+        Sort sort = Sort.mkSortConst(name);
+        sortNameCache.put(name, sort);
+        return sort;
     }
 
     @Override
     public Sort getSort(Sig sig) {
+        // Exceptions for built-in signatures
+        if (sig == Sig.SIGINT || sig == Sig.SEQIDX) {
+            return Sort.Int();
+        }
+        if (sig == Sig.UNIV || sig == Sig.NONE) {
+            // We can't assign a sort to univ or none
+            return null;
+        }
+        if (sig == Sig.STRING) {
+            throw new ErrorFatal("Portus does not support strings!");
+        }
+
         if (sig instanceof Sig.PrimSig) {
-            if (sig == Sig.UNIV || sig == Sig.NONE) {
-                // We can't assign a sort to univ or none
-                return null;
-            }
-            return sigsToSorts.get(getTopLevel((Sig.PrimSig) sig));
+            Sig.PrimSig topLevelSig = getTopLevel((Sig.PrimSig) sig);
+            Set<Sig.PrimSig> sigsInSort = sortPartition.getSet(topLevelSig);
+            return makeSort(getSortNameFromSigs(sigsInSort));
         } else {
             // it's a subset signature - all parents have same sort, so pick one
             while (sig instanceof Sig.SubsetSig) {
@@ -314,7 +378,22 @@ final class PartitionSortPolicy extends SortPolicy {
 
     @Override
     public int getSortScope(Sort sort) {
-        return sortsToScopes.get(sort).size();
+        // Special cases for builtin sorts
+        if (sort == Sort.Int()) {
+            return 1 << scoper.getBitwidth();
+        } else if (sort.isBuiltin()) {
+            throw new ErrorFatal("Cannot get scope for non-int builtin sort: " + sort);
+        }
+
+        Sig.PrimSig someSig = getAnySigFromSort(sort);
+        Set<Sig.PrimSig> allSigs = sortPartition.getSet(someSig);
+
+        // Just the sum of all the top-level sigs in the sort
+        int scope = 0;
+        for (Sig.PrimSig sig : allSigs) {
+            scope += scoper.sig2scope(sig);
+        }
+        return scope;
     }
 
     @Override
@@ -329,12 +408,22 @@ final class PartitionSortPolicy extends SortPolicy {
 
     @Override
     public List<Sort> getAllSorts() {
-        return allSorts;
+        // Naively get the sorts of every sig
+        // This has real poor time complexity, but that's okay
+        Set<Sort> allSorts = new HashSet<>();
+        for (Sig.PrimSig sig : topLevelSigs) {
+            allSorts.add(getSort(sig));
+        }
+        allSorts.add(Sort.Int());
+        return new ArrayList<>(allSorts);
     }
 
     @Override
     public Map<Sort, Scope> getSortToScopeMap(Set<Sort> unchangingSorts) {
-        return sortsToScopes;
+        // TODO: this is duplicated from UnivSortPolicy, probably make it default in SortPolicy
+        // Map each sort to an exact scope with the appropriate scope and unchanging flag.
+        return getAllSorts().stream().collect(Collectors.toMap(sort -> sort,
+                sort -> ExactScope.apply(getSortScope(sort), unchangingSorts.contains(sort))));
     }
 
 }

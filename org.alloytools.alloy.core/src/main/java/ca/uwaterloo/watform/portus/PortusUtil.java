@@ -271,10 +271,11 @@ final class PortusUtil {
      * Get a list of the variables which are free in the translation of expr, with sorts determined by the context
      * (which should assign a Fortress var for each free Alloy var).
      */
-    public static List<AnnotatedVar> computeFreeVariables(Expr expr, final TranslationContext context) {
+    public static List<AnnotatedVar> computeFreeVariables(
+            Expr expr, TranslationContext context, SortPolicy sortPolicy) {
         // TODO: find sorts of free vars via earlier quantifiers
         // simple recursive implementation
-        return expr.accept(new ContextVisitReturn<List<AnnotatedVar>>(context) {
+        return expr.accept(new ContextVisitReturn<List<AnnotatedVar>>(context, sortPolicy) {
             @SafeVarargs
             private final List<AnnotatedVar> union(List<AnnotatedVar>... lists) {
                 // this is O(n^2) to union two lists of length n, but this shouldn't be a bottleneck
@@ -331,7 +332,7 @@ final class PortusUtil {
                 List<AnnotatedVar> freeVars = argResults.stream().reduce(new ArrayList<>(), this::union);
                 List<AnnotatedVar> subFreeVars = visitThis(x.sub);
                 return union(freeVars, subFreeVars.stream()
-                        .filter(var -> !var.equals(boundPlaceholderVar))
+                        .filter(var -> !var.variable().equals(boundPlaceholderVar))
                         .collect(Collectors.toList()));
             }
 
@@ -394,12 +395,12 @@ final class PortusUtil {
     /**
      * Expand all the 'let's in an expression, for use when disambiguating expressions.
      */
-    public static Expr expandLets(Expr expr, final TranslationContext originalContext) {
+    public static Expr expandLets(Expr expr, TranslationContext originalContext, SortPolicy sortPolicy) {
         // note: this is vulnerable to exponential blowup in cases like
         // let x1=A+A | let x2=x1+x1 | let x3=x2+x2 | ... | let x64=x63+x63 | f[x64]
         // which will cause us to generate a union of 2^64 A's (!!)
         // but let's assume our users aren't evil enough to do that, eh?
-        return expr.accept(new ContextVisitReturn<Expr>(originalContext) {
+        return expr.accept(new ContextVisitReturn<Expr>(originalContext, sortPolicy) {
             @Override
             public Expr visit(ExprBinary x) throws Err {
                 return x.op.make(null, null, visitThis(x.left), visitThis(x.right));

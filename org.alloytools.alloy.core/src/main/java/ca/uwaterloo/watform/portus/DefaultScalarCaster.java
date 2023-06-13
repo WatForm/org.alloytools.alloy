@@ -68,7 +68,7 @@ final class DefaultScalarCaster implements ScalarCaster {
 
     @Override
     public Pair<AnnotatedTerm, Term> castToScalar(Expr expr, TranslationContext context) {
-        return new ContextVisitReturn<Pair<AnnotatedTerm, Term>>(context) {
+        return new ContextVisitReturn<Pair<AnnotatedTerm, Term>>(context, sortPolicy) {
             private Pair<AnnotatedTerm, Term> castByTranslating(Expr expr, Sort sort) {
                 // Translate as an expression of type `sort` and just use that
                 Term scalar = translator.translate(expr, context);
