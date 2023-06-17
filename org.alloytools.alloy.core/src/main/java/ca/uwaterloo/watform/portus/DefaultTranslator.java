@@ -89,7 +89,6 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
         }
         String memPredName = context.nameGenerator.freshName("in" + sig.label);
         sigMemberPredicates.put(sig, term -> {
-            // TODO: if sig is the entire sort, don't bother with the predicate and just return Top
             if (!term.getSort().equals(sigSort)) {
                 // Any other sort is not in the signature!
                 return Term.mkBottom();

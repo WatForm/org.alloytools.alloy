@@ -6,7 +6,7 @@ import fortress.msfol.Term;
 /**
  * An abstraction over techniques for creating the axioms limiting the scopes of sigs.
  * Methods are expected to return the axioms rather than adding them to the context.
- * Use the recursiveTranslator to make recursive translations. TODO would it be better to add this to the context?
+ * Use the recursiveTranslator to make recursive translations.
  */
 interface ScopeAxiomStrategy {
 

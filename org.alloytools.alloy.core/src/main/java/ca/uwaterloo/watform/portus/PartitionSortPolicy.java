@@ -402,7 +402,23 @@ final class PartitionSortPolicy extends SortPolicy {
             // TODO: handle SEQIDX better here
             return false;
         }
-        return sig instanceof Sig.PrimSig && sortPartition.getSet(getTopLevel((Sig.PrimSig) sig)).size() == 1;
+
+        if (!(sig instanceof Sig.PrimSig)) {
+            // Subset sigs by definition don't take the entire sort
+            return false;
+        }
+        Sig.PrimSig primSig = (Sig.PrimSig) sig;
+        Sig.PrimSig topLevel = getTopLevel(primSig);
+
+        // Top-level sigs with non-exact scope and subsigs can't use the Fortress non-exact scope,
+        // because the scope axiom strategies need the parent sort to be exact. So they have to use
+        // exact scope Fortress sorts and so they can't be the entire sort.
+        // TODO: This is dependent on the scope axiom strategy but cardinality + constants need it so it's probably fine
+        if (!scoper.isExact(topLevel) && !topLevel.children().isEmpty()) {
+            return false;
+        }
+
+        return sortPartition.getSet(topLevel).size() == 1;
     }
 
     @Override
