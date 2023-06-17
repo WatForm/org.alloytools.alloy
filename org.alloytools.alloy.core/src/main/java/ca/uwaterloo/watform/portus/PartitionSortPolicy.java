@@ -288,12 +288,12 @@ final class PartitionSortPolicy extends SortPolicy {
                 return;
             } catch (IncompatibleSortsException e) {
                 // We have a list of sorts we have to merge
-                mergeSorts(e.incompatibleSorts);
+                mergeSorts(e.incompatibleSorts, varMappingContext);
             }
         }
     }
 
-    private void mergeSorts(List<Sort> sorts) {
+    private void mergeSorts(List<Sort> sorts, VarMappingContext varMappingContext) {
         Sig.PrimSig first = null;
         for (Sort sort : sorts) {
             // We can't merge built-in sorts
@@ -311,6 +311,14 @@ final class PartitionSortPolicy extends SortPolicy {
                 first = topLevel;
             } else {
                 sortPartition.unite(first, topLevel);
+            }
+        }
+
+        // Replace all the sorts with the new sort in the context to avoid inconsistent history
+        if (first != null) {
+            Sort combinedSort = getSort(first);
+            for (Sort sort : sorts) {
+                varMappingContext.replaceSort(sort, combinedSort);
             }
         }
     }
@@ -333,7 +341,7 @@ final class PartitionSortPolicy extends SortPolicy {
         }
 
         // Just choose the first alphabetically
-        return "SortContaining_" + sigs.stream()
+        return "Sort_" + sigs.stream()
                 .map(sig -> sig.label)
                 .sorted()
                 .findFirst().get();

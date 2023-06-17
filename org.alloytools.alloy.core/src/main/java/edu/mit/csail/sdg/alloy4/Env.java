@@ -18,6 +18,7 @@ package edu.mit.csail.sdg.alloy4;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Mutable; implements a undoable map based on hashCode() and equals(); null key
@@ -34,6 +35,8 @@ import java.util.Map;
  * previous mapping is once again "revealed".
  *
  * @param <V> - the type for Value
+ *
+ * @modified [portus] Added keySet().
  */
 
 public final class Env<K, V> {
@@ -126,5 +129,13 @@ public final class Env<K, V> {
         for (Map.Entry<K,LinkedList<V>> e : map2.entrySet())
             ans.map2.put(e.getKey(), new LinkedList<V>(e.getValue()));
         return ans;
+    }
+
+    /**
+     * Get an unmodifiable set of all the keys in the environment.
+     * @since Added by Portus.
+     */
+    public Set<K> keySet() {
+        return map1.keySet();
     }
 }

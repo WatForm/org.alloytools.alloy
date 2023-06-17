@@ -27,3 +27,4 @@
   methods public so they can be added to `AlloySolution`.
 - Made `A4TupleSet`'s constructor public so that Portus can call it.
 - Small modifications in `SimpleCLI` to support dumping SMTLIB from the command line.
+- Added `keySet()` in `Env` so that `VarMappingContext` doesn't have to keep track of it itself.
