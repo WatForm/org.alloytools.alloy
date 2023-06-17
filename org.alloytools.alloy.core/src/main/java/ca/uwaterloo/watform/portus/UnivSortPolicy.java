@@ -70,6 +70,13 @@ final class UnivSortPolicy extends SortPolicy {
     }
 
     @Override
+    public boolean isSigEntireSort(Sig sig) {
+        // Just don't even try.
+        // TODO: technically this is true if sig is all of univ?
+        return false;
+    }
+
+    @Override
     public Theory addSortsToTheory(Theory theory) {
         return theory.withSort(univ);
     }
@@ -77,13 +84,6 @@ final class UnivSortPolicy extends SortPolicy {
     @Override
     public List<Sort> getAllSorts() {
         return Arrays.asList(univ, Sort.Int());
-    }
-
-    @Override
-    public Map<Sort, Scope> getSortToScopeMap(Set<Sort> unchangingSorts) {
-        // Map each sort to an exact scope with the appropriate scope and unchanging flag.
-        return getAllSorts().stream().collect(Collectors.toMap(sort -> sort,
-                sort -> ExactScope.apply(getSortScope(sort), unchangingSorts.contains(sort))));
     }
 
 }

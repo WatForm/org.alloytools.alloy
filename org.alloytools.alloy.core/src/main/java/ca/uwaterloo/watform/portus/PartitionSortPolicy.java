@@ -22,8 +22,6 @@ import edu.mit.csail.sdg.parser.Macro;
 import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.msfol.Sort;
 import fortress.msfol.Theory;
-import fortress.problemstate.ExactScope;
-import fortress.problemstate.Scope;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -323,17 +321,6 @@ final class PartitionSortPolicy extends SortPolicy {
         }
     }
 
-    /** Reverse-engineer a top-level sig from a sort returned by getSort.. */
-    private Sig.PrimSig getAnySigFromSort(Sort sort) {
-        // This has time complexity O(scary), but should be fine since there's not that many sigs
-        for (Sig.PrimSig sig : topLevelSigs) {
-            if (getSort(sig) == sort) {
-                return sig;
-            }
-        }
-        return null;
-    }
-
     /** Generate a not-useless name for a sort containing the list of sigs. */
     private String getSortNameFromSigs(Set<Sig.PrimSig> sigs) {
         if (sigs.isEmpty()) {
@@ -368,7 +355,8 @@ final class PartitionSortPolicy extends SortPolicy {
             return null;
         }
         if (sig == Sig.STRING) {
-            throw new ErrorFatal("Portus does not support strings!");
+            // String can't be assigned a sort for now - TODO strings
+            return null;
         }
 
         if (sig instanceof Sig.PrimSig) {
@@ -405,6 +393,19 @@ final class PartitionSortPolicy extends SortPolicy {
     }
 
     @Override
+    public boolean isSigEntireSort(Sig sig) {
+        // Special cases: builtin sigs
+        if (sig == Sig.SIGINT) {
+            return true; // SIGINT is all of Sort.Int
+        } else if (sig.builtin) {
+            // None of the others (although technically SEQIDX might be? and univ is tricky)
+            // TODO: handle SEQIDX better here
+            return false;
+        }
+        return sig instanceof Sig.PrimSig && sortPartition.getSet(getTopLevel((Sig.PrimSig) sig)).size() == 1;
+    }
+
+    @Override
     public Theory addSortsToTheory(Theory theory) {
         for (Sort sort : getAllSorts()) {
             if (sort != Sort.Int()) { // only the int sort shouldn't be added
@@ -424,14 +425,6 @@ final class PartitionSortPolicy extends SortPolicy {
         }
         allSorts.add(Sort.Int());
         return new ArrayList<>(allSorts);
-    }
-
-    @Override
-    public Map<Sort, Scope> getSortToScopeMap(Set<Sort> unchangingSorts) {
-        // TODO: this is duplicated from UnivSortPolicy, probably make it default in SortPolicy
-        // Map each sort to an exact scope with the appropriate scope and unchanging flag.
-        return getAllSorts().stream().collect(Collectors.toMap(sort -> sort,
-                sort -> ExactScope.apply(getSortScope(sort), unchangingSorts.contains(sort))));
     }
 
 }

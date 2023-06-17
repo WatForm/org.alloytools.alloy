@@ -225,6 +225,10 @@ public final class TranslateAlloyToFortress implements CommandRunner {
             if (sortTLSigs.isEmpty()) {
                 return; // no axioms if there are no sigs
             }
+            if (sortTLSigs.size() == 1 && sortPolicy.isSigEntireSort(sortTLSigs.get(0))) {
+                // Only one sig which is the entire sort: don't bother
+                return;
+            }
 
             // the sigs cover the sort
             context.addAxiom(makeCoverAxiom(sort, sortTLSigs, translator, context));

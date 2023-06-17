@@ -19,9 +19,12 @@ import edu.mit.csail.sdg.ast.Func;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.ast.Type;
 import edu.mit.csail.sdg.parser.Macro;
+import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.modelfind.ModelFinder;
 import fortress.msfol.Sort;
 import fortress.msfol.Theory;
+import fortress.problemstate.ExactScope;
+import fortress.problemstate.NonExactScope;
 import fortress.problemstate.Scope;
 
 import java.util.ArrayList;
@@ -43,7 +46,11 @@ public abstract class SortPolicy {
     protected final List<Sig> allSigs;
 
     public SortPolicy(Iterable<Sig> allSigs) {
-        this.allSigs = PortusUtil.iterableToList(allSigs);
+        // For now: filter out Sig.STRING since we don't support strings
+        // TODO: Support strings
+        this.allSigs = PortusUtil.iterableToList(allSigs).stream()
+                .filter(sig -> sig != Sig.STRING)
+                .collect(Collectors.toList());
     }
 
     /**
@@ -58,6 +65,11 @@ public abstract class SortPolicy {
      */
     public abstract int getSortScope(Sort sort);
 
+    /**
+     * Is every atom in sig's sort a member of sig?
+     */
+    public abstract boolean isSigEntireSort(Sig sig);
+
     /** Return a theory with the sorts assigned by the policy added. */
     public abstract Theory addSortsToTheory(Theory theory);
 
@@ -66,8 +78,8 @@ public abstract class SortPolicy {
      * {@code unchangingSorts} is the list of sorts which should be marked as 'unchanging': their scope cannot be
      * changed in the output (without messing up the semantics of the problem).
      */
-    public void configureModelFinderScopes(ModelFinder modelFinder, Set<Sort> unchangingSorts) {
-        for (Map.Entry<Sort, Scope> sortAndScope : getSortToScopeMap(unchangingSorts).entrySet()) {
+    public void configureModelFinderScopes(ModelFinder modelFinder, Set<Sort> unchangingSorts, ScopeComputer scoper) {
+        for (Map.Entry<Sort, Scope> sortAndScope : getSortToScopeMap(unchangingSorts, scoper).entrySet()) {
             modelFinder.setScope(sortAndScope.getKey(), sortAndScope.getValue());
         }
     }
@@ -75,11 +87,44 @@ public abstract class SortPolicy {
     /** Get the list of all sorts that may be assigned by the policy. */
     public abstract List<Sort> getAllSorts();
 
+    /** Reverse-engineer a primitive sig from a sort returned by getSort. */
+    protected Sig.PrimSig getAnySigFromSort(Sort sort) {
+        // Note that every sort should have at least one PrimSig (can't be only subset sigs).
+        // This has time complexity O(scary), but should be fine since there's not that many sigs.
+        for (Sig sig : allSigs) {
+            if (sig instanceof Sig.PrimSig && getSort(sig) == sort) {
+                return (Sig.PrimSig) sig;
+            }
+        }
+        return null;
+    }
+
     /**
      * Get a map of sorts assigned by the policy to their Fortress scopes.
      * This method is for configuring model finders and dumping. Use getSortScope() for most use-cases.
      */
-    public abstract Map<Sort, Scope> getSortToScopeMap(Set<Sort> unchangingSorts);
+    public Map<Sort, Scope> getSortToScopeMap(Set<Sort> unchangingSorts, ScopeComputer scoper) {
+        return getAllSorts().stream().collect(Collectors.toMap(sort -> sort, sort -> {
+            int scope = getSortScope(sort);
+            boolean isUnchanging = unchangingSorts.contains(sort);
+
+            boolean isExact;
+            Sig.PrimSig anySig = getAnySigFromSort(sort);
+            if (isSigEntireSort(anySig)) {
+                // There's only one sig in the sort: use exact or non exact depending on sig's scope's exactness
+                isExact = scoper.isExact(anySig);
+            } else {
+                // There are multiple sigs in the scope: Portus handles scope and exactness
+                isExact = true;
+            }
+
+            if (isExact) {
+                return ExactScope.apply(scope, isUnchanging);
+            } else {
+                return NonExactScope.apply(scope, isUnchanging);
+            }
+        }));
+    }
 
     /**
      * For each position i in the arity of `expr` (i.e. 1<=i<=arity), find the single sort Si such that

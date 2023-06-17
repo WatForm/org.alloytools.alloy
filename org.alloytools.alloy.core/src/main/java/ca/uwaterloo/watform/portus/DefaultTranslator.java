@@ -94,11 +94,19 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
                 // Any other sort is not in the signature!
                 return Term.mkBottom();
             }
+            if (sortPolicy.isSigEntireSort(sig)) {
+                // If the sig is the entire sort and term is in the sort, then it's automatically in the sig
+                return Term.mkTop();
+            }
             return Term.mkApp(memPredName, term.getTerm());
         });
-        FuncDecl decl = FuncDecl.mkFuncDecl(memPredName, sigSort, Sort.Bool());
-        sigMemberPredicateDecls.put(sig, decl);
-        context.addFunctionDeclaration(decl);
+
+        if (!sortPolicy.isSigEntireSort(sig)) {
+            // The member predicate is redundant if the sig is the entire sort
+            FuncDecl decl = FuncDecl.mkFuncDecl(memPredName, sigSort, Sort.Bool());
+            sigMemberPredicateDecls.put(sig, decl);
+            context.addFunctionDeclaration(decl);
+        }
 
         if (sig instanceof Sig.PrimSig) {
             Sig.PrimSig primSig = (Sig.PrimSig) sig;
@@ -130,15 +138,20 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
             }
 
             // Generate scope constraints - note that subset sigs have no scope constraints
-            int scope = context.scoper.sig2scope(sig);
-            if (scope == -1) {
-                // -1 is returned when scoper doesn't know the correct scope - fail loudly instead of silently
-                throw new ErrorFatal("Cannot generate scope axiom for sig " + sig.label + " because scope is unknown");
-            }
-            if (context.scoper.isExact(sig)) {
-                context.addAxiom(scopeAxiomStrategy.makeExactScopeAxiom(sig, scope, topLevelTranslator, context));
-            } else {
-                context.addAxiom(scopeAxiomStrategy.makeNonExactScopeAxiom(sig, scope, topLevelTranslator, context));
+            // Also, if sig is the only sig in the sort, skip this: we use Fortress's built-in scopes instead
+            if (!sortPolicy.isSigEntireSort(sig)) {
+                int scope = context.scoper.sig2scope(sig);
+                if (scope == -1) {
+                    // -1 is returned when scoper doesn't know the correct scope - fail loudly instead of silently
+                    throw new ErrorFatal(
+                            "Cannot generate scope axiom for sig " + sig.label + " because scope is unknown");
+                }
+                if (context.scoper.isExact(sig)) {
+                    context.addAxiom(scopeAxiomStrategy.makeExactScopeAxiom(sig, scope, topLevelTranslator, context));
+                } else {
+                    context.addAxiom(scopeAxiomStrategy.makeNonExactScopeAxiom(
+                            sig, scope, topLevelTranslator, context));
+                }
             }
         } else if (sig instanceof Sig.SubsetSig) {
             Sig.SubsetSig subsetSig = (Sig.SubsetSig) sig;
@@ -285,6 +298,11 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
 
     /** Evaluate a sig given a solution. */
     private TupleSet evaluateSig(Sig sig, FortressSolution solution) {
+        // If the sig is the entire sort, the results are the entire sort
+        if (sortPolicy.isSigEntireSort(sig)) {
+            return TupleSet.atoms(solution.getSortAtoms(sortPolicy.getSort(sig)));
+        }
+
         // Evaluate only sigs which we've translated here
         if (!sigMemberPredicateDecls.containsKey(sig)) return null; // not translated here
 

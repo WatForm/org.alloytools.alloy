@@ -17,6 +17,7 @@ import java.util.Set;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 /**
  * A set of Fortress tuples, for use when evaluating. Immutable.
@@ -51,6 +52,12 @@ final class TupleSet {
 
     public static TupleSet singleton(Value value) {
         return singleton(Collections.singletonList(value));
+    }
+
+    public static TupleSet atoms(Iterable<Value> atoms) {
+        return StreamSupport.stream(atoms.spliterator(), false)
+                .map(Collections::singletonList)
+                .collect(TupleSet.collect(1));
     }
 
     public static TupleSet from(Set<List<Value>> tuples) {
