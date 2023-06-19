@@ -110,7 +110,12 @@ final class PartitionSortPolicy extends SortPolicy {
             @Override
             public Void visit(ExprCall x) throws Err {
                 x.args.forEach(this::visitThis);
-                return visitThis(x.fun.getBody());
+                try {
+                    varMappingContext.addLetMappingsFromCall(x);
+                    return visitThis(x.fun.getBody());
+                } finally {
+                    varMappingContext.removeLetMappingsFromCall(x);
+                }
             }
 
             @Override
@@ -309,6 +314,7 @@ final class PartitionSortPolicy extends SortPolicy {
             if (first == null) {
                 first = topLevel;
             } else {
+                System.out.println("Merging: " + first + ", " + topLevel);
                 sortPartition.unite(first, topLevel);
             }
         }
