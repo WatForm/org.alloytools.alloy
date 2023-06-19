@@ -28,6 +28,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
@@ -375,7 +376,7 @@ final class PartitionSortPolicy extends SortPolicy {
     @Override
     public int getSortScope(Sort sort) {
         // Special cases for builtin sorts
-        if (sort == Sort.Int()) {
+        if (Sort.Int().equals(sort)) {
             return 1 << scoper.getBitwidth();
         } else if (sort.isBuiltin()) {
             throw new ErrorFatal("Cannot get scope for non-int builtin sort: " + sort);
@@ -424,7 +425,7 @@ final class PartitionSortPolicy extends SortPolicy {
     @Override
     public Theory addSortsToTheory(Theory theory) {
         for (Sort sort : getAllSorts()) {
-            if (sort != Sort.Int()) { // only the int sort shouldn't be added
+            if (!Objects.equals(sort, Sort.Int())) { // only the int sort shouldn't be added
                 theory = theory.withSort(sort);
             }
         }

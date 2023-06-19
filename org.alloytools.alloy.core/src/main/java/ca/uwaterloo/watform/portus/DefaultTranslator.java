@@ -31,6 +31,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -670,7 +671,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
 
             if (op == ExprBinary.Op.EQUALS) {
                 // they have to be equal definite sorts: disallow "f = iden"
-                boolean ok = (e1Sort == e2Sort && SortPolicy.isSortDefinite(e1Sort));
+                boolean ok = (Objects.equals(e1Sort, e2Sort) && SortPolicy.isSortDefinite(e1Sort));
                 if (!ok) {
                     // TODO: can we further short-circuit here? Requires knowing whether there are other sorts
                     throw new ErrorFatal("Both sides of an '=' formula must have the same definite Portus sorts.");

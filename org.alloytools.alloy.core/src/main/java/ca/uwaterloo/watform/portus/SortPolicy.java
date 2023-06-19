@@ -32,6 +32,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
@@ -92,7 +93,7 @@ public abstract class SortPolicy {
         // Note that every sort should have at least one PrimSig (can't be only subset sigs).
         // This has time complexity O(scary), but should be fine since there's not that many sigs.
         for (Sig sig : allSigs) {
-            if (sig instanceof Sig.PrimSig && getSort(sig) == sort) {
+            if (sig instanceof Sig.PrimSig && Objects.equals(getSort(sig), sort)) {
                 return (Sig.PrimSig) sig;
             }
         }

@@ -227,7 +227,7 @@ final class PortusUtil {
                                       SortPolicy sortPolicy, TranslationContext context) {
         // "forall x: S | !([[x \in sig1]] && [[x \in sig2]])
         Sort sort = sortPolicy.getSort(sig1);
-        if (sort == null || sort != sortPolicy.getSort(sig2)) {
+        if (sort == null || !sort.equals(sortPolicy.getSort(sig2))) {
             // short-circuit: they must be disjoint since they're in different sorts
             return Term.mkTop();
         }

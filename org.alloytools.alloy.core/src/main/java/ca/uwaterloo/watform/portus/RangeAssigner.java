@@ -1,6 +1,5 @@
 package ca.uwaterloo.watform.portus;
 
-import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.Sig;
@@ -78,7 +77,7 @@ class RangeAssigner {
                 // if the scope isn't specified (which is the case for strings)
                 .filter(otherSig -> otherSig != Sig.STRING)
                 .filter(otherSig -> primSig.isTopLevel()
-                        ? otherSig.isTopLevel() && sort == sortPolicy.getSort(otherSig)
+                        ? otherSig.isTopLevel() && sort.equals(sortPolicy.getSort(otherSig))
                         : primSig.parent == otherSig.parent)
                 .sorted(Comparator.comparing(s -> s.label)) // hopefully the labels are unique
                 .collect(Collectors.toList());

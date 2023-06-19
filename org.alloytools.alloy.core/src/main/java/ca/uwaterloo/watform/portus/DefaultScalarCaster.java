@@ -24,6 +24,7 @@ import fortress.msfol.Term;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * A scalar caster which casts simple expressions to scalars which don't need any additional state.
@@ -150,7 +151,7 @@ final class DefaultScalarCaster implements ScalarCaster {
                 Term rightGuard = rightScalarAndGuard.b;
 
                 // If the sorts aren't compatible, let someone else deal with it
-                if (leftScalar.getSort() != rightScalar.getSort()) {
+                if (!Objects.equals(leftScalar.getSort(), rightScalar.getSort())) {
                     return null;
                 }
                 Sort sort = leftScalar.getSort();

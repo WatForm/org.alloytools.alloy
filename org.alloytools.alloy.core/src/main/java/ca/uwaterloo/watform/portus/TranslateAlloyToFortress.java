@@ -47,6 +47,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
@@ -220,7 +221,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
             List<Sig> sortTLSigs = StreamSupport.stream(sigs.spliterator(), false)
                     // Ignore String for now, we don't support it - TODO support Sig.STRING
                     .filter(sig -> sig != Sig.STRING)
-                    .filter(sig -> sig.isTopLevel() && sortPolicy.getSort(sig) == sort)
+                    .filter(sig -> sig.isTopLevel() && Objects.equals(sortPolicy.getSort(sig), sort))
                     .collect(Collectors.toList());
             if (sortTLSigs.isEmpty()) {
                 return; // no axioms if there are no sigs

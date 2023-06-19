@@ -73,7 +73,7 @@ final class SimpleScalarOptTranslator implements Translator {
         // Short-circuit if the sorts aren't the same
         AnnotatedTerm scalarLeft = leftScalarData.a;
         AnnotatedTerm scalarRight = rightScalarData.a;
-        if (scalarLeft.getSort() != scalarRight.getSort()) {
+        if (!Objects.equals(scalarLeft.getSort(), scalarRight.getSort())) {
             return Term.mkBottom();
         }
 
