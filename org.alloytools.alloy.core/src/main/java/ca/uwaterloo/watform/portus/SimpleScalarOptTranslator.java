@@ -1,27 +1,62 @@
 package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.Pair;
+import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprBinary;
 import fortress.msfol.Term;
+
+import java.util.Objects;
 
 /**
  * Simple optimizations when the expressions involved translate to scalars.
  */
-final class SimpleScalarOptTranslator extends AbstractTranslator {
+final class SimpleScalarOptTranslator implements Translator {
 
     private final ScalarCaster scalarCaster;
 
-    public SimpleScalarOptTranslator(Translator topLevel, ScalarCaster scalarCaster) {
-        super(topLevel);
+    public SimpleScalarOptTranslator(ScalarCaster scalarCaster) {
         this.scalarCaster = scalarCaster;
+    }
+
+    @Override
+    public Term translate(Expr expr, TranslationContext context) {
+        if (expr instanceof ExprBinary) {
+            return translateExprBinary((ExprBinary) expr, context);
+        } else if (expr instanceof ExprElementOf) {
+            return translateVarInScalar((ExprElementOf) expr, context);
+        }
+        return null;
+    }
+
+    /**
+     * For [[v \in e]], if e is a scalar, translate to "guard && v = e".
+     */
+    private Term translateVarInScalar(ExprElementOf expr, TranslationContext context) {
+        if (expr.tuple.size() != 1) {
+            return null;
+        }
+        AnnotatedTerm term = expr.tuple.getAnnotatedTerm(0);
+
+        Pair<AnnotatedTerm, Term> scalarData = scalarCaster.castToScalar(expr.sub, context);
+        if (scalarData == null) {
+            return null;
+        }
+        AnnotatedTerm scalar = scalarData.a;
+        Term guard = scalarData.b;
+
+        if (!Objects.equals(term.getSort(), scalar.getSort())) {
+            // short-circuit: can't possibly be equal
+            return Term.mkBottom();
+        }
+
+        return Term.mkAnd(guard, Term.mkEq(term.getTerm(), scalar.getTerm()));
     }
 
     /**
      * For "in" and "=", if both are scalars, just translate [[left = right]] or [[left in right]]
      * as a plain equals.
      */
-    @Override
-    public Term translate(ExprBinary expr, TranslationContext context) {
+    private Term translateExprBinary(ExprBinary expr, TranslationContext context) {
         if (expr.op != ExprBinary.Op.EQUALS && expr.op != ExprBinary.Op.IN) {
             return null;
         }

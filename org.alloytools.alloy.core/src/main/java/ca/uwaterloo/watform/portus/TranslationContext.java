@@ -1,5 +1,6 @@
 package ca.uwaterloo.watform.portus;
 
+import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprCall;
@@ -93,6 +94,9 @@ final class TranslationContext {
     }
 
     public void addAxiom(Term axiom) {
+        if (axiom == Term.mkBottom()) {
+            throw new ErrorFatal("Are you sure about that? Tried to add axiom 'false': theory=" + theory);
+        }
         theory = theory.withAxiom(axiom);
     }
 

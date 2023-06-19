@@ -165,18 +165,7 @@ final class DefaultScalarCaster implements ScalarCaster {
 
             @Override
             public Pair<AnnotatedTerm, Term> visit(Sig sig) {
-                // it could be a one sig
-                // subset sigs aren't supported by RangeAssigner, so don't bother since they aren't common
-                if (sig.isOne != null && sig instanceof Sig.PrimSig) {
-                    // use its first/only domain element as the term
-                    context.rangeAssigner.addRangeAxiom(sig, translator, sortPolicy, context);
-                    Term domainElement = PortusUtil.getOneSigDomainElement((Sig.PrimSig) sig, sortPolicy, context);
-                    Sort sort = sortPolicy.getSort(sig);
-
-                    // no guard on the domain element usage is needed, and there should be no free variables
-                    List<AnnotatedVar> freeVars = ConstList.make();
-                    return new Pair<>(new AnnotatedTerm(domainElement, sort, freeVars), Term.mkTop());
-                }
+                // one sigs are handled in OneSigOptTranslator
                 return null;
             }
 
