@@ -236,7 +236,7 @@ public abstract class SortPolicy {
         private Sort union(Sort a, Sort b) {
             if (a == null || b == null) {
                 return null;
-            } else if (!a.equals(b)) {
+            } else if (!Objects.equals(a, b)) {
                 // Incompatible sorts! Note that one could be null here
                 throw new IncompatibleSortsException(a, b);
             } else {

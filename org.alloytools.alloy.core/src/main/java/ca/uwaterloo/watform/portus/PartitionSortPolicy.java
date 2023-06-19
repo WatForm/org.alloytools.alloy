@@ -16,7 +16,6 @@ import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Func;
 import edu.mit.csail.sdg.ast.Sig;
-import edu.mit.csail.sdg.ast.Type;
 import edu.mit.csail.sdg.ast.VisitReturn;
 import edu.mit.csail.sdg.parser.Macro;
 import edu.mit.csail.sdg.translator.ScopeComputer;
@@ -48,9 +47,6 @@ final class PartitionSortPolicy extends SortPolicy {
     private final List<Sig.PrimSig> topLevelSigs;
 
     private final ScopeComputer scoper;
-//    private final Map<Sig, Sort> sigsToSorts = new HashMap<>();
-//    private final List<Sort> allSorts = new ArrayList<>();
-//    private final Map<Sort, Scope> sortsToScopes = new HashMap<>();
 
     public PartitionSortPolicy(Iterable<Sig> allSigs, Command command, ScopeComputer scoper) {
         super(allSigs);
@@ -67,34 +63,10 @@ final class PartitionSortPolicy extends SortPolicy {
         VisitReturn<Void> merger = new ContextVisitReturn<Void>(new VarMappingContext(), this) {
             @Override
             public Void visit(ExprBinary x) throws Err {
-                switch (x.op) {
-                    case PLUSPLUS:
-                        // a ++ b requires all the positions to have matching sorts
-                        // TODO: technically the first position doesn't but DefaultTranslator requires it
-                        mergeSorts(x, varMappingContext);
-                        break;
-//                    case IN:
-//                    case NOT_IN:
-//                        // a in b requires left and right to have matching sorts, but right could be univ
-//                        uniteTypeSigs(mergeTypesExcludingUnivOnRight(x.left.type(), x.right.type()));
-//                        break;
-//                    case EQUALS:
-//                    case NOT_EQUALS:
-//                        // a = b requires both positions to have matching sorts
-//                        // TODO: we could probably short circuit instead (see DefaultTranslator)
-//                        uniteTypeSigs(x.left.type().merge(x.right.type()));
-//                        break;
-//                    case JOIN:
-//                        // We require the middle position to have matching sorts
-//                        // Note this holds even when the join is optimized
-//                        for (Type.ProductType productTypeLeft : x.left.type()) {
-//                            Sig sigLeft = getTopLevel(productTypeLeft.get(productTypeLeft.arity() - 1));
-//                            for (Type.ProductType productTypeRight : x.right.type()) {
-//                                Sig sigRight = getTopLevel(productTypeRight.get(0));
-//                                sortPartition.unite(sigLeft, sigRight);
-//                            }
-//                        }
-//                        break;
+                if (x.op == ExprBinary.Op.PLUSPLUS) {
+                    // a ++ b requires all the positions on the RHS to have definite sorts
+                    // TODO: technically the first position doesn't but DefaultTranslator requires it
+                    mergeSorts(x.right, varMappingContext);
                 }
 
                 visitThis(x.left);
@@ -216,41 +188,6 @@ final class PartitionSortPolicy extends SortPolicy {
                 mergeSorts(sig, new VarMappingContext());
             }
         }
-
-        // Now that we've figured out what sigs need to be in the same sorts, generate the sorts
-//        List<List<Sig>> partition = sortPartition.getPartition();
-//        for (List<Sig> sigsInSameSort : partition) {
-//            String name = getSortNameFromSigs(sigsInSameSort);
-//            Sort sort = Sort.mkSortConst(name);
-//
-//            int sortScope = 0;
-//            for (Sig sig : sigsInSameSort) {
-//                sigsToSorts.put(sig, sort);
-//                int scope = scoper.sig2scope(sig);
-//                if (scope <= 0) {
-//                    throw new ErrorFatal("Sig " + sig + " should be a user-defined sig with a scope, not " + scope);
-//                }
-//                sortScope += scope;
-//            }
-//            allSorts.add(sort);
-//            // TODO: If this is the only top-level sort, we can save on a scope axiom using non-exact scopes here!
-//            sortsToScopes.put(sort, ExactScope.apply(sortScope));
-//        }
-
-        // Special cases for int
-//        allSorts.add(Sort.Int());
-//        sortsToScopes.put(Sort.Int(), ExactScope.apply(1 << scoper.getBitwidth())); // 2^bitwidth, # of ints
-//        sigsToSorts.put(Sig.SIGINT, Sort.Int());
-//        sigsToSorts.put(Sig.SEQIDX, Sort.Int());
-    }
-
-    private int getArity(Type type) {
-        // All of the product types should be the same arity - we don't handle anything else
-        int arity = type.arity();
-        if (arity <= 0) { // either incompatible arities or nothing at all
-            throw new ErrorFatal("Portus cannot handle types with incompatible/no arities: " + type);
-        }
-        return arity;
     }
 
     private Sig.PrimSig getTopLevel(Sig.PrimSig sig) {
@@ -263,26 +200,6 @@ final class PartitionSortPolicy extends SortPolicy {
         }
         return sig;
     }
-
-//    // Merge all the corresponding sigs in the product types in the partition
-//    private void uniteTypeSigs(Type type) {
-//        for (int idx = 0; idx < getArity(type); idx++) {
-//            Sig.PrimSig first = null;
-//            for (Type.ProductType productType : type) {
-//                Sig.PrimSig sig = productType.get(idx);
-//                if (sig == Sig.NONE) {
-//                    // Ignore Sig.NONE: never unite with anything (it always short-circuits)
-//                    continue;
-//                }
-//                Sig.PrimSig topLevel = getTopLevel(sig);
-//                if (first == null) {
-//                    first = topLevel;
-//                } else {
-//                    sortPartition.unite(first, topLevel);
-//                }
-//            }
-//        }
-//    }
 
     // Merge sorts until we're able to resolve sorts for expr.
     private void mergeSorts(Expr expr, VarMappingContext varMappingContext) {
@@ -314,7 +231,6 @@ final class PartitionSortPolicy extends SortPolicy {
             if (first == null) {
                 first = topLevel;
             } else {
-                System.out.println("Merging: " + first + ", " + topLevel);
                 sortPartition.unite(first, topLevel);
             }
         }
