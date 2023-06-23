@@ -641,6 +641,16 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
         // We also handle multiplicities on e2 in the case of "e1 in M e2", because Alloy supports formulas
         // like "a in ONEOF(b)" and these come up in translating field declarations.
 
+        // HACK: We can't handle expressions like "e = none" normally at the moment because we can't determine
+        // a sort for none. To get these expressions working for now, we just translate them to "no e".
+        // TODO: This should be done properly in the future by changing how SortPolicy handles none (and iden).
+        if (e1.isSame(Sig.NONE)) {
+            return recursivelyTranslate(e2.no(), context);
+        }
+        if (e2.isSame(Sig.NONE)) {
+            return recursivelyTranslate(e1.no(), context);
+        }
+
         // Determine the sorts. We need to quantify over each term in each position, so we need a definite Portus sort
         // for each position, but we also need to support constructions like "f in iden", so we can't demand that both
         // e1 and e2 have definite sorts in the 'in' case (since iden's sorts are indefinite).
