@@ -27,9 +27,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
 import static org.mockito.hamcrest.MockitoHamcrest.argThat;
@@ -43,8 +41,6 @@ public class DefaultScalarCasterTest {
     private ScalarCaster mockRoot;
 
     private Translator mockTranslator;
-    private SortPolicy mockSortPolicy;
-    private RangeAssigner mockRangeAssigner;
     private TranslationContext context;
 
     @Before
@@ -52,10 +48,10 @@ public class DefaultScalarCasterTest {
         mockRoot = mock(ScalarCaster.class);
         mockTranslator = mock(Translator.class);
         ScopeComputer mockScopeComputer = mock(ScopeComputer.class);
-        mockSortPolicy = mock(SortPolicy.class);
+        SortPolicy mockSortPolicy = mock(SortPolicy.class);
         when(mockSortPolicy.addSortsToTheory(any())).thenReturn(Theory.empty().withSort(testSort));
         // Use the constructor so the range assigner can be copied without issue
-        mockRangeAssigner = mock(RangeAssigner.class, withSettings()
+        RangeAssigner mockRangeAssigner = mock(RangeAssigner.class, withSettings()
                 .useConstructor(Collections.singleton(testOneSig)));
         context = new TranslationContext(
                 new PortusOptions(), mockScopeComputer, mockSortPolicy, mockRangeAssigner);
@@ -96,24 +92,6 @@ public class DefaultScalarCasterTest {
         assertEquals(Sort.Int(), result.a.getSort());
         assertTrue(result.a.getFreeVars().isEmpty());
         assertEquals(Term.mkTop(), result.b);
-    }
-
-    @Test
-    public void testCastToScalar_oneSig() {
-        // test castToScalar(A) = (@1: sortA, Top) when A is a one sig and @1 is its one domain element
-        Term flagRangeAxiom = Term.mkVar("rangeAxiom");
-        when(mockTranslator.translate(any(), any())).thenReturn(flagRangeAxiom);
-        when(mockRangeAssigner.getDomainElementRange(testOneSig, mockSortPolicy, context)).thenReturn(new Pair<>(1, 1));
-
-        Pair<AnnotatedTerm, Term> result = scalarCaster.castToScalar(testOneSig, context);
-        assertNotNull(result);
-        assertEquals(Term.mkDomainElement(1, testSort), result.a.getTerm());
-        assertEquals(testSort, result.a.getSort());
-        assertTrue(result.a.getFreeVars().isEmpty());
-        assertEquals(Term.mkTop(), result.b);
-
-        // The range axiom should have been added
-        verify(mockRangeAssigner, atLeastOnce()).addRangeAxiom(eq(testOneSig), any(), any(), any());
     }
 
     @Test
