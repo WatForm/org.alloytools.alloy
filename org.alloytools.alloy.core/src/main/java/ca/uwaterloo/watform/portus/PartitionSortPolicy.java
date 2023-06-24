@@ -182,10 +182,13 @@ final class PartitionSortPolicy extends SortPolicy {
         }
 
         // In every subset signature, all parents must have the same sort
-        // Luckily, the type of the subset signature is the union of the parents' top level signatures
         for (Sig sig : allSigs) {
             if (sig instanceof Sig.SubsetSig) {
-                mergeSorts(sig, new VarMappingContext());
+                // Construct a union of the parent sigs and make sure it has one sort
+                Expr parentUnion = ((Sig.SubsetSig) sig).parents.stream()
+                        .map(parent -> (Expr) parent)
+                        .reduce(Expr::plus).orElse(ExprConstant.TRUE);
+                mergeSorts(parentUnion, new VarMappingContext());
             }
         }
     }
@@ -305,7 +308,7 @@ final class PartitionSortPolicy extends SortPolicy {
         }
 
         Sig.PrimSig someSig = getAnySigFromSort(sort);
-        Set<Sig.PrimSig> allSigs = sortPartition.getSet(someSig);
+        Set<Sig.PrimSig> allSigs = sortPartition.getSet(getTopLevel(someSig));
 
         // Just the sum of all the top-level sigs in the sort
         int scope = 0;
@@ -330,18 +333,23 @@ final class PartitionSortPolicy extends SortPolicy {
             // Subset sigs by definition don't take the entire sort
             return false;
         }
+
+        if (!sig.isTopLevel()) {
+            // TODO: Should we bother trying to tell if a subsig is the whole sort?
+            return false;
+        }
+
         Sig.PrimSig primSig = (Sig.PrimSig) sig;
-        Sig.PrimSig topLevel = getTopLevel(primSig);
 
         // Top-level sigs with non-exact scope and subsigs can't use the Fortress non-exact scope,
         // because the scope axiom strategies need the parent sort to be exact. So they have to use
         // exact scope Fortress sorts and so they can't be the entire sort.
         // TODO: This is dependent on the scope axiom strategy but cardinality + constants need it so it's probably fine
-        if (!scoper.isExact(topLevel) && !topLevel.children().isEmpty()) {
+        if (!scoper.isExact(primSig) && !primSig.children().isEmpty()) {
             return false;
         }
 
-        return sortPartition.getSet(topLevel).size() == 1;
+        return sortPartition.getSet(primSig).size() == 1;
     }
 
     @Override
