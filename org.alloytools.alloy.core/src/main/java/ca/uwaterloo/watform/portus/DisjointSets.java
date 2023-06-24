@@ -1,12 +1,11 @@
 package ca.uwaterloo.watform.portus;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * An implementation of the union-find data structure, also known as a disjoint set data structure.
@@ -19,9 +18,6 @@ final class DisjointSets<T> {
     // We use integers from 0 to numElements-1 to represent the sets and the elements.
     // Each element is associated with an integer, so we don't have to keep computing hashes.
     private final Map<T, Integer> elementToIndex = new HashMap<>();
-
-    // The number of elements in the underlying set being partitioned.
-    private final int numElements;
 
     // The data structure works like this: each set has a representative.
     // The representative of a set is the unique element x in the set such that tree[x] = x.
@@ -36,7 +32,8 @@ final class DisjointSets<T> {
     private final int[] sizes;
 
     public DisjointSets(List<T> elements) {
-        numElements = elements.size();
+        // The number of elements in the underlying set being partitioned.
+        int numElements = elements.size();
         for (int i = 0; i < numElements; i++) {
             elementToIndex.put(elements.get(i), i);
         }
@@ -80,32 +77,26 @@ final class DisjointSets<T> {
         sizes[largerRepr] += sizes[smallerRepr];
     }
 
-    /** Unite (merge) the sets the two elements are in. */
+    /**
+     * Unite (merge) the sets the two elements are in.
+     * @throws NoSuchElementException If either element is not in the set.
+     */
     public void unite(T element1, T element2) {
+        if (!elementToIndex.containsKey(element1) || !elementToIndex.containsKey(element2)) {
+            throw new NoSuchElementException();
+        }
         unite(elementToIndex.get(element1), elementToIndex.get(element2));
     }
 
-    /** Get the current partition of the input elements in arbitrary order. */
-    public List<List<T>> getPartition() {
-        // Generate the lists at each representative's position, then filter out the empty lists.
-        List<List<T>> partition = new ArrayList<>(numElements);
-        for (int index = 0; index < numElements; index++) {
-            partition.add(new ArrayList<>());
-        }
-
-        for (T element : elementToIndex.keySet()) {
-           int index = elementToIndex.get(element);
-           int representative = find(index);
-           partition.get(representative).add(element);
-        }
-
-        return partition.stream()
-                .filter(set -> !set.isEmpty())
-                .collect(Collectors.toList());
-    }
-
-    /** Get the disjoint set containing the element. */
+    /**
+     * Get the disjoint set containing the element.
+     * @throws NoSuchElementException If the element is not in the set.
+     */
     public Set<T> getSet(T element) {
+        if (!elementToIndex.containsKey(element)) {
+            throw new NoSuchElementException();
+        }
+
         // O(n), but that's okay
         Set<T> set = new HashSet<>();
         int representative = find(elementToIndex.get(element));
