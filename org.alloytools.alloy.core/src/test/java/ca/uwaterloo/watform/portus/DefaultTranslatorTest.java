@@ -1738,6 +1738,26 @@ public class DefaultTranslatorTest {
     }
 
     @Test
+    public void testTranslate_in_mixedSortsShortCircuits() {
+        // test [[e1 in e2]] short circuits to false when e1 and e2 are of different sorts
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e1 = makeTestVarWithType("e1", Type.make(sig));
+        Term result = translator.translate(e1.in(ExprConstant.makeNUMBER(1)), context);
+        assertEquals(Term.mkBottom(), result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_eq_mixedSortsShortCircuits() {
+        // test [[e1 = e2]] short circuits to false when e1 and e2 are of different sorts
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e1 = makeTestVarWithType("e1", Type.make(sig));
+        Term result = translator.translate(e1.equal(ExprConstant.makeNUMBER(1)), context);
+        assertEquals(Term.mkBottom(), result);
+        assertContextEmpty();
+    }
+
+    @Test
     public void testTranslate_inOneOf() {
         // test [[e1 in ONEOF(e2)]] := (forall x: univ . [[x \in ONEOF(e1)]] => [[x \in e2]]) && [[one ONEOF(e2)]]
         // there's some unnecessary mult wrapping, but they're treated like noops so it's fine
@@ -4180,7 +4200,7 @@ public class DefaultTranslatorTest {
     }
 
     @Test
-    public void testTranslate_binaryOperationExpression_mixedIntNonInt_fails() {
+    public void testTranslate_binaryOperationIntegerExpression_mixedIntNonInt_fails() {
         // test [[S X 2]] fails for select binary operations X, since we disallow mixing integers with non-integers
         Sig.PrimSig sig = new Sig.PrimSig("S");
         delegateToRealTranslator();
@@ -4190,10 +4210,6 @@ public class DefaultTranslatorTest {
                 ExprBinary.Op.MUL,
                 ExprBinary.Op.DIV,
                 ExprBinary.Op.REM,
-                ExprBinary.Op.EQUALS,
-                ExprBinary.Op.NOT_EQUALS,
-                ExprBinary.Op.IN,
-                ExprBinary.Op.NOT_IN,
                 ExprBinary.Op.GT,
                 ExprBinary.Op.NOT_GT,
                 ExprBinary.Op.GTE,

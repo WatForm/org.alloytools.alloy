@@ -664,7 +664,6 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
             Sort e1Sort = e1Sorts.get(i), e2Sort = e2Sorts.get(i);
 
             // If both sorts are definite but different, we know they can't be equal - short-circuit.
-            // TODO UNIT TESTS FOR THIS
             if (e1Sort != e2Sort && SortPolicy.isSortDefinite(e1Sort) && SortPolicy.isSortDefinite(e2Sort)) {
                 return Term.mkBottom();
             }
