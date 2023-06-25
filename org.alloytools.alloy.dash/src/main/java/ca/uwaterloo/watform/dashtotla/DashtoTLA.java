@@ -17,10 +17,9 @@ public class DashtoTLA
         StringBuilder things = new StringBuilder();
 
         List<String> trans = d.getAllTransNames();
-        System.out.println("translength:"+trans.size());
         //System.out.print(d.getRootName());
-        things.append("\nTransitions:");
-        for(String s : trans)things.append("\n----\n").append(s);
+        things.append("\nTransitions\tsource\tdestination");
+        for(String s : trans)things.append("\n"+s+"\t"+d.getTransSrc(s)+"\t"+d.getTransDest(s));
 
         List<String> vars = d.getAllVarNames();
         things.append("\nVariables:");
