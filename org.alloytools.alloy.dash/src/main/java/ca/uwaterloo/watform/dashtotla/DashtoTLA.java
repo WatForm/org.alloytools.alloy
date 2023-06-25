@@ -9,6 +9,11 @@ public class DashtoTLA
 {
     public static String translate(DashModule d)
     {
+        if(!d.hasRoot())
+        {
+            System.out.println("Error - no root state, nothing to translate");
+            return "";
+        }
         StringBuilder things = new StringBuilder();
 
         List<String> trans = d.getAllTransNames();
