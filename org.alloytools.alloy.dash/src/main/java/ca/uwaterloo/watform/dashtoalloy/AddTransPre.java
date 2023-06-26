@@ -56,18 +56,19 @@ public class AddTransPre {
         List<Expr> body = new ArrayList<Expr>();
         String tout = translateFQN(tfqn);
 
-        // p3 -> p2 -> p1 -> src & s.confVar(i) != none
-        // src does not have to be a basic state      
-        body.add(
-            createSomeOf(
-                createIntersect(
-                    translateDashRefToArrow(d.getTransSrc(tfqn)),
-                    curConf(prsIdx.size()))));
+        if (!d.hasOnlyOneState())
+            // p3 -> p2 -> p1 -> src & s.confVar(i) != none
+            // src does not have to be a basic state      
+            body.add(
+                createSomeOf(
+                    createIntersect(
+                        translateDashRefToArrow(d.getTransSrc(tfqn)),
+                        curConf(prsIdx.size()))));
 
         if (d.getTransWhen(tfqn) != null)
             body.add(translateExpr(d.getTransWhen(tfqn),d));
 
-        //if (d.hasConcurrency()) {
+        if (d.hasConcurrency()) {
             // has a scope that is orthogonal to any scopes used
             List<DashRef> nonO = d.nonOrthogonalScopesOf(tfqn);
             for (int i=0;i <= d.getMaxDepthParams(); i++) {
@@ -76,7 +77,7 @@ public class AddTransPre {
                     .collect(Collectors.toList());
                 for (Expr x: u) body.add(createNot(createIn(x,curScopesUsed(i))));
             }
-        //}
+        }
 
         // event trigger
         // only one triggering event
@@ -116,6 +117,7 @@ public class AddTransPre {
             body.add(createNot(createPredCall(translateFQN(t)+DashStrings.preName, args)));
         }
         //System.out.println(body);
+        //body.add(createNullExpr());
         d.alloyString += d.addPredSimple(tout+DashStrings.preName, curParamsDecls(prsIdx,params), body); 
         d.alloyString += "\n";
     }

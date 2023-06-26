@@ -359,8 +359,18 @@ public class CompModuleHelper extends CompModule {
      * t is return type; null if predicate
      */
     public String addPredSimple(String name, List<Decl> decls, List<Expr> eList) {
-        Expr body = createAndFromList(eList);
+        Expr body;
+        //NAD: no idea why a one line eList causes a problem 
+        // but it does cause a problem in addFunc about multiplicity not allowed here
+        // at least if one formula starts with 'some ...'
+        if (eList.size() != 1) body = createAndFromList(eList);
+        else body = createNoop(eList.get(0));
+
+
+        //System.out.println(createVar(name));
+        //System.out.println(decls);
         //System.out.println(body);
+
         addFunc(Pos.UNKNOWN, Pos.UNKNOWN, createVar(name), null, decls, null, body);
         String s = new String();
         s += DashStrings.predName + " " + name;
@@ -384,6 +394,7 @@ public class CompModuleHelper extends CompModule {
         StringJoiner sj = new StringJoiner("\n" + tab);   
         for (Expr e: eList) {
             //ExprToString eToString = new ExprToString(false);
+            //System.out.println(ppExpr(e));
             sj.add(ppExpr(e));
         }
         s += sj.toString();

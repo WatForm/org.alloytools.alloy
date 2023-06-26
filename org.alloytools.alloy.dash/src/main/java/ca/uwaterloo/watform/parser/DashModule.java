@@ -262,6 +262,9 @@ public class DashModule extends CompModuleHelper {
 	public boolean hasRoot() {
 		return (root != null);
 	}
+	public boolean hasOnlyOneState() {
+		return stateTable.hasOnlyOneState();
+	}
 	public String getRootName()  {
 		if (root != null) return root.name;
 		else { DashErrors.toAlloyNoDash(); return null; }
@@ -301,6 +304,9 @@ public class DashModule extends CompModuleHelper {
 		return stateTable.getAllParamsInOrder();
 	}
 
+	public List<String> getAllStateNames() {
+		return stateTable.getAllStateNames();
+	}
 
 	//stuff about states (some of these are to expose the stateTable for testing)
 	public boolean isLeaf(String s) {

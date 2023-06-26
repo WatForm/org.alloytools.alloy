@@ -41,24 +41,32 @@ public class AddInit {
         List<String> prs = d.getAllParamsInOrder();
         List<Expr> body = new ArrayList<Expr>();
         
-        // forall i. confi = default entries
-        List<DashRef> entered = d.initialEntered();
-        if (entered.isEmpty()) DashErrors.noInitialEntered();
-        for (int i=0;i <= d.getMaxDepthParams(); i++) {
-            List<Expr> ent = DashRef.hasNumParams(entered,i).stream()
-                .map(x -> translateDashRefToArrow(x))
-                .collect(Collectors.toList());
-            if (!ent.isEmpty()) body.add(createEquals(curConf(i),createUnionList(ent)));
-            else body.add(createEquals(curConf(i), createNone()));
+        if (!d.hasOnlyOneState()) {
+            // forall i. confi = default entries
+            List<DashRef> entered = d.initialEntered();
+            if (entered.isEmpty()) DashErrors.noInitialEntered();
+            for (int i=0;i <= d.getMaxDepthParams(); i++) {
+                List<Expr> ent = DashRef.hasNumParams(entered,i).stream()
+                    .map(x -> translateDashRefToArrow(x))
+                    .collect(Collectors.toList());
+                if (!ent.isEmpty()) body.add(createEquals(curConf(i),createUnionList(ent)));
+                else body.add(createEquals(curConf(i), createNone()));
+            }
         }
         for (int i = 0; i <= d.getMaxDepthParams(); i++) {
             // scopesUsedi = none
-            body.add(createEquals(
-                curScopesUsed(i),
-                createNoneArrow(i)));
-            body.add(createEquals(
-                curTransTaken(i),
-                createNoneArrow(i)));
+            if (d.hasConcurrency())
+                body.add(createEquals(
+                    curScopesUsed(i),
+                    createNoneArrow(i)));
+            if (i == 0 )
+                body.add(createEquals(
+                    curTransTaken(i),
+                    createVar(DashStrings.noTransName)));
+            else 
+                body.add(createEquals(
+                    curTransTaken(i),
+                    createNoneArrow(i)));
             // no limits on initial set of events except that they must be environmental
             //s.events1 :> internalEvents = none -> none
             if (d.hasInternalEventsAti(i))

@@ -37,9 +37,9 @@ import ca.uwaterloo.watform.parser.CompModuleHelper;
 
 import static ca.uwaterloo.watform.dashtoalloy.Common.*;
 
-public class AddReachabilityFact {
+public class AddReachabilityPred {
 
-	public static void addReachabilityFact(DashModule d) {
+	public static void addReachabilityPred(DashModule d) {
 		assert(!DashOptions.isElectrum && !DashOptions.isTraces);
 		Expr b = createAll(curDecls(), 
 				createIn(curVar(),
@@ -50,6 +50,6 @@ public class AddReachabilityFact {
 		body.add(b);
 		List<Decl> emptyDecls = new ArrayList<Decl>();
 		// d.alloyString += d.addPredSimple(DashStrings.reachabilityName, emptyDecls, body);
-		d.alloyString += d.addFactSimple(DashStrings.reachabilityName, body);
+		d.alloyString += d.addPredSimple(DashStrings.reachabilityName, emptyDecls, body);
 	}
 }

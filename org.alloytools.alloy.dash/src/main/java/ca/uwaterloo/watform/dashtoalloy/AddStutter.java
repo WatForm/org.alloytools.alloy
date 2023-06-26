@@ -45,13 +45,15 @@ public class AddStutter {
         // all the dsh defined parts of the snapshot stay the same
         if (d.hasConcurrency()) body.add(noChange(DashStrings.stableName));
         for (int i = 0; i <= d.getMaxDepthParams(); i++) {
-        	body.add(noChange(DashStrings.confName+Integer.toString(i)));
-        	body.add(noChange(DashStrings.scopesUsedName+Integer.toString(i)));
-                if (i == 0)body.add(createEquals(nextTransTaken(i),
-                        createVar(DashStrings.noTransName)));
-        	else body.add(createEquals(nextTransTaken(i),
-                        createNoneArrow(i)));
-            if (d.hasEvents() && d.hasInternalEventsAti(i))
+                if (!d.hasOnlyOneState())
+                	body.add(noChange(DashStrings.confName+Integer.toString(i)));
+        	if (d.hasConcurrency()) 
+                        body.add(noChange(DashStrings.scopesUsedName+Integer.toString(i)));
+                if (i == 0) 
+                        body.add(createEquals(nextTransTaken(i), createVar(DashStrings.noTransName)));
+        	else 
+                        body.add(createEquals(nextTransTaken(i), createNoneArrow(i)));
+                if (d.hasEvents() && d.hasInternalEventsAti(i))
         		// internal events go away
         		// external events can be added
  				body.add(createEquals(
