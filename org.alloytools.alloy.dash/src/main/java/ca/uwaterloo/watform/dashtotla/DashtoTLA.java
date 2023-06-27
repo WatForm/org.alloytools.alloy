@@ -39,7 +39,7 @@ public class DashtoTLA
                 String s = states.get(i);
                 if(d.isLeaf(s))basicStates.append("\n"+resolveName(s)+"=="+i);
             }
-        return "\n\\*basic states"+basicStates;
+        return "\n\n\\*basic states"+basicStates;
     }
     public static String boilerplateCompositeStates(DashModule d)
     {
@@ -61,7 +61,7 @@ public class DashtoTLA
         {
             String srcState = d.getTransSrc(s).toString();
             String destState = d.getTransDest(s).toString();
-            ts.append("\n"+resolveName(s)+" == conf = "+srcState+" /\\ conf' = "+destState);
+            ts.append("\n"+resolveName(s)+" == conf = "+resolveName(srcState)+" /\\ conf' = "+resolveName(destState));
         }
 
         ts.append("\n\nNext == ");
