@@ -205,7 +205,7 @@ public class DashRef extends Expr {
     public void toString(StringBuilder out, int indent) {
     	// STATE: Root/A/B[a1,b1]
 		// other: Root/A/B[a1,b1]/var1
-		String s = "";
+		// String s = "";
 		if (kind == DashRefKind.STATE) {
 			out.append(getName());
 		} else {

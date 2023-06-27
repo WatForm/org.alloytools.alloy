@@ -20,7 +20,8 @@ public class DashtoTLA
 
         StringBuilder translation = new StringBuilder("\nEXTENDS Integers, FiniteSets");
         translation.append("\nVARIABLE conf");
-        translation.append(boilerplateBasicStates(d));
+        translation.append(boilerplateLeafStates(d));
+        translation.append(boilerplateAllStates(d));
         translation.append(transitions(d));
         translation.append(Init(d));
         
@@ -30,17 +31,42 @@ public class DashtoTLA
     {
         return s.replace("/", "_");
     }
-    public static String boilerplateBasicStates(DashModule d)
+    public static String boilerplateLeafStates(DashModule d)
     {
         List<String> states = d.getAllStateNames();
-        StringBuilder basicStates = new StringBuilder("");
+        StringBuilder leafStates = new StringBuilder("");
         int ct=0;
         for(int i =0; i<states.size();i++)
             {
                 String s = states.get(i);
-                if(d.isLeaf(s))basicStates.append("\n"+resolveName(s)+"=="+ct++);
+                if(d.isLeaf(s))leafStates.append("\n"+resolveName(s)+"=="+ct++);
             }
-        return "\n\n\\* basic states"+basicStates;
+        return "\n\n\\* basic states"+leafStates;
+    }
+    public static String isInState(String state)
+    {
+        return "in_"+resolveName(state);
+    }
+    public static String boilerplateAllStates(DashModule d)
+    {
+        List<String> states = d.getAllStateNames();
+        StringBuilder code = new StringBuilder("");
+        for(String s : states)
+        {
+            
+            code.append("\n"+isInState(s)+" == ");
+            if(d.isLeaf(s))
+            {
+                code.append(resolveName(s)+" \\in conf");
+                continue;
+            }
+            // dealing with non-leaf states
+            List<String> children = d.getImmChildren(s);
+            for(String ch : children)
+                code.append("\n\t\\/ "+isInState(ch));
+
+        }
+        return code.toString();
     }
     public static String transitions(DashModule d)
     {
@@ -51,6 +77,12 @@ public class DashtoTLA
         {
             List<String> ENTER = toStringList(d.entered(s));
             List<String> EXIT = toStringList(d.exited(s));
+            
+            List<String> EXITresolved = new ArrayList<>();
+            List<String> ENTERresolved = new ArrayList<>();
+            for(String st : ENTER)ENTERresolved.add(resolveName(st));
+            for(String st : EXIT)EXITresolved.add(resolveName(st));
+            
             System.out.println("\nTransition:"+s);
             System.out.println("Entered:");
             for(String st : ENTER)System.out.print("|"+st);
@@ -58,8 +90,7 @@ public class DashtoTLA
             for(String st : EXIT)System.out.print("|"+st);
 
             String srcState = d.getTransSrc(s).toString();
-            String destState = d.getTransDest(s).toString();
-            ts.append("\n"+resolveName(s)+" == conf = "+resolveName(srcState)+" /\\ conf' = "+resolveName(destState));
+            ts.append("\n"+resolveName(s)+" == "+isInState(srcState)+" /\\ conf' = (conf \\ "+toSetOfStates(EXITresolved)+" ) \\union "+toSetOfStates(ENTERresolved));
         }
         System.out.println();
 
@@ -75,7 +106,7 @@ public class DashtoTLA
     {
         StringBuilder init = new StringBuilder("\n\nInit == ");
         List<String> defaultsOfRoot = d.getDefaults(d.getRootName());
-        for(String s : defaultsOfRoot)init.append("\n\t\\/ conf == "+resolveName(s));
+        for(String s : defaultsOfRoot)init.append("\n\t\\/ "+isInState(s));
         return init.toString();
     }
     public static List<String> toStringList(List<DashRef> dfs)
@@ -105,7 +136,5 @@ public class DashtoTLA
         }
         sb.append("}");
         return sb.toString();
-
-
     }
 }

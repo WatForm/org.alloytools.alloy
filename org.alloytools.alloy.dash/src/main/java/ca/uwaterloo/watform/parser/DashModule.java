@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 
 
 
-import edu.mit.csail.sdg.alloy4.Pair;
+//import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.parser.CompModule;
 import edu.mit.csail.sdg.ast.Expr;
@@ -25,9 +25,9 @@ import static ca.uwaterloo.watform.core.DashUtilFcns.*;
 import ca.uwaterloo.watform.ast.*;
 import static ca.uwaterloo.watform.alloyasthelper.ExprHelper.*;
 
-import ca.uwaterloo.watform.parser.CompModuleHelper;
+//import ca.uwaterloo.watform.parser.CompModuleHelper;
 import ca.uwaterloo.watform.dashtoalloy.DashToAlloy;
-import ca.uwaterloo.watform.dashtoalloy.Common;
+//import ca.uwaterloo.watform.dashtoalloy.Common;
 
 public class DashModule extends CompModuleHelper {
 
