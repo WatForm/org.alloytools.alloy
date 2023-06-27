@@ -1,6 +1,7 @@
 package ca.uwaterloo.watform.dashtotla;
 
 
+import java.util.ArrayList;
 import java.util.List;
 
 import ca.uwaterloo.watform.parser.*;
@@ -16,25 +17,19 @@ public class DashtoTLA
         }
         StringBuilder things = new StringBuilder();
 
-        List<String> trans = d.getAllTransNames();
-        //System.out.print(d.getRootName());
-        things.append("\nTransitions\tsource\tdestination");
-        for(String s : trans)things.append("\n"+s+"\t"+d.getTransSrc(s)+"\t"+d.getTransDest(s));
+        List<String> states = d.getAllStateNames();
+        StringBuilder constants = new StringBuilder("");
+        for(int i =0; i<states.size();i++)
+            {
+                String s = states.get(i);
+                if(d.isLeaf(s))constants.append("\n"+resolveName(s)+"=="+i);
+            }
 
-        List<String> vars = d.getAllVarNames();
-        things.append("\nVariables:");
-        for(String s : vars)things.append("\n----\n").append(s);
 
-        List<String> env_events = d.getAllEnvironmentalEventNames();
-        things.append("\nEnvironmental events:");
-        for(String s : env_events)things.append("\n----\n").append(s);
-
-        List<String> events = d.getAllInternalEventNames();
-        things.append("\nInternal events:");
-        for(String s : events)things.append("\n----\n").append(s);
-
-        System.out.print(d.toStringAlloy());
-
-        return "\\*Hello World\n(*"+things.toString()+"*)";
+        return "\n\\*basic states"+constants;
+    }
+    public static String resolveName(String s)
+    {
+        return s.replace("/", "_");
     }
 }
