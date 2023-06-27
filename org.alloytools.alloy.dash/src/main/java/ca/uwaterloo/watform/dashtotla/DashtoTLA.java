@@ -22,7 +22,7 @@ public class DashtoTLA
         translation.append("\nVARIABLE conf");
         translation.append(boilerplateBasicStates(d));
         translation.append(transitions(d));
-        
+        translation.append(Init(d));
         
         return translation.toString();
     }
@@ -50,7 +50,7 @@ public class DashtoTLA
             String s = states.get(i);
             if(d.isLeaf(s))continue;
         }
-        return "\n\\*composite states"+compositeStates;
+        return "\n\n\\*composite states"+compositeStates;
     }
     public static String transitions(DashModule d)
     {
@@ -67,9 +67,16 @@ public class DashtoTLA
         ts.append("\n\nNext == ");
         for(String s : tranList)
         {
-            ts.append("/\\ "+resolveName(s)+"\n");
+            ts.append("\n\t/\\ "+resolveName(s));
         }
 
         return ts.toString();
+    }
+    public static String Init(DashModule d)
+    {
+        StringBuilder init = new StringBuilder("\n\nInit == ");
+        List<String> defaultsOfRoot = d.getDefaults(d.getRootName());
+        for(String s : defaultsOfRoot)init.append("\n\t\\/ "+resolveName(s));
+        return init.toString();
     }
 }
