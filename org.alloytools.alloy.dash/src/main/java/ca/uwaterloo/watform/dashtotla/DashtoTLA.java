@@ -41,17 +41,6 @@ public class DashtoTLA
             }
         return "\n\n\\* basic states"+basicStates;
     }
-    public static String boilerplateCompositeStates(DashModule d)
-    {
-        List<String> states = d.getAllStateNames();
-        StringBuilder compositeStates = new StringBuilder("");
-        for(int i =0; i<states.size();i++)
-        {
-            String s = states.get(i);
-            if(d.isLeaf(s))continue;
-        }
-        return "\n\n\\*composite states"+compositeStates;
-    }
     public static String transitions(DashModule d)
     {
         // assumption - trigger and guard are tautologies
@@ -84,7 +73,7 @@ public class DashtoTLA
     {
         StringBuilder init = new StringBuilder("\n\nInit == ");
         List<String> defaultsOfRoot = d.getDefaults(d.getRootName());
-        for(String s : defaultsOfRoot)init.append("\n\t\\/ "+resolveName(s));
+        for(String s : defaultsOfRoot)init.append("\n\t\\/ conf == "+resolveName(s));
         return init.toString();
     }
     public static List<String> toStringList(List<DashRef> dfs)
@@ -104,5 +93,17 @@ public class DashtoTLA
         List<DashRef> dfs = new ArrayList<>();
         for(String s : ls)dfs.add(DashRef.createTransDashRef(s, null));
         return dfs;
+    }
+    public static String toSetOfStates(List<String> states)
+    {
+        StringBuilder sb = new StringBuilder("{");
+        for(int i=0;i<states.size();i++)
+        {
+            sb.append(states.get(i)+(i==states.size()-1?"":","));
+        }
+        sb.append("}");
+        return sb.toString();
+
+
     }
 }
