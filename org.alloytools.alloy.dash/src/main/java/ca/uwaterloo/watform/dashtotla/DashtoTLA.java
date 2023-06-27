@@ -34,10 +34,11 @@ public class DashtoTLA
     {
         List<String> states = d.getAllStateNames();
         StringBuilder basicStates = new StringBuilder("");
+        int ct=0;
         for(int i =0; i<states.size();i++)
             {
                 String s = states.get(i);
-                if(d.isLeaf(s))basicStates.append("\n"+resolveName(s)+"=="+i);
+                if(d.isLeaf(s))basicStates.append("\n"+resolveName(s)+"=="+ct++);
             }
         return "\n\n\\* basic states"+basicStates;
     }
@@ -60,6 +61,7 @@ public class DashtoTLA
             String destState = d.getTransDest(s).toString();
             ts.append("\n"+resolveName(s)+" == conf = "+resolveName(srcState)+" /\\ conf' = "+resolveName(destState));
         }
+        System.out.println();
 
         ts.append("\n\nNext == ");
         for(String s : tranList)
@@ -79,7 +81,7 @@ public class DashtoTLA
     public static List<String> toStringList(List<DashRef> dfs)
     {
         List<String> ls = new ArrayList<>();
-        for(DashRef df : dfs)ls.add(df.toString());
+        for(DashRef df : dfs)ls.add(df.getName());
         return ls;
     }
     public static List<DashRef> toStateDashRefList(List<String> ls)
