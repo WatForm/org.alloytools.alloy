@@ -26,23 +26,17 @@
 package ca.uwaterloo.watform.core;
 
 import edu.mit.csail.sdg.alloy4.Err;
-import edu.mit.csail.sdg.alloy4.ErrorFatal;
-import edu.mit.csail.sdg.alloy4.ErrorType;
 import edu.mit.csail.sdg.alloy4.ErrorWarning;
-import edu.mit.csail.sdg.alloy4.JoinableList;
 import edu.mit.csail.sdg.ast.Browsable;
 import edu.mit.csail.sdg.ast.Expr;
-import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.Type;
 import edu.mit.csail.sdg.ast.VisitReturn;
 
 
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import java.util.List;
 import java.util.ArrayList;
 //import java.util.JoinableList;
 
@@ -52,13 +46,13 @@ import edu.mit.csail.sdg.alloy4.Pos;
 //import edu.mit.csail.sdg.ast.Type;
 //import edu.mit.csail.sdg.ast.Browsable;
 //import edu.mit.csail.sdg.ast.VisitReturn;
-import edu.mit.csail.sdg.ast.Expr;
+//import edu.mit.csail.sdg.ast.Expr;
 //import edu.mit.csail.sdg.ast.ExprBinary;
 //import edu.mit.csail.sdg.ast.ExprVar;
 
 import static ca.uwaterloo.watform.alloyasthelper.ExprHelper.*;
-import ca.uwaterloo.watform.core.DashUtilFcns;
-import ca.uwaterloo.watform.core.DashErrors;
+//import ca.uwaterloo.watform.core.DashUtilFcns;
+//import ca.uwaterloo.watform.core.DashErrors;
 import ca.uwaterloo.watform.core.DashRef;
 
 public class DashRef extends Expr {

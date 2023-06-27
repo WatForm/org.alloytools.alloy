@@ -6,13 +6,13 @@
 
 package ca.uwaterloo.watform.parser;
 
-import java.io.*;
+//import java.io.*;
 
-import java.util.Set;
+//import java.util.Set;
 import java.util.HashMap;
 import java.util.List;
 import java.util.ArrayList;
-import java.util.HashSet;
+//import java.util.HashSet;
 import java.util.Collections;
 import java.util.stream.Collectors;
 
@@ -22,13 +22,13 @@ import ca.uwaterloo.watform.core.*;
 import ca.uwaterloo.watform.core.DashRef;
 import static ca.uwaterloo.watform.core.DashUtilFcns.*;
 import static ca.uwaterloo.watform.core.DashStrings.*;
-import static ca.uwaterloo.watform.core.DashFQN.*;
+//import static ca.uwaterloo.watform.core.DashFQN.*;
 import ca.uwaterloo.watform.alloyasthelper.ExprHelper;
 
 import ca.uwaterloo.watform.ast.*;
 
-import ca.uwaterloo.watform.parser.VarTable;
-import ca.uwaterloo.watform.dashtoalloy.Common;
+//import ca.uwaterloo.watform.parser.VarTable;
+//import ca.uwaterloo.watform.dashtoalloy.Common;
 
 public class StateTable {
 	private HashMap<String,StateElement> table;
