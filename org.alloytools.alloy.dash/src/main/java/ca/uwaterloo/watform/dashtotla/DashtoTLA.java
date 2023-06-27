@@ -39,7 +39,7 @@ public class DashtoTLA
                 String s = states.get(i);
                 if(d.isLeaf(s))basicStates.append("\n"+resolveName(s)+"=="+i);
             }
-        return "\n\n\\*basic states"+basicStates;
+        return "\n\n\\* basic states"+basicStates;
     }
     public static String boilerplateCompositeStates(DashModule d)
     {
@@ -55,10 +55,18 @@ public class DashtoTLA
     public static String transitions(DashModule d)
     {
         // assumption - trigger and guard are tautologies
-        StringBuilder ts = new StringBuilder("\n\n\\*transitions");
+        StringBuilder ts = new StringBuilder("\n\n\\* transitions");
         List<String> tranList = d.getAllTransNames();
         for(String s : tranList)
         {
+            List<String> ENTER = toStringList(d.entered(s));
+            List<String> EXIT = toStringList(d.exited(s));
+            System.out.println("\nTransition:"+s);
+            System.out.println("Entered:");
+            for(String st : ENTER)System.out.print("|"+st);
+            System.out.println("\nExited:");
+            for(String st : EXIT)System.out.print("|"+st);
+
             String srcState = d.getTransSrc(s).toString();
             String destState = d.getTransDest(s).toString();
             ts.append("\n"+resolveName(s)+" == conf = "+resolveName(srcState)+" /\\ conf' = "+resolveName(destState));
@@ -78,5 +86,23 @@ public class DashtoTLA
         List<String> defaultsOfRoot = d.getDefaults(d.getRootName());
         for(String s : defaultsOfRoot)init.append("\n\t\\/ "+resolveName(s));
         return init.toString();
+    }
+    public static List<String> toStringList(List<DashRef> dfs)
+    {
+        List<String> ls = new ArrayList<>();
+        for(DashRef df : dfs)ls.add(df.toString());
+        return ls;
+    }
+    public static List<DashRef> toStateDashRefList(List<String> ls)
+    {
+        List<DashRef> dfs = new ArrayList<>();
+        for(String s : ls)dfs.add(DashRef.createStateDashRef(s, null));
+        return dfs;
+    }
+    public static List<DashRef> toTransitionDashRefList(List<String> ls)
+    {
+        List<DashRef> dfs = new ArrayList<>();
+        for(String s : ls)dfs.add(DashRef.createTransDashRef(s, null));
+        return dfs;
     }
 }
