@@ -19,9 +19,10 @@ public class DashtoTLA
         }
 
         StringBuilder translation = new StringBuilder("\nEXTENDS Integers, FiniteSets");
-        translation.append("\nVARIABLE conf");
+        translation.append("\nVARIABLE conf, events");
         translation.append(boilerplateLeafStates(d));
         translation.append(boilerplateAllStates(d));
+        translation.append(events(d));
         translation.append(transitions(d));
         translation.append(Init(d));
         
@@ -69,9 +70,18 @@ public class DashtoTLA
         }
         return code.toString();
     }
+    public static String events(DashModule d)
+    {
+        StringBuilder code = new StringBuilder("\n\n\\* events");
+        List<String> events = d.getAllInternalEventNames();
+        int ct = 0;
+        for(String ev : events)
+            code.append("\n"+resolveName(ev)+" == "+(ct++));
+        return code.toString();
+    }
     public static String transitions(DashModule d)
     {
-        // assumption - trigger and guard are tautologies
+        // assumption - guard is tautology
         StringBuilder ts = new StringBuilder("\n\n\\* transitions");
         List<String> tranList = d.getAllTransNames();
         for(String s : tranList)
@@ -84,14 +94,26 @@ public class DashtoTLA
             for(String st : ENTER)ENTERresolved.add(resolveName(st));
             for(String st : EXIT)EXITresolved.add(resolveName(st));
             
-            System.out.println("\nTransition:"+s);
-            System.out.println("Entered:");
-            for(String st : ENTER)System.out.print("|"+st);
-            System.out.println("\nExited:");
-            for(String st : EXIT)System.out.print("|"+st);
+            // System.out.println("\nTransition:"+s);
+            // System.out.println("Entered:");
+            // for(String st : ENTER)System.out.print("|"+st);
+            // System.out.println("\nExited:");
+            // for(String st : EXIT)System.out.print("|"+st);
 
             String srcState = d.getTransSrc(s).toString();
-            ts.append("\n"+resolveName(s)+" == "+isInState(srcState)+" /\\ conf' = (conf \\ "+toSetOfStates(EXITresolved)+" ) \\union "+toSetOfStates(ENTERresolved));
+            String ON = "";
+            String SEND  = "";
+            try
+            {
+                ON = resolveName(d.getTransOn(s).getName());
+                SEND = resolveName(d.getTransSend(s).getName());
+            }
+            catch(NullPointerException e){}
+            ts.append("\n"+resolveName(s)+" == "+
+                        "\n\t/\\"+isInState(srcState)+
+                        "\n\t/\\ conf' = (conf \\ "+toSetOfStates(EXITresolved)+" ) \\union "+toSetOfStates(ENTERresolved)+
+                        "\n\t/\\ {"+ON+"} \\subseteq events"+
+                        "\n\t/\\ events' = (events / {"+ON+"}) \\union {"+SEND+"}");
         }
         System.out.println();
 
@@ -105,9 +127,9 @@ public class DashtoTLA
     }
     public static String Init(DashModule d)
     {
-        StringBuilder init = new StringBuilder("\n\nInit == ");
+        StringBuilder init = new StringBuilder("\n\nInit == events = {}_/\\");
         List<String> defaultsOfRoot = d.getDefaults(d.getRootName());
-        for(String s : defaultsOfRoot)init.append("\n\t\\/ "+isInState(s));
+        for(String s : defaultsOfRoot)init.append("\n\t\t\\/ "+isInState(s));
         return init.toString();
     }
     public static List<String> toStringList(List<DashRef> dfs)
