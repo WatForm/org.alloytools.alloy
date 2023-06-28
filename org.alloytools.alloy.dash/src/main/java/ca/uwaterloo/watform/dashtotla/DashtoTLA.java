@@ -46,7 +46,7 @@ public class DashtoTLA
     }
     public static String isInState(String state)
     {
-        return "in_"+resolveName(state);
+        return "_in"+resolveName(state);
     }
     public static String boilerplateAllStates(DashModule d)
     {
