@@ -29,7 +29,8 @@ public class DashtoTLA
     }
     public static String resolveName(String s)
     {
-        return s.replace("/", "_");
+        char SP = '_';
+        return SP+s.replace('/', SP);
     }
     public static String boilerplateLeafStates(DashModule d)
     {
