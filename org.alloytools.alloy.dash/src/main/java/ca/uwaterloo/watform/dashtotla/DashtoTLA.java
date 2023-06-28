@@ -3,6 +3,7 @@ package ca.uwaterloo.watform.dashtotla;
 
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import ca.uwaterloo.watform.parser.DashModule;
@@ -51,7 +52,7 @@ public class DashtoTLA
     }
     public static String boilerplateAllStates(DashModule d)
     {
-        List<String> states = d.getAllStateNames();
+        List<String> states = topoSortStates(d);
         StringBuilder code = new StringBuilder("\n\n\\* in states");
         for(String s : states)
         {
@@ -101,21 +102,24 @@ public class DashtoTLA
             // for(String st : EXIT)System.out.print("|"+st);
 
             String srcState = d.getTransSrc(s).toString();
-            String ON = "";
-            String SEND  = "";
-            try
+
+            String CONF = "\n\t/\\"+isInState(srcState);
+            String CONF_ = "\n\t/\\ conf' = (conf \\ "+toSetOfStates(EXITresolved)+" ) \\union "+toSetOfStates(ENTERresolved);
+            
+            String EVENTS = "";
+            String E = "events";
+            if(d.getTransOn(s)!=null)
             {
-                ON = resolveName(d.getTransOn(s).getName());
-                SEND = resolveName(d.getTransSend(s).getName());
-            }
-            catch(NullPointerException e){}
-            ts.append("\n"+resolveName(s)+" == "+
-                        "\n\t/\\"+isInState(srcState)+
-                        "\n\t/\\ conf' = (conf \\ "+toSetOfStates(EXITresolved)+" ) \\union "+toSetOfStates(ENTERresolved)+
-                        "\n\t/\\ {"+ON+"} \\subseteq events"+
-                        "\n\t/\\ events' = (events / {"+ON+"}) \\union {"+SEND+"}");
+                String ON = resolveName(d.getTransOn(s).getName());
+                E = "("+E+" \\ {"+ON+"})";
+                EVENTS = "\n\t/\\ {"+ON+"} \\subseteq events";
+            } 
+            if(d.getTransSend(s)!=null)
+                E += " \\union {"+resolveName(d.getTransSend(s).getName())+"}";
+            String EVENTS_ = "\n\t/\\ events' = "+E;
+
+            ts.append("\n"+resolveName(s)+" == "+CONF+CONF_+EVENTS+EVENTS_);
         }
-        System.out.println();
 
         ts.append("\n\nNext == ");
         for(String s : tranList)
@@ -127,7 +131,7 @@ public class DashtoTLA
     }
     public static String Init(DashModule d)
     {
-        StringBuilder init = new StringBuilder("\n\nInit == events = {}_/\\");
+        StringBuilder init = new StringBuilder("\n\nInit == events = {} /\\");
         List<String> defaultsOfRoot = d.getDefaults(d.getRootName());
         for(String s : defaultsOfRoot)init.append("\n\t\t\\/ "+isInState(s));
         return init.toString();
@@ -159,5 +163,19 @@ public class DashtoTLA
         }
         sb.append("}");
         return sb.toString();
+    }
+    public static List<String> topoSortStates(DashModule d)
+    {
+        List<String> states = new ArrayList<>();
+        states.add(d.getRootName());
+        int i = 0;
+        while(i < states.size())
+        {
+            List<String> children = d.getImmChildren(states.get(i));
+            i++;
+            for(String ch : children)states.add(ch);
+        }
+        Collections.reverse(states);
+        return states;
     }
 }
