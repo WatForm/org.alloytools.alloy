@@ -50,7 +50,7 @@ public class DashtoTLA
     public static String boilerplateAllStates(DashModule d)
     {
         List<String> states = d.getAllStateNames();
-        StringBuilder code = new StringBuilder("");
+        StringBuilder code = new StringBuilder("\n\n\\* in states");
         for(String s : states)
         {
             
