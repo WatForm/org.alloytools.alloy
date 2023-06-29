@@ -5,7 +5,6 @@ import java.util.*;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.Files;
-import java.nio.file.StandardOpenOption;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -159,18 +158,17 @@ public class Dash {
         DashOptions.isTcmc = (method.equals("tcmc"));
         DashOptions.isElectrum = (method.equals("electrum"));    
 
-        for (String filename : filelist) { // this whole section may need rewriting
+        for (String filename : filelist) {
             
             // add the .dsh extension if not included
             if (!filename.endsWith(".dsh") && !filename.endsWith(".als")) {
                 int index = filename.lastIndexOf('.');
-                if (index > 0) {
+                if (index > 0) // if the file has a dot and no "dsh" after it, it is assumed to be a different type of file
+                {
                     System.err.println("Expected a Dash file with 'dsh' or 'als' extension: "+filename);
                     break;
-                } else {
-                    
-                    filename = filename + ".dsh"; // use another variable? gets confusing
-                }
+                } 
+                else filename = filename + ".dsh"; // if there is no dot, it is assumed that the user forgot to add .dsh
             }
 
             Path f = Paths.get(filename);
@@ -210,13 +208,13 @@ public class Dash {
                     } else if(translateTLA)
                     {
                         d = MainFunctions.resolveDash(d, rep);
-                        String comment = "\\* Modification History\n\\* Translated from Dash at "+System.currentTimeMillis()+" EPOCH";
-                        String moduleName = f.getFileName().toString();
-                        String header = "------------------------------- MODULE "+moduleName.substring(0, moduleName.length()-4)+" -------------------------------";
-                        String footer = "=============================================================================";
-                        String contents = header+"\n"+MainFunctions.translateTLA(d)+"\n"+footer+"\n"+comment;
-
+                        String moduleWithExtension = f.getFileName().toString();
+                        String moduleName = moduleWithExtension.substring(0, moduleWithExtension.length()-4);
+                        String contents = MainFunctions.translateTLA(d,moduleName);
+                        
                         String TLAfilename = filename.substring(0,filename.length()-4)+".tla";
+                        
+
                         File out = new File(TLAfilename);
                             if (!out.exists()) out.createNewFile();
                             System.out.println("Creating: " + TLAfilename);

@@ -5,48 +5,54 @@ package ca.uwaterloo.watform.dashtotla;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.*;
 
 import ca.uwaterloo.watform.parser.DashModule;
 import ca.uwaterloo.watform.core.DashRef;
 
 public class DashtoTLA 
 {
-    public static String translate(DashModule d)
+    public static String translate(DashModule d, String moduleName)
     {
         if(!d.hasRoot())
         {
             System.out.println("Error - no root state, nothing to translate");
-            return "";
+            return "\\* Error - no root state, nothing to translate";
         }
 
-        StringBuilder translation = new StringBuilder("\nEXTENDS Integers, FiniteSets");
-        translation.append("\nVARIABLE conf, events");
+        String header = "------------------------------- MODULE "+moduleName+" -------------------------------";
+        String Extends = "\nEXTENDS Integers, FiniteSets";
+        String variables = "\nVARIABLE conf, events";
+        StringBuilder translation = new StringBuilder("");
         translation.append(boilerplateLeafStates(d));
         translation.append(boilerplateAllStates(d));
-        translation.append(events(d));
+        translation.append(boilerplateInternalEvents(d));
         translation.append(transitions(d));
         translation.append(Init(d));
+        translation.append(Next(d));
+        String footer = "\n=============================================================================";
+        String comment = "\\* Modification History\n\\* Translated from Dash at "+System.currentTimeMillis()+" EPOCH";
         
-        return translation.toString();
+        return header+Extends+variables+translation.toString()+footer+comment;
     }
-    public static String resolveName(String s)
+    public static String resolveName(String s) // get rid of unsupported characters in full names
     {
         char SP = '_';
         return SP+s.replace('/', SP);
     }
-    public static String boilerplateLeafStates(DashModule d)
+    public static String boilerplateLeafStates(DashModule d) // atoms for each leaf state
     {
         List<String> states = d.getAllStateNames();
         StringBuilder leafStates = new StringBuilder("");
         int ct=0;
         for(int i =0; i<states.size();i++)
-            {
-                String s = states.get(i);
-                if(d.isLeaf(s))leafStates.append("\n"+resolveName(s)+"=="+ct++);
-            }
+        {
+            String s = states.get(i);
+            if(d.isLeaf(s))leafStates.append("\n"+resolveName(s)+"=="+ct++);
+        }
         return "\n\n\\* basic states"+leafStates;
     }
-    public static String isInState(String state)
+    private static String isInState(String state)
     {
         return "_in"+resolveName(state);
     }
@@ -56,13 +62,13 @@ public class DashtoTLA
         StringBuilder code = new StringBuilder("\n\n\\* in states");
         for(String s : states)
         {
-            
             code.append("\n"+isInState(s)+" == ");
             if(d.isLeaf(s))
             {
                 code.append(resolveName(s)+" \\in conf");
                 continue;
             }
+
             // dealing with non-leaf states
             List<String> children = d.getImmChildren(s);
             for(String ch : children)
@@ -71,7 +77,7 @@ public class DashtoTLA
         }
         return code.toString();
     }
-    public static String events(DashModule d)
+    public static String boilerplateInternalEvents(DashModule d) // atoms for each internal event in TLA+
     {
         StringBuilder code = new StringBuilder("\n\n\\* events");
         List<String> events = d.getAllInternalEventNames();
@@ -94,15 +100,8 @@ public class DashtoTLA
             List<String> ENTERresolved = new ArrayList<>();
             for(String st : ENTER)ENTERresolved.add(resolveName(st));
             for(String st : EXIT)EXITresolved.add(resolveName(st));
-            
-            // System.out.println("\nTransition:"+s);
-            // System.out.println("Entered:");
-            // for(String st : ENTER)System.out.print("|"+st);
-            // System.out.println("\nExited:");
-            // for(String st : EXIT)System.out.print("|"+st);
 
             String srcState = d.getTransSrc(s).toString();
-
             String CONF = "\n\t/\\"+isInState(srcState);
             String CONF_ = "\n\t/\\ conf' = (conf \\ "+toSetOfStates(EXITresolved)+" ) \\union "+toSetOfStates(ENTERresolved);
             
@@ -120,51 +119,37 @@ public class DashtoTLA
 
             ts.append("\n"+resolveName(s)+" == "+CONF+CONF_+EVENTS+EVENTS_);
         }
-
-        ts.append("\n\nNext == ");
-        for(String s : tranList)
-        {
-            ts.append("\n\t/\\ "+resolveName(s));
-        }
-
         return ts.toString();
     }
-    public static String Init(DashModule d)
+    public static String Next(DashModule d) // Next formula in TLA+
+    {
+        List<String> tranList = d.getAllTransNames();
+        StringBuilder next = new StringBuilder("\n\nNext == ");
+        for(String s : tranList)
+        {
+            next.append("\n\t/\\ "+resolveName(s));
+        }
+        return next.toString();
+    }
+    public static String Init(DashModule d) // Init formula in TLA+
     {
         StringBuilder init = new StringBuilder("\n\nInit == events = {} /\\");
         List<String> defaultsOfRoot = d.getDefaults(d.getRootName());
         for(String s : defaultsOfRoot)init.append("\n\t\t\\/ "+isInState(s));
         return init.toString();
     }
-    public static List<String> toStringList(List<DashRef> dfs)
-    {
-        List<String> ls = new ArrayList<>();
-        for(DashRef df : dfs)ls.add(df.getName());
-        return ls;
-    }
-    public static List<DashRef> toStateDashRefList(List<String> ls)
-    {
-        List<DashRef> dfs = new ArrayList<>();
-        for(String s : ls)dfs.add(DashRef.createStateDashRef(s, null));
-        return dfs;
-    }
-    public static List<DashRef> toTransitionDashRefList(List<String> ls)
-    {
-        List<DashRef> dfs = new ArrayList<>();
-        for(String s : ls)dfs.add(DashRef.createTransDashRef(s, null));
-        return dfs;
-    }
-    public static String toSetOfStates(List<String> states)
+    public static String toSetOfStates(List<String> states) // set in TLA+ notation
     {
         StringBuilder sb = new StringBuilder("{");
-        for(int i=0;i<states.size();i++)
+        for(int i=0;i<states.size()-1;i++) // all except last element has comma after it
         {
-            sb.append(states.get(i)+(i==states.size()-1?"":","));
+            sb.append(states.get(i)+",");
         }
+        sb.append(states.get(states.size()-1)); // add last element
         sb.append("}");
         return sb.toString();
     }
-    public static List<String> topoSortStates(DashModule d)
+    public static List<String> topoSortStates(DashModule d) // each state occurs only after all its children occur
     {
         List<String> states = new ArrayList<>();
         states.add(d.getRootName());
@@ -178,4 +163,23 @@ public class DashtoTLA
         Collections.reverse(states);
         return states;
     }
+
+    // util functions to switch between DashRef and String
+    public static List<String> toStringList(List<DashRef> dfs)
+    {
+        List<String> ls = new ArrayList<>();
+        for(DashRef df : dfs)ls.add(df.getName());
+        return ls;
+    }
+    /* 
+    public static List<DashRef> toDashRefList(List<String> ls, Function<String, DashRef> createDashRef) 
+    {
+    List<DashRef> dfs = new ArrayList<>();
+    for (String s : ls) {
+        dfs.add(createDashRef.apply(s));
+    }
+    return dfs;
+    }
+    */
+
 }
