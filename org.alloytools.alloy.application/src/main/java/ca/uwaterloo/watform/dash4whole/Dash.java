@@ -86,6 +86,7 @@ public class Dash {
             System.out.println("-t is translateOnly");
             System.out.println("-r is resolveOnly");
             System.out.println("-e is echo file from internal parsed data");
+            // TODO edit this
             System.out.println("-tla produces a translation to TLA+, with the same file name as the dash file, in the same folder as the original dash file");
             System.out.println("expects .dsh or .als file");
             System.out.println("if given a .als files, it ignores other options and runs all its commands");

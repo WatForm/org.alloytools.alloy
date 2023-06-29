@@ -24,8 +24,8 @@ public class DashtoTLA
         String Extends = "\nEXTENDS Integers, FiniteSets";
         String variables = "\nVARIABLE conf, events";
         StringBuilder translation = new StringBuilder("");
-        translation.append(boilerplateLeafStates(d));
-        translation.append(boilerplateAllStates(d));
+        translation.append(createLeafStates(d));
+        translation.append(createAllStates(d));
         translation.append(boilerplateInternalEvents(d));
         translation.append(transitions(d));
         translation.append(Init(d));
@@ -40,7 +40,7 @@ public class DashtoTLA
         char SP = '_';
         return SP+s.replace('/', SP);
     }
-    public static String boilerplateLeafStates(DashModule d) // atoms for each leaf state
+    public static String createLeafStates(DashModule d) // atoms for each leaf state
     {
         List<String> states = d.getAllStateNames();
         StringBuilder leafStates = new StringBuilder("");
@@ -56,7 +56,7 @@ public class DashtoTLA
     {
         return resolveName("in__"+state);
     }
-    public static String boilerplateAllStates(DashModule d)
+    public static String createAllStates(DashModule d)
     {
         List<String> states = topoSortStates(d);
         StringBuilder code = new StringBuilder("\n\n\\* in states");
@@ -86,6 +86,48 @@ public class DashtoTLA
             code.append("\n"+resolveName(ev)+" == "+(ct++));
         return code.toString();
     }
+    public static String postCondition(DashModule d, String trans)
+    {
+        StringBuilder code = new StringBuilder("");
+
+        // conf'
+        List<String> ENTER = toStringList(d.entered(trans));
+        List<String> EXIT = toStringList(d.exited(trans));
+        List<String> EXITresolved = new ArrayList<>();
+        List<String> ENTERresolved = new ArrayList<>();
+        ENTER.forEach(st -> ENTERresolved.add(resolveName(st)));
+        EXIT.forEach(st -> EXITresolved.add(resolveName(st)));
+        String CONF_ = "\n\t/\\ conf' = (conf \\ "+toSetOfStates(EXITresolved)+" ) \\union "+toSetOfStates(ENTERresolved);
+        
+        // events'
+        DashRef ON = d.getTransOn(trans);
+        DashRef SEND = d.getTransSend(trans);
+        String E = "events";
+        if(ON!=null) E = "("+E+" \\ {"+resolveName(ON.getName())+"})"; // remove consumed events
+        if(SEND!=null) E += " \\union {"+resolveName(SEND.getName())+"}"; // add generated events
+        String EVENTS_ = "\n\t/\\ events' = "+E;
+
+        code.append(CONF_);
+        code.append(EVENTS_);
+        return code.toString();
+    }
+    public static String preCondition(DashModule d, String trans)
+    {
+        StringBuilder code = new StringBuilder("");
+
+        // conf
+        String srcState = d.getTransSrc(trans).toString();
+        String CONF = "\n\t/\\ "+isInState(srcState);
+
+        // formula for events
+        DashRef ON = d.getTransOn(trans);
+        String EVENTS = "";
+        if(ON!=null)EVENTS = "\n\t/\\ {"+resolveName(ON.getName())+"} \\subseteq events";
+
+        code.append(CONF);
+        code.append(EVENTS);
+        return code.toString();
+    }
     public static String transitions(DashModule d)
     {
         // assumption - guard is tautology
@@ -93,33 +135,11 @@ public class DashtoTLA
         List<String> tranList = d.getAllTransNames();
         for(String s : tranList)
         {
-            // formula for conf
-            String srcState = d.getTransSrc(s).toString();
-            String CONF = "\n\t/\\"+isInState(srcState);
-
-            // formula for conf'
-            List<String> ENTER = toStringList(d.entered(s));
-            List<String> EXIT = toStringList(d.exited(s));
-            List<String> EXITresolved = new ArrayList<>();
-            List<String> ENTERresolved = new ArrayList<>();
-            ENTER.forEach(st -> ENTERresolved.add(resolveName(st)));
-            EXIT.forEach(st -> EXITresolved.add(resolveName(st)));
-            String CONF_ = "\n\t/\\ conf' = (conf \\ "+toSetOfStates(EXITresolved)+" ) \\union "+toSetOfStates(ENTERresolved);
-        
-            DashRef ON = d.getTransOn(s);
-            DashRef SEND = d.getTransSend(s);
-
-            // formula for events
-            String EVENTS = "";
-            if(ON!=null)EVENTS = "\n\t/\\ {"+resolveName(ON.getName())+"} \\subseteq events";
-
-            // formula for events'
-            String E = "events";
-            if(ON!=null) E = "("+E+" \\ {"+resolveName(ON.getName())+"})"; // remove consumed events
-            if(SEND!=null) E += " \\union {"+resolveName(SEND.getName())+"}"; // add generated events
-            String EVENTS_ = "\n\t/\\ events' = "+E;
-
-            ts.append("\n"+resolveName(s)+" == "+CONF+CONF_+EVENTS+EVENTS_);
+            String preConditionName = "_pre__"+resolveName(s);
+            String postConditionName = "_post__"+resolveName(s);
+            ts.append("\n\n"+preConditionName+" == "+preCondition(d, s));
+            ts.append("\n"+postConditionName+" == "+postCondition(d, s));
+            ts.append("\n"+resolveName(s)+" == "+preConditionName+" /\\ "+postConditionName);
         }
         return ts.toString();
     }
@@ -129,7 +149,7 @@ public class DashtoTLA
         StringBuilder next = new StringBuilder("\n\nNext == ");
         for(String s : tranList)
         {
-            next.append("\n\t/\\ "+resolveName(s));
+            next.append("\n\t\\/ "+resolveName(s));
         }
         return next.toString();
     }
