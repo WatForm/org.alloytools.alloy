@@ -40,7 +40,7 @@ public class DashtoTLA
         StringBuilder translation = new StringBuilder("");
         translation.append(createLeafStates(d));
         translation.append(createAllStates(d));
-        translation.append(boilerplateInternalEvents(d));
+        translation.append(atomsInternalEvents(d));
         translation.append(transitions(d));
         translation.append(Init(d));
         translation.append(Stutter(d));
@@ -91,13 +91,12 @@ public class DashtoTLA
         }
         return code.toString();
     }
-    public static String boilerplateInternalEvents(DashModule d) // atoms for each internal event in TLA+
+    public static String atomsInternalEvents(DashModule d) // atoms for each internal event in TLA+
     {
         StringBuilder code = new StringBuilder("\n\n\\* events");
         List<String> events = d.getAllInternalEventNames();
-        int ct = 0;
         for(String ev : events)
-            code.append("\n"+resolveName(ev)+" == "+(ct++));
+            code.append("\n"+resolveName(ev)+" == \""+ev+"\"");
         return code.toString();
     }
     public static String postCondition(DashModule d, String trans)
