@@ -12,6 +12,16 @@ import ca.uwaterloo.watform.core.DashRef;
 
 public class DashtoTLA 
 {
+    // common formulae shared by all functions
+    public static final String INIT = "Init";
+    public static final String NEXT = "Next";
+    public static final String TYPE_OK = "TypeOK";
+    public static final String EXISTS_ENABLED_TRANSITION = "_exists_enabled_tranistions";
+    public static final String STUTTER = "stutter";
+    public static final String CONF = "conf";
+    public static final String EVENTS = "events";
+
+    //public static final String  = "";
     public static String translate(DashModule d, String moduleName)
     {
         if(!d.hasRoot())
@@ -22,7 +32,7 @@ public class DashtoTLA
 
         String header = "------------------------------- MODULE "+moduleName+" -------------------------------";
         String Extends = "\nEXTENDS Integers, FiniteSets";
-        String variables = "\nVARIABLE conf, events";
+        String variables = "\nVARIABLE "+CONF+", "+EVENTS;
         StringBuilder translation = new StringBuilder("");
         translation.append(createLeafStates(d));
         translation.append(createAllStates(d));
@@ -64,7 +74,7 @@ public class DashtoTLA
             code.append("\n"+isInState(s)+" == ");
             if(d.isLeaf(s))
             {
-                code.append(resolveName(s)+" \\in conf");
+                code.append(resolveName(s)+" \\in "+CONF);
                 continue;
             }
 
@@ -96,7 +106,7 @@ public class DashtoTLA
         List<String> enteredResolved = new ArrayList<>();
         entered.forEach(st -> enteredResolved.add(resolveName(st)));
         exited.forEach(st -> exitedResolved.add(resolveName(st)));
-        String confPrimed = "\n\t/\\ conf' = (conf \\ "+toSetOfStates(exitedResolved)+" ) \\union "+toSetOfStates(enteredResolved);
+        String confPrimed = "\n\t/\\ "+CONF+"' = ("+CONF+" \\ "+toSetOfStates(exitedResolved)+" ) \\union "+toSetOfStates(enteredResolved);
         
         // events'
         DashRef on = d.getTransOn(trans);
