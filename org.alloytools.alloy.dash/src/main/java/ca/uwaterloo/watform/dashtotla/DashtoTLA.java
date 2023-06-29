@@ -18,8 +18,12 @@ public class DashtoTLA
     public static final String TYPE_OK = "TypeOK";
     public static final String EXISTS_ENABLED_TRANSITION = "_exists_enabled_tranistions";
     public static final String STUTTER = "stutter";
+
+    // variables
     public static final String CONF = "conf";
+    public static final String CONF_PRIMED = CONF+"'";
     public static final String EVENTS = "events";
+    public static final String EVENTS_PRIMED = EVENTS+"'";
 
     //public static final String  = "";
     public static String translate(DashModule d, String moduleName)
@@ -39,6 +43,7 @@ public class DashtoTLA
         translation.append(boilerplateInternalEvents(d));
         translation.append(transitions(d));
         translation.append(Init(d));
+        translation.append(Stutter(d));
         translation.append(Next(d));
         String footer = "\n=============================================================================";
         String comment = "\n\\* Modification History\n\\* Translated from Dash at "+System.currentTimeMillis()+" EPOCH";
@@ -106,7 +111,7 @@ public class DashtoTLA
         List<String> enteredResolved = new ArrayList<>();
         entered.forEach(st -> enteredResolved.add(resolveName(st)));
         exited.forEach(st -> exitedResolved.add(resolveName(st)));
-        String confPrimed = "\n\t/\\ "+CONF+"' = ("+CONF+" \\ "+toSetOfStates(exitedResolved)+" ) \\union "+toSetOfStates(enteredResolved);
+        String confPrimed = "\n\t/\\ "+CONF_PRIMED+" = ("+CONF+" \\ "+toSetOfStates(exitedResolved)+" ) \\union "+toSetOfStates(enteredResolved);
         
         // events'
         DashRef on = d.getTransOn(trans);
@@ -142,6 +147,7 @@ public class DashtoTLA
         // assumption - guard is tautology
         StringBuilder ts = new StringBuilder("\n\n\\* transitions");
         List<String> tranList = d.getAllTransNames();
+        List<String> preCondList = new ArrayList<>();
         for(String s : tranList)
         {
             String preConditionName = "_pre__"+resolveName(s);
@@ -149,13 +155,26 @@ public class DashtoTLA
             ts.append("\n\n"+preConditionName+" == "+preCondition(d, s));
             ts.append("\n"+postConditionName+" == "+postCondition(d, s));
             ts.append("\n"+resolveName(s)+" == "+preConditionName+" /\\ "+postConditionName);
+            preCondList.add(postConditionName);
         }
-        return ts.toString();
+
+        StringBuilder somePrecond = new StringBuilder("\n"+EXISTS_ENABLED_TRANSITION+" == ");
+        for(String s : preCondList)
+            somePrecond.append("\n\t/\\ "+s);
+
+        return ts.append(somePrecond).toString();
+    }
+    public static String Stutter(DashModule d)
+    {
+        return  "\n\n"+STUTTER+" == ~"+EXISTS_ENABLED_TRANSITION+
+                "\n\t/\\ "+CONF_PRIMED+" = "+CONF+
+                "\n\t/\\ "+EVENTS_PRIMED+" = "+EVENTS;
+
     }
     public static String Next(DashModule d) // Next formula in TLA+
     {
         List<String> tranList = d.getAllTransNames();
-        StringBuilder next = new StringBuilder("\n\nNext == ");
+        StringBuilder next = new StringBuilder("\n\n"+NEXT+" == "+STUTTER);
         for(String s : tranList)
         {
             next.append("\n\t\\/ "+resolveName(s));
@@ -164,7 +183,7 @@ public class DashtoTLA
     }
     public static String Init(DashModule d) // Init formula in TLA+
     {
-        StringBuilder init = new StringBuilder("\n\nInit == events = {} /\\");
+        StringBuilder init = new StringBuilder("\n\n"+INIT+" == "+EVENTS+" = {} /\\");
         List<String> defaultsOfRoot = d.getDefaults(d.getRootName());
         for(String s : defaultsOfRoot)init.append("\n\t\t\\/ "+isInState(s));
         return init.toString();
