@@ -44,12 +44,11 @@ public class DashtoTLA
     {
         List<String> states = d.getAllStateNames();
         StringBuilder leafStates = new StringBuilder("");
-        int ct=0;
-        for(int i =0; i<states.size();i++)
-        {
-            String s = states.get(i);
-            if(d.isLeaf(s))leafStates.append("\n"+resolveName(s)+"=="+ct++);
-        }
+        
+        for(String s : states)
+            if(d.isLeaf(s))
+                leafStates.append("\n"+resolveName(s)+" == \""+s+"\"");
+            
         return "\n\n\\* basic states"+leafStates;
     }
     private static String isInState(String state)

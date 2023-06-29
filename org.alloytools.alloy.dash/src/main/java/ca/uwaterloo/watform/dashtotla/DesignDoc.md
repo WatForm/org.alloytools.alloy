@@ -45,4 +45,6 @@ All translation is done by [DashtoTLA.java](). The argument `-tla` is defined in
 
 - Timestamp is given in terms of Unix epoch to avoid problems with international timezones and daylight savings.
 
+- TLA+ does not support non-primitive unspecified atoms, so each leaf state is defined using a string holding their fully qualified name.
+
 
