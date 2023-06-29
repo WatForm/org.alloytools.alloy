@@ -5,7 +5,7 @@ package ca.uwaterloo.watform.dashtotla;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.function.*;
+//import java.util.function.*;
 
 import ca.uwaterloo.watform.parser.DashModule;
 import ca.uwaterloo.watform.core.DashRef;
@@ -31,7 +31,7 @@ public class DashtoTLA
         translation.append(Init(d));
         translation.append(Next(d));
         String footer = "\n=============================================================================";
-        String comment = "\\* Modification History\n\\* Translated from Dash at "+System.currentTimeMillis()+" EPOCH";
+        String comment = "\n\\* Modification History\n\\* Translated from Dash at "+System.currentTimeMillis()+" EPOCH";
         
         return header+Extends+variables+translation.toString()+footer+comment;
     }
@@ -54,7 +54,7 @@ public class DashtoTLA
     }
     private static String isInState(String state)
     {
-        return "_in"+resolveName(state);
+        return resolveName("in__"+state);
     }
     public static String boilerplateAllStates(DashModule d)
     {
@@ -97,7 +97,7 @@ public class DashtoTLA
             String srcState = d.getTransSrc(s).toString();
             String CONF = "\n\t/\\"+isInState(srcState);
 
-            // formula for conf' //t his a test of scr
+            // formula for conf'
             List<String> ENTER = toStringList(d.entered(s));
             List<String> EXIT = toStringList(d.exited(s));
             List<String> EXITresolved = new ArrayList<>();
@@ -183,5 +183,4 @@ public class DashtoTLA
     return dfs;
     }
     */
-
 }
