@@ -158,8 +158,9 @@ public class Dash {
         DashOptions.isTcmc = (method.equals("tcmc"));
         DashOptions.isElectrum = (method.equals("electrum"));    
 
-        for (String filename : filelist) {
+        for (int i=0; i<filelist.size();i++) {
             
+            String filename = filelist.get(i);
             // add the .dsh extension if not included
             if (!filename.endsWith(".dsh") && !filename.endsWith(".als")) {
                 int index = filename.lastIndexOf('.');
@@ -212,8 +213,22 @@ public class Dash {
                         String moduleName = moduleWithExtension.substring(0, moduleWithExtension.length()-4);
                         String contents = MainFunctions.translateTLA(d,moduleName);
                         
+                        // by default, the target is a file in the same folder as the source
                         String TLAfilename = filename.substring(0,filename.length()-4)+".tla";
                         
+                        // allow user to specify the target right next to the source if they want
+                        try
+                        {
+                            String target = filelist.get(i+1);
+                            if(target.endsWith(".tla"))
+                            {
+                                i++; // if an explicit target is mentioned, it is skipped over in the next iteration
+                                TLAfilename = target;
+                            }
+                        }
+                        catch(ArrayIndexOutOfBoundsException e){}
+                        
+                        System.out.println("Translating "+filename+" to TLA+ and writing to "+TLAfilename);
 
                         File out = new File(TLAfilename);
                             if (!out.exists()) out.createNewFile();

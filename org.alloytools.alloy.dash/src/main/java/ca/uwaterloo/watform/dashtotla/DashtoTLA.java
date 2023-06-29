@@ -93,28 +93,30 @@ public class DashtoTLA
         List<String> tranList = d.getAllTransNames();
         for(String s : tranList)
         {
-            List<String> ENTER = toStringList(d.entered(s));
-            List<String> EXIT = toStringList(d.exited(s));
-            
-            List<String> EXITresolved = new ArrayList<>();
-            List<String> ENTERresolved = new ArrayList<>();
-            for(String st : ENTER)ENTERresolved.add(resolveName(st));
-            for(String st : EXIT)EXITresolved.add(resolveName(st));
-
+            // formula for conf
             String srcState = d.getTransSrc(s).toString();
             String CONF = "\n\t/\\"+isInState(srcState);
+
+            // formula for conf'
+            List<String> ENTER = toStringList(d.entered(s));
+            List<String> EXIT = toStringList(d.exited(s));
+            List<String> EXITresolved = new ArrayList<>();
+            List<String> ENTERresolved = new ArrayList<>();
+            ENTER.forEach(st -> ENTERresolved.add(resolveName(st)));
+            EXIT.forEach(st -> EXITresolved.add(resolveName(st)));
             String CONF_ = "\n\t/\\ conf' = (conf \\ "+toSetOfStates(EXITresolved)+" ) \\union "+toSetOfStates(ENTERresolved);
-            
+        
+            DashRef ON = d.getTransOn(s);
+            DashRef SEND = d.getTransSend(s);
+
+            // formula for events
             String EVENTS = "";
+            if(ON!=null)EVENTS = "\n\t/\\ {"+resolveName(ON.getName())+"} \\subseteq events";
+
+            // formula for events'
             String E = "events";
-            if(d.getTransOn(s)!=null)
-            {
-                String ON = resolveName(d.getTransOn(s).getName());
-                E = "("+E+" \\ {"+ON+"})";
-                EVENTS = "\n\t/\\ {"+ON+"} \\subseteq events";
-            } 
-            if(d.getTransSend(s)!=null)
-                E += " \\union {"+resolveName(d.getTransSend(s).getName())+"}";
+            if(ON!=null) E = "("+E+" \\ {"+resolveName(ON.getName())+"})"; // remove consumed events
+            if(SEND!=null) E += " \\union {"+resolveName(SEND.getName())+"}"; // add generated events
             String EVENTS_ = "\n\t/\\ events' = "+E;
 
             ts.append("\n"+resolveName(s)+" == "+CONF+CONF_+EVENTS+EVENTS_);
