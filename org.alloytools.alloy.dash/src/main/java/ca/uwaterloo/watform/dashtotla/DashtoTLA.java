@@ -122,7 +122,7 @@ public class DashtoTLA
         String eventsPrimed = "\n\t/\\ events' = "+E;
 
         code.append(confPrimed);
-        code.append(eventsPrimed);
+        //code.append(eventsPrimed);
         return code.toString();
     }
     public static String preCondition(DashModule d, String trans)
@@ -139,7 +139,7 @@ public class DashtoTLA
         if(ON!=null)EVENTS = "\n\t/\\ {"+resolveName(ON.getName())+"} \\subseteq events";
 
         code.append(CONF);
-        code.append(EVENTS);
+        //code.append(EVENTS);
         return code.toString();
     }
     public static String transitions(DashModule d)
@@ -155,10 +155,10 @@ public class DashtoTLA
             ts.append("\n\n"+preConditionName+" == "+preCondition(d, s));
             ts.append("\n"+postConditionName+" == "+postCondition(d, s));
             ts.append("\n"+resolveName(s)+" == "+preConditionName+" /\\ "+postConditionName);
-            preCondList.add(postConditionName);
+            preCondList.add(preConditionName);
         }
 
-        StringBuilder somePrecond = new StringBuilder("\n"+EXISTS_ENABLED_TRANSITION+" == ");
+        StringBuilder somePrecond = new StringBuilder("\n\n"+EXISTS_ENABLED_TRANSITION+" == ");
         for(String s : preCondList)
             somePrecond.append("\n\t/\\ "+s);
 

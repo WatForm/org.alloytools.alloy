@@ -47,4 +47,6 @@ All translation is done by [DashtoTLA.java](). The argument `-tla` is defined in
 
 - TLA+ does not support non-primitive unspecified atoms, so each leaf state is defined using a string holding their fully qualified name.
 
+- Transitions are formulae and remain so. there is no treatment of them as objects or use of a `TransTaken` set
+
 
