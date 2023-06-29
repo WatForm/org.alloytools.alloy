@@ -22,7 +22,7 @@ import edu.mit.csail.sdg.translator.TranslateAlloyToKodkod;
 
 import ca.uwaterloo.watform.core.DashOptions;
 import ca.uwaterloo.watform.core.DashErrors;
-// import ca.uwaterloo.watform.parser.DashUtil;
+import ca.uwaterloo.watform.parser.DashUtil;
 import ca.uwaterloo.watform.core.DashUtilFcns;
 import ca.uwaterloo.watform.parser.DashModule;
 import ca.uwaterloo.watform.mainfunctions.MainFunctions;
@@ -86,8 +86,7 @@ public class Dash {
             System.out.println("-t is translateOnly");
             System.out.println("-r is resolveOnly");
             System.out.println("-e is echo file from internal parsed data");
-            // TODO edit this
-            System.out.println("-tla produces a translation to TLA+, with the same file name as the dash file, in the same folder as the original dash file");
+            System.out.println("-tla translates the file to TLA+, translated file has the same path and name unless otherwise specified");
             System.out.println("expects .dsh or .als file");
             System.out.println("if given a .als files, it ignores other options and runs all its commands");
             System.exit(0);
