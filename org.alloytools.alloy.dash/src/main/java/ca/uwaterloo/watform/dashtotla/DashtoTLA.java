@@ -97,7 +97,7 @@ public class DashtoTLA
             String srcState = d.getTransSrc(s).toString();
             String CONF = "\n\t/\\"+isInState(srcState);
 
-            // formula for conf'
+            // formula for conf'  another test, message not working
             List<String> ENTER = toStringList(d.entered(s));
             List<String> EXIT = toStringList(d.exited(s));
             List<String> EXITresolved = new ArrayList<>();
