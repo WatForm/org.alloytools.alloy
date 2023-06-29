@@ -90,24 +90,24 @@ public class DashtoTLA
         StringBuilder code = new StringBuilder("");
 
         // conf'
-        List<String> ENTER = toStringList(d.entered(trans));
-        List<String> EXIT = toStringList(d.exited(trans));
-        List<String> EXITresolved = new ArrayList<>();
-        List<String> ENTERresolved = new ArrayList<>();
-        ENTER.forEach(st -> ENTERresolved.add(resolveName(st)));
-        EXIT.forEach(st -> EXITresolved.add(resolveName(st)));
-        String CONF_ = "\n\t/\\ conf' = (conf \\ "+toSetOfStates(EXITresolved)+" ) \\union "+toSetOfStates(ENTERresolved);
+        List<String> entered = toStringList(d.entered(trans));
+        List<String> exited = toStringList(d.exited(trans));
+        List<String> exitedResolved = new ArrayList<>();
+        List<String> enteredResolved = new ArrayList<>();
+        entered.forEach(st -> enteredResolved.add(resolveName(st)));
+        exited.forEach(st -> exitedResolved.add(resolveName(st)));
+        String confPrimed = "\n\t/\\ conf' = (conf \\ "+toSetOfStates(exitedResolved)+" ) \\union "+toSetOfStates(enteredResolved);
         
         // events'
-        DashRef ON = d.getTransOn(trans);
-        DashRef SEND = d.getTransSend(trans);
+        DashRef on = d.getTransOn(trans);
+        DashRef send = d.getTransSend(trans);
         String E = "events";
-        if(ON!=null) E = "("+E+" \\ {"+resolveName(ON.getName())+"})"; // remove consumed events
-        if(SEND!=null) E += " \\union {"+resolveName(SEND.getName())+"}"; // add generated events
-        String EVENTS_ = "\n\t/\\ events' = "+E;
+        if(on!=null) E = "("+E+" \\ {"+resolveName(on.getName())+"})"; // remove consumed events
+        if(send!=null) E += " \\union {"+resolveName(send.getName())+"}"; // add generated events
+        String eventsPrimed = "\n\t/\\ events' = "+E;
 
-        code.append(CONF_);
-        code.append(EVENTS_);
+        code.append(confPrimed);
+        code.append(eventsPrimed);
         return code.toString();
     }
     public static String preCondition(DashModule d, String trans)
