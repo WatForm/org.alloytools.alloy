@@ -1185,9 +1185,11 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
             Sort sort = var.sort();
             sorts.add(sort);
 
-            // We're expanding over the domain elements of the sort, so its scope can't be changed arbitrarily
-            // in the output - mark it unchanging
-            context.markSortUnchanging(sort);
+            if (!sort.equals(Sort.Int())) {
+                // We're expanding over the domain elements of the sort, so its scope can't be changed arbitrarily
+                // in the output - mark it unchanging
+                context.markSortUnchanging(sort);
+            }
         }
 
         // Use a final one-element array to get around Java limitations: only final vars can be used in lambdas.
