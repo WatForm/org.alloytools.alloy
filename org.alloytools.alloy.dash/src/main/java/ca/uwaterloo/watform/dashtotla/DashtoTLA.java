@@ -45,6 +45,7 @@ public class DashtoTLA
         StringBuilder translation = new StringBuilder("");
         translation.append(atomsLeafStates(d));
         translation.append(atomsInternalEvents(d));
+        translation.append(atomsEnvironmentalEvents(d));
         translation.append(maximalSets(d));
         translation.append(TypeOK(d));
         translation.append(createAllStates(d));
@@ -53,13 +54,14 @@ public class DashtoTLA
         translation.append(Stutter(d));
         translation.append(Next(d));
         String footer = "\n=============================================================================";
-        String comment = "\n\\* Modification History\n\\* Translated from Dash at "+System.currentTimeMillis()+" EPOCH";
+        String comment =    "\n\\* Modification History"+
+                            "\n\\* Translated from Dash at "+System.currentTimeMillis()+" EPOCH";
         
         return header+Extends+variables+translation.toString()+footer+comment;
     }
     public static String resolveName(String s) // get rid of unsupported characters in full names
     {
-        char SP = '_';
+        char SP = '_';  // SP is a specual character that cannot appear in any variablename in dash, but can in TLA+
         return SP+s.replace('/', SP);
     }
     public static String atomsLeafStates(DashModule d) // atoms for each leaf state
@@ -71,16 +73,15 @@ public class DashtoTLA
             if(d.isLeaf(s))        
                 leafStates.append("\n"+resolveName(s)+" == \""+s+"\"");
                 
-            
         return leafStates.toString();
     }
-    private static String isInState(String state)
+    private static String isInState(String state) // used to check if one is in a non-leaf state
     {
         return resolveName("in__"+state);
     }
-    public static String maximalSets(DashModule d)
+    public static String maximalSets(DashModule d) // define the set of all possible values for a variable's elements
     {
-        StringBuilder code = new StringBuilder("\n");
+        StringBuilder code = new StringBuilder("\n\n\\* maximal states");
 
         // conf
         List<String> resolvedStateNames = new ArrayList<>();
@@ -101,7 +102,7 @@ public class DashtoTLA
         
         return code.toString();
     }
-    public static String createAllStates(DashModule d)
+    public static String createAllStates(DashModule d) // formulae to determine if one is present in a state
     {
         List<String> states = topoSortStates(d);
         
@@ -126,8 +127,16 @@ public class DashtoTLA
     }
     public static String atomsInternalEvents(DashModule d) // atoms for each internal event in TLA+
     {
-        StringBuilder code = new StringBuilder("\n\n\\* events");
+        StringBuilder code = new StringBuilder("\n\n\\* internal events");
         List<String> events = d.getAllInternalEventNames();
+        for(String ev : events)
+            code.append("\n"+resolveName(ev)+" == \""+ev+"\"");
+        return code.toString();
+    }
+    public static String atomsEnvironmentalEvents(DashModule d) // atoms for each internal event in TLA+
+    {
+        StringBuilder code = new StringBuilder("\n\n\\* environmental events");
+        List<String> events = d.getAllEnvironmentalEventNames();
         for(String ev : events)
             code.append("\n"+resolveName(ev)+" == \""+ev+"\"");
         return code.toString();
@@ -139,22 +148,18 @@ public class DashtoTLA
         // conf'
         List<String> entered = toStringList(d.entered(trans));
         List<String> exited = toStringList(d.exited(trans));
-        List<String> exitedResolved = new ArrayList<>();
-        List<String> enteredResolved = new ArrayList<>();
-        entered.forEach(st -> enteredResolved.add(resolveName(st)));
-        exited.forEach(st -> exitedResolved.add(resolveName(st)));
-        String confPrimed = "\n\t/\\ "+prime(CONF)+" = ("+CONF+" \\ "+toSet(exitedResolved)+" ) \\union "+toSet(enteredResolved);
+        String confPrimed = "\n\t/\\ "+prime(CONF)+" = ("+CONF+" \\ "+toSetResolved(exited)+" ) \\union "+toSetResolved(entered);
         
         // events'
         DashRef on = d.getTransOn(trans);
         DashRef send = d.getTransSend(trans);
-        String E = "events";
+        String E = INTERNAL_EVENTS;
         if(on!=null) E = "("+E+" \\ {"+resolveName(on.getName())+"})"; // remove consumed events
         if(send!=null) E += " \\union {"+resolveName(send.getName())+"}"; // add generated events
-        String eventsPrimed = "\n\t/\\ events' = "+E;
+        String eventsPrimed = "\n\t/\\ "+prime(INTERNAL_EVENTS)+" = "+E;
 
         code.append(confPrimed);
-        //code.append(eventsPrimed);
+        code.append(eventsPrimed);
         return code.toString();
     }
     public static String preCondition(DashModule d, String trans)
@@ -168,10 +173,10 @@ public class DashtoTLA
         // formula for events
         DashRef ON = d.getTransOn(trans);
         String EVENTS = "";
-        if(ON!=null)EVENTS = "\n\t/\\ {"+resolveName(ON.getName())+"} \\subseteq events";
+        if(ON!=null)EVENTS = "\n\t/\\ {"+resolveName(ON.getName())+"} \\subseteq "+INTERNAL_EVENTS;
 
         code.append(CONF);
-        //code.append(EVENTS);
+        code.append(EVENTS);
         return code.toString();
     }
     public static String transitions(DashModule d)
@@ -196,6 +201,7 @@ public class DashtoTLA
 
         return ts.append(somePrecond).toString();
     }
+    // when no tranitions are enabled, the system stays in current state while waiting for an environmental event to be sent
     public static String Stutter(DashModule d)
     {
         return  "\n\n"+STUTTER+" == ~"+EXISTS_ENABLED_TRANSITION+
@@ -213,7 +219,7 @@ public class DashtoTLA
         }
         return next.toString();
     }
-    public static String TypeOK(DashModule d) // TypeOK formula in TLA+
+    public static String TypeOK(DashModule d) // TLA+'s technique to ensure that types are appropriate
     {
         String variables[] = new String[]{CONF, INTERNAL_EVENTS, ENVIRONMENTAL_EVENTS};
         
@@ -225,9 +231,12 @@ public class DashtoTLA
     }
     public static String Init(DashModule d) // Init formula in TLA+
     {
-        StringBuilder init = new StringBuilder("\n\n"+INIT+" == "+INTERNAL_EVENTS+" = {} /\\");
-        List<String> defaultsOfRoot = d.getDefaults(d.getRootName());
-        for(String s : defaultsOfRoot)init.append("\n\t\t\\/ "+isInState(s));
+        StringBuilder init = new StringBuilder("\n\n"+INIT+" == ");
+
+        init.append("\n\t/\\ "+INTERNAL_EVENTS+" = {}");
+        init.append("\n\t/\\ "+ENVIRONMENTAL_EVENTS+" = {}");
+        init.append("\n\t/\\ "+CONF+" = "+toSetResolved(d.getDefaults(d.getRootName())));
+
         return init.toString();
     }
     public static String toSet(List<String> elements) // set in TLA+ notation
@@ -241,14 +250,14 @@ public class DashtoTLA
         sb.append("}");
         return sb.toString();
     }
-    public static String toSetofStrings(List<String> elements) // set of strings in TLA+ notation
+    public static String toSetResolved(List<String> elements) // set of strings in TLA+ notation
     {
         StringBuilder sb = new StringBuilder("{");
         for(int i=0;i<elements.size()-1;i++) // all except last element has comma after it
         {
-            sb.append("\""+elements.get(i)+"\""+",");
+            sb.append(resolveName(elements.get(i))+",");
         }
-        if(elements.size()!=0)sb.append("\""+elements.get(elements.size()-1)+"\""); // add last element
+        if(elements.size()!=0)sb.append(resolveName(elements.get(elements.size()-1))); // add last element
         sb.append("}");
         return sb.toString();
     }

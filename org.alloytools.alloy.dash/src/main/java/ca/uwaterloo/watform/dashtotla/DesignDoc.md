@@ -49,4 +49,8 @@ All translation is done by [DashtoTLA.java](). The argument `-tla` is defined in
 
 - Transitions are formulae and remain so. there is no treatment of them as objects or use of a `TransTaken` set
 
+- Formulae are global variables to enable quick edits
+
+- Internal and Environmental events are segregated
+
 
