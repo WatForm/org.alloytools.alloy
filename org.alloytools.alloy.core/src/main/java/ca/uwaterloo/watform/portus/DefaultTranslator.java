@@ -632,6 +632,24 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
         return Term.mkAnd(conjuncts);
     }
 
+    /**
+     * Is expr "none->none->...->none" for some combination of arrows?
+     * Used for an ugly hack to translate "expr in none->...->none" and "expr = none->...->none".
+     */ 
+    private boolean isNone(Expr expr) {
+        expr = expr.deNOP();
+        if (expr.isSame(Sig.NONE)) {
+            return true;
+        }
+        if (expr instanceof ExprBinary) {
+            ExprBinary exprBinary = (ExprBinary) expr;
+            if (exprBinary.op == ExprBinary.Op.ARROW) {
+                return isNone(exprBinary.left) && isNone(exprBinary.right);
+            }
+        }
+        return false;
+    }
+
     /** Translate the formula "e1 in e2" or "e1 = e2". */
     private Term translateInEq(ExprBinary.Op op, Expr e1, Expr e2, TranslationContext context) {
         // KT figure 4.9: [[e1 in e2]] := forall x1: S1, ..., xn: Sn .
@@ -644,10 +662,10 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
         // HACK: We can't handle expressions like "e = none" normally at the moment because we can't determine
         // a sort for none. To get these expressions working for now, we just translate them to "no e".
         // TODO: This should be done properly in the future by changing how SortPolicy handles none (and iden).
-        if (e1.isSame(Sig.NONE)) {
+        if (isNone(e1)) {
             return recursivelyTranslate(e2.no(), context);
         }
-        if (e2.isSame(Sig.NONE)) {
+        if (isNone(e2)) {
             return recursivelyTranslate(e1.no(), context);
         }
 
