@@ -12,14 +12,14 @@ import ca.uwaterloo.watform.core.DashRef;
 
 public class DashtoTLA 
 {
-    // common formulae shared by all functions
+    // boilerplate formulae, shared by all functions
     public static final String INIT = "Init";
     public static final String NEXT = "Next";
     public static final String TYPE_OK = "TypeOK";
     public static final String EXISTS_ENABLED_TRANSITION = "_exists_enabled_tranistions";
     public static final String STUTTER = "_stutter";
 
-    // variables
+    // boilerplate variables
     public static final String CONF = "_conf";
     public static final String INTERNAL_EVENTS = "_internal_events"; 
     public static final String ENVIRONMENTAL_EVENTS = "_environmental_events";
@@ -30,7 +30,6 @@ public class DashtoTLA
     // set holding every value which can appear as element of variable
     public static String maximal(String variable){return variable+"_maximal";} 
 
-    //public static final String  = "";
     public static String translate(DashModule d, String moduleName)
     {
         if(!d.hasRoot())
@@ -235,10 +234,12 @@ public class DashtoTLA
 
         init.append("\n\t/\\ "+INTERNAL_EVENTS+" = {}");
         init.append("\n\t/\\ "+ENVIRONMENTAL_EVENTS+" = {}");
-        init.append("\n\t/\\ "+CONF+" = "+toSetResolved(d.getDefaults(d.getRootName())));
+        init.append("\n\t/\\ "+CONF+" = "+toSetResolved(LeafDefaultsOf(d,d.getRootName())));
 
         return init.toString();
     }
+
+    // util functions
     public static String toSet(List<String> elements) // set in TLA+ notation
     {
         StringBuilder sb = new StringBuilder("{");
@@ -261,8 +262,24 @@ public class DashtoTLA
         sb.append("}");
         return sb.toString();
     }
-
-    // util functions
+    public static List<String> LeafDefaultsOf(DashModule d, String state)
+    {
+        List<String> states = d.getDefaults(state);
+        int i = 0;
+        while(i < states.size())
+        {
+            String s = states.get(i);
+            if(d.isLeaf(s)) // skip over defaults if they are already leaf states
+            {
+                i++;
+                continue;
+            }
+            // non-leaf state removed after its children are added
+            states.addAll(d.getDefaults(s));
+            states.remove(i); 
+        }
+        return states; // at this point, all elements of states are leaf states
+    }
     public static List<String> topoSortStates(DashModule d) // each state occurs only after all its children occur
     {
         List<String> states = new ArrayList<>();
