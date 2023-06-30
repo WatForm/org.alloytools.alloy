@@ -1200,7 +1200,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
         do {
             // substitute with the domain elements for each combination
             List<DomainElement> domainElements = IntStream.range(0, vars.size())
-                    .mapToObj(i -> DomainElement.apply(currentIdxs.get(i), sorts.get(i)))
+                    .mapToObj(i -> Term.mkDomainElement(currentIdxs.get(i), sorts.get(i)))
                     .collect(Collectors.toList());
             Term domElemCondition = PortusUtil.substitute(vars, domainElements, condition);
             Term domElemSub = PortusUtil.substitute(vars, domainElements, sub);

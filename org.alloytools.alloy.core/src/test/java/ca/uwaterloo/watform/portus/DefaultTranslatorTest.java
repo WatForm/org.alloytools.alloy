@@ -3031,7 +3031,7 @@ public class DefaultTranslatorTest {
         // translate [[f]] with a function f(x)
         when(mockRoot.translate(eq(f), any())).then(useTestFunction("f", "x"));
 
-        DomainElement domElem = DomainElement.apply(1, univ);
+        DomainElement domElem = Term.mkDomainElement(1, univ);
         Term expected = Term.mkIfThenElse(
                 Term.mkApp("inE", domElem),
                 Term.mkApp("f", domElem),
@@ -3061,8 +3061,8 @@ public class DefaultTranslatorTest {
         // translate [[f]] with a function f(x)
         when(mockRoot.translate(eq(f), any())).then(useTestFunction("f", "x"));
 
-        DomainElement domElem1 = DomainElement.apply(1, univ);
-        DomainElement domElem2 = DomainElement.apply(2, univ);
+        DomainElement domElem1 = Term.mkDomainElement(1, univ);
+        DomainElement domElem2 = Term.mkDomainElement(2, univ);
         Term expected = Term.mkPlus(
                 Term.mkIfThenElse(
                     Term.mkApp("inE", domElem1),
@@ -3100,7 +3100,7 @@ public class DefaultTranslatorTest {
         // translate [[f]] with a function f(x,y)
         when(mockRoot.translate(eq(f), any())).then(useTestFunction("f", "x", "y"));
 
-        DomainElement domElem = DomainElement.apply(1, univ);
+        DomainElement domElem = Term.mkDomainElement(1, univ);
         Term expected = Term.mkIfThenElse(
                 Term.mkAnd(
                         Term.mkApp("inE1", domElem),
@@ -3139,8 +3139,8 @@ public class DefaultTranslatorTest {
         // translate [[f]] with a function f(x,y)
         when(mockRoot.translate(eq(f), any())).then(useTestFunction("f", "x", "y"));
 
-        DomainElement domElem1 = DomainElement.apply(1, univ);
-        DomainElement domElem2 = DomainElement.apply(2, univ);
+        DomainElement domElem1 = Term.mkDomainElement(1, univ);
+        DomainElement domElem2 = Term.mkDomainElement(2, univ);
         Term expected = Term.mkPlus(
                 Term.mkPlus(
                     Term.mkPlus(
@@ -3185,7 +3185,7 @@ public class DefaultTranslatorTest {
         // translate [[f]] with a function f(x)
         when(mockRoot.translate(eq(f), any())).then(useTestFunction("f", "x"));
 
-        DomainElement domElem = DomainElement.apply(1, Sort.Int());
+        DomainElement domElem = Term.mkDomainElement(1, Sort.Int());
         Term expected = Term.mkIfThenElse(
                 Term.mkApp("inE", domElem),
                 Term.mkApp("f", domElem),
@@ -3219,8 +3219,8 @@ public class DefaultTranslatorTest {
         // translate [[f]] with a function f(x,y)
         when(mockRoot.translate(eq(f), any())).then(useTestFunction("f", "x", "y"));
 
-        DomainElement domElemUniv = DomainElement.apply(1, univ);
-        DomainElement domElemInt = DomainElement.apply(1, Sort.Int());
+        DomainElement domElemUniv = Term.mkDomainElement(1, univ);
+        DomainElement domElemInt = Term.mkDomainElement(1, Sort.Int());
         Term expected = Term.mkIfThenElse(
                 Term.mkAnd(
                         Term.mkApp("inE1", domElemUniv),
@@ -3268,7 +3268,7 @@ public class DefaultTranslatorTest {
                     return Term.mkApp("inE", translated.tuple.getTerm(0));
                 });
 
-        DomainElement domElem = DomainElement.apply(1, univ);
+        DomainElement domElem = Term.mkDomainElement(1, univ);
         Term expected = Term.mkIfThenElse(Term.mkApp("inE", domElem), IntegerLiteral.apply(1), IntegerLiteral.apply(0));
         Term result = translator.translate(e.cardinality(), context);
         assertEquals(expected, result);
@@ -3292,7 +3292,7 @@ public class DefaultTranslatorTest {
                     return Term.mkApp("inE", translated.tuple.getTerm(0), translated.tuple.getTerm(1));
                 });
 
-        DomainElement domElem = DomainElement.apply(1, univ);
+        DomainElement domElem = Term.mkDomainElement(1, univ);
         Term expected = Term.mkIfThenElse(Term.mkApp("inE", domElem, domElem),
                 IntegerLiteral.apply(1), IntegerLiteral.apply(0));
         Term result = translator.translate(e.cardinality(), context);
@@ -3318,8 +3318,8 @@ public class DefaultTranslatorTest {
                     return Term.mkApp("inE", translated.tuple.getTerm(0), translated.tuple.getTerm(1));
                 });
 
-        DomainElement domElemUniv = DomainElement.apply(1, univ);
-        DomainElement domElemInt = DomainElement.apply(1, Sort.Int());
+        DomainElement domElemUniv = Term.mkDomainElement(1, univ);
+        DomainElement domElemInt = Term.mkDomainElement(1, Sort.Int());
         Term expected = Term.mkIfThenElse(Term.mkApp("inE", domElemUniv, domElemInt),
                 IntegerLiteral.apply(1), IntegerLiteral.apply(0));
         Term result = translator.translate(e.cardinality(), context);
@@ -3343,8 +3343,8 @@ public class DefaultTranslatorTest {
                     return Term.mkApp("inE", translated.tuple.getTerm(0));
                 });
 
-        DomainElement domElem1 = DomainElement.apply(1, univ);
-        DomainElement domElem2 = DomainElement.apply(2, univ);
+        DomainElement domElem1 = Term.mkDomainElement(1, univ);
+        DomainElement domElem2 = Term.mkDomainElement(2, univ);
         Term expected = Term.mkPlus(
                 Term.mkIfThenElse(Term.mkApp("inE", domElem1), IntegerLiteral.apply(1), IntegerLiteral.apply(0)),
                 Term.mkIfThenElse(Term.mkApp("inE", domElem2), IntegerLiteral.apply(1), IntegerLiteral.apply(0)));
@@ -3373,8 +3373,8 @@ public class DefaultTranslatorTest {
                     return Term.mkApp("inE", translated.tuple.getTerm(0), translated.tuple.getTerm(1));
                 });
 
-        DomainElement domElem1 = DomainElement.apply(1, univ);
-        DomainElement domElem2 = DomainElement.apply(2, univ);
+        DomainElement domElem1 = Term.mkDomainElement(1, univ);
+        DomainElement domElem2 = Term.mkDomainElement(2, univ);
         Term expected = Term.mkPlus(
                 Term.mkPlus(
                         Term.mkPlus(
