@@ -18,7 +18,6 @@ import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Sig;
 import fortress.msfol.AnnotatedVar;
-import fortress.msfol.DomainElement;
 import fortress.msfol.FuncDecl;
 import fortress.msfol.IntegerLiteral;
 import fortress.msfol.Sort;
@@ -1179,41 +1178,33 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
 
     // Translate "sum x: e | f" where sub translates [[f]] and condition translates [[x \in e]].
     private Term translateSum(Term sub, Term condition, List<AnnotatedVar> vars, TranslationContext context) {
-        // naive for now: manually expand "sum y: univ | [[y \in e]] => [[f[y/x]]] else 0"
+        // naive for now: manually expand "sum y: sort | [[y \in e]] => [[f[y/x]]] else 0"
         // nest the additions naively left-to-right: ((((1 + 1) + 1) + 1) + ...)
         List<Sort> sorts = new ArrayList<>();
-        List<Integer> sortScopes = new ArrayList<>();
-        List<Integer> currentIdxs = new ArrayList<>(); // indexes of the current domain elements
         for (AnnotatedVar var : vars) {
             Sort sort = var.sort();
             sorts.add(sort);
-            // Note: this is OK for Int because getSortScope(Sort.Int()) returns the number of ints, not the bitwidth
-            sortScopes.add(sortPolicy.getSortScope(sort));
-            currentIdxs.add(1);
 
             // We're expanding over the domain elements of the sort, so its scope can't be changed arbitrarily
             // in the output - mark it unchanging
             context.markSortUnchanging(sort);
         }
 
-        Term result = null;
-        do {
-            // substitute with the domain elements for each combination
-            List<DomainElement> domainElements = IntStream.range(0, vars.size())
-                    .mapToObj(i -> Term.mkDomainElement(currentIdxs.get(i), sorts.get(i)))
-                    .collect(Collectors.toList());
-            Term domElemCondition = PortusUtil.substitute(vars, domainElements, condition);
-            Term domElemSub = PortusUtil.substitute(vars, domainElements, sub);
+        // Use a final one-element array to get around Java limitations: only final vars can be used in lambdas.
+        final Term[] result = {null};
+        PortusUtil.expandOverSorts(sorts, sortPolicy, tuple -> {
+            Term domElemCondition = PortusUtil.substitute(vars, tuple, condition);
+            Term domElemSub = PortusUtil.substitute(vars, tuple, sub);
 
             // add "condition => sub else 0" to the result
             Term addend = Term.mkIfThenElse(domElemCondition, domElemSub, IntegerLiteral.apply(0));
-            if (result == null) {
-                result = addend;
+            if (result[0] == null) {
+                result[0] = addend;
             } else {
-                result = Term.mkPlus(result, addend);
+                result[0] = Term.mkPlus(result[0], addend);
             }
-        } while (PortusUtil.nextCombination(currentIdxs, sortScopes));
-        return result;
+        });
+        return result[0];
     }
 
     /** Translate "tuple \in expr", where expr is an ExprQt. */

@@ -21,8 +21,10 @@ import fortress.data.IntSuffixNameGenerator;
 import fortress.data.NameGenerator;
 import fortress.msfol.AnnotatedVar;
 import fortress.msfol.DomainElement;
+import fortress.msfol.IntegerLiteral;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
+import fortress.msfol.Value;
 import fortress.msfol.Var;
 import fortress.operations.Substituter;
 import scala.jdk.javaapi.CollectionConverters;
@@ -31,7 +33,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
  * General-purpose utility functions used in Portus.
@@ -256,6 +260,47 @@ final class PortusUtil {
             }
         }
         return false;
+    }
+
+    /**
+     * Given a list of sorts, call the callback for every tuple of values in the cross product of the sorts.
+     */
+    public static void expandOverSorts(List<Sort> sorts, SortPolicy sortPolicy, Consumer<List<Value>> callback) {
+        List<Integer> sortScopes = new ArrayList<>();
+        List<Integer> currentIdxs = new ArrayList<>();
+        for (Sort sort : sorts) {
+            sortScopes.add(sortPolicy.getSortScope(sort));
+            currentIdxs.add(1);
+        }
+
+        do {
+            List<Value> tuple = IntStream.range(0, sorts.size())
+                    .mapToObj(i -> getElement(currentIdxs.get(i), sorts.get(i)))
+                    .collect(Collectors.toList());
+            callback.accept(tuple);
+        } while (nextCombination(currentIdxs, sortScopes));
+    }
+
+    /**
+     * Get the idx'th element of sort, where idx is in [0, scope of sort - 1].
+     * This handles integers properly.
+     */
+    public static Value getElement(int idx, Sort sort) {
+        if (sort.equals(Sort.Int())) {
+            // Cleverly do it without the bitwidth by mapping 0, 1, 2, ... to 0, -1, 1, -2, 2, -3, 3, ...
+            // Cutting off the first 2^n terms in this sequence yields the range [-2^{n-1}, 2^{n-1}-1].
+            // This bijection maps 2n to n and 2n+1 to -(n+1).
+            int integer;
+            if (idx % 2 == 0) {
+                integer = idx/2;
+            } else {
+                integer = -(idx+1)/2;
+            }
+            return IntegerLiteral.apply(integer);
+        } else if (sort.isBuiltin()) {
+            throw new ErrorFatal("Cannot get element of builtin non-Int sort: " + sort);
+        }
+        return Term.mkDomainElement(idx, sort);
     }
 
     /**

@@ -8,7 +8,9 @@ import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.msfol.AnnotatedVar;
+import fortress.msfol.IntegerLiteral;
 import fortress.msfol.Sort;
+import fortress.msfol.Value;
 import fortress.msfol.Var;
 import org.junit.Before;
 import org.junit.Test;
@@ -16,9 +18,13 @@ import org.junit.Test;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
@@ -316,6 +322,30 @@ public class PortusUtilTest {
         Expr expr = x.equal(y).forAll(xDecl);
         List<AnnotatedVar> result = PortusUtil.computeFreeVariables(expr, context, policy);
         assertThat(result, containsInAnyOrder(yVar));
+    }
+
+    @Test
+    public void testGetElement_Int_bitwidth3() {
+        // test {getElement(i, Sort.Int()) : i = 0 to 7} = {-4, -3, -2, -1, 0, 1, 2, 3}
+        Set<Value> elements = IntStream.range(0, 8)
+                .mapToObj(i -> PortusUtil.getElement(i, Sort.Int()))
+                .collect(Collectors.toSet());
+        Set<Value> expected = IntStream.range(-4, 4)
+                .mapToObj(IntegerLiteral::apply)
+                .collect(Collectors.toSet());
+        assertEquals(expected, elements);
+    }
+
+    @Test
+    public void testGetElement_Int_bitwidth5() {
+        // test {getElement(i, Sort.Int()) : i = 0 to 31} = {-16, -15, ..., 14, 15}
+        Set<Value> elements = IntStream.range(0, 32)
+                .mapToObj(i -> PortusUtil.getElement(i, Sort.Int()))
+                .collect(Collectors.toSet());
+        Set<Value> expected = IntStream.range(-16, 16)
+                .mapToObj(IntegerLiteral::apply)
+                .collect(Collectors.toSet());
+        assertEquals(expected, elements);
     }
 
 }

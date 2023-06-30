@@ -3170,8 +3170,9 @@ public class DefaultTranslatorTest {
 
     @Test
     public void testTranslate_sum_oneVar_int() {
-        // test [[sum x: e | f]] := ([[x \in e]] => [[f]] else 0)[x/@1]
-        // where the bitwidth is 0 and @n is the nth domain element in Int, and e is of type Int
+        // test [[sum x: e | f]] := ([[x \in e]] => [[f]] else 0)[x/-1]
+        // where the bitwidth is 0 and e is of type Int
+        // Note that when the bitwidth is 0, the integers are {0, -1}.
         when(mockScoper.getBitwidth()).thenReturn(0);
         ExprVar e = makeTestSmallIntVar("e");
         Decl alloyX = e.oneOf("x");
@@ -3185,10 +3186,10 @@ public class DefaultTranslatorTest {
         // translate [[f]] with a function f(x)
         when(mockRoot.translate(eq(f), any())).then(useTestFunction("f", "x"));
 
-        DomainElement domElem = Term.mkDomainElement(1, Sort.Int());
+        IntegerLiteral intLiteral = IntegerLiteral.apply(-1);
         Term expected = Term.mkIfThenElse(
-                Term.mkApp("inE", domElem),
-                Term.mkApp("f", domElem),
+                Term.mkApp("inE", intLiteral),
+                Term.mkApp("f", intLiteral),
                 IntegerLiteral.apply(0));
         Term result = translator.translate(f.sumOver(alloyX), context);
         assertEquals(expected, result);
@@ -3199,10 +3200,11 @@ public class DefaultTranslatorTest {
 
     @Test
     public void testTranslate_sum_mixedIntNonInt() {
-        // test [[sum x: e1, y: e2 | f]] := (([[x \in e1]] && [[y \in e2]]) => [[f]] else 0)[x/@1u,y/@1i]
-        // where univ has scope 1, bitwidth is 0, @1u is the 1st univ domain element, @1i is the 1st Int domain element,
-        // e1 is in univ and e2 is in Int
+        // test [[sum x: e1, y: e2 | f]] := (([[x \in e1]] && [[y \in e2]]) => [[f]] else 0)[x/@1u,y/-1]
+        // where univ has scope 1, bitwidth is 0, @1u is the 1st univ domain element, e1 is in univ and e2 is in Int
+        // Note that when the bitwidth is 0, the integers are {0, -1}.
         doReturn(1).when(mockSortPolicy).getSortScope(eq(univ));
+        when(mockScoper.getBitwidth()).thenReturn(0);
         Sig.PrimSig sig = new Sig.PrimSig("S");
         ExprVar e1 = makeTestVarWithType("e1", Type.make(sig));
         ExprVar e2 = makeTestSigIntVar("e2");
@@ -3220,12 +3222,12 @@ public class DefaultTranslatorTest {
         when(mockRoot.translate(eq(f), any())).then(useTestFunction("f", "x", "y"));
 
         DomainElement domElemUniv = Term.mkDomainElement(1, univ);
-        DomainElement domElemInt = Term.mkDomainElement(1, Sort.Int());
+        IntegerLiteral intLiteral = IntegerLiteral.apply(-1);
         Term expected = Term.mkIfThenElse(
                 Term.mkAnd(
                         Term.mkApp("inE1", domElemUniv),
-                        Term.mkApp("inE2", domElemInt)),
-                Term.mkApp("f", domElemUniv, domElemInt),
+                        Term.mkApp("inE2", intLiteral)),
+                Term.mkApp("f", domElemUniv, intLiteral),
                 IntegerLiteral.apply(0));
         Term result = translator.translate(f.sumOver(alloyX, alloyY), context);
         assertEquals(expected, result);
@@ -3302,9 +3304,9 @@ public class DefaultTranslatorTest {
 
     @Test
     public void testTranslate_cardinality_binaryWithInt_scope1() {
-        // test [[#e]] := ([[(x0,x1) \in e]] => 1 else 0)[x0/@1u,x1/@1i]
+        // test [[#e]] := ([[(x0,x1) \in e]] => 1 else 0)[x0/@1u,x1/-1]
         // where e is binary with the second sig being Int, univ has scope 1, @nu is the nth domain element in univ,
-        // and @ni is the nth domain element in Int
+        // and bitwidth is 0. Note that when bitwidth is 0, Int = {0, -1}.
         doReturn(1).when(mockSortPolicy).getSortScope(eq(univ));
         Sig.PrimSig sig = new Sig.PrimSig("S");
         ExprVar e = makeTestVarWithType("e", Type.make(sig).product(Type.make(Sig.SIGINT)));
@@ -3319,8 +3321,8 @@ public class DefaultTranslatorTest {
                 });
 
         DomainElement domElemUniv = Term.mkDomainElement(1, univ);
-        DomainElement domElemInt = Term.mkDomainElement(1, Sort.Int());
-        Term expected = Term.mkIfThenElse(Term.mkApp("inE", domElemUniv, domElemInt),
+        IntegerLiteral intLiteral = IntegerLiteral.apply(-1);
+        Term expected = Term.mkIfThenElse(Term.mkApp("inE", domElemUniv, intLiteral),
                 IntegerLiteral.apply(1), IntegerLiteral.apply(0));
         Term result = translator.translate(e.cardinality(), context);
         assertEquals(expected, result);
