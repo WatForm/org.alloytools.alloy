@@ -1093,6 +1093,20 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
         }
         List<AnnotatedVar> vars = new ArrayList<>(arity);
 
+        // HACK: if expr statically evaluates to none, just compute the answer.
+        // TODO: this should be replaced with proper handling of none in SortPolicy.
+        if (isNone(expr, context.varMappingContext)) {
+            switch (quantifier) {
+                case NO:
+                case LONE:
+                    return Term.mkTop();
+                case SOME:
+                    return Term.mkBottom();
+                default:
+                    throw new ErrorFatal("Unsupported quantifier for quantified expression: " + quantifier);
+            }
+        }
+
         List<Sort> exprSorts = sortPolicy.getMinimalExprSorts(expr,
                 "Translating a quantified expression requires the inner expression to have well-defined sorts!",
                 context);
