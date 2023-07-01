@@ -635,15 +635,28 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
      * Is expr "none->none->...->none" for some combination of arrows?
      * Used for an ugly hack to translate "expr in none->...->none" and "expr = none->...->none".
      */ 
-    private boolean isNone(Expr expr) {
-        expr = expr.deNOP();
+    private boolean isNone(Expr expr, VarMappingContext varMappingContext) {
+        expr = PortusUtil.stripPortusNoops(expr);
         if (expr.isSame(Sig.NONE)) {
             return true;
-        }
-        if (expr instanceof ExprBinary) {
+        } else if (expr instanceof ExprBinary) {
             ExprBinary exprBinary = (ExprBinary) expr;
             if (exprBinary.op == ExprBinary.Op.ARROW) {
-                return isNone(exprBinary.left) && isNone(exprBinary.right);
+                // Actually, none->e is none
+                return isNone(exprBinary.left, varMappingContext) || isNone(exprBinary.right, varMappingContext);
+            }
+        } else if (expr instanceof ExprVar) {
+            // dereference let mappings
+            String varLabel = ((ExprVar) expr).label;
+            if (varMappingContext.hasLetMapping(varLabel)) {
+                VarMappingContext.LetContext letContext = varMappingContext.getLetMapping(varLabel);
+                assert letContext != null;
+                try {
+                    letContext.useLetMapping(varMappingContext);
+                    return isNone(letContext.getExpr(), varMappingContext);
+                } finally {
+                    letContext.resetMapping();
+                }
             }
         }
         return false;
@@ -661,10 +674,10 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
         // HACK: We can't handle expressions like "e = none" normally at the moment because we can't determine
         // a sort for none. To get these expressions working for now, we just translate them to "no e".
         // TODO: This should be done properly in the future by changing how SortPolicy handles none (and iden).
-        if (isNone(e1)) {
+        if (isNone(e1, context.varMappingContext)) {
             return recursivelyTranslate(e2.no(), context);
         }
-        if (isNone(e2)) {
+        if (isNone(e2, context.varMappingContext)) {
             return recursivelyTranslate(e1.no(), context);
         }
 
