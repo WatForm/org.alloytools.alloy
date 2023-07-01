@@ -18,7 +18,6 @@ import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Sig;
 import fortress.msfol.AnnotatedVar;
-import fortress.msfol.DomainElement;
 import fortress.msfol.FuncDecl;
 import fortress.msfol.IntegerLiteral;
 import fortress.msfol.Sort;
@@ -31,6 +30,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -89,16 +89,23 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
         }
         String memPredName = context.nameGenerator.freshName("in" + sig.label);
         sigMemberPredicates.put(sig, term -> {
-            // TODO: if sig is the entire sort, don't bother with the predicate and just return Top
             if (!term.getSort().equals(sigSort)) {
                 // Any other sort is not in the signature!
                 return Term.mkBottom();
             }
+            if (sortPolicy.isSigEntireSort(sig)) {
+                // If the sig is the entire sort and term is in the sort, then it's automatically in the sig
+                return Term.mkTop();
+            }
             return Term.mkApp(memPredName, term.getTerm());
         });
-        FuncDecl decl = FuncDecl.mkFuncDecl(memPredName, sigSort, Sort.Bool());
-        sigMemberPredicateDecls.put(sig, decl);
-        context.addFunctionDeclaration(decl);
+
+        if (!sortPolicy.isSigEntireSort(sig)) {
+            // The member predicate is redundant if the sig is the entire sort
+            FuncDecl decl = FuncDecl.mkFuncDecl(memPredName, sigSort, Sort.Bool());
+            sigMemberPredicateDecls.put(sig, decl);
+            context.addFunctionDeclaration(decl);
+        }
 
         if (sig instanceof Sig.PrimSig) {
             Sig.PrimSig primSig = (Sig.PrimSig) sig;
@@ -130,15 +137,20 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
             }
 
             // Generate scope constraints - note that subset sigs have no scope constraints
-            int scope = context.scoper.sig2scope(sig);
-            if (scope == -1) {
-                // -1 is returned when scoper doesn't know the correct scope - fail loudly instead of silently
-                throw new ErrorFatal("Cannot generate scope axiom for sig " + sig.label + " because scope is unknown");
-            }
-            if (context.scoper.isExact(sig)) {
-                context.addAxiom(scopeAxiomStrategy.makeExactScopeAxiom(sig, scope, topLevelTranslator, context));
-            } else {
-                context.addAxiom(scopeAxiomStrategy.makeNonExactScopeAxiom(sig, scope, topLevelTranslator, context));
+            // Also, if sig is the only sig in the sort, skip this: we use Fortress's built-in scopes instead
+            if (!sortPolicy.isSigEntireSort(sig)) {
+                int scope = context.scoper.sig2scope(sig);
+                if (scope == -1) {
+                    // -1 is returned when scoper doesn't know the correct scope - fail loudly instead of silently
+                    throw new ErrorFatal(
+                            "Cannot generate scope axiom for sig " + sig.label + " because scope is unknown");
+                }
+                if (context.scoper.isExact(sig)) {
+                    context.addAxiom(scopeAxiomStrategy.makeExactScopeAxiom(sig, scope, topLevelTranslator, context));
+                } else {
+                    context.addAxiom(scopeAxiomStrategy.makeNonExactScopeAxiom(
+                            sig, scope, topLevelTranslator, context));
+                }
             }
         } else if (sig instanceof Sig.SubsetSig) {
             Sig.SubsetSig subsetSig = (Sig.SubsetSig) sig;
@@ -285,6 +297,11 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
 
     /** Evaluate a sig given a solution. */
     private TupleSet evaluateSig(Sig sig, FortressSolution solution) {
+        // If the sig is the entire sort, the results are the entire sort
+        if (sortPolicy.isSigEntireSort(sig)) {
+            return TupleSet.atoms(solution.getSortAtoms(sortPolicy.getSort(sig)));
+        }
+
         // Evaluate only sigs which we've translated here
         if (!sigMemberPredicateDecls.containsKey(sig)) return null; // not translated here
 
@@ -383,21 +400,25 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
         // Both the rightmost index in the left expression and the leftmost index in the right expression should
         // have compatible sorts: either both the same sort, or one should be indeterminate (null) according to
         // getMinimalExprSorts to signify it's compatible with both. (If both are null, we can't determine a sort.)
+        // If the sorts are incompatible, then there can be no overlap between the rightmost column on the left and
+        // the leftmost column on the right, so we short-circuit to false.
         int partitionIdx = left.type().arity() - 1; // so that adding y gives the arity
         String errorMsg = "Argument of join is ill-typed according to Portus sorts!";
         Sort leftYSort = sortPolicy.getMinimalExprSorts(left, errorMsg, context).get(partitionIdx);
         Sort rightYSort = sortPolicy.getMinimalExprSorts(right, errorMsg, context).get(0);
         Sort ySort;
-        if (leftYSort == null) {
+        if (!SortPolicy.isSortDefinite(leftYSort)) {
             ySort = rightYSort;
-        } else if (rightYSort == null) {
+        } else if (!SortPolicy.isSortDefinite(rightYSort)) {
             ySort = leftYSort;
         } else if (leftYSort != rightYSort) {
-            throw new ErrorFatal("Joined column does not have consistent Fortress sort!");
+            // There cannot be any overlap, so the join is empty
+            // TODO: UNIT TEST THIS
+            return Term.mkBottom();
         } else {
             ySort = leftYSort;
         }
-        if (ySort == null) {
+        if (!SortPolicy.isSortDefinite(ySort)) {
             // technical restriction: we need a definite sort for the exists variable
             throw new ErrorFatal("Joined column requires a definite Portus sort!");
         }
@@ -610,6 +631,24 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
         return Term.mkAnd(conjuncts);
     }
 
+    /**
+     * Is expr "none->none->...->none" for some combination of arrows?
+     * Used for an ugly hack to translate "expr in none->...->none" and "expr = none->...->none".
+     */ 
+    private boolean isNone(Expr expr) {
+        expr = expr.deNOP();
+        if (expr.isSame(Sig.NONE)) {
+            return true;
+        }
+        if (expr instanceof ExprBinary) {
+            ExprBinary exprBinary = (ExprBinary) expr;
+            if (exprBinary.op == ExprBinary.Op.ARROW) {
+                return isNone(exprBinary.left) && isNone(exprBinary.right);
+            }
+        }
+        return false;
+    }
+
     /** Translate the formula "e1 in e2" or "e1 = e2". */
     private Term translateInEq(ExprBinary.Op op, Expr e1, Expr e2, TranslationContext context) {
         // KT figure 4.9: [[e1 in e2]] := forall x1: S1, ..., xn: Sn .
@@ -622,10 +661,10 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
         // HACK: We can't handle expressions like "e = none" normally at the moment because we can't determine
         // a sort for none. To get these expressions working for now, we just translate them to "no e".
         // TODO: This should be done properly in the future by changing how SortPolicy handles none (and iden).
-        if (e1.isSame(Sig.NONE)) {
+        if (isNone(e1)) {
             return recursivelyTranslate(e2.no(), context);
         }
-        if (e2.isSame(Sig.NONE)) {
+        if (isNone(e2)) {
             return recursivelyTranslate(e1.no(), context);
         }
 
@@ -636,20 +675,31 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
         // - in "e1 = e2", e1 and e2 must have equal definite sorts. This disallows tricky cases like "f = iden".
         // - in "e1 in e2", e1 must have definite sorts which are subsets of the (definite or indefinite) sorts of e2.
         //   We will quantify over e1's sorts. This disallows "iden in f" but allows "f in iden", which is common.
-        // Currently we reject formulas that don't meet these standards, but there's room for short-circuiting.
+        // We do the following short-circuiting:
+        // - in both "e1 = e2" and "e1 in e2", if e1 and e2 both have definite sorts in some index which aren't equal,
+        //   we short-circuit to false because they could not possibly match.
+        // There is room for more short-circuiting.
+
         String sortErrMsg = "Both sides in an 'in' or '=' formula must have well-defined Portus sorts!";
         List<Sort> e1Sorts = sortPolicy.getMinimalExprSorts(e1, sortErrMsg, context);
         List<Sort> e2Sorts = sortPolicy.getMinimalExprSorts(e2, sortErrMsg, context);
         assert e1Sorts.size() == e2Sorts.size(); // typechecker should have ensured this
         List<Sort> sorts = new ArrayList<>();
+
         for (int i = 0; i < e1Sorts.size(); i++) {
             // Merge the sorts as described above.
             Sort e1Sort = e1Sorts.get(i), e2Sort = e2Sorts.get(i);
+
+            // If both sorts are definite but different, we know they can't be equal - short-circuit.
+            if (e1Sort != e2Sort && SortPolicy.isSortDefinite(e1Sort) && SortPolicy.isSortDefinite(e2Sort)) {
+                return Term.mkBottom();
+            }
+
             if (op == ExprBinary.Op.EQUALS) {
-                // they must be equal definite sorts: disallow "f = iden"
-                boolean ok = (e1Sort == e2Sort && SortPolicy.isSortDefinite(e1Sort));
+                // they have to be equal definite sorts: disallow "f = iden"
+                boolean ok = (Objects.equals(e1Sort, e2Sort) && SortPolicy.isSortDefinite(e1Sort));
                 if (!ok) {
-                    // TODO: can we short-circuit here? Requires knowing whether there are other sorts
+                    // TODO: can we further short-circuit here? Requires knowing whether there are other sorts
                     throw new ErrorFatal("Both sides of an '=' formula must have the same definite Portus sorts.");
                 }
             } else { // ExprBinary.Op.IN
@@ -657,11 +707,12 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
                 // so we allow "f in iden", but not "iden in f"
                 boolean ok = (SortPolicy.isSortDefinite(e1Sort) && SortPolicy.isSortSubset(e1Sort, e2Sort));
                 if (!ok) {
-                    // TODO: short-circuiting here as well?
+                    // TODO: can we further short-circuit here?
                     throw new ErrorFatal("The left side of an 'in' must have definite Portus sorts that are a" +
                             " subset of the right side's sorts.");
                 }
             }
+
             // Use the left side's sorts in either case (they'll be equal if it's an '=' formula).
             sorts.add(e1Sort);
         }
@@ -885,7 +936,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
         // Translate as "^f(x,y)" or "*f(x,y)" where f is an auxiliary relation f(x,y) = [[(x,y) \in sub]].
         // Also include all the free variables as secondary arguments.
         String auxRelationName = makeClosureBinaryRelation(commonSort, sub, context);
-        List<Term> freeVars = PortusUtil.computeFreeVariables(sub, context).stream()
+        List<Term> freeVars = PortusUtil.computeFreeVariables(sub, context, sortPolicy).stream()
                 .map(AnnotatedVar::variable)
                 .collect(Collectors.toList());
         if (reflexive) {
@@ -913,7 +964,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
         }
 
         // The type of the aux relation is (sort,sort,*extras)->Bool
-        List<AnnotatedVar> freeVars = PortusUtil.computeFreeVariables(expr, context);
+        List<AnnotatedVar> freeVars = PortusUtil.computeFreeVariables(expr, context, sortPolicy);
         List<Sort> auxRelSorts = new ArrayList<>();
         auxRelSorts.add(sort);
         auxRelSorts.add(sort);
@@ -921,7 +972,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
 
         // Use this as the key to compare previous expr/sort combos so that we don't get confused by lets
         // (without this otherwise e.g. with "fun f[x] { ^x }", we'd use the same aux function for all arguments x)
-        Expr expandedExpr = PortusUtil.expandLets(expr, context);
+        Expr expandedExpr = PortusUtil.expandLets(expr, context, sortPolicy);
 
         // Have we already translated this expr/sort combo? If so, use its name.
         for (Pair<Pair<Expr, List<Sort>>, String> exprAndClosureName : auxClosureRelationNames) {
@@ -1127,41 +1178,35 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
 
     // Translate "sum x: e | f" where sub translates [[f]] and condition translates [[x \in e]].
     private Term translateSum(Term sub, Term condition, List<AnnotatedVar> vars, TranslationContext context) {
-        // naive for now: manually expand "sum y: univ | [[y \in e]] => [[f[y/x]]] else 0"
+        // naive for now: manually expand "sum y: sort | [[y \in e]] => [[f[y/x]]] else 0"
         // nest the additions naively left-to-right: ((((1 + 1) + 1) + 1) + ...)
         List<Sort> sorts = new ArrayList<>();
-        List<Integer> sortScopes = new ArrayList<>();
-        List<Integer> currentIdxs = new ArrayList<>(); // indexes of the current domain elements
         for (AnnotatedVar var : vars) {
             Sort sort = var.sort();
             sorts.add(sort);
-            // Note: this is OK for Int because getSortScope(Sort.Int()) returns the number of ints, not the bitwidth
-            sortScopes.add(sortPolicy.getSortScope(sort));
-            currentIdxs.add(1);
 
-            // We're expanding over the domain elements of the sort, so its scope can't be changed arbitrarily
-            // in the output - mark it unchanging
-            context.markSortUnchanging(sort);
+            if (!sort.equals(Sort.Int())) {
+                // We're expanding over the domain elements of the sort, so its scope can't be changed arbitrarily
+                // in the output - mark it unchanging
+                context.markSortUnchanging(sort);
+            }
         }
 
-        Term result = null;
-        do {
-            // substitute with the domain elements for each combination
-            List<DomainElement> domainElements = IntStream.range(0, vars.size())
-                    .mapToObj(i -> DomainElement.apply(currentIdxs.get(i), sorts.get(i)))
-                    .collect(Collectors.toList());
-            Term domElemCondition = PortusUtil.substitute(vars, domainElements, condition);
-            Term domElemSub = PortusUtil.substitute(vars, domainElements, sub);
+        // Use a final one-element array to get around Java limitations: only final vars can be used in lambdas.
+        final Term[] result = {null};
+        PortusUtil.expandOverSorts(sorts, sortPolicy, tuple -> {
+            Term domElemCondition = PortusUtil.substitute(vars, tuple, condition);
+            Term domElemSub = PortusUtil.substitute(vars, tuple, sub);
 
             // add "condition => sub else 0" to the result
             Term addend = Term.mkIfThenElse(domElemCondition, domElemSub, IntegerLiteral.apply(0));
-            if (result == null) {
-                result = addend;
+            if (result[0] == null) {
+                result[0] = addend;
             } else {
-                result = Term.mkPlus(result, addend);
+                result[0] = Term.mkPlus(result[0], addend);
             }
-        } while (PortusUtil.nextCombination(currentIdxs, sortScopes));
-        return result;
+        });
+        return result[0];
     }
 
     /** Translate "tuple \in expr", where expr is an ExprQt. */

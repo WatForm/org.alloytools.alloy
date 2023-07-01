@@ -7,11 +7,11 @@ import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.interpretation.BasicInterpretation;
 import fortress.interpretation.Interpretation;
 import fortress.msfol.AnnotatedVar;
-import fortress.msfol.DomainElement;
 import fortress.msfol.FuncDecl;
 import fortress.msfol.FunctionDefinition;
 import fortress.msfol.IntegerLiteral;
 import fortress.msfol.Sort;
+import fortress.msfol.Term;
 import fortress.msfol.Value;
 import org.junit.Before;
 import org.junit.Test;
@@ -53,7 +53,7 @@ public class FortressSolutionTest {
         Map<Sort, Seq<Value>> sorts = new HashMap<>();
         List<Value> elems = new ArrayList<>();
         for (int i = 1; i <= NUM_UNIV_ELEMS; i++) {
-            elems.add(DomainElement.apply(i, univ));
+            elems.add(Term.mkDomainElement(i, univ));
         }
         sorts.put(univ, CollectionConverters.asScala(elems).toSeq());
         List<Value> intElems = new ArrayList<>();

@@ -127,9 +127,10 @@ public final class PortusLogger implements EventLogger {
     }
 
     private String formatTheoryStats(Theory theory) {
-        return theory.functionDeclarations().size() + " function(s), " +
-                theory.axioms().size() + " axiom(s) with " +
-                new CountSymbolsVisitor().countAxiomSymbols(theory) + " symbol(s).";
+        return theory.sorts().size() + " sorts, " +
+                theory.functionDeclarations().size() + " functions, " +
+                theory.axioms().size() + " axioms with " +
+                new CountSymbolsVisitor().countAxiomSymbols(theory) + " symbols.";
     }
 
     /** A visitor which naively counts the symbols in a term/theory. */

@@ -21,8 +21,10 @@ import fortress.data.IntSuffixNameGenerator;
 import fortress.data.NameGenerator;
 import fortress.msfol.AnnotatedVar;
 import fortress.msfol.DomainElement;
+import fortress.msfol.IntegerLiteral;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
+import fortress.msfol.Value;
 import fortress.msfol.Var;
 import fortress.operations.Substituter;
 import scala.jdk.javaapi.CollectionConverters;
@@ -31,7 +33,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
  * General-purpose utility functions used in Portus.
@@ -227,7 +231,7 @@ final class PortusUtil {
                                       SortPolicy sortPolicy, TranslationContext context) {
         // "forall x: S | !([[x \in sig1]] && [[x \in sig2]])
         Sort sort = sortPolicy.getSort(sig1);
-        if (sort == null || sort != sortPolicy.getSort(sig2)) {
+        if (sort == null || !sort.equals(sortPolicy.getSort(sig2))) {
             // short-circuit: they must be disjoint since they're in different sorts
             return Term.mkTop();
         }
@@ -259,6 +263,47 @@ final class PortusUtil {
     }
 
     /**
+     * Given a list of sorts, call the callback for every tuple of values in the cross product of the sorts.
+     */
+    public static void expandOverSorts(List<Sort> sorts, SortPolicy sortPolicy, Consumer<List<Value>> callback) {
+        List<Integer> sortScopes = new ArrayList<>();
+        List<Integer> currentIdxs = new ArrayList<>();
+        for (Sort sort : sorts) {
+            sortScopes.add(sortPolicy.getSortScope(sort));
+            currentIdxs.add(1);
+        }
+
+        do {
+            List<Value> tuple = IntStream.range(0, sorts.size())
+                    .mapToObj(i -> getElement(currentIdxs.get(i), sorts.get(i)))
+                    .collect(Collectors.toList());
+            callback.accept(tuple);
+        } while (nextCombination(currentIdxs, sortScopes));
+    }
+
+    /**
+     * Get the idx'th element of sort, where idx is in [0, scope of sort - 1].
+     * This handles integers properly.
+     */
+    public static Value getElement(int idx, Sort sort) {
+        if (sort.equals(Sort.Int())) {
+            // Cleverly do it without the bitwidth by mapping 0, 1, 2, ... to 0, -1, 1, -2, 2, -3, 3, ...
+            // Cutting off the first 2^n terms in this sequence yields the range [-2^{n-1}, 2^{n-1}-1].
+            // This bijection maps 2n to n and 2n+1 to -(n+1).
+            int integer;
+            if (idx % 2 == 0) {
+                integer = idx/2;
+            } else {
+                integer = -(idx+1)/2;
+            }
+            return IntegerLiteral.apply(integer);
+        } else if (sort.isBuiltin()) {
+            throw new ErrorFatal("Cannot get element of builtin non-Int sort: " + sort);
+        }
+        return Term.mkDomainElement(idx, sort);
+    }
+
+    /**
      * Convert an iterable to a list. Java doesn't make this as easy as it should be.
      */
     public static <T> List<T> iterableToList(Iterable<T> iterable) {
@@ -271,10 +316,11 @@ final class PortusUtil {
      * Get a list of the variables which are free in the translation of expr, with sorts determined by the context
      * (which should assign a Fortress var for each free Alloy var).
      */
-    public static List<AnnotatedVar> computeFreeVariables(Expr expr, final TranslationContext context) {
+    public static List<AnnotatedVar> computeFreeVariables(
+            Expr expr, TranslationContext context, SortPolicy sortPolicy) {
         // TODO: find sorts of free vars via earlier quantifiers
         // simple recursive implementation
-        return expr.accept(new ContextVisitReturn<List<AnnotatedVar>>(context) {
+        return expr.accept(new ContextVisitReturn<List<AnnotatedVar>>(context, sortPolicy) {
             @SafeVarargs
             private final List<AnnotatedVar> union(List<AnnotatedVar>... lists) {
                 // this is O(n^2) to union two lists of length n, but this shouldn't be a bottleneck
@@ -331,7 +377,7 @@ final class PortusUtil {
                 List<AnnotatedVar> freeVars = argResults.stream().reduce(new ArrayList<>(), this::union);
                 List<AnnotatedVar> subFreeVars = visitThis(x.sub);
                 return union(freeVars, subFreeVars.stream()
-                        .filter(var -> !var.equals(boundPlaceholderVar))
+                        .filter(var -> !var.variable().equals(boundPlaceholderVar))
                         .collect(Collectors.toList()));
             }
 
@@ -394,12 +440,12 @@ final class PortusUtil {
     /**
      * Expand all the 'let's in an expression, for use when disambiguating expressions.
      */
-    public static Expr expandLets(Expr expr, final TranslationContext originalContext) {
+    public static Expr expandLets(Expr expr, TranslationContext originalContext, SortPolicy sortPolicy) {
         // note: this is vulnerable to exponential blowup in cases like
         // let x1=A+A | let x2=x1+x1 | let x3=x2+x2 | ... | let x64=x63+x63 | f[x64]
         // which will cause us to generate a union of 2^64 A's (!!)
         // but let's assume our users aren't evil enough to do that, eh?
-        return expr.accept(new ContextVisitReturn<Expr>(originalContext) {
+        return expr.accept(new ContextVisitReturn<Expr>(originalContext, sortPolicy) {
             @Override
             public Expr visit(ExprBinary x) throws Err {
                 return x.op.make(null, null, visitThis(x.left), visitThis(x.right));

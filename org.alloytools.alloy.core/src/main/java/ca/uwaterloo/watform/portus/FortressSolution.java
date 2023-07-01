@@ -38,6 +38,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -92,7 +93,7 @@ public final class FortressSolution implements AlloySolution {
             List<Value> fortressAtoms = new ArrayList<>();
             for (Sort sort : sortInterpretations.keySet()) {
                 // Booleans will cause an error if they're included in the universe, so manually exclude them if needed
-                if (sort == Sort.Bool()) {
+                if (Objects.equals(sort, Sort.Bool())) {
                     continue;
                 }
 
@@ -279,7 +280,7 @@ public final class FortressSolution implements AlloySolution {
         }
 
         TupleSet result = interpretation.functionInterpretationsJava().get(func).entrySet().stream()
-                .filter(entry -> entry.getValue() == output)
+                .filter(entry -> Objects.equals(entry.getValue(), output))
                 .map(Map.Entry::getKey)
                 .collect(TupleSet.collect(func.arity()));
 
@@ -307,7 +308,7 @@ public final class FortressSolution implements AlloySolution {
                 .map(value -> {
                     if (value instanceof IntegerLiteral) {
                         return ((IntegerLiteral) value).value();
-                    } else if (value == Term.mkTop() || value == Term.mkBottom()) {
+                    } else if (Term.mkTop().equals(value) || Term.mkBottom().equals(value)) {
                         throw new ErrorFatal("Booleans are invalid in Kodkod tuples!");
                     } else {
                         return value;

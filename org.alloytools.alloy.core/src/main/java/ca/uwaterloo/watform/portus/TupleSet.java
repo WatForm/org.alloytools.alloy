@@ -17,6 +17,7 @@ import java.util.Set;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 /**
  * A set of Fortress tuples, for use when evaluating. Immutable.
@@ -51,6 +52,12 @@ final class TupleSet {
 
     public static TupleSet singleton(Value value) {
         return singleton(Collections.singletonList(value));
+    }
+
+    public static TupleSet atoms(Iterable<Value> atoms) {
+        return StreamSupport.stream(atoms.spliterator(), false)
+                .map(Collections::singletonList)
+                .collect(TupleSet.collect(1));
     }
 
     public static TupleSet from(Set<List<Value>> tuples) {
@@ -179,7 +186,7 @@ final class TupleSet {
     public boolean isPureBoolean() {
         if (!isSingleton()) return false;
         Value singletonValue = getSingletonValue();
-        return singletonValue == Term.mkTop() || singletonValue == Term.mkBottom();
+        return Objects.equals(singletonValue, Term.mkTop()) || Objects.equals(singletonValue, Term.mkBottom());
     }
 
     /** Assuming this TupleSet is a pure boolean, get its value as a Java boolean. */
@@ -188,7 +195,7 @@ final class TupleSet {
             throw new ErrorFatal("Cannot get boolean value of a non-pure-boolean set!");
         }
         Value pureBooleanValue = getSingletonValue();
-        return pureBooleanValue == Term.mkTop();
+        return Objects.equals(pureBooleanValue, Term.mkTop());
     }
 
     /** Return whether this TupleSet is of the form {(n)} for some integer n. */
@@ -239,7 +246,7 @@ final class TupleSet {
         // So convert if necessary.
         if (value instanceof IntegerLiteral) {
             return ((IntegerLiteral) value).value();
-        } else if (value == Term.mkTop() || value == Term.mkBottom()) {
+        } else if (Objects.equals(value, Term.mkTop()) || Objects.equals(value, Term.mkBottom())) {
             // Booleans aren't valid Kodkod tuple values (they're treated specially),
             // so we need to handle them specially
             throw new ErrorFatal("Booleans are not valid in Kodkod tuples!");

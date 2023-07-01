@@ -1,6 +1,7 @@
 package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.Err;
+import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.ast.Assert;
 import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
@@ -17,9 +18,9 @@ import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Func;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.parser.Macro;
-import fortress.msfol.AnnotatedVar;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
+import fortress.msfol.Var;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,17 +35,19 @@ import java.util.List;
 abstract class ContextVisitReturn<T> extends FortressVisitReturn<T> {
 
     protected final VarMappingContext varMappingContext;
+    private final SortPolicy sortPolicy;
 
-    // The placeholder which bound variables will be mapped to in the context.
-    protected final AnnotatedVar boundPlaceholderVar = Term.mkVar("%boundPlaceholderVar").of(Sort.Int());
+    // The placeholder which bound variables will be mapped to in the context. The sort varies.
+    protected final Var boundPlaceholderVar = Term.mkVar("%boundPlaceholderVar");
 
-    public ContextVisitReturn(VarMappingContext varMappingContext) {
+    public ContextVisitReturn(VarMappingContext varMappingContext, SortPolicy sortPolicy) {
         // Don't copy because rangeAssigner has side effects which need to be persisted
         this.varMappingContext = varMappingContext;
+        this.sortPolicy = sortPolicy;
     }
 
-    public ContextVisitReturn(TranslationContext context) {
-        this(context.varMappingContext);
+    public ContextVisitReturn(TranslationContext context, SortPolicy sortPolicy) {
+        this(context.varMappingContext, sortPolicy);
     }
 
     @Override
@@ -66,7 +69,18 @@ abstract class ContextVisitReturn<T> extends FortressVisitReturn<T> {
         for (Decl decl : x.decls) {
             for (ExprHasName name : decl.names) {
                 argResults.add(visitQuantifierArg(decl.expr));
-                varMappingContext.addTermMapping(name.label, new AnnotatedTerm(boundPlaceholderVar));
+
+                // TODO: this boundPlaceholderVar thing is EVIL and DUMB and causing issues in PartitionSortPolicy
+                // because it causes the VarMappingContext to hold on to sorts from the past that are no longer valid
+                // figure out something better, probably implementation-specific
+                List<Sort> sorts = sortPolicy.getMinimalExprSorts(
+                        name, "Quantifier decl expression must have well-defined sorts!", varMappingContext);
+                // We only support arity 1
+                if (sorts.size() > 1) {
+                    throw new ErrorFatal("Portus only supports unary quantifier decl expressions!");
+                }
+                Sort sort = sorts.get(0);
+                varMappingContext.addTermMapping(name.label, new AnnotatedTerm(boundPlaceholderVar.of(sort)));
             }
         }
         try {
@@ -117,8 +131,8 @@ abstract class ContextVisitReturn<T> extends FortressVisitReturn<T> {
 
     /** A base implementation of ContextVisitReturn that by default returns null from each method. */
     public static class Default<T> extends ContextVisitReturn<T> {
-        public Default(TranslationContext context) {
-            super(context);
+        public Default(TranslationContext context, SortPolicy sortPolicy) {
+            super(context, sortPolicy);
         }
 
         @Override

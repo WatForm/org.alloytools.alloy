@@ -20,6 +20,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * A translator for the function optimization, based on KT 5.5.
@@ -330,7 +331,7 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
         AnnotatedTerm scalar = scalarResult.a;
         Term guard = scalarResult.b;
 
-        if (scalar.getSort() != Sort.Int()) {
+        if (!Objects.equals(scalar.getSort(), Sort.Int())) {
             throw new ErrorFatal("A join used as an expression must be of the integer type");
         }
 
@@ -461,7 +462,7 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
             int arity = expr.type().arity();
 
             // TODO: this is overkill, if this is a bottleneck then just write a search-for-free-var routine
-            boolean hasThis = PortusUtil.computeFreeVariables(expr, context).stream()
+            boolean hasThis = PortusUtil.computeFreeVariables(expr, context, sortPolicy).stream()
                     .anyMatch(var -> var.name().equals("this"));
 
             TupleSet exprResult;

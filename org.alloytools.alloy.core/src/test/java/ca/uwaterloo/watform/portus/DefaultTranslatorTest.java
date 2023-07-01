@@ -1738,6 +1738,26 @@ public class DefaultTranslatorTest {
     }
 
     @Test
+    public void testTranslate_in_mixedSortsShortCircuits() {
+        // test [[e1 in e2]] short circuits to false when e1 and e2 are of different sorts
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e1 = makeTestVarWithType("e1", Type.make(sig));
+        Term result = translator.translate(e1.in(ExprConstant.makeNUMBER(1)), context);
+        assertEquals(Term.mkBottom(), result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_eq_mixedSortsShortCircuits() {
+        // test [[e1 = e2]] short circuits to false when e1 and e2 are of different sorts
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e1 = makeTestVarWithType("e1", Type.make(sig));
+        Term result = translator.translate(e1.equal(ExprConstant.makeNUMBER(1)), context);
+        assertEquals(Term.mkBottom(), result);
+        assertContextEmpty();
+    }
+
+    @Test
     public void testTranslate_inOneOf() {
         // test [[e1 in ONEOF(e2)]] := (forall x: univ . [[x \in ONEOF(e1)]] => [[x \in e2]]) && [[one ONEOF(e2)]]
         // there's some unnecessary mult wrapping, but they're treated like noops so it's fine
@@ -3011,7 +3031,7 @@ public class DefaultTranslatorTest {
         // translate [[f]] with a function f(x)
         when(mockRoot.translate(eq(f), any())).then(useTestFunction("f", "x"));
 
-        DomainElement domElem = DomainElement.apply(1, univ);
+        DomainElement domElem = Term.mkDomainElement(1, univ);
         Term expected = Term.mkIfThenElse(
                 Term.mkApp("inE", domElem),
                 Term.mkApp("f", domElem),
@@ -3041,8 +3061,8 @@ public class DefaultTranslatorTest {
         // translate [[f]] with a function f(x)
         when(mockRoot.translate(eq(f), any())).then(useTestFunction("f", "x"));
 
-        DomainElement domElem1 = DomainElement.apply(1, univ);
-        DomainElement domElem2 = DomainElement.apply(2, univ);
+        DomainElement domElem1 = Term.mkDomainElement(1, univ);
+        DomainElement domElem2 = Term.mkDomainElement(2, univ);
         Term expected = Term.mkPlus(
                 Term.mkIfThenElse(
                     Term.mkApp("inE", domElem1),
@@ -3080,7 +3100,7 @@ public class DefaultTranslatorTest {
         // translate [[f]] with a function f(x,y)
         when(mockRoot.translate(eq(f), any())).then(useTestFunction("f", "x", "y"));
 
-        DomainElement domElem = DomainElement.apply(1, univ);
+        DomainElement domElem = Term.mkDomainElement(1, univ);
         Term expected = Term.mkIfThenElse(
                 Term.mkAnd(
                         Term.mkApp("inE1", domElem),
@@ -3119,8 +3139,8 @@ public class DefaultTranslatorTest {
         // translate [[f]] with a function f(x,y)
         when(mockRoot.translate(eq(f), any())).then(useTestFunction("f", "x", "y"));
 
-        DomainElement domElem1 = DomainElement.apply(1, univ);
-        DomainElement domElem2 = DomainElement.apply(2, univ);
+        DomainElement domElem1 = Term.mkDomainElement(1, univ);
+        DomainElement domElem2 = Term.mkDomainElement(2, univ);
         Term expected = Term.mkPlus(
                 Term.mkPlus(
                     Term.mkPlus(
@@ -3150,8 +3170,9 @@ public class DefaultTranslatorTest {
 
     @Test
     public void testTranslate_sum_oneVar_int() {
-        // test [[sum x: e | f]] := ([[x \in e]] => [[f]] else 0)[x/@1]
-        // where the bitwidth is 0 and @n is the nth domain element in Int, and e is of type Int
+        // test [[sum x: e | f]] := ([[x \in e]] => [[f]] else 0)[x/-1]
+        // where the bitwidth is 0 and e is of type Int
+        // Note that when the bitwidth is 0, the integers are {0, -1}.
         when(mockScoper.getBitwidth()).thenReturn(0);
         ExprVar e = makeTestSmallIntVar("e");
         Decl alloyX = e.oneOf("x");
@@ -3165,10 +3186,10 @@ public class DefaultTranslatorTest {
         // translate [[f]] with a function f(x)
         when(mockRoot.translate(eq(f), any())).then(useTestFunction("f", "x"));
 
-        DomainElement domElem = DomainElement.apply(1, Sort.Int());
+        IntegerLiteral intLiteral = IntegerLiteral.apply(-1);
         Term expected = Term.mkIfThenElse(
-                Term.mkApp("inE", domElem),
-                Term.mkApp("f", domElem),
+                Term.mkApp("inE", intLiteral),
+                Term.mkApp("f", intLiteral),
                 IntegerLiteral.apply(0));
         Term result = translator.translate(f.sumOver(alloyX), context);
         assertEquals(expected, result);
@@ -3179,10 +3200,11 @@ public class DefaultTranslatorTest {
 
     @Test
     public void testTranslate_sum_mixedIntNonInt() {
-        // test [[sum x: e1, y: e2 | f]] := (([[x \in e1]] && [[y \in e2]]) => [[f]] else 0)[x/@1u,y/@1i]
-        // where univ has scope 1, bitwidth is 0, @1u is the 1st univ domain element, @1i is the 1st Int domain element,
-        // e1 is in univ and e2 is in Int
+        // test [[sum x: e1, y: e2 | f]] := (([[x \in e1]] && [[y \in e2]]) => [[f]] else 0)[x/@1u,y/-1]
+        // where univ has scope 1, bitwidth is 0, @1u is the 1st univ domain element, e1 is in univ and e2 is in Int
+        // Note that when the bitwidth is 0, the integers are {0, -1}.
         doReturn(1).when(mockSortPolicy).getSortScope(eq(univ));
+        when(mockScoper.getBitwidth()).thenReturn(0);
         Sig.PrimSig sig = new Sig.PrimSig("S");
         ExprVar e1 = makeTestVarWithType("e1", Type.make(sig));
         ExprVar e2 = makeTestSigIntVar("e2");
@@ -3199,13 +3221,13 @@ public class DefaultTranslatorTest {
         // translate [[f]] with a function f(x,y)
         when(mockRoot.translate(eq(f), any())).then(useTestFunction("f", "x", "y"));
 
-        DomainElement domElemUniv = DomainElement.apply(1, univ);
-        DomainElement domElemInt = DomainElement.apply(1, Sort.Int());
+        DomainElement domElemUniv = Term.mkDomainElement(1, univ);
+        IntegerLiteral intLiteral = IntegerLiteral.apply(-1);
         Term expected = Term.mkIfThenElse(
                 Term.mkAnd(
                         Term.mkApp("inE1", domElemUniv),
-                        Term.mkApp("inE2", domElemInt)),
-                Term.mkApp("f", domElemUniv, domElemInt),
+                        Term.mkApp("inE2", intLiteral)),
+                Term.mkApp("f", domElemUniv, intLiteral),
                 IntegerLiteral.apply(0));
         Term result = translator.translate(f.sumOver(alloyX, alloyY), context);
         assertEquals(expected, result);
@@ -3248,7 +3270,7 @@ public class DefaultTranslatorTest {
                     return Term.mkApp("inE", translated.tuple.getTerm(0));
                 });
 
-        DomainElement domElem = DomainElement.apply(1, univ);
+        DomainElement domElem = Term.mkDomainElement(1, univ);
         Term expected = Term.mkIfThenElse(Term.mkApp("inE", domElem), IntegerLiteral.apply(1), IntegerLiteral.apply(0));
         Term result = translator.translate(e.cardinality(), context);
         assertEquals(expected, result);
@@ -3272,7 +3294,7 @@ public class DefaultTranslatorTest {
                     return Term.mkApp("inE", translated.tuple.getTerm(0), translated.tuple.getTerm(1));
                 });
 
-        DomainElement domElem = DomainElement.apply(1, univ);
+        DomainElement domElem = Term.mkDomainElement(1, univ);
         Term expected = Term.mkIfThenElse(Term.mkApp("inE", domElem, domElem),
                 IntegerLiteral.apply(1), IntegerLiteral.apply(0));
         Term result = translator.translate(e.cardinality(), context);
@@ -3282,9 +3304,9 @@ public class DefaultTranslatorTest {
 
     @Test
     public void testTranslate_cardinality_binaryWithInt_scope1() {
-        // test [[#e]] := ([[(x0,x1) \in e]] => 1 else 0)[x0/@1u,x1/@1i]
+        // test [[#e]] := ([[(x0,x1) \in e]] => 1 else 0)[x0/@1u,x1/-1]
         // where e is binary with the second sig being Int, univ has scope 1, @nu is the nth domain element in univ,
-        // and @ni is the nth domain element in Int
+        // and bitwidth is 0. Note that when bitwidth is 0, Int = {0, -1}.
         doReturn(1).when(mockSortPolicy).getSortScope(eq(univ));
         Sig.PrimSig sig = new Sig.PrimSig("S");
         ExprVar e = makeTestVarWithType("e", Type.make(sig).product(Type.make(Sig.SIGINT)));
@@ -3298,9 +3320,9 @@ public class DefaultTranslatorTest {
                     return Term.mkApp("inE", translated.tuple.getTerm(0), translated.tuple.getTerm(1));
                 });
 
-        DomainElement domElemUniv = DomainElement.apply(1, univ);
-        DomainElement domElemInt = DomainElement.apply(1, Sort.Int());
-        Term expected = Term.mkIfThenElse(Term.mkApp("inE", domElemUniv, domElemInt),
+        DomainElement domElemUniv = Term.mkDomainElement(1, univ);
+        IntegerLiteral intLiteral = IntegerLiteral.apply(-1);
+        Term expected = Term.mkIfThenElse(Term.mkApp("inE", domElemUniv, intLiteral),
                 IntegerLiteral.apply(1), IntegerLiteral.apply(0));
         Term result = translator.translate(e.cardinality(), context);
         assertEquals(expected, result);
@@ -3323,8 +3345,8 @@ public class DefaultTranslatorTest {
                     return Term.mkApp("inE", translated.tuple.getTerm(0));
                 });
 
-        DomainElement domElem1 = DomainElement.apply(1, univ);
-        DomainElement domElem2 = DomainElement.apply(2, univ);
+        DomainElement domElem1 = Term.mkDomainElement(1, univ);
+        DomainElement domElem2 = Term.mkDomainElement(2, univ);
         Term expected = Term.mkPlus(
                 Term.mkIfThenElse(Term.mkApp("inE", domElem1), IntegerLiteral.apply(1), IntegerLiteral.apply(0)),
                 Term.mkIfThenElse(Term.mkApp("inE", domElem2), IntegerLiteral.apply(1), IntegerLiteral.apply(0)));
@@ -3353,8 +3375,8 @@ public class DefaultTranslatorTest {
                     return Term.mkApp("inE", translated.tuple.getTerm(0), translated.tuple.getTerm(1));
                 });
 
-        DomainElement domElem1 = DomainElement.apply(1, univ);
-        DomainElement domElem2 = DomainElement.apply(2, univ);
+        DomainElement domElem1 = Term.mkDomainElement(1, univ);
+        DomainElement domElem2 = Term.mkDomainElement(2, univ);
         Term expected = Term.mkPlus(
                 Term.mkPlus(
                         Term.mkPlus(
@@ -4180,7 +4202,7 @@ public class DefaultTranslatorTest {
     }
 
     @Test
-    public void testTranslate_binaryOperationExpression_mixedIntNonInt_fails() {
+    public void testTranslate_binaryOperationIntegerExpression_mixedIntNonInt_fails() {
         // test [[S X 2]] fails for select binary operations X, since we disallow mixing integers with non-integers
         Sig.PrimSig sig = new Sig.PrimSig("S");
         delegateToRealTranslator();
@@ -4190,10 +4212,6 @@ public class DefaultTranslatorTest {
                 ExprBinary.Op.MUL,
                 ExprBinary.Op.DIV,
                 ExprBinary.Op.REM,
-                ExprBinary.Op.EQUALS,
-                ExprBinary.Op.NOT_EQUALS,
-                ExprBinary.Op.IN,
-                ExprBinary.Op.NOT_IN,
                 ExprBinary.Op.GT,
                 ExprBinary.Op.NOT_GT,
                 ExprBinary.Op.GTE,

@@ -205,7 +205,7 @@ final class TranslationContext {
     /** Configure a model finder's theory and scopes to check this translation. */
     public void configureModelFinder(ModelFinder finder, SortPolicy sortPolicy) {
         finder.setTheory(theory);
-        sortPolicy.configureModelFinderScopes(finder, unchangingSorts);
+        sortPolicy.configureModelFinderScopes(finder, unchangingSorts, scoper);
         // TODO - allow configuring modular vs unbounded ints?
     }
 
@@ -216,7 +216,7 @@ final class TranslationContext {
 
     /** Given a sort policy, use its information with our unchanging sort list to get the sort to scope map. */
     public Map<Sort, Scope> getSortToScopeMap(SortPolicy sortPolicy) {
-        return sortPolicy.getSortToScopeMap(unchangingSorts);
+        return sortPolicy.getSortToScopeMap(unchangingSorts, scoper);
     }
 
     /**

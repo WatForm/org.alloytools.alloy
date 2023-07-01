@@ -6,9 +6,14 @@ import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprCall;
 import edu.mit.csail.sdg.ast.ExprVar;
+import fortress.msfol.Sort;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+import java.util.Stack;
 
 /**
  * Responsible for keeping track of the current lexical scope's mapping from Alloy variables to Fortress Terms
@@ -136,6 +141,45 @@ final class VarMappingContext {
         }
     }
 
+    /** Replace all instances of sort "from" with sort "to", useful if sorts have been semantically merged. */
+    public void replaceSort(Sort from, Sort to) {
+        replaceSortInEnv(alloyVarMapping, from, to);
+    }
+
+    private static void replaceSortInEnv(Env<String, Either<AnnotatedTerm, LetContext>> env, Sort from, Sort to) {
+        Set<String> keys = new HashSet<>(env.keySet());
+        Stack<Either<AnnotatedTerm, LetContext>> stack = new Stack<>();
+    
+        for (String key : keys) {
+            // Env acts as a stack: remove everything from env and push it onto a temp stack
+            while (env.has(key)) {
+                Either<AnnotatedTerm, LetContext> value = env.get(key);
+                env.remove(key);
+                stack.push(replaceSortInEither(value, from, to));
+            }
+
+            // Now put the stack back into the env.
+            while (!stack.empty()) {
+                env.put(key, stack.pop());
+            }
+        }
+    }
+
+    private static Either<AnnotatedTerm, LetContext> replaceSortInEither(
+            Either<AnnotatedTerm, LetContext> either, Sort from, Sort to) {
+        if (either.hasFirst()) {
+            AnnotatedTerm term = either.getFirst();
+            if (Objects.equals(term.getSort(), from)) {
+                term = new AnnotatedTerm(term.getTerm(), to);
+            }
+            return Either.asFirst(term);
+        } else { // either.hasSecond()
+            LetContext context = either.getSecond();
+            context.replaceSort(from, to);
+            return Either.asSecond(context);
+        }
+    }
+
     /**
      * Represents the expression that an ExprVar is mapped to in "let" or a function/predicate call, as well as
      * some metadata.
@@ -204,6 +248,23 @@ final class VarMappingContext {
             mappedContext.alloyVarMapping = oldMapping;
             oldMapping = null;
             mappedContext = null;
+        }
+
+        private boolean replacingSort = false;
+
+        public void replaceSort(Sort from, Sort to) {
+            // Hack: avoid reentrancy since this data structure could be cyclic
+            if (replacingSort) {
+                return;
+            }
+            replacingSort = true;
+
+            replaceSortInEnv(savedVarMapping, from, to);
+            if (oldMapping != null) {
+                replaceSortInEnv(oldMapping, from, to);
+            }
+
+            replacingSort = false;
         }
     }
 

@@ -24,6 +24,7 @@ import fortress.msfol.Term;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * A scalar caster which casts simple expressions to scalars which don't need any additional state.
@@ -68,7 +69,7 @@ final class DefaultScalarCaster implements ScalarCaster {
 
     @Override
     public Pair<AnnotatedTerm, Term> castToScalar(Expr expr, TranslationContext context) {
-        return new ContextVisitReturn<Pair<AnnotatedTerm, Term>>(context) {
+        return new ContextVisitReturn<Pair<AnnotatedTerm, Term>>(context, sortPolicy) {
             private Pair<AnnotatedTerm, Term> castByTranslating(Expr expr, Sort sort) {
                 // Translate as an expression of type `sort` and just use that
                 Term scalar = translator.translate(expr, context);
@@ -150,7 +151,7 @@ final class DefaultScalarCaster implements ScalarCaster {
                 Term rightGuard = rightScalarAndGuard.b;
 
                 // If the sorts aren't compatible, let someone else deal with it
-                if (leftScalar.getSort() != rightScalar.getSort()) {
+                if (!Objects.equals(leftScalar.getSort(), rightScalar.getSort())) {
                     return null;
                 }
                 Sort sort = leftScalar.getSort();
@@ -165,18 +166,7 @@ final class DefaultScalarCaster implements ScalarCaster {
 
             @Override
             public Pair<AnnotatedTerm, Term> visit(Sig sig) {
-                // it could be a one sig
-                // subset sigs aren't supported by RangeAssigner, so don't bother since they aren't common
-                if (sig.isOne != null && sig instanceof Sig.PrimSig) {
-                    // use its first/only domain element as the term
-                    context.rangeAssigner.addRangeAxiom(sig, translator, sortPolicy, context);
-                    Term domainElement = PortusUtil.getOneSigDomainElement((Sig.PrimSig) sig, sortPolicy, context);
-                    Sort sort = sortPolicy.getSort(sig);
-
-                    // no guard on the domain element usage is needed, and there should be no free variables
-                    List<AnnotatedVar> freeVars = ConstList.make();
-                    return new Pair<>(new AnnotatedTerm(domainElement, sort, freeVars), Term.mkTop());
-                }
+                // one sigs are handled in OneSigOptTranslator
                 return null;
             }
 

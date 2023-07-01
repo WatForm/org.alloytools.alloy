@@ -17,6 +17,7 @@ import fortress.msfol.Term;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * The ordering module optimization, where we hardcode a "next" function and a "first" element
@@ -118,7 +119,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
             AnnotatedTerm term = tuple.getAnnotatedTerm(0);
             AnnotatedTerm first = getFirstScalar(context);
 
-            if (term.getSort() != first.getSort()) {
+            if (!Objects.equals(term.getSort(), first.getSort())) {
                 // Short-circuit: sorts are mismatched, can't be equal
                 return Term.mkBottom();
             }
@@ -132,7 +133,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
 
             // Short-circuit if the sorts are wrong
             Sort sort = sortPolicy.getSort(sig);
-            if (tuple.getSort(0) != sort || tuple.getSort(1) != sort) {
+            if (!Objects.equals(tuple.getSort(0), sort) || !Objects.equals(tuple.getSort(1), sort)) {
                 return Term.mkBottom();
             }
 
@@ -151,13 +152,13 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
             context.rangeAssigner.addRangeAxiom(sig, topLevelTranslator, sortPolicy, context); // ensure range is valid
             Sort sort = sortPolicy.getSort(sig);
             Pair<Integer, Integer> range = context.rangeAssigner.getDomainElementRange(sig, sortPolicy, context);
-            return new AnnotatedTerm(DomainElement.apply(range.a, sort), sort, Collections.emptyList());
+            return new AnnotatedTerm(Term.mkDomainElement(range.a, sort), sort, Collections.emptyList());
         }
 
         public Pair<AnnotatedTerm, Term> getNextScalarAndGuard(AnnotatedTerm left, TranslationContext context) {
             context.rangeAssigner.addRangeAxiom(sig, topLevelTranslator, sortPolicy, context); // ensure range is valid
             Sort sort = sortPolicy.getSort(sig);
-            if (left.getSort() != sort) {
+            if (!Objects.equals(left.getSort(), sort)) {
                 // Sorts don't match - ignore
                 return null;
             }
@@ -165,7 +166,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
             // Use [[x \in sig]] && x != last as the guard, and next(x) as the scalar
             // We check x != last because next(last) is left undefined, and x \in sig to avoid extraneous entries
             Pair<Integer, Integer> range = context.rangeAssigner.getDomainElementRange(sig, sortPolicy, context);
-            DomainElement lastDE = DomainElement.apply(range.b, sort);
+            DomainElement lastDE = Term.mkDomainElement(range.b, sort);
 
             Term guard = Term.mkAnd(
                     recursivelyTranslate(ExprElementOf.make(left, sig), context),
@@ -191,8 +192,8 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
             for (int de = deRange.a; de < deRange.b; de++) {
                 // "next(_@de) = _@(de+1)"
                 Term axiom = Term.mkEq(
-                        Term.mkApp(nextFuncName, DomainElement.apply(de, sort)),
-                        DomainElement.apply(de + 1, sort));
+                        Term.mkApp(nextFuncName, Term.mkDomainElement(de, sort)),
+                        Term.mkDomainElement(de + 1, sort));
                 context.addAxiom(axiom);
             }
         }
@@ -357,7 +358,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
 
         // Strip any noops and go through any call/let indirection
         // (Note: this returns null for each unmentioned node, not natural recursion.)
-        return new ContextVisitReturn.Default<Pair<AnnotatedTerm, Term>>(context) {
+        return new ContextVisitReturn.Default<Pair<AnnotatedTerm, Term>>(context, sortPolicy) {
             @Override
             public Pair<AnnotatedTerm, Term> visit(ExprUnary x) {
                 // Strip any noops

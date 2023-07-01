@@ -8,7 +8,6 @@ import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.ScopeComputer;
-import fortress.msfol.DomainElement;
 import fortress.msfol.FuncDecl;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
@@ -104,11 +103,11 @@ public class OrderingModuleOptTranslatorTest {
         Set<Term> axioms = CollectionConverters.<Term>asJava(context.getTheory().axioms());
         assertThat(axioms, containsInAnyOrder(
                 Term.mkEq(
-                        Term.mkApp(nextFunc.name(), DomainElement.apply(1, orderedSigSort)),
-                        DomainElement.apply(2, orderedSigSort)),
+                        Term.mkApp(nextFunc.name(), Term.mkDomainElement(1, orderedSigSort)),
+                        Term.mkDomainElement(2, orderedSigSort)),
                 Term.mkEq(
-                        Term.mkApp(nextFunc.name(), DomainElement.apply(2, orderedSigSort)),
-                        DomainElement.apply(3, orderedSigSort))));
+                        Term.mkApp(nextFunc.name(), Term.mkDomainElement(2, orderedSigSort)),
+                        Term.mkDomainElement(3, orderedSigSort))));
 
         // the range axiom should also be generated eagerly
         verify(rangeAssigner, atLeastOnce()).addRangeAxiom(eq(orderedSig), any(), any(), any());
@@ -124,7 +123,7 @@ public class OrderingModuleOptTranslatorTest {
         Var x = Term.mkVar("x");
         Term result = translator.translate(ExprElementOf.make(
                 TermTuple.fromVars(x.of(orderedSigSort)), ordSig.join(firstField)), context);
-        assertEquals(Term.mkEq(x, DomainElement.apply(1, orderedSigSort)), result);
+        assertEquals(Term.mkEq(x, Term.mkDomainElement(1, orderedSigSort)), result);
     }
 
     @Test
@@ -136,7 +135,7 @@ public class OrderingModuleOptTranslatorTest {
         Var x = Term.mkVar("x");
         Term result = translator.translate(ExprElementOf.make(
                 TermTuple.fromVars(x.of(orderedSigSort)), ordSig.join(firstField)), context);
-        assertEquals(Term.mkEq(x, DomainElement.apply(5, orderedSigSort)), result);
+        assertEquals(Term.mkEq(x, Term.mkDomainElement(5, orderedSigSort)), result);
     }
 
     @Test
@@ -165,17 +164,17 @@ public class OrderingModuleOptTranslatorTest {
         Set<Term> axioms = CollectionConverters.<Term>asJava(context.getTheory().axioms());
         assertThat(axioms, containsInAnyOrder(
                 Term.mkEq(
-                        Term.mkApp(nextFunc.name(), DomainElement.apply(1, orderedSigSort)),
-                        DomainElement.apply(2, orderedSigSort)),
+                        Term.mkApp(nextFunc.name(), Term.mkDomainElement(1, orderedSigSort)),
+                        Term.mkDomainElement(2, orderedSigSort)),
                 Term.mkEq(
-                        Term.mkApp(nextFunc.name(), DomainElement.apply(2, orderedSigSort)),
-                        DomainElement.apply(3, orderedSigSort))));
+                        Term.mkApp(nextFunc.name(), Term.mkDomainElement(2, orderedSigSort)),
+                        Term.mkDomainElement(3, orderedSigSort))));
 
         // check that [[(x,y) \in next]] translated correctly
         Term expected = Term.mkAnd(
                 Term.mkAnd(
                         Term.mkApp("inOrderedSig", x),
-                        Term.mkNot(Term.mkEq(x, DomainElement.apply(3, orderedSigSort)))),
+                        Term.mkNot(Term.mkEq(x, Term.mkDomainElement(3, orderedSigSort)))),
                 Term.mkEq(Term.mkApp(nextFunc.name(), x), y));
         assertEquals(expected, result);
 
@@ -209,20 +208,20 @@ public class OrderingModuleOptTranslatorTest {
         Set<Term> axioms = CollectionConverters.<Term>asJava(context.getTheory().axioms());
         assertThat(axioms, containsInAnyOrder(
                 Term.mkEq(
-                        Term.mkApp(nextFunc.name(), DomainElement.apply(3, orderedSigSort)),
-                        DomainElement.apply(4, orderedSigSort)),
+                        Term.mkApp(nextFunc.name(), Term.mkDomainElement(3, orderedSigSort)),
+                        Term.mkDomainElement(4, orderedSigSort)),
                 Term.mkEq(
-                        Term.mkApp(nextFunc.name(), DomainElement.apply(4, orderedSigSort)),
-                        DomainElement.apply(5, orderedSigSort)),
+                        Term.mkApp(nextFunc.name(), Term.mkDomainElement(4, orderedSigSort)),
+                        Term.mkDomainElement(5, orderedSigSort)),
                 Term.mkEq(
-                        Term.mkApp(nextFunc.name(), DomainElement.apply(5, orderedSigSort)),
-                        DomainElement.apply(6, orderedSigSort))));
+                        Term.mkApp(nextFunc.name(), Term.mkDomainElement(5, orderedSigSort)),
+                        Term.mkDomainElement(6, orderedSigSort))));
 
         // check that [[(x,y) \in next]] translated correctly
         Term expected = Term.mkAnd(
                 Term.mkAnd(
                         Term.mkApp("inOrderedSig", x),
-                        Term.mkNot(Term.mkEq(x, DomainElement.apply(6, orderedSigSort)))),
+                        Term.mkNot(Term.mkEq(x, Term.mkDomainElement(6, orderedSigSort)))),
                 Term.mkEq(Term.mkApp(nextFunc.name(), x), y));
         assertEquals(expected, result);
 
@@ -257,7 +256,7 @@ public class OrderingModuleOptTranslatorTest {
         Term expected = Term.mkAnd(
                 Term.mkAnd(
                         Term.mkApp("inOrderedSig", x),
-                        Term.mkNot(Term.mkEq(x, DomainElement.apply(1, orderedSigSort)))),
+                        Term.mkNot(Term.mkEq(x, Term.mkDomainElement(1, orderedSigSort)))),
                 Term.mkEq(Term.mkApp(nextFunc.name(), x), y));
         assertEquals(expected, result);
 
@@ -282,7 +281,7 @@ public class OrderingModuleOptTranslatorTest {
         assertEquals(orderedSigSort, nextFunc.resultSort());
 
         assertNotNull(scalar);
-        assertEquals(DomainElement.apply(1, orderedSigSort), scalar.a.getTerm());
+        assertEquals(Term.mkDomainElement(1, orderedSigSort), scalar.a.getTerm());
         assertEquals(orderedSigSort, scalar.a.getSort());
         assertTrue(scalar.a.getFreeVars().isEmpty());
         assertEquals(Term.mkTop(), scalar.b);

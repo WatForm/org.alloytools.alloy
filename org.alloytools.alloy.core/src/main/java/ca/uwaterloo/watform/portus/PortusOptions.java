@@ -1,5 +1,6 @@
 package ca.uwaterloo.watform.portus;
 
+import edu.mit.csail.sdg.ast.Command;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.A4Options.SatSolver;
 import edu.mit.csail.sdg.translator.CommandRunner;
@@ -70,9 +71,11 @@ public final class PortusOptions implements Serializable {
     }
 
     /** Which sort policy should we use to translate? */
-    public SortPolicy getSortPolicy(Iterable<Sig> sigs, ScopeComputer scoper) {
-        // For now, always use the univ sort policy
-        return new UnivSortPolicy(sigs, scoper);
+    public SortPolicy getSortPolicy(Iterable<Sig> sigs, Command command, ScopeComputer scoper) {
+        // For now, always use the partition sort policy
+        // TODO swap between univ and partition based on options
+        return new PartitionSortPolicy(sigs, command, scoper);
+//        return new UnivSortPolicy(sigs, scoper);
     }
 
     // TODO: some options, used to determine optimizations
