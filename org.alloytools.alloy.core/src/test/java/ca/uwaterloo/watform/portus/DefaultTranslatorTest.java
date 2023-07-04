@@ -1228,9 +1228,9 @@ public class DefaultTranslatorTest {
     }
 
     @Test
-    public void testTranslate_join_oneIndeterminate() {
+    public void testTranslate_join_oneUniv() {
         // test [[x \in univ . e]] := exists y: univ . [[y \in univ]] && [[(y, x) \in e]]
-        // where arity(e2) = 2, because univ has an indeterminate sort
+        // where arity(e2) = 2, because univ has sorts [univ, Int]
         Sig.PrimSig sig = new Sig.PrimSig("S");
         ExprVar e = makeTestVarWithType("e", Type.make(sig).product(Type.make(sig)));
         Var x = Term.mkVar("x"), y = Term.mkVar("y");
@@ -1246,6 +1246,43 @@ public class DefaultTranslatorTest {
         Term result = translator.translate(ExprElementOf.make(x.of(univ), Sig.UNIV.join(e)), context);
         Term expected = Term.mkExists(y.of(univ), Term.mkAnd(flagInE1, flagInE2));
         assertThat(result, isAlphaEquivalentTerm(expected));
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_join_leftNoneShortCircuits() {
+        // test [[x \in none . e]] := false
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e = makeTestVarWithType("e", Type.make(sig).product(Type.make(sig)));
+        Var x = Term.mkVar("x");
+
+        Term result = translator.translate(ExprElementOf.make(x.of(univ), Sig.NONE.join(e)), context);
+        assertEquals(Term.mkBottom(), result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_join_rightNoneShortCircuits() {
+        // test [[x \in e . none]] := false
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e = makeTestVarWithType("e", Type.make(sig).product(Type.make(sig)));
+        Var x = Term.mkVar("x");
+
+        Term result = translator.translate(ExprElementOf.make(x.of(univ), e.join(Sig.NONE)), context);
+        assertEquals(Term.mkBottom(), result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_join_differentSortsShortCircuits() {
+        // test [[x \in e1 . e2]] := false when e1 and e2 have disjoint sorts in the overlapping coordinate
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e1 = makeTestVarWithType("e1", Type.make(sig).product(Type.make(sig)));
+        ExprVar e2 = makeTestVarWithType("e2", Type.make(Sig.SIGINT).product(Type.make(sig)));
+        Var x = Term.mkVar("x");
+
+        Term result = translator.translate(ExprElementOf.make(x.of(univ), e1.join(e2)), context);
+        assertEquals(Term.mkBottom(), result);
         assertContextEmpty();
     }
 

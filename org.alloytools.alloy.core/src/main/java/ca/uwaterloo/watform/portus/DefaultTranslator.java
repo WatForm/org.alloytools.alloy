@@ -639,8 +639,6 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
         // We also handle multiplicities on e2 in the case of "e1 in M e2", because Alloy supports formulas
         // like "a in ONEOF(b)" and these come up in translating field declarations.
 
-        // TODO test cases for all the "in M" special cases
-
         // TODO: revise this block of text
         // Determine the sorts. We need to quantify over each term in each position, so we need a definite Portus sort
         // for each position, but we also need to support constructions like "f in iden", so we can't demand that both

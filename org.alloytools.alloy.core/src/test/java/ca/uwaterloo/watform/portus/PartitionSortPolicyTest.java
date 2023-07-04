@@ -201,6 +201,29 @@ public class PartitionSortPolicyTest {
     }
 
     @Test
+    public void testMergeJoin() {
+        // test the middle point of a join merges: [[(A->(A+B)).((A+B)->A)]] merges A and B
+        Sig.PrimSig sigA = new Sig.PrimSig("A");
+        Sig.PrimSig sigB = new Sig.PrimSig("B");
+        when(mockScoper.sig2scope(sigA)).thenReturn(2);
+        when(mockScoper.isExact(sigA)).thenReturn(false);
+        when(mockScoper.sig2scope(sigB)).thenReturn(2);
+        when(mockScoper.isExact(sigB)).thenReturn(false);
+
+        Expr formula = sigA.product(sigA.plus(sigB)).join(sigA.plus(sigB).product(sigA));
+        PartitionSortPolicy sortPolicy = new PartitionSortPolicy(
+                Arrays.asList(sigA, sigB), makeCommand(formula), mockScoper);
+
+        Sort sort = sortPolicy.getSort(sigA);
+        assertNotNull(sort);
+        assertEquals(sort, sortPolicy.getSort(sigB));
+        assertEquals(4, sortPolicy.getSortScope(sort));
+        assertFalse(sortPolicy.isSigEntireSort(sigA));
+        assertFalse(sortPolicy.isSigEntireSort(sigB));
+        assertThat(sortPolicy.getAllSorts(), containsInAnyOrder(sort, Sort.Int()));
+    }
+
+    @Test
     public void testMergeWithinLet() {
         // test they can still merge correctly in the presence of lets: [[let a=A | no (a+B)]] merges
         Sig.PrimSig sigA = new Sig.PrimSig("A");
