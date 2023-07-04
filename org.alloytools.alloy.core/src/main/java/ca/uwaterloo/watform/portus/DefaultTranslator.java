@@ -654,7 +654,6 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
         //   we short-circuit to false because they could not possibly match.
         // There is room for more short-circuiting.
 
-//        String sortErrMsg = "Both sides in an 'in' or '=' formula must have well-defined Portus sorts!";
         List<SortResolvant> e1Sorts = sortPolicy.getMinimalExprSorts(e1, context);
         List<SortResolvant> e2Sorts = sortPolicy.getMinimalExprSorts(e2, context);
         if (e1Sorts.size() != e2Sorts.size()) { // typechecker should have ensured this
@@ -680,7 +679,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
             //   [[e in none]] = [[e in lone none]] = [[e = none]] = [[none = e]] := [[no e]]
             if (!isEquals && e1IsNone) {
                 return getMultCondition(e2, context);
-            } else if (!isEquals && (e2.mult().equals(ExprUnary.Op.ONE) || e2.mult().equals(ExprUnary.Op.SOME))) {
+            } else if (!isEquals && (e2.mult() == ExprUnary.Op.ONEOF || e2.mult() == ExprUnary.Op.SOMEOF)) {
                 return Term.mkBottom();
             } else {
                 Expr nonNoneExpr = e1IsNone ? e2 : e1;

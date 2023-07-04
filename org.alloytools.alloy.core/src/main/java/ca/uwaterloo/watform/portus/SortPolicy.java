@@ -42,6 +42,7 @@ import java.util.stream.StreamSupport;
 /**
  * An abstraction responsible for assigning sigs to sorts. Should be immutable.
  */
+// TODO: It's probably possible to remove most of the type-based sort determining
 public abstract class SortPolicy {
 
     protected final List<Sig> allSigs;
@@ -380,11 +381,11 @@ public abstract class SortPolicy {
                 assert mapped != null;
                 return Collections.singletonList(SortResolvant.definite(mapped.getSort()));
             } else {
-                // unknown variable - TODO is this ever the case?
-                throw new ErrorFatal("Unknown variable: " + x.label);
-
-                // try to get the sort from the type
-//                return getTypeSorts(x.type());
+                // unknown variable
+                // try to get the sort from the type - TODO this probably isn't necessary (except for tests)
+                return getTypeSorts(x.type()).stream()
+                        .map(SortResolvant::definite)
+                        .collect(Collectors.toList());
             }
         }
 

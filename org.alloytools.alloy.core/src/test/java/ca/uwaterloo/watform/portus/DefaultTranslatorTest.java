@@ -1661,7 +1661,8 @@ public class DefaultTranslatorTest {
 
     @Test
     public void testTranslate_in_arity1() {
-        // test [[e1 \in e2]] := forall x: univ . [[x \in e1]] => [[x \in e2]] for arity 1
+        // test [[e1 \in e2]] := (forall x: univ . [[x \in e1]] => [[x \in e2]]) && true for arity 1
+        // the "&& true" comes from the (empty) multiplicity conjunct
         Sig.PrimSig sig = new Sig.PrimSig("S");
         ExprVar e1 = makeTestVarWithType("e1", Type.make(sig));
         ExprVar e2 = makeTestVarWithType("e2", Type.make(sig));
@@ -1672,14 +1673,17 @@ public class DefaultTranslatorTest {
                 .thenReturn(flagInE1, flagInE2);
 
         Term result = translator.translate(e1.in(e2), context);
-        Term expected = Term.mkForall(x.of(univ), Term.mkImp(flagInE1, flagInE2));
+        Term expected = Term.mkAnd(
+                Term.mkForall(x.of(univ), Term.mkImp(flagInE1, flagInE2)),
+                Term.mkTop());
         assertThat(result, isAlphaEquivalentTerm(expected));
         assertContextEmpty();
     }
 
     @Test
     public void testTranslate_in_arity2() {
-        // test [[e1 \in e2]] := forall x1, x2: univ . [[(x1,x2) \in e1]] => [[(x1,x2) \in e2]]
+        // test [[e1 \in e2]] := (forall x1, x2: univ . [[(x1,x2) \in e1]] => [[(x1,x2) \in e2]]) && true
+        // the "&& true" comes from the (empty) multiplicity conjunct
         Sig.PrimSig sig1 = new Sig.PrimSig("S1");
         Sig.PrimSig sig2 = new Sig.PrimSig("S2");
         ExprVar e1 = makeTestVarWithType("e1", Type.make(sig1).product(Type.make(sig2)));
@@ -1692,8 +1696,10 @@ public class DefaultTranslatorTest {
                 .thenReturn(flagInE1, flagInE2);
 
         Term result = translator.translate(e1.in(e2), context);
-        Term expected = Term.mkForall(Arrays.asList(x1.of(univ), x2.of(univ)),
-                Term.mkImp(flagInE1, flagInE2));
+        Term expected = Term.mkAnd(
+                Term.mkForall(Arrays.asList(x1.of(univ), x2.of(univ)),
+                    Term.mkImp(flagInE1, flagInE2)),
+                Term.mkTop());
         assertThat(result, isAlphaEquivalentTerm(expected));
         assertContextEmpty();
     }
@@ -1738,22 +1744,126 @@ public class DefaultTranslatorTest {
     }
 
     @Test
-    public void testTranslate_in_mixedSortsShortCircuits() {
-        // test [[e1 in e2]] short circuits to false when e1 and e2 are of different sorts
+    public void testTranslate_in_noneInNoneShortCircuits() {
+        // test [[none in none] := true
+        Term result = translator.translate(Sig.NONE.in(Sig.NONE), context);
+        assertEquals(Term.mkTop(), result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_eq_noneEqNoneShortCircuits() {
+        // test [[none = none] := true
+        Term result = translator.translate(Sig.NONE.equal(Sig.NONE), context);
+        assertEquals(Term.mkTop(), result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_in_inOneNoneShortCircuits() {
+        // test [[e1 in one none]] := false
         Sig.PrimSig sig = new Sig.PrimSig("S");
         ExprVar e1 = makeTestVarWithType("e1", Type.make(sig));
-        Term result = translator.translate(e1.in(ExprConstant.makeNUMBER(1)), context);
+        Term result = translator.translate(e1.in(Sig.NONE.oneOf()), context);
         assertEquals(Term.mkBottom(), result);
         assertContextEmpty();
     }
 
     @Test
-    public void testTranslate_eq_mixedSortsShortCircuits() {
-        // test [[e1 = e2]] short circuits to false when e1 and e2 are of different sorts
+    public void testTranslate_in_inSomeNoneShortCircuits() {
+        // test [[e1 in some none]] := false
         Sig.PrimSig sig = new Sig.PrimSig("S");
         ExprVar e1 = makeTestVarWithType("e1", Type.make(sig));
-        Term result = translator.translate(e1.equal(ExprConstant.makeNUMBER(1)), context);
+        Term result = translator.translate(e1.in(Sig.NONE.someOf()), context);
         assertEquals(Term.mkBottom(), result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_in_inLoneNoneShortCircuits() {
+        // test [[e1 in none]] := [[no e1]]
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e1 = makeTestVarWithType("e1", Type.make(sig));
+        Term flagNoE1 = makeFlagConstant("noE1");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(e1.no())), any())).thenReturn(flagNoE1);
+        Term result = translator.translate(e1.in(Sig.NONE.loneOf()), context);
+        assertEquals(flagNoE1, result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_in_inNoneShortCircuits() {
+        // test [[e1 in none]] := [[no e1]]
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e1 = makeTestVarWithType("e1", Type.make(sig));
+        Term flagNoE1 = makeFlagConstant("noE1");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(e1.no())), any())).thenReturn(flagNoE1);
+        Term result = translator.translate(e1.in(Sig.NONE), context);
+        assertEquals(flagNoE1, result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_eq_eqNoneShortCircuits() {
+        // test [[e1 in none]] := [[no e1]]
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e1 = makeTestVarWithType("e1", Type.make(sig));
+        Term flagNoE1 = makeFlagConstant("noE1");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(e1.no())), any())).thenReturn(flagNoE1);
+        Term result = translator.translate(e1.equal(Sig.NONE), context);
+        assertEquals(flagNoE1, result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_eq_noneEqShortCircuits() {
+        // test [[e1 in none]] := [[no e1]]
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e1 = makeTestVarWithType("e1", Type.make(sig));
+        Term flagNoE1 = makeFlagConstant("noE1");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(e1.no())), any())).thenReturn(flagNoE1);
+        Term result = translator.translate(Sig.NONE.equal(e1), context);
+        assertEquals(flagNoE1, result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_in_mixedSorts() {
+        // test [[e1 in e2]] := [[no e1]] && true when e1 and e2 are of different sorts
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e1 = makeTestVarWithType("e1", Type.make(sig));
+        Term flagNoE1 = makeFlagConstant("noE1");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(e1.no())), any())).thenReturn(flagNoE1);
+        Term result = translator.translate(e1.in(ExprConstant.makeNUMBER(1)), context);
+        assertEquals(Term.mkAnd(flagNoE1, Term.mkTop()), result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_in_mixedSortsWithMult() {
+        // test [[e1 in some e2]] short circuits to [[no e1]] && [[some e2]] when e1 and e2 are of different sorts
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e1 = makeTestVarWithType("e1", Type.make(sig));
+        ExprVar e2 = makeTestVarWithType("e2", Type.make(Sig.SIGINT));
+        Term flagNoE1 = makeFlagConstant("noE1");
+        Term flagSomeE2 = makeFlagConstant("someE2");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(e1.no())), any())).thenReturn(flagNoE1);
+        when(mockRoot.translate(argThat(isAlphaEquivalent(e2.someOf().some())), any())).thenReturn(flagSomeE2);
+        Term result = translator.translate(e1.in(e2.someOf()), context);
+        assertEquals(Term.mkAnd(flagNoE1, flagSomeE2), result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_eq_mixedSorts() {
+        // test [[e1 = e2]] := [[no e1]] && [[no e2]] when e1 and e2 are of different sorts
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e1 = makeTestVarWithType("e1", Type.make(sig));
+        ExprVar e2 = makeTestVarWithType("e1", Type.make(Sig.SIGINT));
+        Term flagResult = makeFlagConstant("noE1AndNoE2");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(e1.no().and(e2.no()))), any())).thenReturn(flagResult);
+        Term result = translator.translate(e1.equal(e2), context);
+        assertEquals(flagResult, result);
         assertContextEmpty();
     }
 
@@ -1831,7 +1941,7 @@ public class DefaultTranslatorTest {
 
     @Test
     public void testTranslate_inSetOf_normal() {
-        // test [[e1 in SETOF(e2)]] := forall x: univ . [[x \in SETOF(e1)]] => [[x \in e2]], like normal
+        // test [[e1 in SETOF(e2)]] := (forall x: univ . [[x \in SETOF(e1)]] => [[x \in e2]]) && true, like normal
         Sig.PrimSig sig = new Sig.PrimSig("S");
         ExprVar e1 = makeTestVarWithType("e1", Type.make(sig));
         ExprVar e2 = makeTestVarWithType("e2", Type.make(sig));
@@ -1844,7 +1954,9 @@ public class DefaultTranslatorTest {
                 .thenReturn(flagInE2);
 
         Term result = translator.translate(e1.in(e2.setOf()), context);
-        Term expected = Term.mkForall(x.of(univ), Term.mkImp(flagInE1, flagInE2));
+        Term expected = Term.mkAnd(
+                Term.mkForall(x.of(univ), Term.mkImp(flagInE1, flagInE2)),
+                Term.mkTop());
         assertThat(result, isAlphaEquivalentTerm(expected));
         assertContextEmpty();
     }
@@ -4083,7 +4195,7 @@ public class DefaultTranslatorTest {
 
     @Test
     public void testTranslate_int_inLiterals() {
-        // unoptimized: test [[2 in 3]] := forall x: Int . [[x \in 2]] => [[x \in 3]]
+        // unoptimized: test [[2 in 3]] := (forall x: Int . [[x \in 2]] => [[x \in 3]]) && true
         Var x = Term.mkVar("x0_0");
 
         Term flagIn2 = makeFlagConstant("in2"), flagIn3 = makeFlagConstant("in3");
@@ -4093,7 +4205,7 @@ public class DefaultTranslatorTest {
                 ExprElementOf.make(x.of(Sort.Int()), ExprConstant.makeNUMBER(3)))), any())).thenReturn(flagIn3);
 
         Term result = translator.translate(ExprConstant.makeNUMBER(2).in(ExprConstant.makeNUMBER(3)), context);
-        assertEquals(Term.mkForall(x.of(Sort.Int()), Term.mkImp(flagIn2, flagIn3)), result);
+        assertEquals(Term.mkAnd(Term.mkForall(x.of(Sort.Int()), Term.mkImp(flagIn2, flagIn3)), Term.mkTop()), result);
         assertContextEmpty();
     }
 
