@@ -23,12 +23,14 @@ import fortress.msfol.Sort;
 import fortress.msfol.Theory;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -67,6 +69,15 @@ final class PartitionSortPolicy extends SortPolicy {
                     // a ++ b requires all the positions on the RHS to have definite sorts
                     // TODO: technically the first position doesn't but DefaultTranslator requires it
                     mergeSorts(x.right, varMappingContext);
+                } else if (x.op == ExprBinary.Op.JOIN) {
+                    // a.b requires the middle position to have definite sorts
+                    // TODO: this sort of duplicates at least the logic in DefaultTranslator, DRY?
+                    mergeSorts(() -> {
+                        List<SortResolvant> leftSorts = getMinimalExprSorts(x.left, varMappingContext);
+                        List<SortResolvant> rightSorts = getMinimalExprSorts(x.right, varMappingContext);
+                        SortResolvant middle = leftSorts.get(leftSorts.size() - 1).intersection(rightSorts.get(0));
+                        return Collections.singletonList(middle);
+                    }, varMappingContext);
                 }
 
                 visitThis(x.left);
@@ -204,20 +215,27 @@ final class PartitionSortPolicy extends SortPolicy {
         return sig;
     }
 
-    // Merge sorts until we're able to resolve sorts for expr.
+    // Merge sorts until we're able to resolve sorts for expr (or its sorts are none).
     private void mergeSorts(Expr expr, VarMappingContext varMappingContext) {
-        while (true) {
-            try {
-                getMinimalExprSortsOrThrow(expr, varMappingContext);
-                return;
-            } catch (IncompatibleSortsException e) {
-                // We have a list of sorts we have to merge
-                mergeSorts(e.incompatibleSorts, varMappingContext);
+        mergeSorts(() -> getMinimalExprSorts(expr, varMappingContext), varMappingContext);
+    }
+
+    // Merge sorts until we're able to resolve sorts for toMerge (or its sorts are none).
+    private void mergeSorts(Supplier<List<SortResolvant>> toMerge, VarMappingContext varMappingContext) {
+        boolean allDefinite = false;
+        while (!allDefinite) {
+            allDefinite = true;
+            List<SortResolvant> sortResolvants = toMerge.get();
+            for (SortResolvant resolvant : sortResolvants) {
+                if (!resolvant.isDefinite() && !resolvant.isNone()) {
+                    allDefinite = false;
+                    mergeSorts(resolvant.getAllSorts(), varMappingContext);
+                }
             }
         }
     }
 
-    private void mergeSorts(List<Sort> sorts, VarMappingContext varMappingContext) {
+    private void mergeSorts(Set<Sort> sorts, VarMappingContext varMappingContext) {
         Sig.PrimSig first = null;
         for (Sort sort : sorts) {
             // We can't merge built-in sorts

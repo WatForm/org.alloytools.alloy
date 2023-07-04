@@ -30,7 +30,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -244,7 +243,8 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
     @Override
     public Term translate(Sig.Field field, TranslationContext context) {
         // Find the Fortress sorts corresponding to the arguments of this field's predicate.
-        List<Sort> argSorts = sortPolicy.getMinimalExprSorts(field,
+        // Fields must have all definite sorts.
+        List<Sort> argSorts = sortPolicy.getMinimalExprDefiniteSorts(field,
                 "A field declaration must have definite Portus sorts!", context);
 
         // Make a new predicate for the field relation (function optimization is elsewhere).
@@ -396,6 +396,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
         //   [[(y,x{m+1},...,xn) \in e2]] where arity(e1) = m+1 and arity(e2) = n-m+1 and m<n
         Var yVar = Term.mkVar(context.nameGenerator.freshName("y"));
 
+        // TODO: revise this comment
         // What sort should y have?
         // Both the rightmost index in the left expression and the leftmost index in the right expression should
         // have compatible sorts: either both the same sort, or one should be indeterminate (null) according to
@@ -403,25 +404,23 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
         // If the sorts are incompatible, then there can be no overlap between the rightmost column on the left and
         // the leftmost column on the right, so we short-circuit to false.
         int partitionIdx = left.type().arity() - 1; // so that adding y gives the arity
-        String errorMsg = "Argument of join is ill-typed according to Portus sorts!";
-        Sort leftYSort = sortPolicy.getMinimalExprSorts(left, errorMsg, context).get(partitionIdx);
-        Sort rightYSort = sortPolicy.getMinimalExprSorts(right, errorMsg, context).get(0);
-        Sort ySort;
-        if (!SortPolicy.isSortDefinite(leftYSort)) {
-            ySort = rightYSort;
-        } else if (!SortPolicy.isSortDefinite(rightYSort)) {
-            ySort = leftYSort;
-        } else if (leftYSort != rightYSort) {
-            // There cannot be any overlap, so the join is empty
-            // TODO: UNIT TEST THIS
+        SortResolvant leftYSort = sortPolicy.getMinimalExprSorts(left, context).get(partitionIdx);
+        SortResolvant rightYSort = sortPolicy.getMinimalExprSorts(right, context).get(0);
+
+        // If the last element of left statically resolves to none, then the entire left expression is none, and
+        // none.x = none (ignoring arity), so we can short-circuit to false. The same goes if right is none.
+        // If the sorts are disjoint, then there's no overlap, so again we can short-circuit to false.
+        if (leftYSort.isNone() || rightYSort.isNone() || leftYSort.isDisjoint(rightYSort)) {
             return Term.mkBottom();
-        } else {
-            ySort = leftYSort;
         }
-        if (!SortPolicy.isSortDefinite(ySort)) {
-            // technical restriction: we need a definite sort for the exists variable
-            throw new ErrorFatal("Joined column requires a definite Portus sort!");
+
+        // Otherwise, there is an intersection between the sorts. We can translate if the intersection is
+        // exactly one sort (it is definite), because then all possible common y values come from that sort.
+        SortResolvant intersection = leftYSort.intersection(rightYSort);
+        if (!intersection.isDefinite()) {
+            throw new ErrorFatal("Joined columns must intersect in one Portus sort!");
         }
+        Sort ySort = intersection.getDefiniteSort();
         AnnotatedVar y = yVar.of(ySort);
 
         // build up the tuples we'll recurse on
@@ -496,8 +495,8 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
         Term inBase = recursivelyTranslate(ExprElementOf.make(tuple, base), context);
         Term inOverride = recursivelyTranslate(ExprElementOf.make(tuple, override), context);
 
-        // TODO: the *first* argument doesn't actually need a definite sort, can we not require it?
-        List<Sort> overrideSorts = sortPolicy.getMinimalExprSorts(override,
+        // TODO: the *first* index doesn't actually need a definite sort, can we not require it?
+        List<Sort> overrideSorts = sortPolicy.getMinimalExprDefiniteSorts(override,
                 "The second argument to ++ must have definite Portus sorts!", context);
 
         // build up the terms x1,y2,...,yn and the annotated vars y2,...,yn
@@ -631,24 +630,6 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
         return Term.mkAnd(conjuncts);
     }
 
-    /**
-     * Is expr "none->none->...->none" for some combination of arrows?
-     * Used for an ugly hack to translate "expr in none->...->none" and "expr = none->...->none".
-     */ 
-    private boolean isNone(Expr expr) {
-        expr = expr.deNOP();
-        if (expr.isSame(Sig.NONE)) {
-            return true;
-        }
-        if (expr instanceof ExprBinary) {
-            ExprBinary exprBinary = (ExprBinary) expr;
-            if (exprBinary.op == ExprBinary.Op.ARROW) {
-                return isNone(exprBinary.left) && isNone(exprBinary.right);
-            }
-        }
-        return false;
-    }
-
     /** Translate the formula "e1 in e2" or "e1 = e2". */
     private Term translateInEq(ExprBinary.Op op, Expr e1, Expr e2, TranslationContext context) {
         // KT figure 4.9: [[e1 in e2]] := forall x1: S1, ..., xn: Sn .
@@ -658,16 +639,9 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
         // We also handle multiplicities on e2 in the case of "e1 in M e2", because Alloy supports formulas
         // like "a in ONEOF(b)" and these come up in translating field declarations.
 
-        // HACK: We can't handle expressions like "e = none" normally at the moment because we can't determine
-        // a sort for none. To get these expressions working for now, we just translate them to "no e".
-        // TODO: This should be done properly in the future by changing how SortPolicy handles none (and iden).
-        if (isNone(e1)) {
-            return recursivelyTranslate(e2.no(), context);
-        }
-        if (isNone(e2)) {
-            return recursivelyTranslate(e1.no(), context);
-        }
+        // TODO test cases for all the "in M" special cases
 
+        // TODO: revise this block of text
         // Determine the sorts. We need to quantify over each term in each position, so we need a definite Portus sort
         // for each position, but we also need to support constructions like "f in iden", so we can't demand that both
         // e1 and e2 have definite sorts in the 'in' case (since iden's sorts are indefinite).
@@ -680,41 +654,81 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
         //   we short-circuit to false because they could not possibly match.
         // There is room for more short-circuiting.
 
-        String sortErrMsg = "Both sides in an 'in' or '=' formula must have well-defined Portus sorts!";
-        List<Sort> e1Sorts = sortPolicy.getMinimalExprSorts(e1, sortErrMsg, context);
-        List<Sort> e2Sorts = sortPolicy.getMinimalExprSorts(e2, sortErrMsg, context);
-        assert e1Sorts.size() == e2Sorts.size(); // typechecker should have ensured this
+//        String sortErrMsg = "Both sides in an 'in' or '=' formula must have well-defined Portus sorts!";
+        List<SortResolvant> e1Sorts = sortPolicy.getMinimalExprSorts(e1, context);
+        List<SortResolvant> e2Sorts = sortPolicy.getMinimalExprSorts(e2, context);
+        if (e1Sorts.size() != e2Sorts.size()) { // typechecker should have ensured this
+            throw new ErrorFatal("Both sides in an 'in' or '=' formula must have the same arity!");
+        }
         List<Sort> sorts = new ArrayList<>();
 
-        for (int i = 0; i < e1Sorts.size(); i++) {
-            // Merge the sorts as described above.
-            Sort e1Sort = e1Sorts.get(i), e2Sort = e2Sorts.get(i);
+        // "exactly" is used in the meta feature and means to treat "in exactly" like "=" as a hack
+        boolean isEquals = (op == ExprBinary.Op.EQUALS || e2.mult() == ExprUnary.Op.EXACTLYOF);
 
-            // If both sorts are definite but different, we know they can't be equal - short-circuit.
-            if (e1Sort != e2Sort && SortPolicy.isSortDefinite(e1Sort) && SortPolicy.isSortDefinite(e2Sort)) {
+        // Short-circuit if either expression statically resolves to none.
+        // If any sort is an expression resolves to none, then the whole expression is none,
+        // because A->none->B = none->none->none (Cartesian product with none gives none).
+        boolean e1IsNone = e1Sorts.stream().anyMatch(SortResolvant::isNone);
+        boolean e2IsNone = e2Sorts.stream().anyMatch(SortResolvant::isNone);
+        if (e1IsNone && e2IsNone) {
+            // If both are none, then the expression is "none = none", which is true.
+            return Term.mkTop();
+        } else if (e1IsNone || e2IsNone) {
+            // If one is none, then apply the following simplifications:
+            //   [[none in M e]] := [[M e]]  (true if no M specified = setof)
+            //   [[e in one none]] = [[e in some none]] = false
+            //   [[e in none]] = [[e in lone none]] = [[e = none]] = [[none = e]] := [[no e]]
+            if (!isEquals && e1IsNone) {
+                return getMultCondition(e2, context);
+            } else if (!isEquals && (e2.mult().equals(ExprUnary.Op.ONE) || e2.mult().equals(ExprUnary.Op.SOME))) {
                 return Term.mkBottom();
+            } else {
+                Expr nonNoneExpr = e1IsNone ? e2 : e1;
+                return recursivelyTranslate(nonNoneExpr.no(), context);
             }
+        }
 
-            if (op == ExprBinary.Op.EQUALS) {
-                // they have to be equal definite sorts: disallow "f = iden"
-                boolean ok = (Objects.equals(e1Sort, e2Sort) && SortPolicy.isSortDefinite(e1Sort));
-                if (!ok) {
+        // If the sets of sorts are disjoint at any index, there's no possible overlap between e1 and e2. Then:
+        // - for "e1 = e2", both e1 and e2 must be empty
+        // - for "e1 in M e2", e1 must be empty and [[M e2]] must be true
+        boolean anyDisjoint = IntStream.range(0, e1Sorts.size())
+                .anyMatch(i -> e1Sorts.get(i).isDisjoint(e2Sorts.get(i)));
+        if (anyDisjoint) {
+            if (isEquals) {
+                return recursivelyTranslate(e1.no().and(e2.no()), context);
+            } else {
+                return Term.mkAnd(
+                        recursivelyTranslate(e1.no(), context),
+                        getMultCondition(e2, context));
+            }
+        }
+
+        // Now we can assume that all sorts are non-none and not disjoint.
+        // Merge the sorts.
+        for (int i = 0; i < e1Sorts.size(); i++) {
+            SortResolvant e1Resolvant = e1Sorts.get(i);
+            SortResolvant e2Resolvant = e2Sorts.get(i);
+
+            // For "e1 in e2", we can allow e2's sorts to be indefinite (and non-none) as long as e1's are definite.
+            // For "e1 = e2", we require e1's sorts to all be definite and a subset of e2's sorts.
+            // But since we know the e1 sorts and the e2 sorts aren't disjoint, if e1 has a definite sort at this
+            // index (i.e. only one sort), then it must be a subset of e2's sorts at this index.
+            if (isEquals) {
+                // Note: since the sorts aren't disjoint, we know if both sorts are definite, then they're equal.
+                if (!e1Resolvant.isDefinite() || !e2Resolvant.isDefinite()) {
                     // TODO: can we further short-circuit here? Requires knowing whether there are other sorts
-                    throw new ErrorFatal("Both sides of an '=' formula must have the same definite Portus sorts.");
+                    throw new ErrorFatal("Both sides of an '=' formula must have definite Portus sorts!");
                 }
-            } else { // ExprBinary.Op.IN
-                // in "e1 in e2", e1 must have definite sorts that are a subset of e2's sorts
-                // so we allow "f in iden", but not "iden in f"
-                boolean ok = (SortPolicy.isSortDefinite(e1Sort) && SortPolicy.isSortSubset(e1Sort, e2Sort));
-                if (!ok) {
-                    // TODO: can we further short-circuit here?
-                    throw new ErrorFatal("The left side of an 'in' must have definite Portus sorts that are a" +
-                            " subset of the right side's sorts.");
+            } else {
+                // We don't need to check that e1Resolvant is a subset of e2Resolvant because they're not disjoint
+                // so if e1Resolvant is definite (has only one sort) then it must be a subset.
+                if (!e1Resolvant.isDefinite()) {
+                    throw new ErrorFatal("The LHS of an 'in' formula must have definite Portus sorts!");
                 }
             }
 
             // Use the left side's sorts in either case (they'll be equal if it's an '=' formula).
-            sorts.add(e1Sort);
+            sorts.add(e1Resolvant.getDefiniteSort());
         }
 
         // Create the variables
@@ -726,33 +740,28 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
 
         Term inE1 = recursivelyTranslate(ExprElementOf.make(TermTuple.fromVars(vars), e1), context);
         Term inE2 = recursivelyTranslate(ExprElementOf.make(TermTuple.fromVars(vars), e2), context);
-        Term condition;
-        Expr multCondition = null;
-        if (op == ExprBinary.Op.EQUALS || e2.mult() == ExprUnary.Op.EXACTLYOF) {
-            // "exactly" is used in the meta feature and means to treat "in exactly" like "=" as a hack
-            condition = Term.mkIff(inE1, inE2);
+        if (isEquals) {
+            return Term.mkForall(vars, Term.mkIff(inE1, inE2));
         } else { // ExprBinary.Op.IN
-            condition = Term.mkImp(inE1, inE2);
-
-            // Add additional "M e2" conditions for "e1 in M e2", where M is a multiplicity
-            switch (e2.mult()) {
-                case ONEOF:
-                    multCondition = e2.one();
-                    break;
-                case LONEOF:
-                    multCondition = e2.lone();
-                    break;
-                case SOMEOF:
-                    multCondition = e2.some();
-                    break;
-            }
+            return Term.mkAnd(
+                    Term.mkForall(vars, Term.mkImp(inE1, inE2)),
+                    // Add the additional condition for "e1 in M e2"
+                    getMultCondition(e2, context));
         }
+    }
 
-        Term result = Term.mkForall(vars, condition);
-        if (multCondition != null) {
-            result = Term.mkAnd(result, recursivelyTranslate(multCondition, context));
+    /** Get the multiplicity condition that must be true for an "e1 in M e2" condition to hold, given e2. */
+    private Term getMultCondition(Expr expr, TranslationContext context) {
+        switch (expr.mult()) {
+            case ONEOF:
+                return recursivelyTranslate(expr.one(), context);
+            case LONEOF:
+                return recursivelyTranslate(expr.lone(), context);
+            case SOMEOF:
+                return recursivelyTranslate(expr.some(), context);
+            default:
+                return Term.mkTop();
         }
-        return result;
     }
 
     /** Translate "lhs op rhs", where op is an arithmetic comparison like <, >, =<, >=.  */
@@ -868,7 +877,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
         // to translate the Alloy above directly, we'd need to augment ExprElementOf to allow taking ExprVars and
         // delaying their evaluation into Fortress Vars until we're within the sum's scope and x1,...,xn are bound.
         List<AnnotatedVar> vars = new ArrayList<>();
-        List<Sort> sorts = sortPolicy.getMinimalExprSorts(expr, "", context);
+        List<Sort> sorts = sortPolicy.getMinimalExprDefiniteSorts(expr, "", context);
         for (int i = 0; i < expr.type().arity(); i++) {
             Var var = Term.mkVar("x" + i);
             vars.add(var.of(sorts.get(i)));
@@ -1080,11 +1089,9 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
         }
         List<AnnotatedVar> vars = new ArrayList<>(arity);
 
-        List<Sort> exprSorts = sortPolicy.getMinimalExprSorts(expr,
-                "Translating a quantified expression requires the inner expression to have well-defined sorts!",
+        List<Sort> exprSorts = sortPolicy.getMinimalExprDefiniteSorts(expr,
+                "Translating a quantified expression requires the inner expression to have definite sorts!",
                 context);
-        SortPolicy.requireAllSortsDefinite(exprSorts,
-                "Translating a quantified expression requires the inner expression's sorts to all be definite!");
         for (int i = 0; i < arity; i++) {
             Var var = Term.mkVar(context.nameGenerator.freshName("x" + i));
             vars.add(var.of(exprSorts.get(i)));
@@ -1538,13 +1545,12 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
                 // Note that the decl expr has to be unary since typechecking should have caught anything else
                 String definiteSortsError = "Translating a quantification requires the variable declarations " +
                         "to have definite and well-defined Portus sorts!";
-                List<Sort> exprSorts = sortPolicy.getMinimalExprSorts(declExpr, definiteSortsError, context);
+                List<Sort> exprSorts = sortPolicy.getMinimalExprDefiniteSorts(declExpr, definiteSortsError, context);
                 if (exprSorts.size() != 1) {
                     // Could happen for cases Kodkod skolemizes, like e.g. "some s: one A->B | ..."
                     // Also occurs e.g. with "pred foo[s: A->B] {...}; run foo" since that runs "some s: A->B | foo[s]"
                     throw new ErrorFatal("Portus doesn't support quantifying over tuples!");
                 }
-                SortPolicy.requireAllSortsDefinite(exprSorts, definiteSortsError);
                 Sort varSort = exprSorts.get(0);
                 AnnotatedVar annotatedVar = var.of(varSort);
                 namesToVars.put(name.label, annotatedVar);

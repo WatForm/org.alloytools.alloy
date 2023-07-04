@@ -110,7 +110,7 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
         Pair<List<Expr>, ExprUnary.Op> funcTypeExprsAndMult = getFunctionTypeExprs(bound);
         if (funcTypeExprsAndMult == null) return null; // not a function, not applicable
 
-        List<Sort> allSorts = sortPolicy.getMinimalExprSorts(field,
+        List<Sort> allSorts = sortPolicy.getMinimalExprDefiniteSorts(field,
                 "A field declaration must have definite Portus sorts!", context);
         List<Sort> argSorts = allSorts.subList(0, allSorts.size() - 1);
         Sort resultSort = allSorts.get(allSorts.size() - 1);

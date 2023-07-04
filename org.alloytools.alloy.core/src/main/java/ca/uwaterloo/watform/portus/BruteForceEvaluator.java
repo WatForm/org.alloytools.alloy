@@ -9,7 +9,6 @@ import fortress.msfol.Value;
 import fortress.operations.Substituter;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -48,22 +47,18 @@ final class BruteForceEvaluator implements Evaluator {
     private TupleSet bruteForceEval(Expr expr, FortressSolution solution, TranslationContext context) {
         // Manually evaluate {(x1,...,xn) : sorts | [[(x1,...,xn) \in expr]]}
         Set<List<Value>> tupleSet = new HashSet<>();
-        List<Sort> sorts = sortPolicy.getAllSorts();
         int arity = expr.type().arity();
 
-        // Optimization: if we can determine that some positions can only have atoms of a certain sort,
-        // only try values from that sort
-        List<Sort> exprSorts = sortPolicy.getMinimalExprSorts(expr, context);
-        if (exprSorts == null) {
-            // if we couldn't get the sorts for some reason, just try all sorts
-            exprSorts = Collections.nCopies(arity, null);
-        }
+        // Optimization: if we can determine that some positions can only have atoms of certain sorts,
+        // only try values from those sorts
+        List<SortResolvant> exprSorts = sortPolicy.getMinimalExprSorts(expr, context);
         if (arity != exprSorts.size()) {
             throw new ErrorFatal("Evaluating " + expr + ": type arity " + arity + " conflicts with determined arity "
                     + exprSorts.size());
         }
         List<List<Sort>> sortsPerPosition = exprSorts.stream()
-                .map(sort -> SortPolicy.isSortDefinite(sort) ? Collections.singletonList(sort) : sorts)
+                .map(SortResolvant::getAllSorts)
+                .map(ArrayList::new)
                 .collect(Collectors.toList());
 
         cartesianProduct(sortsPerPosition).forEach(sortCombo -> {

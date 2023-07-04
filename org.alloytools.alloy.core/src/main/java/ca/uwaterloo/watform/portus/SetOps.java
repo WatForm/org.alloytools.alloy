@@ -38,6 +38,10 @@ final class SetOps {
         return result;
     }
 
+    public static <T> boolean subset(Set<T> a, Set<T> b) {
+        return b.containsAll(a);
+    }
+
     public static <T> Set<List<T>> cartesianProduct(Set<List<T>> a, Set<List<T>> b) {
         Set<List<T>> result = new HashSet<>();
         for (List<T> aTuple : a) {

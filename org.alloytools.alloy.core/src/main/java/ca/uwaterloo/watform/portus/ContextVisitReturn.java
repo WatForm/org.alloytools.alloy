@@ -70,11 +70,8 @@ abstract class ContextVisitReturn<T> extends FortressVisitReturn<T> {
             for (ExprHasName name : decl.names) {
                 argResults.add(visitQuantifierArg(decl.expr));
 
-                // TODO: this boundPlaceholderVar thing is EVIL and DUMB and causing issues in PartitionSortPolicy
-                // because it causes the VarMappingContext to hold on to sorts from the past that are no longer valid
-                // figure out something better, probably implementation-specific
-                List<Sort> sorts = sortPolicy.getMinimalExprSorts(
-                        name, "Quantifier decl expression must have well-defined sorts!", varMappingContext);
+                List<Sort> sorts = sortPolicy.getMinimalExprDefiniteSorts(
+                        name, "Quantifier decl expression must have definite sorts!", varMappingContext);
                 // We only support arity 1
                 if (sorts.size() > 1) {
                     throw new ErrorFatal("Portus only supports unary quantifier decl expressions!");

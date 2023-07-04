@@ -1,9 +1,13 @@
 package ca.uwaterloo.watform.portus;
 
-import edu.mit.csail.sdg.alloy4.ErrorFatal;
+import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprBinary;
+import edu.mit.csail.sdg.ast.ExprCall;
 import edu.mit.csail.sdg.ast.ExprConstant;
+import edu.mit.csail.sdg.ast.ExprLet;
+import edu.mit.csail.sdg.ast.ExprVar;
+import edu.mit.csail.sdg.ast.Func;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.msfol.Sort;
@@ -12,19 +16,16 @@ import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
 
 public class SortPolicyTest {
-
-    // Convenience constant so we don't have to keep casting null
-    private static final Sort INDEFINITE = null;
 
     private SortPolicy policy;
     private TranslationContext context;
@@ -36,68 +37,76 @@ public class SortPolicyTest {
         context = new TranslationContext(new PortusOptions(), mock(ScopeComputer.class), policy, mockRangeAssigner);
     }
 
-    private void assertSorts(List<Sort> actual, Sort... expected) {
+    private void assertResolvants(List<SortResolvant> actual, SortResolvant... expected) {
         assertArrayEquals(expected, actual.toArray());
     }
 
     @Test
     public void testGetMinimalExprSorts_true() {
-        assertSorts(policy.getMinimalExprSorts(ExprConstant.TRUE, "", context), Sort.Bool());
+        assertResolvants(policy.getMinimalExprSorts(ExprConstant.TRUE, context), SortResolvant.definite(Sort.Bool()));
     }
 
     @Test
     public void testGetMinimalExprSorts_false() {
-        assertSorts(policy.getMinimalExprSorts(ExprConstant.FALSE, "", context), Sort.Bool());
+        assertResolvants(policy.getMinimalExprSorts(ExprConstant.FALSE, context), SortResolvant.definite(Sort.Bool()));
     }
 
     @Test
     public void testGetMinimalExprSorts_intLiteral() {
-        assertSorts(policy.getMinimalExprSorts(ExprConstant.makeNUMBER(5), "", context), Sort.Int());
+        assertResolvants(policy.getMinimalExprSorts(ExprConstant.makeNUMBER(5), context),
+                SortResolvant.definite(Sort.Int()));
     }
 
     @Test
     public void testGetMinimalExprSorts_intSig() {
         // make it a sensible policy
         when(policy.getSort(Sig.SIGINT)).thenReturn(Sort.Int());
-        assertSorts(policy.getMinimalExprSorts(Sig.SIGINT, "", context), Sort.Int());
+        assertResolvants(policy.getMinimalExprSorts(Sig.SIGINT, context), SortResolvant.definite(Sort.Int()));
     }
 
     @Test
     public void testGetMinimalExprSorts_min() {
-        assertSorts(policy.getMinimalExprSorts(ExprConstant.MIN, "", context), Sort.Int());
+        assertResolvants(policy.getMinimalExprSorts(ExprConstant.MIN, context), SortResolvant.definite(Sort.Int()));
     }
 
     @Test
     public void testGetMinimalExprSorts_max() {
-        assertSorts(policy.getMinimalExprSorts(ExprConstant.MAX, "", context), Sort.Int());
+        assertResolvants(policy.getMinimalExprSorts(ExprConstant.MAX, context), SortResolvant.definite(Sort.Int()));
     }
 
     @Test
     public void testGetMinimalExprSorts_next() {
-        assertSorts(policy.getMinimalExprSorts(ExprConstant.NEXT, "", context), Sort.Int(), Sort.Int());
+        assertResolvants(policy.getMinimalExprSorts(ExprConstant.NEXT, context),
+                SortResolvant.definite(Sort.Int()), SortResolvant.definite(Sort.Int()));
     }
 
     @Test
     public void testGetMinimalExprSorts_univ() {
-        assertSorts(policy.getMinimalExprSorts(Sig.UNIV, "", context), INDEFINITE);
+        Sort someOtherSort = Sort.mkSortConst("SomeSort");
+        when(policy.getAllSorts()).thenReturn(Arrays.asList(Sort.Int(), Sort.Bool(), someOtherSort));
+        assertResolvants(policy.getMinimalExprSorts(Sig.UNIV, context), SortResolvant.univ(policy));
     }
 
     @Test
     public void testGetMinimalExprSorts_none() {
-        assertSorts(policy.getMinimalExprSorts(Sig.NONE, "", context), INDEFINITE);
+        assertResolvants(policy.getMinimalExprSorts(Sig.NONE, context), SortResolvant.NONE);
     }
 
     @Test
     public void testGetMinimalExprSorts_iden() {
-        assertSorts(policy.getMinimalExprSorts(ExprConstant.IDEN, "", context), INDEFINITE, INDEFINITE);
+        // iden will have to be handled better at some point
+        Sort someOtherSort = Sort.mkSortConst("SomeSort");
+        when(policy.getAllSorts()).thenReturn(Arrays.asList(Sort.Int(), Sort.Bool(), someOtherSort));
+        assertResolvants(policy.getMinimalExprSorts(ExprConstant.IDEN, context),
+                SortResolvant.univ(policy), SortResolvant.univ(policy));
     }
 
     @Test
     public void testGetMinimalExprSorts_sig() {
         Sig sig = new Sig.PrimSig("S");
-        Sort sort = Sort.mkSortConst("mySort");
+        Sort sort = Sort.mkSortConst("MySort");
         when(policy.getSort(sig)).thenReturn(sort);
-        assertSorts(policy.getMinimalExprSorts(sig, "", context), sort);
+        assertResolvants(policy.getMinimalExprSorts(sig, context), SortResolvant.definite(sort));
     }
 
     @Test
@@ -135,7 +144,7 @@ public class SortPolicyTest {
                 sig1.lone(),
                 sig1.no());
         for (Expr boolExpr : boolExprs) {
-            assertSorts(policy.getMinimalExprSorts(boolExpr, "", context), Sort.Bool());
+            assertResolvants(policy.getMinimalExprSorts(boolExpr, context), SortResolvant.definite(Sort.Bool()));
         }
     }
 
@@ -157,119 +166,149 @@ public class SortPolicyTest {
                 num1.sha(num2),
                 sig.cardinality());
         for (Expr intExpr : intExprs) {
-            assertSorts(policy.getMinimalExprSorts(intExpr, "", context), Sort.Int());
+            assertResolvants(policy.getMinimalExprSorts(intExpr, context), SortResolvant.definite(Sort.Int()));
         }
     }
 
     @Test
-    public void testGetMinimalSorts_union_normal() {
+    public void testGetMinimalExprSorts_union_sameSort() {
         Sig sig1 = new Sig.PrimSig("S1");
         Sig sig2 = new Sig.PrimSig("S2");
         Sort commonSort = Sort.mkSortConst("common");
         when(policy.getSort(sig1)).thenReturn(commonSort);
         when(policy.getSort(sig2)).thenReturn(commonSort);
-        assertSorts(policy.getMinimalExprSorts(sig1.plus(sig2), "", context), commonSort);
+        assertResolvants(policy.getMinimalExprSorts(sig1.plus(sig2), context), SortResolvant.definite(commonSort));
     }
 
     @Test
-    public void testGetMinimalSorts_union_incompatible() {
+    public void testGetMinimalExprSorts_union_differentSort() {
         Sig sig1 = new Sig.PrimSig("S1");
         Sig sig2 = new Sig.PrimSig("S2");
         Sort sort1 = Sort.mkSortConst("sort1");
         Sort sort2 = Sort.mkSortConst("sort2");
         when(policy.getSort(sig1)).thenReturn(sort1);
         when(policy.getSort(sig2)).thenReturn(sort2);
-        assertThrows(ErrorFatal.class, () -> policy.getMinimalExprSorts(sig1.plus(sig2), "expected", context));
+        assertResolvants(policy.getMinimalExprSorts(sig1.plus(sig2), context),
+                SortResolvant.definite(sort1).union(SortResolvant.definite(sort2)));
     }
 
     @Test
-    public void testGetMinimalSorts_union_leftIndefinite() {
+    public void testGetMinimalExprSorts_union_leftNone() {
         Sig sig = new Sig.PrimSig("S");
         Sort sort = Sort.mkSortConst("sort");
         when(policy.getSort(sig)).thenReturn(sort);
-        assertSorts(policy.getMinimalExprSorts(sig.plus(Sig.UNIV), "", context), INDEFINITE);
+        assertResolvants(policy.getMinimalExprSorts(Sig.NONE.plus(sig), context), SortResolvant.definite(sort));
     }
 
     @Test
-    public void testGetMinimalSorts_union_rightIndefinite() {
+    public void testGetMinimalExprSorts_union_rightNone() {
         Sig sig = new Sig.PrimSig("S");
         Sort sort = Sort.mkSortConst("sort");
         when(policy.getSort(sig)).thenReturn(sort);
-        assertSorts(policy.getMinimalExprSorts(Sig.UNIV.plus(sig), "", context), INDEFINITE);
+        assertResolvants(policy.getMinimalExprSorts(sig.plus(Sig.NONE), context), SortResolvant.definite(sort));
     }
 
     @Test
-    public void testGetMinimalSorts_union_bothIndefinite() {
-        assertSorts(policy.getMinimalExprSorts(Sig.UNIV.plus(Sig.UNIV), "", context), INDEFINITE);
+    public void testGetMinimalExprSorts_union_leftUniv() {
+        Sig sig = new Sig.PrimSig("S");
+        Sort sort = Sort.mkSortConst("sort");
+        when(policy.getSort(sig)).thenReturn(sort);
+        when(policy.getAllSorts()).thenReturn(Arrays.asList(sort, Sort.Int(), Sort.Bool()));
+        assertResolvants(policy.getMinimalExprSorts(Sig.UNIV.plus(sig), context), SortResolvant.univ(policy));
     }
 
     @Test
-    public void testGetMinimalSorts_intersect_normal() {
+    public void testGetMinimalExprSorts_union_rightUniv() {
+        Sig sig = new Sig.PrimSig("S");
+        Sort sort = Sort.mkSortConst("sort");
+        when(policy.getSort(sig)).thenReturn(sort);
+        when(policy.getAllSorts()).thenReturn(Arrays.asList(sort, Sort.Int(), Sort.Bool()));
+        assertResolvants(policy.getMinimalExprSorts(sig.plus(Sig.UNIV), context), SortResolvant.univ(policy));
+    }
+
+    @Test
+    public void testGetMinimalExprSorts_intersect_sameSort() {
         Sig sig1 = new Sig.PrimSig("S1");
         Sig sig2 = new Sig.PrimSig("S2");
         Sort commonSort = Sort.mkSortConst("common");
         when(policy.getSort(sig1)).thenReturn(commonSort);
         when(policy.getSort(sig2)).thenReturn(commonSort);
-        assertSorts(policy.getMinimalExprSorts(sig1.intersect(sig2), "", context), commonSort);
+        assertResolvants(policy.getMinimalExprSorts(sig1.intersect(sig2), context),
+                SortResolvant.definite(commonSort));
     }
 
     @Test
-    public void testGetMinimalSorts_intersect_incompatible() {
+    public void testGetMinimalExprSorts_intersect_differentSorts() {
         Sig sig1 = new Sig.PrimSig("S1");
         Sig sig2 = new Sig.PrimSig("S2");
         Sort sort1 = Sort.mkSortConst("sort1");
         Sort sort2 = Sort.mkSortConst("sort2");
         when(policy.getSort(sig1)).thenReturn(sort1);
         when(policy.getSort(sig2)).thenReturn(sort2);
-        assertThrows(ErrorFatal.class, () -> policy.getMinimalExprSorts(sig1.intersect(sig2), "expected", context));
+        assertResolvants(policy.getMinimalExprSorts(sig1.intersect(sig2), context), SortResolvant.NONE);
     }
 
     @Test
-    public void testGetMinimalSorts_intersect_leftIndefinite() {
+    public void testGetMinimalExprSorts_intersect_leftUniv() {
         Sig sig = new Sig.PrimSig("S");
         Sort sort = Sort.mkSortConst("sort");
         when(policy.getSort(sig)).thenReturn(sort);
-        assertSorts(policy.getMinimalExprSorts(sig.intersect(Sig.UNIV), "", context), sort);
+        when(policy.getAllSorts()).thenReturn(Arrays.asList(sort, Sort.Int(), Sort.Bool()));
+        assertResolvants(policy.getMinimalExprSorts(sig.intersect(Sig.UNIV), context), SortResolvant.definite(sort));
     }
 
     @Test
-    public void testGetMinimalSorts_intersect_rightIndefinite() {
+    public void testGetMinimalExprSorts_intersect_rightUniv() {
         Sig sig = new Sig.PrimSig("S");
         Sort sort = Sort.mkSortConst("sort");
         when(policy.getSort(sig)).thenReturn(sort);
-        assertSorts(policy.getMinimalExprSorts(Sig.UNIV.intersect(sig), "", context), sort);
+        when(policy.getAllSorts()).thenReturn(Arrays.asList(sort, Sort.Int(), Sort.Bool()));
+        assertResolvants(policy.getMinimalExprSorts(Sig.UNIV.intersect(sig), context), SortResolvant.definite(sort));
     }
 
     @Test
-    public void testGetMinimalSorts_intersect_bothIndefinite() {
-        assertSorts(policy.getMinimalExprSorts(Sig.UNIV.intersect(Sig.UNIV), "", context), INDEFINITE);
+    public void testGetMinimalExprSorts_intersect_leftNone() {
+        Sig sig = new Sig.PrimSig("S");
+        Sort sort = Sort.mkSortConst("sort");
+        when(policy.getSort(sig)).thenReturn(sort);
+        assertResolvants(policy.getMinimalExprSorts(Sig.NONE.intersect(sig), context), SortResolvant.NONE);
     }
 
     @Test
-    public void testGetMinimalSorts_arrow() {
+    public void testGetMinimalExprSorts_intersect_rightNone() {
+        Sig sig = new Sig.PrimSig("S");
+        Sort sort = Sort.mkSortConst("sort");
+        when(policy.getSort(sig)).thenReturn(sort);
+        assertResolvants(policy.getMinimalExprSorts(sig.intersect(Sig.NONE), context), SortResolvant.NONE);
+    }
+
+    @Test
+    public void testGetMinimalExprSorts_arrow() {
         Sig sig1 = new Sig.PrimSig("S1");
         Sig sig2 = new Sig.PrimSig("S2");
         Sort sort1 = Sort.mkSortConst("sort1");
         Sort sort2 = Sort.mkSortConst("sort2");
         when(policy.getSort(sig1)).thenReturn(sort1);
         when(policy.getSort(sig2)).thenReturn(sort2);
-        assertSorts(policy.getMinimalExprSorts(sig1.product(sig2), "", context), sort1, sort2);
+        assertResolvants(policy.getMinimalExprSorts(sig1.product(sig2), context),
+                SortResolvant.definite(sort1), SortResolvant.definite(sort2));
     }
 
     @Test
-    public void testGetMinimalSorts_transpose() {
+    public void testGetMinimalExprSorts_transpose() {
         Sig sig1 = new Sig.PrimSig("S1");
         Sig sig2 = new Sig.PrimSig("S2");
         Sort sort1 = Sort.mkSortConst("sort1");
         Sort sort2 = Sort.mkSortConst("sort2");
         when(policy.getSort(sig1)).thenReturn(sort1);
         when(policy.getSort(sig2)).thenReturn(sort2);
-        assertSorts(policy.getMinimalExprSorts(sig1.product(sig2).transpose(), "", context), sort2, sort1);
+        assertResolvants(policy.getMinimalExprSorts(sig1.product(sig2).transpose(), context),
+                SortResolvant.definite(sort2), SortResolvant.definite(sort1));
     }
 
     @Test
-    public void testGetMinimalSorts_join() {
-        // trust the typechecker that the middle is okay
+    public void testGetMinimalExprSorts_join() {
+        // the middle isn't checked
         Sig sig1 = new Sig.PrimSig("S1");
         Sig sig2 = new Sig.PrimSig("S2");
         Sig sig3 = new Sig.PrimSig("S3");
@@ -280,7 +319,31 @@ public class SortPolicyTest {
         when(policy.getSort(sig2)).thenReturn(sort2);
         when(policy.getSort(sig3)).thenReturn(sort3);
         Expr join = sig1.product(sig2).join(sig2.product(sig3));
-        assertSorts(policy.getMinimalExprSorts(join, "", context), sort1, sort3);
+        assertResolvants(policy.getMinimalExprSorts(join, context),
+                SortResolvant.definite(sort1), SortResolvant.definite(sort3));
+    }
+
+    @Test
+    public void testGetMinimalExprSorts_let() {
+        Sig sig = new Sig.PrimSig("S");
+        Sort sort = Sort.mkSortConst("sort");
+        when(policy.getSort(sig)).thenReturn(sort);
+
+        ExprVar x = ExprVar.make(null, "x");
+        Expr let = ExprLet.make(null, x, sig, x);
+        assertResolvants(policy.getMinimalExprSorts(let, context), SortResolvant.definite(sort));
+    }
+
+    @Test
+    public void testGetMinimalExprSorts_call() {
+        Sig sig = new Sig.PrimSig("S");
+        Sort sort = Sort.mkSortConst("sort");
+        when(policy.getSort(sig)).thenReturn(sort);
+
+        Decl x = sig.oneOf("x");
+        Func func = new Func(null, null, "f", Collections.singletonList(x), sig, x.get());
+        Expr call = ExprCall.make(null, null, func, Collections.singletonList(sig), -1);
+        assertResolvants(policy.getMinimalExprSorts(call, context), SortResolvant.definite(sort));
     }
 
 }
