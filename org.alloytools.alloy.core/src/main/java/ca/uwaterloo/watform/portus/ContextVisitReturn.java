@@ -71,7 +71,7 @@ abstract class ContextVisitReturn<T> extends FortressVisitReturn<T> {
                 argResults.add(visitQuantifierArg(decl.expr));
 
                 List<Sort> sorts = sortPolicy.getMinimalExprDefiniteSorts(
-                        name, "Quantifier decl expression must have definite sorts!", varMappingContext);
+                        decl.expr, "Quantifier decl expression must have definite sorts!", varMappingContext);
                 // We only support arity 1
                 if (sorts.size() > 1) {
                     throw new ErrorFatal("Portus only supports unary quantifier decl expressions!");
