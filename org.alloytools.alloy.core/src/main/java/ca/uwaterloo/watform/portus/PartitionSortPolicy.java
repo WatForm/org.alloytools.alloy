@@ -73,9 +73,9 @@ final class PartitionSortPolicy extends SortPolicy {
                     // a.b requires the middle position to have definite sorts
                     // TODO: this sort of duplicates at least the logic in DefaultTranslator, DRY?
                     mergeSorts(() -> {
-                        List<SortResolvant> leftSorts = getMinimalExprSorts(x.left, varMappingContext);
-                        List<SortResolvant> rightSorts = getMinimalExprSorts(x.right, varMappingContext);
-                        SortResolvant middle = leftSorts.get(leftSorts.size() - 1).intersection(rightSorts.get(0));
+                        List<SortResolvantOld> leftSorts = getMinimalExprSorts(x.left, varMappingContext);
+                        List<SortResolvantOld> rightSorts = getMinimalExprSorts(x.right, varMappingContext);
+                        SortResolvantOld middle = leftSorts.get(leftSorts.size() - 1).intersection(rightSorts.get(0));
                         return Collections.singletonList(middle);
                     }, varMappingContext);
                 }
@@ -221,12 +221,12 @@ final class PartitionSortPolicy extends SortPolicy {
     }
 
     // Merge sorts until we're able to resolve sorts for toMerge (or its sorts are none).
-    private void mergeSorts(Supplier<List<SortResolvant>> toMerge, VarMappingContext varMappingContext) {
+    private void mergeSorts(Supplier<List<SortResolvantOld>> toMerge, VarMappingContext varMappingContext) {
         boolean allDefinite = false;
         while (!allDefinite) {
             allDefinite = true;
-            List<SortResolvant> sortResolvants = toMerge.get();
-            for (SortResolvant resolvant : sortResolvants) {
+            List<SortResolvantOld> sortResolvants = toMerge.get();
+            for (SortResolvantOld resolvant : sortResolvants) {
                 if (!resolvant.isDefinite() && !resolvant.isNone()) {
                     allDefinite = false;
                     mergeSorts(resolvant.getAllSorts(), varMappingContext);

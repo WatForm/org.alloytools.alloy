@@ -24,7 +24,7 @@ final class SimpleEvaluator implements Evaluator {
         this.rootEvaluator = rootEvaluator;
     }
 
-    private TupleSet evaluate(ExprBinary expr, FortressSolution solution, TranslationContext context) {
+    private ValueTupleSet evaluate(ExprBinary expr, FortressSolution solution, TranslationContext context) {
         switch (expr.op) {
             case PLUS:
                 return rootEvaluator.evaluate(expr.left, solution, context).union(
@@ -49,7 +49,7 @@ final class SimpleEvaluator implements Evaluator {
         return null;
     }
 
-    private TupleSet evaluate(ExprUnary expr, FortressSolution solution, TranslationContext context) {
+    private ValueTupleSet evaluate(ExprUnary expr, FortressSolution solution, TranslationContext context) {
         switch (expr.op) {
             case TRANSPOSE:
                 return rootEvaluator.evaluate(expr.sub, solution, context).transpose();
@@ -66,8 +66,8 @@ final class SimpleEvaluator implements Evaluator {
         return null;
     }
 
-    private TupleSet evaluate(ExprITE expr, FortressSolution solution, TranslationContext context) {
-        TupleSet condition = rootEvaluator.evaluate(expr.cond, solution, context);
+    private ValueTupleSet evaluate(ExprITE expr, FortressSolution solution, TranslationContext context) {
+        ValueTupleSet condition = rootEvaluator.evaluate(expr.cond, solution, context);
         if (!condition.isPureBoolean()) {
             throw new ErrorFatal("If-then-else condition did not evaluate to a boolean!");
         }
@@ -76,12 +76,12 @@ final class SimpleEvaluator implements Evaluator {
                 : rootEvaluator.evaluate(expr.right, solution, context);
     }
 
-    private TupleSet evaluate(ExprConstant expr) {
+    private ValueTupleSet evaluate(ExprConstant expr) {
         switch (expr.op) {
             case TRUE:
-                return TupleSet.singleton(Term.mkTop());
+                return ValueTupleSet.singleton(Term.mkTop());
             case FALSE:
-                return TupleSet.singleton(Term.mkBottom());
+                return ValueTupleSet.singleton(Term.mkBottom());
             case EMPTYNESS:
                 // Don't deal with none at the moment because it breaks TupleSet's assumption that every set has
                 // exactly one arity. We probably don't have to deal with it since A4SolutionWriter won't give us nones?
@@ -90,7 +90,7 @@ final class SimpleEvaluator implements Evaluator {
         return null;
     }
 
-    private TupleSet evaluate(ExprLet expr, FortressSolution solution, TranslationContext context) {
+    private ValueTupleSet evaluate(ExprLet expr, FortressSolution solution, TranslationContext context) {
         // It'd be more efficient to evaluate expr.expr once instead of every time the var is used, but so be it.
         context.addLetMapping(expr.var.label, expr.expr);
         try {
@@ -100,7 +100,7 @@ final class SimpleEvaluator implements Evaluator {
         }
     }
 
-    private TupleSet evaluate(ExprCall expr, FortressSolution solution, TranslationContext context) {
+    private ValueTupleSet evaluate(ExprCall expr, FortressSolution solution, TranslationContext context) {
         context.addLetMappingsFromCall(expr);
         try {
             return rootEvaluator.evaluate(expr.fun.getBody(), solution, context);
@@ -109,7 +109,7 @@ final class SimpleEvaluator implements Evaluator {
         }
     }
 
-    private TupleSet evaluate(ExprVar var, FortressSolution solution, TranslationContext context) {
+    private ValueTupleSet evaluate(ExprVar var, FortressSolution solution, TranslationContext context) {
         if (context.hasLetMapping(var.label)) {
             VarMappingContext.LetContext letContext = context.getLetMapping(var.label);
             assert letContext != null;
@@ -124,14 +124,14 @@ final class SimpleEvaluator implements Evaluator {
             AnnotatedTerm term = context.getTermMapping(var.label);
             assert term != null;
             Value result = solution.evaluateTerm(term.getTerm());
-            return TupleSet.singleton(result);
+            return ValueTupleSet.singleton(result);
         }
         // Unknown - maybe someone else can deal with it
         return null;
     }
 
     @Override
-    public TupleSet evaluate(Expr expr, FortressSolution solution, TranslationContext context) {
+    public ValueTupleSet evaluate(Expr expr, FortressSolution solution, TranslationContext context) {
         if (expr instanceof ExprBinary) {
             return evaluate((ExprBinary) expr, solution, context);
         } else if (expr instanceof ExprUnary) {

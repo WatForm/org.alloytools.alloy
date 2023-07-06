@@ -230,7 +230,7 @@ public final class FortressSolution implements AlloySolution {
 
     @Override
     public Object eval(Expr expr) throws Err {
-        TupleSet tupleSet = evaluator.evaluate(expr, this, context);
+        ValueTupleSet tupleSet = evaluator.evaluate(expr, this, context);
 
         // Pure booleans and ints are expected to be returned as Java booleans and ints.
         if (tupleSet.isPureBoolean()) {
@@ -272,17 +272,17 @@ public final class FortressSolution implements AlloySolution {
     /**
      * Get the preimage of the output value in the function func.
      */
-    TupleSet functionPreimage(FuncDecl func, Value output) {
+    ValueTupleSet functionPreimage(FuncDecl func, Value output) {
         // Note: a Map is the wrong data structure for this! This is very inefficient, no better than naive iteration!
         // Functions should always show up in the function interpretations, even if it's filled by a definition
         if (!interpretation.functionInterpretationsJava().containsKey(func)) {
             throw new ErrorFatal("Function " + func + " does not exist in this solution!");
         }
 
-        TupleSet result = interpretation.functionInterpretationsJava().get(func).entrySet().stream()
+        ValueTupleSet result = interpretation.functionInterpretationsJava().get(func).entrySet().stream()
                 .filter(entry -> Objects.equals(entry.getValue(), output))
                 .map(Map.Entry::getKey)
-                .collect(TupleSet.collect(func.arity()));
+                .collect(ValueTupleSet.collect(func.arity()));
 
         // If there's a function definition, include it too
         Option<FunctionDefinition> definitionOption = interpretation.functionDefinitions().find(
@@ -292,7 +292,7 @@ public final class FortressSolution implements AlloySolution {
         if (definitionOption.isDefined()) {
             FunctionDefinition definition = definitionOption.get();
             int arity = definition.argSortedVar().size();
-            result = result.union(TupleSet.fromScala(PreimageFinding.findPreimage(interpretation,
+            result = result.union(ValueTupleSet.fromScala(PreimageFinding.findPreimage(interpretation,
                     definition.argSortedVar(),
                     definition.body(),
                     output), arity));

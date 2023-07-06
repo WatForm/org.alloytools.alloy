@@ -100,9 +100,9 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
      * @return a tuple set corresponding to the expr's evaluation under the solution.
      */
     @Override
-    public TupleSet evaluate(Expr expr, FortressSolution solution, TranslationContext context) {
+    public ValueTupleSet evaluate(Expr expr, FortressSolution solution, TranslationContext context) {
         for (Evaluator evaluator : evaluators) {
-            TupleSet attempt = evaluator.evaluate(expr, solution, context);
+            ValueTupleSet attempt = evaluator.evaluate(expr, solution, context);
             if (attempt != null) {
                 return attempt;
             }

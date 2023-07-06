@@ -45,11 +45,11 @@ class OneSigOptTranslator extends AbstractTranslator implements ScalarCaster, Ev
 
     /** Evaluate an instance of a one sig as the value corresponding to its domain element. */
     @Override
-    public TupleSet evaluate(Expr expr, FortressSolution solution, TranslationContext context) {
+    public ValueTupleSet evaluate(Expr expr, FortressSolution solution, TranslationContext context) {
         DomainElement domainElement = castToDomainElement(expr, context);
         if (domainElement == null) return null;
 
-        return TupleSet.singleton(solution.evaluateTerm(domainElement));
+        return ValueTupleSet.singleton(solution.evaluateTerm(domainElement));
     }
 
     private DomainElement castToDomainElement(Expr expr, TranslationContext context) {

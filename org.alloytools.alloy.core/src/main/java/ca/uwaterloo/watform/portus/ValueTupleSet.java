@@ -23,12 +23,12 @@ import java.util.stream.StreamSupport;
  * A set of Fortress tuples, for use when evaluating. Immutable.
  * This is like Kodkod's TupleSet class but not Kodkod-specific.
  */
-final class TupleSet {
+final class ValueTupleSet {
 
     private final Set<List<Value>> tuples;
     private final int arity;
 
-    public TupleSet(Set<List<Value>> tuples, int arity) {
+    public ValueTupleSet(Set<List<Value>> tuples, int arity) {
         this.tuples = tuples;
         this.arity = arity;
 
@@ -42,33 +42,33 @@ final class TupleSet {
         }
     }
 
-    public static TupleSet empty(int arity) {
-        return new TupleSet(Collections.emptySet(), arity);
+    public static ValueTupleSet empty(int arity) {
+        return new ValueTupleSet(Collections.emptySet(), arity);
     }
 
-    public static TupleSet singleton(List<Value> tuple) {
-        return new TupleSet(Collections.singleton(tuple), tuple.size());
+    public static ValueTupleSet singleton(List<Value> tuple) {
+        return new ValueTupleSet(Collections.singleton(tuple), tuple.size());
     }
 
-    public static TupleSet singleton(Value value) {
+    public static ValueTupleSet singleton(Value value) {
         return singleton(Collections.singletonList(value));
     }
 
-    public static TupleSet atoms(Iterable<Value> atoms) {
+    public static ValueTupleSet atoms(Iterable<Value> atoms) {
         return StreamSupport.stream(atoms.spliterator(), false)
                 .map(Collections::singletonList)
-                .collect(TupleSet.collect(1));
+                .collect(ValueTupleSet.collect(1));
     }
 
-    public static TupleSet from(Set<List<Value>> tuples) {
+    public static ValueTupleSet from(Set<List<Value>> tuples) {
         if (tuples.size() == 0) {
             throw new IllegalArgumentException("Cannot infer arity from empty list of tuples!");
         }
         int arity = tuples.iterator().next().size(); // just pick any
-        return new TupleSet(tuples, arity);
+        return new ValueTupleSet(tuples, arity);
     }
 
-    public static TupleSet fromScala(
+    public static ValueTupleSet fromScala(
             scala.collection.immutable.Set<scala.collection.immutable.Seq<Value>> tuples, int arity) {
         // Convert from Scala manually to avoid type nonsense
         Set<List<Value>> javaTuples = new HashSet<>();
@@ -77,67 +77,67 @@ final class TupleSet {
             tuple.foreach(javaTuple::add);
             return javaTuples.add(javaTuple);
         });
-        return new TupleSet(javaTuples, arity);
+        return new ValueTupleSet(javaTuples, arity);
     }
 
-    private void assertCompatible(TupleSet other) {
+    private void assertCompatible(ValueTupleSet other) {
         Objects.requireNonNull(other);
         if (other.arity != arity) {
             throw new ErrorFatal("Incompatible tuple sets!");
         }
     }
 
-    public TupleSet union(TupleSet other) {
+    public ValueTupleSet union(ValueTupleSet other) {
         assertCompatible(other);
-        return new TupleSet(SetOps.union(tuples, other.tuples), arity);
+        return new ValueTupleSet(SetOps.union(tuples, other.tuples), arity);
     }
 
-    public TupleSet intersection(TupleSet other) {
+    public ValueTupleSet intersection(ValueTupleSet other) {
         assertCompatible(other);
-        return new TupleSet(SetOps.intersection(tuples, other.tuples), arity);
+        return new ValueTupleSet(SetOps.intersection(tuples, other.tuples), arity);
     }
 
-    public TupleSet difference(TupleSet other) {
+    public ValueTupleSet difference(ValueTupleSet other) {
         assertCompatible(other);
-        return new TupleSet(SetOps.difference(tuples, other.tuples), arity);
+        return new ValueTupleSet(SetOps.difference(tuples, other.tuples), arity);
     }
 
-    public TupleSet cartesianProduct(TupleSet other) {
+    public ValueTupleSet cartesianProduct(ValueTupleSet other) {
         Objects.requireNonNull(other);
-        return new TupleSet(SetOps.cartesianProduct(tuples, other.tuples), arity + other.arity);
+        return new ValueTupleSet(SetOps.cartesianProduct(tuples, other.tuples), arity + other.arity);
     }
 
-    public TupleSet join(TupleSet other) {
+    public ValueTupleSet join(ValueTupleSet other) {
         Objects.requireNonNull(other);
         if (arity == 0 || other.arity == 0) {
             throw new ErrorFatal("Cannot join a tuple with arity 0!");
         }
-        return new TupleSet(SetOps.join(tuples, other.tuples), arity + other.arity - 1);
+        return new ValueTupleSet(SetOps.join(tuples, other.tuples), arity + other.arity - 1);
     }
 
-    public TupleSet override(TupleSet other) {
+    public ValueTupleSet override(ValueTupleSet other) {
         assertCompatible(other);
         if (arity == 0) {
             throw new ErrorFatal("Cannot override tuples with arity 0!");
         }
-        return new TupleSet(SetOps.override(tuples, other.tuples), arity);
+        return new ValueTupleSet(SetOps.override(tuples, other.tuples), arity);
     }
 
-    public TupleSet transpose() {
+    public ValueTupleSet transpose() {
         if (arity != 2) {
             throw new ErrorFatal("Can only transpose TupleSets with arity 2!");
         }
-        return new TupleSet(SetOps.transpose(tuples), arity);
+        return new ValueTupleSet(SetOps.transpose(tuples), arity);
     }
 
-    public TupleSet transitiveClosure() {
+    public ValueTupleSet transitiveClosure() {
         if (arity != 2) {
             throw new ErrorFatal("Can only take closure of TupleSets with arity 2!");
         }
 
         // Iterative squaring with fixpoint - this definitely isn't fast but our instances are small
-        TupleSet result = this;
-        TupleSet last = null;
+        ValueTupleSet result = this;
+        ValueTupleSet last = null;
         while (!result.equals(last)) {
             last = result;
             result = result.union(result.join(this));
@@ -164,8 +164,8 @@ final class TupleSet {
         return tuples.stream();
     }
 
-    public static Collector<List<Value>, ?, TupleSet> collect(int arity) {
-        return Collectors.collectingAndThen(Collectors.<List<Value>>toSet(), tuples -> new TupleSet(tuples, arity));
+    public static Collector<List<Value>, ?, ValueTupleSet> collect(int arity) {
+        return Collectors.collectingAndThen(Collectors.<List<Value>>toSet(), tuples -> new ValueTupleSet(tuples, arity));
     }
 
     /** Return whether this TupleSet is of the form {(x)} for some Value x. */
@@ -259,8 +259,8 @@ final class TupleSet {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        TupleSet tupleSet = (TupleSet) o;
-        return arity == tupleSet.arity && Objects.equals(tuples, tupleSet.tuples);
+        ValueTupleSet valueTupleSet = (ValueTupleSet) o;
+        return arity == valueTupleSet.arity && Objects.equals(tuples, valueTupleSet.tuples);
     }
 
     @Override

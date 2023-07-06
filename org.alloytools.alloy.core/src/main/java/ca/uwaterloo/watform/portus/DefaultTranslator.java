@@ -296,10 +296,10 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
     }
 
     /** Evaluate a sig given a solution. */
-    private TupleSet evaluateSig(Sig sig, FortressSolution solution) {
+    private ValueTupleSet evaluateSig(Sig sig, FortressSolution solution) {
         // If the sig is the entire sort, the results are the entire sort
         if (sortPolicy.isSigEntireSort(sig)) {
-            return TupleSet.atoms(solution.getSortAtoms(sortPolicy.getSort(sig)));
+            return ValueTupleSet.atoms(solution.getSortAtoms(sortPolicy.getSort(sig)));
         }
 
         // Evaluate only sigs which we've translated here
@@ -309,7 +309,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
         return solution.functionPreimage(sigMemberPredicateDecls.get(sig), Term.mkTop());
     }
 
-    private TupleSet evaluateField(Sig.Field field, FortressSolution solution) {
+    private ValueTupleSet evaluateField(Sig.Field field, FortressSolution solution) {
         // Evaluate only fields we've translated here
         if (!relationPredicateDecls.containsKey(field)) return null;
 
@@ -404,8 +404,8 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
         // If the sorts are incompatible, then there can be no overlap between the rightmost column on the left and
         // the leftmost column on the right, so we short-circuit to false.
         int partitionIdx = left.type().arity() - 1; // so that adding y gives the arity
-        SortResolvant leftYSort = sortPolicy.getMinimalExprSorts(left, context).get(partitionIdx);
-        SortResolvant rightYSort = sortPolicy.getMinimalExprSorts(right, context).get(0);
+        SortResolvantOld leftYSort = sortPolicy.getMinimalExprSorts(left, context).get(partitionIdx);
+        SortResolvantOld rightYSort = sortPolicy.getMinimalExprSorts(right, context).get(0);
 
         // If the last element of left statically resolves to none, then the entire left expression is none, and
         // none.x = none (ignoring arity), so we can short-circuit to false. The same goes if right is none.
@@ -416,7 +416,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
 
         // Otherwise, there is an intersection between the sorts. We can translate if the intersection is
         // exactly one sort (it is definite), because then all possible common y values come from that sort.
-        SortResolvant intersection = leftYSort.intersection(rightYSort);
+        SortResolvantOld intersection = leftYSort.intersection(rightYSort);
         if (!intersection.isDefinite()) {
             throw new ErrorFatal("Joined columns must intersect in one Portus sort!");
         }
@@ -652,8 +652,8 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
         //   we short-circuit to false because they could not possibly match.
         // There is room for more short-circuiting.
 
-        List<SortResolvant> e1Sorts = sortPolicy.getMinimalExprSorts(e1, context);
-        List<SortResolvant> e2Sorts = sortPolicy.getMinimalExprSorts(e2, context);
+        List<SortResolvantOld> e1Sorts = sortPolicy.getMinimalExprSorts(e1, context);
+        List<SortResolvantOld> e2Sorts = sortPolicy.getMinimalExprSorts(e2, context);
         if (e1Sorts.size() != e2Sorts.size()) { // typechecker should have ensured this
             throw new ErrorFatal("Both sides in an 'in' or '=' formula must have the same arity!");
         }
@@ -665,8 +665,8 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
         // Short-circuit if either expression statically resolves to none.
         // If any sort is an expression resolves to none, then the whole expression is none,
         // because A->none->B = none->none->none (Cartesian product with none gives none).
-        boolean e1IsNone = e1Sorts.stream().anyMatch(SortResolvant::isNone);
-        boolean e2IsNone = e2Sorts.stream().anyMatch(SortResolvant::isNone);
+        boolean e1IsNone = e1Sorts.stream().anyMatch(SortResolvantOld::isNone);
+        boolean e2IsNone = e2Sorts.stream().anyMatch(SortResolvantOld::isNone);
         if (e1IsNone && e2IsNone) {
             // If both are none, then the expression is "none = none", which is true.
             return Term.mkTop();
@@ -703,8 +703,8 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
         // Now we can assume that all sorts are non-none and not disjoint.
         // Merge the sorts.
         for (int i = 0; i < e1Sorts.size(); i++) {
-            SortResolvant e1Resolvant = e1Sorts.get(i);
-            SortResolvant e2Resolvant = e2Sorts.get(i);
+            SortResolvantOld e1Resolvant = e1Sorts.get(i);
+            SortResolvantOld e2Resolvant = e2Sorts.get(i);
 
             // For "e1 in e2", we can allow e2's sorts to be indefinite (and non-none) as long as e1's are definite.
             // For "e1 = e2", we require e1's sorts to all be definite and a subset of e2's sorts.
@@ -1481,7 +1481,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
     }
 
     @Override
-    public TupleSet evaluate(Expr expr, FortressSolution solution, TranslationContext context) {
+    public ValueTupleSet evaluate(Expr expr, FortressSolution solution, TranslationContext context) {
         if (expr instanceof Sig) {
             return evaluateSig((Sig) expr, solution);
         } else if (expr instanceof Sig.Field) {

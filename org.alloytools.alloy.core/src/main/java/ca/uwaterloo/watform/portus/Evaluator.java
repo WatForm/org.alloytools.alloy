@@ -5,6 +5,6 @@ import edu.mit.csail.sdg.ast.Expr;
 @FunctionalInterface
 interface Evaluator {
 
-    TupleSet evaluate(Expr expr, FortressSolution solution, TranslationContext context);
+    ValueTupleSet evaluate(Expr expr, FortressSolution solution, TranslationContext context);
 
 }

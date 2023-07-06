@@ -135,11 +135,11 @@ public abstract class SortPolicy {
      * Null corresponds to INDEFINITE in the paper.
      * Returns null for the whole list if the sorts are incompatible.
      */
-    public final List<SortResolvant> getMinimalExprSorts(Expr expr, VarMappingContext varMappingContext) {
+    public final List<SortResolvantOld> getMinimalExprSorts(Expr expr, VarMappingContext varMappingContext) {
         return expr.accept(new SortVisitor(varMappingContext));
     }
 
-    public final List<SortResolvant> getMinimalExprSorts(Expr expr, TranslationContext context) {
+    public final List<SortResolvantOld> getMinimalExprSorts(Expr expr, TranslationContext context) {
         return getMinimalExprSorts(expr, context.varMappingContext);
     }
 
@@ -147,12 +147,12 @@ public abstract class SortPolicy {
      * For convenience, throw an error if any of the sort resolvants aren't definite,
      * and return the definite sorts.
      */
-    public static List<Sort> requireAllSortsDefinite(List<SortResolvant> sortResolvants, String errorMessage) {
+    public static List<Sort> requireAllSortsDefinite(List<SortResolvantOld> sortResolvants, String errorMessage) {
         if (sortResolvants.stream().anyMatch(resolvant -> !resolvant.isDefinite())) {
             throw new ErrorFatal(errorMessage);
         }
         return sortResolvants.stream()
-                .map(SortResolvant::getDefiniteSort)
+                .map(SortResolvantOld::getDefiniteSort)
                 .collect(Collectors.toList());
     }
 
@@ -165,36 +165,36 @@ public abstract class SortPolicy {
         return getMinimalExprDefiniteSorts(expr, errorMessage, context.varMappingContext);
     }
 
-    private class SortVisitor extends ContextVisitReturn<List<SortResolvant>> {
+    private class SortVisitor extends ContextVisitReturn<List<SortResolvantOld>> {
 
         public SortVisitor(VarMappingContext context) {
             super(context, SortPolicy.this);
         }
 
-        private List<SortResolvant> merge(
-                List<SortResolvant> a, List<SortResolvant> b,
-                BiFunction<SortResolvant, SortResolvant, SortResolvant> merger) {
+        private List<SortResolvantOld> merge(
+                List<SortResolvantOld> a, List<SortResolvantOld> b,
+                BiFunction<SortResolvantOld, SortResolvantOld, SortResolvantOld> merger) {
             if (a.size() != b.size()) {
                 // Actually invalid - arities do not match
                 throw new ErrorFatal("Arities of sorts do not match in SortPolicy.SortVisitor.merge!");
             }
-            List<SortResolvant> merged = new ArrayList<>();
+            List<SortResolvantOld> merged = new ArrayList<>();
             for (int i = 0; i < a.size(); i++) {
                 merged.add(merger.apply(a.get(i), b.get(i)));
             }
             return merged;
         }
 
-        private List<SortResolvant> intersect(List<SortResolvant> a, List<SortResolvant> b) {
-            return merge(a, b, SortResolvant::intersection);
+        private List<SortResolvantOld> intersect(List<SortResolvantOld> a, List<SortResolvantOld> b) {
+            return merge(a, b, SortResolvantOld::intersection);
         }
 
-        private List<SortResolvant> union(List<SortResolvant> a, List<SortResolvant> b) {
-            return merge(a, b, SortResolvant::union);
+        private List<SortResolvantOld> union(List<SortResolvantOld> a, List<SortResolvantOld> b) {
+            return merge(a, b, SortResolvantOld::union);
         }
 
         @Override
-        public List<SortResolvant> visit(ExprBinary x) throws Err {
+        public List<SortResolvantOld> visit(ExprBinary x) throws Err {
             // rely on typechecking: e.g. integer ops are always integers, boolean ops are always boolean
             // we don't have to look at their arguments because typechecking checked already
             switch (x.op) {
@@ -214,7 +214,7 @@ public abstract class SortPolicy {
                 case NOT_LTE:
                 case NOT_GT:
                 case NOT_GTE:
-                    return Collections.singletonList(SortResolvant.definite(Sort.Bool()));
+                    return Collections.singletonList(SortResolvantOld.definite(Sort.Bool()));
                 case IPLUS:
                 case IMINUS:
                 case MUL:
@@ -223,11 +223,11 @@ public abstract class SortPolicy {
                 case SHL:
                 case SHR:
                 case SHA:
-                    return Collections.singletonList(SortResolvant.definite(Sort.Int()));
+                    return Collections.singletonList(SortResolvantOld.definite(Sort.Int()));
             }
-            List<SortResolvant> left = visitThis(x.left);
-            List<SortResolvant> right = visitThis(x.right);
-            List<SortResolvant> result = new ArrayList<>();
+            List<SortResolvantOld> left = visitThis(x.left);
+            List<SortResolvantOld> right = visitThis(x.right);
+            List<SortResolvantOld> result = new ArrayList<>();
             if (x.op.isArrow) {
                 // stack the sorts left to right
                 result.addAll(left);
@@ -267,13 +267,13 @@ public abstract class SortPolicy {
         }
 
         @Override
-        public List<SortResolvant> visit(ExprList x) throws Err {
+        public List<SortResolvantOld> visit(ExprList x) throws Err {
             // all possible operations return bool
-            return Collections.singletonList(SortResolvant.definite(Sort.Bool()));
+            return Collections.singletonList(SortResolvantOld.definite(Sort.Bool()));
         }
 
         @Override
-        public List<SortResolvant> visit(ExprCall x) throws Err {
+        public List<SortResolvantOld> visit(ExprCall x) throws Err {
             varMappingContext.addLetMappingsFromCall(x);
             try {
                 return visitThis(x.fun.getBody());
@@ -284,48 +284,48 @@ public abstract class SortPolicy {
         }
 
         @Override
-        public List<SortResolvant> visit(ExprConstant x) throws Err {
+        public List<SortResolvantOld> visit(ExprConstant x) throws Err {
             switch (x.op) {
                 case TRUE:
                 case FALSE:
-                    return Collections.singletonList(SortResolvant.definite(Sort.Bool()));
+                    return Collections.singletonList(SortResolvantOld.definite(Sort.Bool()));
                 case NUMBER:
                 case MIN:
                 case MAX:
-                    return Collections.singletonList(SortResolvant.definite(Sort.Int()));
+                    return Collections.singletonList(SortResolvantOld.definite(Sort.Int()));
                 case NEXT:
                     // function int->int
-                    return Arrays.asList(SortResolvant.definite(Sort.Int()), SortResolvant.definite(Sort.Int()));
+                    return Arrays.asList(SortResolvantOld.definite(Sort.Int()), SortResolvantOld.definite(Sort.Int()));
                 case IDEN:
                     // We can't assign a single type to iden
-                    return Arrays.asList(SortResolvant.univ(SortPolicy.this), SortResolvant.univ(SortPolicy.this));
+                    return Arrays.asList(SortResolvantOld.univ(SortPolicy.this), SortResolvantOld.univ(SortPolicy.this));
                 case EMPTYNESS:
-                    return Collections.singletonList(SortResolvant.NONE);
+                    return Collections.singletonList(SortResolvantOld.NONE);
                 default:
                     throw new ErrorFatal("Can't get sort from constant: " + x);
             }
         }
 
         @Override
-        public List<SortResolvant> visit(ExprITE x) throws Err {
+        public List<SortResolvantOld> visit(ExprITE x) throws Err {
             return union(visitThis(x.left), visitThis(x.right));
         }
 
         @Override
-        public List<SortResolvant> visitLet(ExprLet x) throws Err {
+        public List<SortResolvantOld> visitLet(ExprLet x) throws Err {
             return visitThis(x.sub); // let mappings handled by superclass
         }
 
         @Override
-        public List<SortResolvant> visitQuantifier(ExprQt x, List<List<SortResolvant>> ignoredArgResults) throws Err {
+        public List<SortResolvantOld> visitQuantifier(ExprQt x, List<List<SortResolvantOld>> ignoredArgResults) throws Err {
             // trust typechecking
             if (x.op == ExprQt.Op.SUM) {
-                return Collections.singletonList(SortResolvant.definite(Sort.Int()));
+                return Collections.singletonList(SortResolvantOld.definite(Sort.Int()));
             } else if (x.op == ExprQt.Op.COMPREHENSION) {
                 // use the sorts from each declaration
-                List<SortResolvant> result = new ArrayList<>();
+                List<SortResolvantOld> result = new ArrayList<>();
                 for (Decl decl : x.decls) {
-                    List<SortResolvant> declResult = visitThis(decl.expr);
+                    List<SortResolvantOld> declResult = visitThis(decl.expr);
                     for (ExprHasName ignored : decl.names) {
                         result.addAll(declResult);
                     }
@@ -333,12 +333,12 @@ public abstract class SortPolicy {
                 return result;
             } else {
                 // every other op is a formula (all, no, some, etc)
-                return Collections.singletonList(SortResolvant.definite(Sort.Bool()));
+                return Collections.singletonList(SortResolvantOld.definite(Sort.Bool()));
             }
         }
 
         @Override
-        public List<SortResolvant> visit(ExprUnary x) throws Err {
+        public List<SortResolvantOld> visit(ExprUnary x) throws Err {
             switch (x.op) {
                 case SOMEOF:
                 case LONEOF:
@@ -356,12 +356,12 @@ public abstract class SortPolicy {
                 case SOME:
                 case LONE:
                 case ONE:
-                    return Collections.singletonList(SortResolvant.definite(Sort.Bool()));
+                    return Collections.singletonList(SortResolvantOld.definite(Sort.Bool()));
                 case CARDINALITY:
-                    return Collections.singletonList(SortResolvant.definite(Sort.Int()));
+                    return Collections.singletonList(SortResolvantOld.definite(Sort.Int()));
                 case TRANSPOSE: {
                     // swap them around
-                    List<SortResolvant> sub = visitThis(x.sub);
+                    List<SortResolvantOld> sub = visitThis(x.sub);
                     if (sub.size() != 2) {
                         throw new ErrorFatal("Transpose argument must have arity 2!");
                     }
@@ -373,63 +373,63 @@ public abstract class SortPolicy {
         }
 
         @Override
-        public List<SortResolvant> visitVar(ExprVar x) throws Err {
+        public List<SortResolvantOld> visitVar(ExprVar x) throws Err {
             // use the sort it's mapped to in the context
             // Note: let mappings are automatically expanded in superclass
             if (varMappingContext.hasTermMapping(x.label)) {
                 AnnotatedTerm mapped = varMappingContext.getTermMapping(x.label);
                 assert mapped != null;
-                return Collections.singletonList(SortResolvant.definite(mapped.getSort()));
+                return Collections.singletonList(SortResolvantOld.definite(mapped.getSort()));
             } else {
                 // unknown variable
                 // try to get the sort from the type - TODO this probably isn't necessary (except for tests)
                 return getTypeSorts(x.type()).stream()
-                        .map(SortResolvant::definite)
+                        .map(SortResolvantOld::definite)
                         .collect(Collectors.toList());
             }
         }
 
         @Override
-        public List<SortResolvant> visit(ExprElementOf x) throws Err {
-            return Collections.singletonList(SortResolvant.definite(Sort.Bool()));
+        public List<SortResolvantOld> visit(ExprElementOf x) throws Err {
+            return Collections.singletonList(SortResolvantOld.definite(Sort.Bool()));
         }
 
         @Override
-        public List<SortResolvant> visit(Sig x) throws Err {
+        public List<SortResolvantOld> visit(Sig x) throws Err {
             if (x.equals(Sig.UNIV)) {
-                return Collections.singletonList(SortResolvant.univ(SortPolicy.this));
+                return Collections.singletonList(SortResolvantOld.univ(SortPolicy.this));
             } else if (x.equals(Sig.NONE)) {
-                return Collections.singletonList(SortResolvant.NONE);
+                return Collections.singletonList(SortResolvantOld.NONE);
             } else if (x.equals(Sig.STRING)) {
                 throw new ErrorFatal("Portus does not support strings!");
             }
 
             // fetch it using our policy
-            return Collections.singletonList(SortResolvant.definite(getSort(x)));
+            return Collections.singletonList(SortResolvantOld.definite(getSort(x)));
         }
 
         @Override
-        public List<SortResolvant> visit(Sig.Field x) throws Err {
+        public List<SortResolvantOld> visit(Sig.Field x) throws Err {
             // manually construct the sort for S->e for the translation of "sig S { f: e }"
-            List<SortResolvant> sigSorts = visitThis(x.sig);
-            List<SortResolvant> exprSorts = visitThis(x.decl().expr);
-            List<SortResolvant> result = new ArrayList<>(sigSorts);
+            List<SortResolvantOld> sigSorts = visitThis(x.sig);
+            List<SortResolvantOld> exprSorts = visitThis(x.decl().expr);
+            List<SortResolvantOld> result = new ArrayList<>(sigSorts);
             result.addAll(exprSorts);
             return result;
         }
 
         @Override
-        public List<SortResolvant> visit(Func x) throws Err {
+        public List<SortResolvantOld> visit(Func x) throws Err {
             throw new ErrorFatal("Visiting Func isn't supported!");
         }
 
         @Override
-        public List<SortResolvant> visit(Assert x) throws Err {
+        public List<SortResolvantOld> visit(Assert x) throws Err {
             throw new ErrorFatal("Visiting Assert isn't supported!");
         }
 
         @Override
-        public List<SortResolvant> visit(Macro macro) throws Err {
+        public List<SortResolvantOld> visit(Macro macro) throws Err {
             throw new ErrorFatal("Visiting Macro isn't supported!");
         }
     }

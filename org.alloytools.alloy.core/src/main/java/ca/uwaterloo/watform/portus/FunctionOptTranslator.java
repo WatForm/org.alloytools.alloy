@@ -386,7 +386,7 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
 
     /** Evaluate fields we optimized here. */
     @Override
-    public TupleSet evaluate(Expr expr, FortressSolution solution, TranslationContext context) {
+    public ValueTupleSet evaluate(Expr expr, FortressSolution solution, TranslationContext context) {
         if (!(expr instanceof Sig.Field)) return null;
         Sig.Field field = (Sig.Field) expr;
         if (!optimizedFieldsInfo.containsKey(field)) return null;
@@ -394,10 +394,10 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
         FieldFuncInfo info = optimizedFieldsInfo.get(field);
 
         // Find the sets of n-1 atoms for which the domain predicate is true then map to get the final atoms
-        TupleSet domain = getTuplesInDomain(info, solution, context);
+        ValueTupleSet domain = getTuplesInDomain(info, solution, context);
         return domain.stream()
                 .map(args -> SetOps.concatenate(args, solution.evaluateTerm(Term.mkApp(info.funcName, args))))
-                .collect(TupleSet.collect(info.arity));
+                .collect(ValueTupleSet.collect(info.arity));
     }
 
     private List<AnnotatedVar> makeArgVars(FieldFuncInfo info, TranslationContext context) {
@@ -447,7 +447,7 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
     }
 
     // TODO: test this (significantly!)
-    private TupleSet getTuplesInDomain(
+    private ValueTupleSet getTuplesInDomain(
             FieldFuncInfo info, FortressSolution solution, TranslationContext context) {
         if (info.domainPredName != null) {
             // reverse the domain predicate if available
@@ -456,8 +456,8 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
 
         // Take the product of all the bound exprs in the domain formula above
         // If there's no "this", just evaluate the exprs
-        TupleSet first = null;
-        TupleSet result = TupleSet.singleton(Collections.emptyList()); // the identity for cartesian product
+        ValueTupleSet first = null;
+        ValueTupleSet result = ValueTupleSet.singleton(Collections.emptyList()); // the identity for cartesian product
         for (Expr expr : info.boundExprs.subList(0, info.boundExprs.size() - 1)) {
             int arity = expr.type().arity();
 
@@ -465,7 +465,7 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
             boolean hasThis = PortusUtil.computeFreeVariables(expr, context, sortPolicy).stream()
                     .anyMatch(var -> var.name().equals("this"));
 
-            TupleSet exprResult;
+            ValueTupleSet exprResult;
             if (hasThis) {
                 if (first == null) {
                     // first should be the sig and defines this, so it shouldn't contain this
@@ -485,7 +485,7 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
                     } finally {
                         context.removeMapping("this");
                     }
-                }).reduce(TupleSet.empty(arity), TupleSet::union);
+                }).reduce(ValueTupleSet.empty(arity), ValueTupleSet::union);
             } else {
                 exprResult = rootEvaluator.evaluate(expr, solution, context);
             }

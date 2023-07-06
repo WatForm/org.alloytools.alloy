@@ -28,17 +28,17 @@ final class BruteForceEvaluator implements Evaluator {
     }
 
     @Override
-    public TupleSet evaluate(Expr expr, FortressSolution solution, TranslationContext context) {
+    public ValueTupleSet evaluate(Expr expr, FortressSolution solution, TranslationContext context) {
         if (expr.type().is_bool) {
             // A formula - just check it and return the boolean
             boolean result = evaluateBooleanExpr(expr, solution, context);
-            return TupleSet.singleton(result ? Term.mkTop() : Term.mkBottom());
+            return ValueTupleSet.singleton(result ? Term.mkTop() : Term.mkBottom());
         }
 
         // Special case: we don't support strings, so just return none.
         // TODO: Support strings.
         if (expr.deNOP().equals(Sig.STRING)) {
-            return TupleSet.empty(1);
+            return ValueTupleSet.empty(1);
         }
 
         return bruteForceEval(expr, solution, context);
@@ -51,20 +51,20 @@ final class BruteForceEvaluator implements Evaluator {
         return solution.evaluateFormula(fortressTerm);
     }
 
-    private TupleSet bruteForceEval(Expr expr, FortressSolution solution, TranslationContext context) {
+    private ValueTupleSet bruteForceEval(Expr expr, FortressSolution solution, TranslationContext context) {
         // Manually evaluate {(x1,...,xn) : sorts | [[(x1,...,xn) \in expr]]}
         Set<List<Value>> tupleSet = new HashSet<>();
         int arity = expr.type().arity();
 
         // Optimization: if we can determine that some positions can only have atoms of certain sorts,
         // only try values from those sorts
-        List<SortResolvant> exprSorts = sortPolicy.getMinimalExprSorts(expr, context);
+        List<SortResolvantOld> exprSorts = sortPolicy.getMinimalExprSorts(expr, context);
         if (arity != exprSorts.size()) {
             throw new ErrorFatal("Evaluating " + expr + ": type arity " + arity + " conflicts with determined arity "
                     + exprSorts.size());
         }
         List<List<Sort>> sortsPerPosition = exprSorts.stream()
-                .map(SortResolvant::getAllSorts)
+                .map(SortResolvantOld::getAllSorts)
                 .map(ArrayList::new)
                 .collect(Collectors.toList());
 
@@ -98,7 +98,7 @@ final class BruteForceEvaluator implements Evaluator {
             });
         });
 
-        return new TupleSet(tupleSet, arity);
+        return new ValueTupleSet(tupleSet, arity);
     }
 
     // Compute the Cartesian product of the lists recursively and lazily
