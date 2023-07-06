@@ -9,7 +9,6 @@ import kodkod.instance.Tuple;
 import kodkod.instance.TupleFactory;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -17,7 +16,6 @@ import java.util.Set;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 
 /**
  * A set of Fortress tuples, for use when evaluating. Immutable.
@@ -25,39 +23,32 @@ import java.util.stream.StreamSupport;
  */
 final class ValueTupleSet {
 
-    private final Set<List<Value>> tuples;
-    private final int arity;
+    // We mostly delegate to tupleSet with some helper methods on top.
+    private final TupleSet<Value> tupleSet;
+
+    private ValueTupleSet(TupleSet<Value> tupleSet) {
+        Objects.requireNonNull(tupleSet);
+        this.tupleSet = tupleSet;
+    }
 
     public ValueTupleSet(Set<List<Value>> tuples, int arity) {
-        this.tuples = tuples;
-        this.arity = arity;
-
-        if (arity < 0) {
-            throw new ErrorFatal("TupleSet cannot have negative arity!");
-        }
-        for (List<Value> tuple : tuples) {
-            if (tuple.size() != arity) {
-                throw new ErrorFatal("All tuples must have the given arity!");
-            }
-        }
+        this(new TupleSet<>(tuples, arity));
     }
 
     public static ValueTupleSet empty(int arity) {
-        return new ValueTupleSet(Collections.emptySet(), arity);
+        return new ValueTupleSet(TupleSet.empty(arity));
     }
 
     public static ValueTupleSet singleton(List<Value> tuple) {
-        return new ValueTupleSet(Collections.singleton(tuple), tuple.size());
+        return new ValueTupleSet(TupleSet.singleton(tuple));
     }
 
     public static ValueTupleSet singleton(Value value) {
-        return singleton(Collections.singletonList(value));
+        return new ValueTupleSet(TupleSet.singleton(value));
     }
 
     public static ValueTupleSet atoms(Iterable<Value> atoms) {
-        return StreamSupport.stream(atoms.spliterator(), false)
-                .map(Collections::singletonList)
-                .collect(ValueTupleSet.collect(1));
+        return new ValueTupleSet(TupleSet.singletons(atoms));
     }
 
     public static ValueTupleSet from(Set<List<Value>> tuples) {
@@ -80,116 +71,76 @@ final class ValueTupleSet {
         return new ValueTupleSet(javaTuples, arity);
     }
 
-    private void assertCompatible(ValueTupleSet other) {
-        Objects.requireNonNull(other);
-        if (other.arity != arity) {
-            throw new ErrorFatal("Incompatible tuple sets!");
-        }
-    }
-
     public ValueTupleSet union(ValueTupleSet other) {
-        assertCompatible(other);
-        return new ValueTupleSet(SetOps.union(tuples, other.tuples), arity);
+        return new ValueTupleSet(tupleSet.union(other.tupleSet));
     }
 
     public ValueTupleSet intersection(ValueTupleSet other) {
-        assertCompatible(other);
-        return new ValueTupleSet(SetOps.intersection(tuples, other.tuples), arity);
+        return new ValueTupleSet(tupleSet.intersection(other.tupleSet));
     }
 
     public ValueTupleSet difference(ValueTupleSet other) {
-        assertCompatible(other);
-        return new ValueTupleSet(SetOps.difference(tuples, other.tuples), arity);
+        return new ValueTupleSet(tupleSet.difference(other.tupleSet));
     }
 
     public ValueTupleSet cartesianProduct(ValueTupleSet other) {
-        Objects.requireNonNull(other);
-        return new ValueTupleSet(SetOps.cartesianProduct(tuples, other.tuples), arity + other.arity);
+        return new ValueTupleSet(tupleSet.cartesianProduct(other.tupleSet));
     }
 
     public ValueTupleSet join(ValueTupleSet other) {
-        Objects.requireNonNull(other);
-        if (arity == 0 || other.arity == 0) {
-            throw new ErrorFatal("Cannot join a tuple with arity 0!");
-        }
-        return new ValueTupleSet(SetOps.join(tuples, other.tuples), arity + other.arity - 1);
+        return new ValueTupleSet(tupleSet.join(other.tupleSet));
     }
 
     public ValueTupleSet override(ValueTupleSet other) {
-        assertCompatible(other);
-        if (arity == 0) {
-            throw new ErrorFatal("Cannot override tuples with arity 0!");
-        }
-        return new ValueTupleSet(SetOps.override(tuples, other.tuples), arity);
+        return new ValueTupleSet(tupleSet.override(other.tupleSet));
     }
 
     public ValueTupleSet transpose() {
-        if (arity != 2) {
-            throw new ErrorFatal("Can only transpose TupleSets with arity 2!");
-        }
-        return new ValueTupleSet(SetOps.transpose(tuples), arity);
+        return new ValueTupleSet(tupleSet.transpose());
     }
 
     public ValueTupleSet transitiveClosure() {
-        if (arity != 2) {
-            throw new ErrorFatal("Can only take closure of TupleSets with arity 2!");
-        }
-
-        // Iterative squaring with fixpoint - this definitely isn't fast but our instances are small
-        ValueTupleSet result = this;
-        ValueTupleSet last = null;
-        while (!result.equals(last)) {
-            last = result;
-            result = result.union(result.join(this));
-        }
-        return result;
+        return new ValueTupleSet(tupleSet.transitiveClosure());
     }
 
     public int arity() {
-        return arity;
+        return tupleSet.arity();
     }
 
     public int size() {
-        return tuples.size();
+        return tupleSet.size();
     }
 
     public Stream<Value> singleValueStream() {
-        if (arity != 1) {
-            throw new ErrorFatal("Can only get stream of single values of an arity-1 TupleSet!");
-        }
-        return tuples.stream().map(tuple -> tuple.get(0));
+        return tupleSet.singleValueStream();
     }
 
     public Stream<List<Value>> stream() {
-        return tuples.stream();
+        return tupleSet.stream();
     }
 
     public static Collector<List<Value>, ?, ValueTupleSet> collect(int arity) {
-        return Collectors.collectingAndThen(Collectors.<List<Value>>toSet(), tuples -> new ValueTupleSet(tuples, arity));
+        return Collectors.collectingAndThen(TupleSet.collect(arity), ValueTupleSet::new);
     }
 
-    /** Return whether this TupleSet is of the form {(x)} for some Value x. */
+    /** Return whether this ValueTupleSet is of the form {(x)} for some Value x. */
     public boolean isSingleton() {
-        return arity == 1 && size() == 1;
+        return tupleSet.isSingleton();
     }
 
-    /** Assuming this TupleSet is of the form {(x)}, get x. */
+    /** Assuming this ValueTupleSet is of the form {(x)}, get x. */
     public Value getSingletonValue() {
-        if (!isSingleton()) {
-            throw new ErrorFatal("Cannot get singleton value of a non-singleton set!");
-        }
-        // We know tuples is a singleton set, so just get any value.
-        return tuples.iterator().next().get(0);
+        return tupleSet.getSingleton();
     }
 
-    /** Return whether this TupleSet is of the form {(Top)} or {(Bottom)}. */
+    /** Return whether this ValueTupleSet is of the form {(Top)} or {(Bottom)}. */
     public boolean isPureBoolean() {
         if (!isSingleton()) return false;
         Value singletonValue = getSingletonValue();
         return Objects.equals(singletonValue, Term.mkTop()) || Objects.equals(singletonValue, Term.mkBottom());
     }
 
-    /** Assuming this TupleSet is a pure boolean, get its value as a Java boolean. */
+    /** Assuming this ValueTupleSet is a pure boolean, get its value as a Java boolean. */
     public boolean getPureBoolean() {
         if (!isPureBoolean()) {
             throw new ErrorFatal("Cannot get boolean value of a non-pure-boolean set!");
@@ -198,14 +149,14 @@ final class ValueTupleSet {
         return Objects.equals(pureBooleanValue, Term.mkTop());
     }
 
-    /** Return whether this TupleSet is of the form {(n)} for some integer n. */
+    /** Return whether this ValueTupleSet is of the form {(n)} for some integer n. */
     public boolean isPureInt() {
         if (!isSingleton()) return false;
         Value singletonValue = getSingletonValue();
         return singletonValue instanceof IntegerLiteral;
     }
 
-    /** Assuming this TupleSet is a pure int, get its value as a Java int. */
+    /** Assuming this ValueTupleSet is a pure int, get its value as a Java int. */
     public int getPureInt() {
         if (!isPureInt()) {
             throw new ErrorFatal("Cannot get int value of a non-pure-int set!");
@@ -215,12 +166,12 @@ final class ValueTupleSet {
     }
 
     /**
-     * Convert this TupleSet to an A4TupleSet for use with Alloy.
-     * Note: if this TupleSet contains a boolean, this will fail!
+     * Convert this ValueTupleSet to an A4TupleSet for use with Alloy.
+     * Note: if this ValueTupleSet contains a boolean, this will fail!
      */
     public A4TupleSet toAlloy(FortressSolution solution) {
         TupleFactory factory = solution.getUniverse().factory();
-        List<Tuple> kodkodTuples = tuples.stream()
+        List<Tuple> kodkodTuples = stream()
                 .map(this::convertTupleToKodkod)
                 .map(factory::tuple)
                 .collect(Collectors.toList());
@@ -228,7 +179,7 @@ final class ValueTupleSet {
         kodkod.instance.TupleSet result;
         if (kodkodTuples.isEmpty()) {
             // TupleFactory.setOf() can't determine the arity if there are no tuples
-            result = factory.noneOf(arity);
+            result = factory.noneOf(tupleSet.arity());
         } else {
             result = factory.setOf(kodkodTuples);
         }
@@ -260,25 +211,17 @@ final class ValueTupleSet {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         ValueTupleSet valueTupleSet = (ValueTupleSet) o;
-        return arity == valueTupleSet.arity && Objects.equals(tuples, valueTupleSet.tuples);
+        return tupleSet.equals(valueTupleSet.tupleSet);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(tuples, arity);
+        return Objects.hash(tupleSet);
     }
 
     @Override
     public String toString() {
-        return "TupleSet[" + arity + "]{" +
-                tuples.stream()
-                        .map(values -> "(" +
-                                values.stream()
-                                        .map(Object::toString)
-                                        .collect(Collectors.joining(", ")) +
-                                ")")
-                        .collect(Collectors.joining(", ")) +
-                "}";
+        return "ValueTupleSet{" + tupleSet + "}";
     }
 
 }
