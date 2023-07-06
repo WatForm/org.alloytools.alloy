@@ -236,13 +236,26 @@ public class DashtoTLA
     {
         StringBuilder init = new StringBuilder("\n\n"+INIT+" == ");
 
-        init.append("\n\t/\\ "+INTERNAL_EVENTS+" = {}");
-        init.append("\n\t/\\ "+ENVIRONMENTAL_EVENTS+" = {}");
-        init.append("\n\t/\\ "+CONF+" = "+toSetResolved(toStringList(d.initialEntered())));
+        List<String> variables = new ArrayList<>();
+        variables.add(CONF);
+        variables.add(ENVIRONMENTAL_EVENTS);
+        variables.add(INTERNAL_EVENTS);
+
+        for(String v : variables)
+            init.append("\n\t/\\"+v+" == "+initial(v));
 
         return init.toString();
     }
+    public static String initialValues(DashModule d)
+    {
+        StringBuilder code = new StringBuilder("\n\n\\* initial values");
 
+        code.append("\n"+initial(CONF)+" == "+toSetResolved(toStringList(d.initialEntered())));
+        code.append("\n"+initial(ENVIRONMENTAL_EVENTS)+" == {}");
+        code.append("\n"+initial(INTERNAL_EVENTS)+" == {}");
+
+        return code.toString();
+    }
     // util functions
     public static String toSet(List<String> elements) // set in TLA+ notation
     {
@@ -299,6 +312,7 @@ public class DashtoTLA
         Collections.reverse(states);
         return states;
     }
+    
     public static List<String> toStringList(List<DashRef> dfs)
     {
         List<String> ls = new ArrayList<>();
