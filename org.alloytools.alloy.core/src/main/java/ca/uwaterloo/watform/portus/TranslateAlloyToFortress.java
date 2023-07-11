@@ -3,8 +3,6 @@ package ca.uwaterloo.watform.portus;
 import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.ast.Command;
-import edu.mit.csail.sdg.ast.Decl;
-import edu.mit.csail.sdg.ast.ExprHasName;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.A4Options;
 import edu.mit.csail.sdg.translator.AlloySolution;
@@ -43,12 +41,7 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Objects;
-import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
 /**
  * The public API for Portus. Translate an Alloy AST to a Fortress theory, then attempt
@@ -93,16 +86,8 @@ public final class TranslateAlloyToFortress implements CommandRunner {
         TranslatorManager translatorManager = new TranslatorManager(options.portusOptions, sortPolicy);
         TranslationContext context = new TranslationContext(options.portusOptions, scoper, sortPolicy, rangeAssigner);
 
-        // Do sigs first, then fields, then the formula.
-        // We have to do fields after sigs because a field can refer to sigs that come after it.
-        translateSigs(sigs, translatorManager, context);
-        translateFields(sigs, translatorManager, context);
-
-        // Add extra axioms: the top level sigs are disjoint
-        addDisjointnessAxioms(sigs, translatorManager, sortPolicy, context);
-
-        // TODO: append all the facts and field facts to the formula (copy/abstract makeFacts)
-        context.addAxiom(translatorManager.translate(command.formula, context));
+        // Perform the entire translation.
+        translatorManager.runAllPasses(sigs, command, scoper, context);
         logger.translationFinished(context.getTheory());
 
         // Write raw MSFOL or SMTLIB+ to file if the appropriate solver is chosen
@@ -147,89 +132,6 @@ public final class TranslateAlloyToFortress implements CommandRunner {
                 return new DatatypeMethodWithRangeCompiler() {};
             }
         };
-    }
-
-    private void translateSigs(Iterable<Sig> sigs, Translator translator, TranslationContext context) {
-        // We translate sigs in the following order:
-        // 1. Each top-level PrimSig; translators should translate child PrimSigs.
-        // 2. All SubsetSigs, in such an order that for each SubsetSig, all of its parent SubsetSigs
-        // have been translated before it is translated.
-
-        // 1. Each top-level PrimSig. (Also count the number of subset sigs since we only have an Iterable.)
-        int numSubsetSigs = 0;
-        Set<String> sigNamesSeen = new HashSet<>();
-        for (Sig sig : sigs) {
-            if (!sig.builtin) {
-                if (sig instanceof Sig.PrimSig && sig.isTopLevel()) {
-                    translator.translate(sig, context);
-                    sigNamesSeen.add(sig.label);
-                }
-                if (sig instanceof Sig.SubsetSig) {
-                    numSubsetSigs++;
-                }
-            }
-        }
-
-        // 2. SubsetSigs, in the specified order.
-        // If this becomes a performance bottleneck, consider a topological sort instead.
-        boolean changed;
-        int numSubsetSigsTranslated = 0;
-        do {
-            changed = false;
-            for (Sig sig : sigs) {
-                if (!sigNamesSeen.contains(sig.label) && sig instanceof Sig.SubsetSig) {
-                    Sig.SubsetSig subsetSig = (Sig.SubsetSig) sig;
-
-                    // Have all the parents been translated?
-                    if (subsetSig.parents.stream().allMatch(
-                            p -> p instanceof Sig.PrimSig || sigNamesSeen.contains(p.label))) {
-                        translator.translate(subsetSig, context);
-                        sigNamesSeen.add(sig.label);
-                        numSubsetSigsTranslated++;
-                        changed = true;
-                    }
-                }
-            }
-        } while (changed);
-
-        if (numSubsetSigsTranslated != numSubsetSigs) {
-            // If there's any subset sigs left, there's a cycle somewhere. Should be caught by parser.
-            throw new ErrorFatal("Cyclic inheritance in subset sigs!");
-        }
-    }
-
-    private void translateFields(Iterable<Sig> sigs, Translator translator, TranslationContext context) {
-        // Translate every field from each sig.
-        for (Sig sig : sigs) {
-            for (Decl fieldDecl : sig.getFieldDecls()) {
-                for (ExprHasName name : fieldDecl.names) {
-                    // We pass the Field rather than the Decl because Decls appear in other locations too
-                    // (such as in quantifier formulas).
-                    Sig.Field field = (Sig.Field) name;
-                    translator.translate(field, context);
-                }
-            }
-        }
-    }
-
-    private void addDisjointnessAxioms(
-            Iterable<Sig> sigs, Translator translator, SortPolicy sortPolicy, TranslationContext context) {
-        // Add axioms asserting that the top-level sigs in each sort are disjoint
-        for (Sort sort : context.getTheory().sortsJava()) {
-            List<Sig> sortTLSigs = StreamSupport.stream(sigs.spliterator(), false)
-                    // Ignore String for now, we don't support it - TODO support Sig.STRING
-                    .filter(sig -> sig != Sig.STRING)
-                    .filter(sig -> sig.isTopLevel() && Objects.equals(sortPolicy.getSort(sig), sort))
-                    .collect(Collectors.toList());
-
-            // all the sigs are pairwise disjoint
-            for (int i = 1; i < sortTLSigs.size(); i++) {
-                for (int j = 0; j < i; j++) {
-                    context.addAxiom(PortusUtil.mkSigsDisjoint(
-                            sortTLSigs.get(i), sortTLSigs.get(j), translator, sortPolicy, context));
-                }
-            }
-        }
     }
 
     private void writeFortressToFile(

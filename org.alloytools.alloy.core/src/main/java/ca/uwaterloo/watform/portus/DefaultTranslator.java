@@ -26,11 +26,12 @@ import fortress.msfol.Var;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -38,10 +39,13 @@ import java.util.stream.IntStream;
 /**
  * The basic translator that provides unoptimized translations of every supported node.
  */
-final class DefaultTranslator extends AbstractTranslator implements Evaluator {
+final class DefaultTranslator extends AbstractTranslator implements Evaluator, ScopeExpansionMarker {
 
     // For creating the scope axioms.
     private final ScopeAxiomStrategy scopeAxiomStrategy;
+
+    // For creating the other sig axioms.
+    private final SigAxioms sigAxioms;
 
     // For determining sorts.
     private final SortPolicy sortPolicy;
@@ -69,9 +73,11 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
     private final List<Pair<Pair<Expr, List<Sort>>, String>> auxClosureRelationNames = new ArrayList<>();
 
     public DefaultTranslator(
-            Translator topLevelTranslator, ScopeAxiomStrategy scopeAxiomStrategy, SortPolicy sortPolicy) {
+            Translator topLevelTranslator, ScopeAxiomStrategy scopeAxiomStrategy, SigAxioms sigAxioms,
+            SortPolicy sortPolicy) {
         super(topLevelTranslator);
         this.scopeAxiomStrategy = scopeAxiomStrategy;
+        this.sigAxioms = sigAxioms;
         this.sortPolicy = sortPolicy;
     }
 
@@ -93,19 +99,17 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
                 // Any other sort is not in the signature!
                 return Term.mkBottom();
             }
-            if (sortPolicy.isSigEntireSort(sig)) {
-                // If the sig is the entire sort and term is in the sort, then it's automatically in the sig
-                return Term.mkTop();
-            }
             return Term.mkApp(memPredName, term.getTerm());
         });
 
-        if (!sortPolicy.isSigEntireSort(sig)) {
-            // The member predicate is redundant if the sig is the entire sort
-            FuncDecl decl = FuncDecl.mkFuncDecl(memPredName, sigSort, Sort.Bool());
-            sigMemberPredicateDecls.put(sig, decl);
-            context.addFunctionDeclaration(decl);
-        }
+        // Generate the membership predicate.
+        // Note: we always do this here, optimizing it out is handled by MembershipPredicateOptTranslator
+        FuncDecl decl = FuncDecl.mkFuncDecl(memPredName, sigSort, Sort.Bool());
+        sigMemberPredicateDecls.put(sig, decl);
+        context.addFunctionDeclaration(decl);
+
+        // The sig's scope has to be exact since we're using a membership predicate.
+        context.forceSortExact(sigSort);
 
         if (sig instanceof Sig.PrimSig) {
             Sig.PrimSig primSig = (Sig.PrimSig) sig;
@@ -115,89 +119,35 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
                 recursivelyTranslate(child, context);
             }
 
-            // Add axioms for membership
-            for (Sig.PrimSig child : primSig.children()) {
-                context.addAxiom(makeSubsetAxiom(Collections.singletonList(primSig), child, context));
-            }
-
-            // Add axioms for disjointness between each pair of subsigs
-            for (int i = 0; i < primSig.children().size(); i++) {
-                for (int j = i + 1; j < primSig.children().size(); j++) {
-                    context.addAxiom(PortusUtil.mkSigsDisjoint(
-                            primSig.children().get(i), primSig.children().get(j), topLevelTranslator,
-                            sortPolicy, context));
-                }
-            }
-
-            // Abstract sigs: add axiom that children cover sig
-            // Note: abstract sigs are always PrimSigs, and abstracts sigs without children aren't treated as abstract
-            // (see, for example, Kodkod's output given "abstract sig A {}; run {}")
-            if (sig.isAbstract != null && !((Sig.PrimSig) sig).children().isEmpty()) {
-                context.addAxiom(makeCoverAxiom(primSig, context));
-            }
+            // Add all the axioms specifying relations between the sig and its children
+            sigAxioms.addPrimSigChildrenAxioms(primSig, context);
 
             // Generate scope constraints - note that subset sigs have no scope constraints
-            // Also, if sig is the only sig in the sort, skip this: we use Fortress's built-in scopes instead
-            if (!sortPolicy.isSigEntireSort(sig)) {
-                int scope = context.scoper.sig2scope(sig);
-                if (scope == -1) {
-                    // -1 is returned when scoper doesn't know the correct scope - fail loudly instead of silently
-                    throw new ErrorFatal(
-                            "Cannot generate scope axiom for sig " + sig.label + " because scope is unknown");
-                }
-                if (context.scoper.isExact(sig)) {
-                    context.addAxiom(scopeAxiomStrategy.makeExactScopeAxiom(sig, scope, topLevelTranslator, context));
-                } else {
-                    context.addAxiom(scopeAxiomStrategy.makeNonExactScopeAxiom(
-                            sig, scope, topLevelTranslator, context));
-                }
+            // Note: if we're using Fortress scopes instead, MembershipPredicateOptTranslator handles it.
+            int scope = context.scoper.sig2scope(sig);
+            if (scope == -1) {
+                // -1 is returned when scoper doesn't know the correct scope - fail loudly instead of silently
+                throw new ErrorFatal(
+                        "Cannot generate scope axiom for sig " + sig.label + " because scope is unknown");
+            }
+            if (context.scoper.isExact(sig)) {
+                context.addAxiom(scopeAxiomStrategy.makeExactScopeAxiom(sig, scope, topLevelTranslator, context));
+            } else {
+                context.addAxiom(scopeAxiomStrategy.makeNonExactScopeAxiom(
+                        sig, scope, topLevelTranslator, context));
             }
         } else if (sig instanceof Sig.SubsetSig) {
             Sig.SubsetSig subsetSig = (Sig.SubsetSig) sig;
 
             // Assert the sig is a subset of its parents (or exactly its parents if exact)
             // Note: subsetSig.exact will be true iff it's declared like "sig C = A + B {}" (valid Alloy!)
-            context.addAxiom(makeSubsetAxiom(subsetSig.parents, subsetSig, subsetSig.exact, context));
+            context.addAxiom(sigAxioms.makeSubsetAxiom(subsetSig.parents, subsetSig, subsetSig.exact, context));
         } else {
             throw new ErrorFatal("Unsupported sig type!");
         }
 
         // return Top because the returned Term doesn't matter for a Sig
         return Term.mkTop();
-    }
-
-    /** Create an axiom that child is a subset of the union of parents. If exact, declare it equal instead. */
-    private Term makeSubsetAxiom(List<Sig> parents, Expr child, boolean exact, TranslationContext context) {
-        // express in Alloy so we can translate to Fortress recursively
-        // without assumptions on implementation of the translation
-        // Alloy: "child in parent1 + parent2 + ... + parentn", no need to overcomplicate things
-        // If exact, instead "child = parent1 + parent2 + ... + parentn"
-        Expr union = parents.stream()
-                .map(sig -> (Expr) sig) // annoying casting step necessary to satisfy the whims of Java generics
-                .reduce(Expr::plus)
-                .orElseThrow(() -> new ErrorFatal("Internal Portus error: subset axiom with no parents!"));
-        Expr subsetAxiom = exact ? child.equal(union) : child.in(union);
-        return recursivelyTranslate(subsetAxiom, context);
-    }
-
-    /** Default for convenience: not exact. */
-    private Term makeSubsetAxiom(List<Sig> parents, Expr child, TranslationContext context) {
-        return makeSubsetAxiom(parents, child, false, context);
-    }
-
-    /** Create an axiom that parent's children cover all elements in the parent. */
-    private Term makeCoverAxiom(Sig.PrimSig parent, TranslationContext context) {
-        // Alloy: "all x: sig | x in child1 or x in child2 or ... or x in childN" (KT 4.2)
-        Decl x = parent.oneOf("x");
-        Expr disjunction = null;
-        for (Sig.PrimSig child : parent.children()) {
-            disjunction = x.get().in(child).or(disjunction);
-        }
-        if (disjunction == null) {
-            disjunction = ExprConstant.FALSE;
-        }
-        Expr completenessAxiom = disjunction.forAll(x);
-        return recursivelyTranslate(completenessAxiom, context);
     }
 
     /** Translate "term \in sig". */
@@ -1234,6 +1184,36 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator {
             }
         });
         return result[0];
+    }
+
+    @Override
+    public Set<Sort> determineExpandedSorts(Expr expr, VarMappingContext varMappingContext) {
+        // A sort is unchanging, for our purposes, if we have to expand over it due to cardinality or sum.
+        if (expr instanceof ExprUnary) {
+            ExprUnary exprUnary = (ExprUnary) expr;
+            if (exprUnary.op == ExprUnary.Op.CARDINALITY) {
+                List<Sort> sorts = sortPolicy.getMinimalExprSorts(exprUnary.sub, varMappingContext);
+                if (sorts == null) {
+                    throw new ErrorFatal("Argument of cardinality must have definite sorts!");
+                }
+                return new HashSet<>(sorts);
+            }
+        } else if (expr instanceof ExprQt) {
+            ExprQt exprQt = (ExprQt) expr;
+            if (exprQt.op == ExprQt.Op.SUM) {
+                return exprQt.decls.stream()
+                        .map(decl -> decl.expr)
+                        .flatMap(declExpr -> {
+                            List<Sort> sorts = sortPolicy.getMinimalExprSorts(declExpr, varMappingContext);
+                            if (sorts == null) {
+                                throw new ErrorFatal("Quantifier argument formula must have definite sorts!");
+                            }
+                            return sorts.stream();
+                        })
+                        .collect(Collectors.toSet());
+            }
+        }
+        return new HashSet<>();
     }
 
     /** Translate "tuple \in expr", where expr is an ExprQt. */

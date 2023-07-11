@@ -3,7 +3,10 @@ package ca.uwaterloo.watform.portus;
 import edu.mit.csail.sdg.alloy4.Err;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.alloy4.Pair;
+import edu.mit.csail.sdg.ast.Command;
 import edu.mit.csail.sdg.ast.Expr;
+import edu.mit.csail.sdg.ast.Sig;
+import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.msfol.Term;
 
 import java.util.ArrayList;
@@ -22,9 +25,15 @@ import java.util.List;
  * and delegating to them to attempt to cast an expression to scalar.
  *
  * Similarly, it also acts as a root Evaluator.
+ * 
+ * It is also responsible for coming up with a list of all Passes and running
+ * the entire translation by iterating through the passes.
+ *
  * TODO: This is getting unsustainable. Also, caching.
  */
 final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
+
+    private final List<Pass> passes = new ArrayList<>();
 
     private final List<Translator> translators = new ArrayList<>();
     private final List<ScalarCaster> scalarCasters = new ArrayList<>();
@@ -40,16 +49,28 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
     public TranslatorManager(PortusOptions options, SortPolicy sortPolicy) {
         // TODO: use options to come up with a list of translators
         // but for now:
+        ScopeAxiomStrategy scopeAxiomStrategy = new ConstantsScopeAxiomStrategy(sortPolicy);
+        SigAxioms sigAxioms = new SigAxioms(this, sortPolicy);
+
         OneSigOptTranslator oneSigOpt = new OneSigOptTranslator(this, sortPolicy);
         FunctionOptTranslator functionOpt = new FunctionOptTranslator(this, this, this, sortPolicy, true);
         OrderingModuleOptTranslator orderingModuleOpt = new OrderingModuleOptTranslator(this, this, sortPolicy);
-        DefaultTranslator defaultTranslator = new DefaultTranslator(
-                this, new ConstantsScopeAxiomStrategy(sortPolicy), sortPolicy);
+        MembershipPredicateOptTranslator membershipPredOpt = new MembershipPredicateOptTranslator(
+                this, sortPolicy, sigAxioms);
+        DefaultTranslator defaultTranslator = new DefaultTranslator(this, scopeAxiomStrategy, sigAxioms, sortPolicy);
+
+        List<ScopeExpansionMarker> scopeExpansionMarkers = new ArrayList<>();
+        scopeExpansionMarkers.add(defaultTranslator);
+
+        passes.add(membershipPredOpt.getApplicabilityDeterminingPass(scopeExpansionMarkers));
+        passes.add(new TranslationPass(this, sortPolicy, sigAxioms));
+
         translators.add(new SimpleScalarOptTranslator(this));
         translators.add(oneSigOpt);
         translators.add(functionOpt);
         translators.add(new JoinOptTranslator(this, this));
         translators.add(orderingModuleOpt);
+        translators.add(membershipPredOpt);
         translators.add(defaultTranslator);
 
         scalarCasters.add(oneSigOpt);
@@ -62,6 +83,15 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
         evaluators.add(defaultTranslator);
         evaluators.add(new SimpleEvaluator(this));
         evaluators.add(new BruteForceEvaluator(this, sortPolicy));
+    }
+
+    /**
+     * Perform the entire translation by running through all passes.
+     */
+    public void runAllPasses(Iterable<Sig> sigs, Command command, ScopeComputer scoper, TranslationContext context) {
+        for (Pass pass : passes) {
+            pass.performPass(sigs, command, scoper, context);
+        }
     }
 
     /**

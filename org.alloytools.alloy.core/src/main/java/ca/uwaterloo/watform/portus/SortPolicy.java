@@ -79,8 +79,10 @@ public abstract class SortPolicy {
      * {@code unchangingSorts} is the list of sorts which should be marked as 'unchanging': their scope cannot be
      * changed in the output (without messing up the semantics of the problem).
      */
-    public void configureModelFinderScopes(ModelFinder modelFinder, Set<Sort> unchangingSorts, ScopeComputer scoper) {
-        for (Map.Entry<Sort, Scope> sortAndScope : getSortToScopeMap(unchangingSorts, scoper).entrySet()) {
+    public void configureModelFinderScopes(ModelFinder modelFinder, Set<Sort> forcedExactScopeSorts,
+                                           Set<Sort> unchangingSorts, ScopeComputer scoper) {
+        for (Map.Entry<Sort, Scope> sortAndScope : getSortToScopeMap(
+                forcedExactScopeSorts, unchangingSorts, scoper).entrySet()) {
             modelFinder.setScope(sortAndScope.getKey(), sortAndScope.getValue());
         }
     }
@@ -104,19 +106,26 @@ public abstract class SortPolicy {
      * Get a map of sorts assigned by the policy to their Fortress scopes.
      * This method is for configuring model finders and dumping. Use getSortScope() for most use-cases.
      */
-    public Map<Sort, Scope> getSortToScopeMap(Set<Sort> unchangingSorts, ScopeComputer scoper) {
+    public Map<Sort, Scope> getSortToScopeMap(
+            Set<Sort> forcedExactScopeSorts, Set<Sort> unchangingSorts, ScopeComputer scoper) {
         return getAllSorts().stream().collect(Collectors.toMap(sort -> sort, sort -> {
             int scope = getSortScope(sort);
+            boolean isForcedExact = forcedExactScopeSorts.contains(sort);
             boolean isUnchanging = unchangingSorts.contains(sort);
 
             boolean isExact;
-            Sig.PrimSig anySig = getAnySigFromSort(sort);
-            if (isSigEntireSort(anySig)) {
-                // There's only one sig in the sort: use exact or non exact depending on sig's scope's exactness
-                isExact = scoper.isExact(anySig);
-            } else {
-                // There are multiple sigs in the scope: Portus handles scope and exactness
+            if (isForcedExact) {
+                // We're forced to make the scope exact: a membership predicate is used
                 isExact = true;
+            } else {
+                Sig.PrimSig anySig = getAnySigFromSort(sort);
+                if (isSigEntireSort(anySig)) {
+                    // There's only one sig in the sort: use exact or non exact depending on sig's scope's exactness
+                    isExact = scoper.isExact(anySig);
+                } else {
+                    // There are multiple sigs in the scope: Portus handles scope and exactness
+                    isExact = true;
+                }
             }
 
             if (isExact) {
