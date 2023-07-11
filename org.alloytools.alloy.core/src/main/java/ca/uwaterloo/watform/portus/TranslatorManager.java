@@ -80,6 +80,7 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
 
         evaluators.add(oneSigOpt);
         evaluators.add(functionOpt);
+        evaluators.add(membershipPredOpt);
         evaluators.add(defaultTranslator);
         evaluators.add(new SimpleEvaluator(this));
         evaluators.add(new BruteForceEvaluator(this, sortPolicy));

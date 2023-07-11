@@ -247,11 +247,6 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
 
     /** Evaluate a sig given a solution. */
     private TupleSet evaluateSig(Sig sig, FortressSolution solution) {
-        // If the sig is the entire sort, the results are the entire sort
-        if (sortPolicy.isSigEntireSort(sig)) {
-            return TupleSet.atoms(solution.getSortAtoms(sortPolicy.getSort(sig)));
-        }
-
         // Evaluate only sigs which we've translated here
         if (!sigMemberPredicateDecls.containsKey(sig)) return null; // not translated here
 

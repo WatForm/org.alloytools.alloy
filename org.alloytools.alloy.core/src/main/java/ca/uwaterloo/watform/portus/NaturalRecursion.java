@@ -50,8 +50,13 @@ final class NaturalRecursion {
 
             @Override
             public T visit(ExprCall x) throws Err {
-                // note: after substituting variables
-                return combiner.apply(generator.apply(x, varMappingContext), visitThis(x.fun.getBody()));
+                // note: run the combiner after substituting variables
+                try {
+                    varMappingContext.addLetMappingsFromCall(x);
+                    return combiner.apply(generator.apply(x, varMappingContext), visitThis(x.fun.getBody()));
+                } finally {
+                    varMappingContext.removeLetMappingsFromCall(x);
+                }
             }
 
             @Override

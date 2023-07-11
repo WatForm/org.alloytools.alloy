@@ -1,5 +1,6 @@
 package ca.uwaterloo.watform.portus;
 
+import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.msfol.Sort;
@@ -15,7 +16,7 @@ import java.util.Set;
  * possible to do so. It uses a pass before the main translation pass to determine the sorts we can
  * optimize out membership predicates from (relying on the Fortress sort).
  */
-final class MembershipPredicateOptTranslator extends AbstractTranslator {
+final class MembershipPredicateOptTranslator extends AbstractTranslator implements Evaluator {
 
     private final SortPolicy sortPolicy;
     private final SigAxioms sigAxioms;
@@ -119,6 +120,17 @@ final class MembershipPredicateOptTranslator extends AbstractTranslator {
         Sort sigSort = sortPolicy.getSort(sig);
         boolean inSort = Objects.equals(term.getSort(), sigSort);
         return inSort ? Term.mkTop() : Term.mkBottom();
+    }
+
+    @Override
+    public TupleSet evaluate(Expr expr, FortressSolution solution, TranslationContext context) {
+        if (!(expr instanceof Sig) || isInapplicableToSig((Sig) expr)) {
+            return null;
+        }
+        Sig.PrimSig sig = (Sig.PrimSig) expr;
+
+        // The sig is the entire sort, so the results are the entire sort
+        return TupleSet.atoms(solution.getSortAtoms(sortPolicy.getSort(sig)));
     }
 
 }
