@@ -44,12 +44,17 @@ final class TranslationContext {
     // The current theory. Mutable.
     private Theory theory;
 
-    // The list of sorts to mark as unchanging in Fortress.
+    // The set of sorts to mark as unchanging in Fortress.
     // This should include any sort for which the Portus translation depends on the scope,
     // i.e. whenever we expand over the atoms of a sort or refer to its domain elements.
     // If a sort is unchanging then we can't mess with its scope in the output, because it no longer
     // represents the same problem.
     private final Set<Sort> unchangingSorts;
+
+    // A set of sorts to force to have exact Fortress scopes.
+    // Any sort which is not on this list can have an exact or non-exact sort depending on the scope of its
+    // top-level sig, if it has a single top-level sig making it up.
+    private final Set<Sort> forcedExactScopeSorts;
 
     public TranslationContext(
             PortusOptions options, ScopeComputer scoper, SortPolicy sortPolicy, RangeAssigner rangeAssigner) {
@@ -61,6 +66,7 @@ final class TranslationContext {
         this.nameGenerator = new IntSuffixNameGenerator(
                 (scala.collection.immutable.Set<String>) Set$.MODULE$.empty(), 0);
         this.unchangingSorts = new HashSet<>();
+        this.forcedExactScopeSorts = new HashSet<>();
     }
 
     /**
@@ -76,6 +82,7 @@ final class TranslationContext {
         this.varMappingContext = new VarMappingContext(context.varMappingContext); // deep-copy state
         this.nameGenerator = context.nameGenerator;
         this.unchangingSorts = new HashSet<>(context.unchangingSorts);
+        this.forcedExactScopeSorts = new HashSet<>(context.forcedExactScopeSorts);
     }
 
     /**
@@ -205,7 +212,7 @@ final class TranslationContext {
     /** Configure a model finder's theory and scopes to check this translation. */
     public void configureModelFinder(ModelFinder finder, SortPolicy sortPolicy) {
         finder.setTheory(theory);
-        sortPolicy.configureModelFinderScopes(finder, unchangingSorts, scoper);
+        sortPolicy.configureModelFinderScopes(finder, forcedExactScopeSorts, unchangingSorts, scoper);
         // TODO - allow configuring modular vs unbounded ints?
     }
 
@@ -214,9 +221,13 @@ final class TranslationContext {
         unchangingSorts.add(sort);
     }
 
+    public void forceSortExact(Sort sort) {
+        forcedExactScopeSorts.add(sort);
+    }
+
     /** Given a sort policy, use its information with our unchanging sort list to get the sort to scope map. */
     public Map<Sort, Scope> getSortToScopeMap(SortPolicy sortPolicy) {
-        return sortPolicy.getSortToScopeMap(unchangingSorts, scoper);
+        return sortPolicy.getSortToScopeMap(forcedExactScopeSorts, unchangingSorts, scoper);
     }
 
     /**

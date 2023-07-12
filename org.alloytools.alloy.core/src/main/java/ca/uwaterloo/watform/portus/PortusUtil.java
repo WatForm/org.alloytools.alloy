@@ -225,24 +225,6 @@ final class PortusUtil {
     }
 
     /**
-     * Generate a term asserting that sig1 and sig2 are disjoint.
-     */
-    public static Term mkSigsDisjoint(Sig sig1, Sig sig2, Translator translator,
-                                      SortPolicy sortPolicy, TranslationContext context) {
-        // "forall x: S | !([[x \in sig1]] && [[x \in sig2]])
-        Sort sort = sortPolicy.getSort(sig1);
-        if (sort == null || !sort.equals(sortPolicy.getSort(sig2))) {
-            // short-circuit: they must be disjoint since they're in different sorts
-            return Term.mkTop();
-        }
-
-        AnnotatedVar x = Term.mkVar(context.nameGenerator.freshName("x")).of(sort);
-        Term inSig1 = translator.translate(ExprElementOf.make(x, sig1), context);
-        Term inSig2 = translator.translate(ExprElementOf.make(x, sig2), context);
-        return Term.mkForall(x, Term.mkNot(Term.mkAnd(inSig1, inSig2)));
-    }
-
-    /**
      * Given a current list of integers [x1,...,xn] and a list of maximums [m1,...,mn],
      * mutate current to the next element in the Cartesian product {1,...,m1}x...x{1,...,mn}.
      * Return true if we got a new combination or false if current is the last combination.
