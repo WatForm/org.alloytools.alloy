@@ -345,31 +345,27 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
         //   [[(y,x{m+1},...,xn) \in e2]] where arity(e1) = m+1 and arity(e2) = n-m+1 and m<n
         Var yVar = Term.mkVar(context.nameGenerator.freshName("y"));
 
-        // TODO: revise this comment
-        // What sort should y have?
-        // Both the rightmost index in the left expression and the leftmost index in the right expression should
-        // have compatible sorts: either both the same sort, or one should be indeterminate (null) according to
-        // getMinimalExprSorts to signify it's compatible with both. (If both are null, we can't determine a sort.)
-        // If the sorts are incompatible, then there can be no overlap between the rightmost column on the left and
-        // the leftmost column on the right, so we short-circuit to false.
+        // Determine the sort that y should have.
         int partitionIdx = left.type().arity() - 1; // so that adding y gives the arity
-        SortResolvantOld leftYSort = sortPolicy.getMinimalExprSorts(left, context).get(partitionIdx);
-        SortResolvantOld rightYSort = sortPolicy.getMinimalExprSorts(right, context).get(0);
+        SortResolvant leftSort = sortPolicy.getMinimalExprSorts(left, context);
+        SortResolvant rightSort = sortPolicy.getMinimalExprSorts(right, context);
 
-        // If the last element of left statically resolves to none, then the entire left expression is none, and
-        // none.x = none (ignoring arity), so we can short-circuit to false. The same goes if right is none.
-        // If the sorts are disjoint, then there's no overlap, so again we can short-circuit to false.
-        if (leftYSort.isNone() || rightYSort.isNone() || leftYSort.isDisjoint(rightYSort)) {
+        // If either sort statically resolves to none, then everything is none because none.x = x.none = none.
+        // So we can short-circuit to false. Similarly, if the join statically resolves to none, there's no overlap,
+        // so we can short-circuit again to false.
+        if (leftSort.isNone() || rightSort.isNone() || leftSort.join(rightSort).isNone()) {
             return Term.mkBottom();
         }
 
-        // Otherwise, there is an intersection between the sorts. We can translate if the intersection is
-        // exactly one sort (it is definite), because then all possible common y values come from that sort.
-        SortResolvantOld intersection = leftYSort.intersection(rightYSort);
-        if (!intersection.isDefinite()) {
+        // Otherwise, there is an intersection between the middle columns. We can translate if the intersection is
+        // exactly one sort, because then all possible common y values come from that sort.
+        Set<Sort> middleIntersection = SetOps.intersection(
+                leftSort.getSortsInColumn(leftSort.arity() - 1),
+                rightSort.getSortsInColumn(0));
+        if (middleIntersection.size() != 1) {
             throw new ErrorFatal("Joined columns must intersect in one Portus sort!");
         }
-        Sort ySort = intersection.getDefiniteSort();
+        Sort ySort = middleIntersection.iterator().next(); // get the single value
         AnnotatedVar y = yVar.of(ySort);
 
         // build up the tuples we'll recurse on
@@ -601,12 +597,11 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
         //   we short-circuit to false because they could not possibly match.
         // There is room for more short-circuiting.
 
-        List<SortResolvantOld> e1Sorts = sortPolicy.getMinimalExprSorts(e1, context);
-        List<SortResolvantOld> e2Sorts = sortPolicy.getMinimalExprSorts(e2, context);
-        if (e1Sorts.size() != e2Sorts.size()) { // typechecker should have ensured this
+        SortResolvant e1Sorts = sortPolicy.getMinimalExprSorts(e1, context);
+        SortResolvant e2Sorts = sortPolicy.getMinimalExprSorts(e2, context);
+        if (e1Sorts.arity() != e2Sorts.arity()) { // typechecker should have ensured this
             throw new ErrorFatal("Both sides in an 'in' or '=' formula must have the same arity!");
         }
-        List<Sort> sorts = new ArrayList<>();
 
         // "exactly" is used in the meta feature and means to treat "in exactly" like "=" as a hack
         boolean isEquals = (op == ExprBinary.Op.EQUALS || e2.mult() == ExprUnary.Op.EXACTLYOF);
@@ -614,32 +609,29 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
         // Short-circuit if either expression statically resolves to none.
         // If any sort is an expression resolves to none, then the whole expression is none,
         // because A->none->B = none->none->none (Cartesian product with none gives none).
-        boolean e1IsNone = e1Sorts.stream().anyMatch(SortResolvantOld::isNone);
-        boolean e2IsNone = e2Sorts.stream().anyMatch(SortResolvantOld::isNone);
-        if (e1IsNone && e2IsNone) {
+        if (e1Sorts.isNone() && e2Sorts.isNone()) {
             // If both are none, then the expression is "none = none", which is true.
             return Term.mkTop();
-        } else if (e1IsNone || e2IsNone) {
+        } else if (e1Sorts.isNone() || e2Sorts.isNone()) {
             // If one is none, then apply the following simplifications:
             //   [[none in M e]] := [[M e]]  (true if no M specified = setof)
             //   [[e in one none]] = [[e in some none]] = false
             //   [[e in none]] = [[e in lone none]] = [[e = none]] = [[none = e]] := [[no e]]
-            if (!isEquals && e1IsNone) {
+            if (!isEquals && e1Sorts.isNone()) {
                 return getMultCondition(e2, context);
             } else if (!isEquals && (e2.mult() == ExprUnary.Op.ONEOF || e2.mult() == ExprUnary.Op.SOMEOF)) {
                 return Term.mkBottom();
             } else {
-                Expr nonNoneExpr = e1IsNone ? e2 : e1;
+                Expr nonNoneExpr = e1Sorts.isNone() ? e2 : e1;
                 return recursivelyTranslate(nonNoneExpr.no(), context);
             }
         }
 
-        // If the sets of sorts are disjoint at any index, there's no possible overlap between e1 and e2. Then:
+        // If the sets of sort tuples are disjoint, there's no possible overlap between e1 and e2. Then:
         // - for "e1 = e2", both e1 and e2 must be empty
         // - for "e1 in M e2", e1 must be empty and [[M e2]] must be true
-        boolean anyDisjoint = IntStream.range(0, e1Sorts.size())
-                .anyMatch(i -> e1Sorts.get(i).isDisjoint(e2Sorts.get(i)));
-        if (anyDisjoint) {
+        SortResolvant intersection = e1Sorts.intersection(e2Sorts);
+        if (intersection.isNone()) {
             if (isEquals) {
                 return recursivelyTranslate(e1.no().and(e2.no()), context);
             } else {
@@ -649,36 +641,26 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
             }
         }
 
-        // Now we can assume that all sorts are non-none and not disjoint.
-        // Merge the sorts.
-        for (int i = 0; i < e1Sorts.size(); i++) {
-            SortResolvantOld e1Resolvant = e1Sorts.get(i);
-            SortResolvantOld e2Resolvant = e2Sorts.get(i);
-
-            // For "e1 in e2", we can allow e2's sorts to be indefinite (and non-none) as long as e1's are definite.
-            // For "e1 = e2", we require e1's sorts to all be definite and a subset of e2's sorts.
-            // But since we know the e1 sorts and the e2 sorts aren't disjoint, if e1 has a definite sort at this
-            // index (i.e. only one sort), then it must be a subset of e2's sorts at this index.
-            if (isEquals) {
-                // Note: since the sorts aren't disjoint, we know if both sorts are definite, then they're equal.
-                if (!e1Resolvant.isDefinite() || !e2Resolvant.isDefinite()) {
-                    // TODO: can we further short-circuit here? Requires knowing whether there are other sorts
-                    throw new ErrorFatal("Both sides of an '=' formula must have definite Portus sorts!");
-                }
-            } else {
-                // We don't need to check that e1Resolvant is a subset of e2Resolvant because they're not disjoint
-                // so if e1Resolvant is definite (has only one sort) then it must be a subset.
-                if (!e1Resolvant.isDefinite()) {
-                    throw new ErrorFatal("The LHS of an 'in' formula must have definite Portus sorts!");
-                }
+        // For "e1 = e2", we require e1 and e2 to have the same definite sorts.
+        // For "e1 in M e2", we require only that e1 has definite sorts that are a subset of e2's.
+        if (isEquals) {
+            // Note: since the intersection of e1Sorts and e2Sorts is not empty, if both sorts are definite,
+            // then they're equal.
+            if (!e1Sorts.isDefinite() || !e2Sorts.isDefinite()) {
+                throw new ErrorFatal("Both sides of an '=' formula must have definite Portus sorts!");
             }
-
-            // Use the left side's sorts in either case (they'll be equal if it's an '=' formula).
-            sorts.add(e1Resolvant.getDefiniteSort());
+        } else {
+            // Note: we know the intersection of e1Sorts and e2Sorts is not empty, so if e1Sorts is definite
+            // (i.e., there is only one sort tuple), then e1Sorts must be a subset of e2Sorts.
+            if (!e1Sorts.isDefinite()) {
+                throw new ErrorFatal("The LHS of an 'in' formula must have definite Portus sorts!");
+            }
         }
 
+        // We'll use e1's sorts regardless for the variables.
+        List<Sort> sorts = e1Sorts.getDefiniteSorts();
+
         // Create the variables
-        // TODO: also think about how much short circuiting we can do here
         List<AnnotatedVar> vars = IntStream.range(0, e1.type().arity())
                 .mapToObj(idx -> Term.mkVar(context.nameGenerator.freshName("x" + idx))
                         .of(sorts.get(idx)))

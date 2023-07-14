@@ -37,14 +37,17 @@ final class TupleSet<T> {
         return new TupleSet<>(Collections.emptySet(), arity);
     }
 
+    /** {(x, y, z, ...)} */
     public static <T> TupleSet<T> singleton(List<T> tuple) {
         return new TupleSet<>(Collections.singleton(tuple), tuple.size());
     }
 
+    /** {(x)} */
     public static <T> TupleSet<T> singleton(T value) {
         return singleton(Collections.singletonList(value));
     }
 
+    /** {(x), (y), (z), ...} */
     public static <T> TupleSet<T> singletons(Iterable<T> atoms) {
         return StreamSupport.stream(atoms.spliterator(), false)
                 .map(Collections::singletonList)
@@ -141,6 +144,20 @@ final class TupleSet<T> {
 
     public boolean isEmpty() {
         return tuples.isEmpty();
+    }
+
+    /** Return whether this TupleSet is of the form {(x1,...,xn)} for some x. */
+    public boolean isSingleTuple() {
+        return size() == 1;
+    }
+
+    /** Assuming this TupleSet is of the form {(x1,...,xn)}, get (x1,...,xn). */
+    public List<T> getSingleTuple() {
+        if (!isSingleTuple()) {
+            throw new ErrorFatal("Cannot get single tuple: there is more than one tuple!");
+        }
+        // Just get anything.
+        return tuples.iterator().next();
     }
 
     /** Return whether this TupleSet is of the form {(x)} for some x. */

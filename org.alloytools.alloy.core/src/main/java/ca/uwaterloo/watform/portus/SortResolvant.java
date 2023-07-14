@@ -1,5 +1,6 @@
 package ca.uwaterloo.watform.portus;
 
+import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import fortress.msfol.Sort;
 
 import java.util.Arrays;
@@ -7,7 +8,13 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
+/**
+ * A model of the sorts assigned to an expression as a set of tuples of sorts.
+ * E.g., "(A+B)->(C+D)" would get sorts {(A,C), (A,D), (B,C), (B, D)}.
+ * We do it this way so we can model iden.
+ */
 final class SortResolvant {
 
     private final TupleSet<Sort> sortTuples;
@@ -17,7 +24,7 @@ final class SortResolvant {
         this.sortTuples = sortTuples;
     }
 
-    public static SortResolvant NONE = new SortResolvant(TupleSet.empty(1));
+    public static final SortResolvant NONE = new SortResolvant(TupleSet.empty(1));
 
     public static SortResolvant univ(SortPolicy sortPolicy) {
         return new SortResolvant(TupleSet.singletons(sortPolicy.getAllSorts()));
@@ -31,16 +38,45 @@ final class SortResolvant {
         return new SortResolvant(new TupleSet<>(sortPairs, 2));
     }
 
-    public static SortResolvant definite(Sort sort) {
-        return new SortResolvant(TupleSet.singleton(sort));
+    public static SortResolvant definite(List<Sort> sorts) {
+        return new SortResolvant(TupleSet.singleton(sorts));
+    }
+
+    public static SortResolvant definite(Sort... sorts) {
+        return SortResolvant.definite(Arrays.asList(sorts));
+    }
+
+    public static SortResolvant singleColumn(Set<Sort> sorts) {
+        return new SortResolvant(TupleSet.singletons(sorts));
+    }
+
+    public int arity() {
+        return sortTuples.arity();
     }
 
     public boolean isDefinite() {
-        return sortTuples.isSingleton();
+        return sortTuples.isSingleTuple();
     }
 
-    public Sort getDefiniteSort() {
-        return sortTuples.getSingleton();
+    public List<Sort> getDefiniteSorts() {
+        return sortTuples.getSingleTuple();
+    }
+
+    /**
+     * Get a list of all the sorts that could appear in a column, forgetting
+     * their relationships with sorts in other columns.
+     */
+    public Set<Sort> getSortsInColumn(int column) {
+        if (column < 0 || column >= arity()) {
+            throw new ErrorFatal("Column " + column + " out of range for getSortsInColumn!");
+        }
+        return sortTuples.stream()
+                .map(tuple -> tuple.get(column))
+                .collect(Collectors.toSet());
+    }
+
+    public Stream<List<Sort>> stream() {
+        return sortTuples.stream();
     }
 
     public boolean isNone() {
@@ -61,6 +97,28 @@ final class SortResolvant {
 
     public SortResolvant join(SortResolvant other) {
         return new SortResolvant(sortTuples.join(other.sortTuples));
+    }
+
+    public SortResolvant transpose() {
+        return new SortResolvant(sortTuples.transpose());
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        SortResolvant that = (SortResolvant) o;
+        return sortTuples.equals(that.sortTuples);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(sortTuples);
+    }
+
+    @Override
+    public String toString() {
+        return "SortResolvant{" + sortTuples + '}';
     }
 
 }

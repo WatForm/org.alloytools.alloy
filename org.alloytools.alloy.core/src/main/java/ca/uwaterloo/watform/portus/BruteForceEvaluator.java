@@ -1,10 +1,8 @@
 package ca.uwaterloo.watform.portus;
 
-import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.Sig;
 import fortress.msfol.AnnotatedVar;
-import fortress.msfol.Sort;
 import fortress.msfol.Term;
 import fortress.msfol.Value;
 import fortress.operations.Substituter;
@@ -54,21 +52,10 @@ final class BruteForceEvaluator implements Evaluator {
     private ValueTupleSet bruteForceEval(Expr expr, FortressSolution solution, TranslationContext context) {
         // Manually evaluate {(x1,...,xn) : sorts | [[(x1,...,xn) \in expr]]}
         Set<List<Value>> tupleSet = new HashSet<>();
-        int arity = expr.type().arity();
 
-        // Optimization: if we can determine that some positions can only have atoms of certain sorts,
-        // only try values from those sorts
-        List<SortResolvantOld> exprSorts = sortPolicy.getMinimalExprSorts(expr, context);
-        if (arity != exprSorts.size()) {
-            throw new ErrorFatal("Evaluating " + expr + ": type arity " + arity + " conflicts with determined arity "
-                    + exprSorts.size());
-        }
-        List<List<Sort>> sortsPerPosition = exprSorts.stream()
-                .map(SortResolvantOld::getAllSorts)
-                .map(ArrayList::new)
-                .collect(Collectors.toList());
-
-        cartesianProduct(sortsPerPosition).forEach(sortCombo -> {
+        // Only try values from the expression's sorts instead of brute-forcing all possible tuples.
+        SortResolvant exprSorts = sortPolicy.getMinimalExprSorts(expr, context);
+        exprSorts.stream().forEach(sortCombo -> {
             // Use this trick to avoid calling translate() for every combination of atoms:
             // for (v1,...,vn) \in expr, make vars x1,...,xn and translate [[(x1,...,xn) \in expr]]
             // and then substitute xi->vi for i=1..n.
@@ -98,7 +85,7 @@ final class BruteForceEvaluator implements Evaluator {
             });
         });
 
-        return new ValueTupleSet(tupleSet, arity);
+        return new ValueTupleSet(tupleSet, exprSorts.arity());
     }
 
     // Compute the Cartesian product of the lists recursively and lazily

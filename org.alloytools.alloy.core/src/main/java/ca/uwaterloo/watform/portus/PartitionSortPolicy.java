@@ -23,7 +23,6 @@ import fortress.msfol.Sort;
 import fortress.msfol.Theory;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -73,10 +72,12 @@ final class PartitionSortPolicy extends SortPolicy {
                     // a.b requires the middle position to have definite sorts
                     // TODO: this sort of duplicates at least the logic in DefaultTranslator, DRY?
                     mergeSorts(() -> {
-                        List<SortResolvantOld> leftSorts = getMinimalExprSorts(x.left, varMappingContext);
-                        List<SortResolvantOld> rightSorts = getMinimalExprSorts(x.right, varMappingContext);
-                        SortResolvantOld middle = leftSorts.get(leftSorts.size() - 1).intersection(rightSorts.get(0));
-                        return Collections.singletonList(middle);
+                        SortResolvant leftSorts = getMinimalExprSorts(x.left, varMappingContext);
+                        SortResolvant rightSorts = getMinimalExprSorts(x.right, varMappingContext);
+                        Set<Sort> middle = SetOps.intersection(
+                                leftSorts.getSortsInColumn(leftSorts.arity() - 1),
+                                rightSorts.getSortsInColumn(0));
+                        return SortResolvant.singleColumn(middle);
                     }, varMappingContext);
                 }
 
@@ -221,15 +222,17 @@ final class PartitionSortPolicy extends SortPolicy {
     }
 
     // Merge sorts until we're able to resolve sorts for toMerge (or its sorts are none).
-    private void mergeSorts(Supplier<List<SortResolvantOld>> toMerge, VarMappingContext varMappingContext) {
+    private void mergeSorts(Supplier<SortResolvant> toMerge, VarMappingContext varMappingContext) {
+        // TODO: is the iteration even necessary here?
         boolean allDefinite = false;
         while (!allDefinite) {
             allDefinite = true;
-            List<SortResolvantOld> sortResolvants = toMerge.get();
-            for (SortResolvantOld resolvant : sortResolvants) {
-                if (!resolvant.isDefinite() && !resolvant.isNone()) {
-                    allDefinite = false;
-                    mergeSorts(resolvant.getAllSorts(), varMappingContext);
+            SortResolvant sortResolvant = toMerge.get();
+            if (!sortResolvant.isDefinite() && !sortResolvant.isNone()) {
+                allDefinite = false;
+                // Merge the sorts in each column to merge everything into one
+                for (int column = 0; column < sortResolvant.arity(); column++) {
+                    mergeSorts(sortResolvant.getSortsInColumn(column), varMappingContext);
                 }
             }
         }
