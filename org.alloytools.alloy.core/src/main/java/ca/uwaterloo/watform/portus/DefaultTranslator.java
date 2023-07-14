@@ -584,19 +584,6 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
         // We also handle multiplicities on e2 in the case of "e1 in M e2", because Alloy supports formulas
         // like "a in ONEOF(b)" and these come up in translating field declarations.
 
-        // TODO: revise this block of text
-        // Determine the sorts. We need to quantify over each term in each position, so we need a definite Portus sort
-        // for each position, but we also need to support constructions like "f in iden", so we can't demand that both
-        // e1 and e2 have definite sorts in the 'in' case (since iden's sorts are indefinite).
-        // We strike the following compromise:
-        // - in "e1 = e2", e1 and e2 must have equal definite sorts. This disallows tricky cases like "f = iden".
-        // - in "e1 in e2", e1 must have definite sorts which are subsets of the (definite or indefinite) sorts of e2.
-        //   We will quantify over e1's sorts. This disallows "iden in f" but allows "f in iden", which is common.
-        // We do the following short-circuiting:
-        // - in both "e1 = e2" and "e1 in e2", if e1 and e2 both have definite sorts in some index which aren't equal,
-        //   we short-circuit to false because they could not possibly match.
-        // There is room for more short-circuiting.
-
         SortResolvant e1Sorts = sortPolicy.getMinimalExprSorts(e1, context);
         SortResolvant e2Sorts = sortPolicy.getMinimalExprSorts(e2, context);
         if (e1Sorts.arity() != e2Sorts.arity()) { // typechecker should have ensured this
