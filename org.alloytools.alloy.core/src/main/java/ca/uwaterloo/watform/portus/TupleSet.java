@@ -94,7 +94,7 @@ final class TupleSet<T> {
         if (arity == 0 || other.arity == 0) {
             throw new ErrorFatal("Cannot join a tuple with arity 0!");
         }
-        return new TupleSet<>(SetOps.join(tuples, other.tuples), arity + other.arity - 1);
+        return new TupleSet<>(SetOps.join(tuples, other.tuples), arity + other.arity - 2);
     }
 
     public TupleSet<T> override(TupleSet<T> other) {
