@@ -787,8 +787,17 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
         // so translate as such for simplicity. Use translateSum() directly instead of recursively translating because
         // to translate the Alloy above directly, we'd need to augment ExprElementOf to allow taking ExprVars and
         // delaying their evaluation into Fortress Vars until we're within the sum's scope and x1,...,xn are bound.
+        SortResolvant resolvant = sortPolicy.getMinimalExprSorts(expr, context);
+        if (resolvant.isNone()) {
+            // Short-circuit: [[#none]] = 0
+            return IntegerLiteral.apply(0);
+        }
+        if (!resolvant.isDefinite()) {
+            throw new ErrorFatal("Argument of cardinality must have definite sorts!");
+        }
+        List<Sort> sorts = resolvant.getDefiniteSorts();
+
         List<AnnotatedVar> vars = new ArrayList<>();
-        List<Sort> sorts = sortPolicy.getMinimalExprDefiniteSorts(expr, "", context);
         for (int i = 0; i < expr.type().arity(); i++) {
             Var var = Term.mkVar("x" + i);
             vars.add(var.of(sorts.get(i)));

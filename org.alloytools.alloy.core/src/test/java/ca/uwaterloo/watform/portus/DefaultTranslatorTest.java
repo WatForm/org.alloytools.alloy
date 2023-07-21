@@ -3593,6 +3593,12 @@ public class DefaultTranslatorTest {
     }
 
     @Test
+    public void testTranslate_cardinality_shortCircuit() {
+        // test [[#none]] = 0
+        assertEquals(IntegerLiteral.apply(0), translator.translate(ExprConstant.EMPTYNESS.cardinality(), context));
+    }
+
+    @Test
     public void testTranslate_comprehension_unary() {
         // test [[x \in {y: e | f}]] := [[x \in e]] && [[f]] where y is mapped to x
         Var x = Term.mkVar("x");
