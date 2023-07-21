@@ -161,7 +161,7 @@ final class PortusUtil {
     /**
      * Given a one sig, return the domain element corresponding to its single atom. The context is used
      * to assign the domain element, which is the first/only one in its domain element range.
-     * {@link RangeAssigner#addRangeAxiom(Sig, Translator, SortPolicy, TranslationContext)} must still be used to ensure
+     * {@link RangeAssigner#addRangeAxiom(Sig, Translator, TranslationContext)} must still be used to ensure
      * the domain element is actually assigned to the sig.
      */
     public static DomainElement getOneSigDomainElement(
@@ -169,7 +169,7 @@ final class PortusUtil {
         if (sig.isOne == null) {
             throw new IllegalArgumentException("getOneSigDomainElement expects a one sig");
         }
-        Pair<Integer, Integer> deRange = context.rangeAssigner.getDomainElementRange(sig, sortPolicy, context);
+        Pair<Integer, Integer> deRange = context.rangeAssigner.getDomainElementRange(sig, context);
         Sort sort = sortPolicy.getSort(sig);
         if (deRange == null || sort == null) {
             throw new ErrorFatal("Portus error: one sig " + sig + " has null domain element range or sort");

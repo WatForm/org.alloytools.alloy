@@ -43,7 +43,8 @@ public class JoinOptTranslatorTest {
         translator = new JoinOptTranslator(mockRoot, mockScalarCaster);
         mockSortPolicy = mock(SortPolicy.class);
         when(mockSortPolicy.addSortsToTheory(any())).thenReturn(Theory.empty().withSort(testSort));
-        RangeAssigner mockRangeAssigner = mock(RangeAssigner.class, withSettings().useConstructor(new ArrayList<>()));
+        RangeAssigner mockRangeAssigner = mock(RangeAssigner.class,
+                withSettings().useConstructor(new ArrayList<>(), mockSortPolicy));
         ScopeComputer mockScoper = mock(ScopeComputer.class);
         context = new TranslationContext(new PortusOptions(), mockScoper, mockSortPolicy, mockRangeAssigner);
     }

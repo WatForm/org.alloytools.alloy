@@ -29,7 +29,8 @@ public class SimpleScalarOptTranslatorTest {
     public void setUp() {
         mockScalarCaster = mock(ScalarCaster.class);
         SortPolicy mockSortPolicy = mock(SortPolicy.class);
-        RangeAssigner mockRangeAssigner = mock(RangeAssigner.class, withSettings().useConstructor(new ArrayList<>()));
+        RangeAssigner mockRangeAssigner = mock(RangeAssigner.class,
+                withSettings().useConstructor(new ArrayList<>(), mockSortPolicy));
         ScopeComputer mockScoper = mock(ScopeComputer.class);
         context = new TranslationContext(new PortusOptions(), mockScoper, mockSortPolicy, mockRangeAssigner);
     }

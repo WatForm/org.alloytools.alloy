@@ -29,7 +29,8 @@ public class TranslationContextTest {
     public void setUp() {
         ScopeComputer scoper = mock(ScopeComputer.class);
         SortPolicy sortPolicy = mock(SortPolicy.class);
-        RangeAssigner mockRangeAssigner = mock(RangeAssigner.class, withSettings().useConstructor(new ArrayList<>()));
+        RangeAssigner mockRangeAssigner = mock(RangeAssigner.class,
+                withSettings().useConstructor(new ArrayList<>(), sortPolicy));
         context = new TranslationContext(new PortusOptions(), scoper, sortPolicy, mockRangeAssigner);
     }
 

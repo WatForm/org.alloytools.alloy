@@ -81,7 +81,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
             ScopeComputer scoper, A4Options options) throws IOException {
         // Decide on the sort policy with the options
         SortPolicy sortPolicy = options.portusOptions.getSortPolicy(sigs, command, scoper);
-        RangeAssigner rangeAssigner = new RangeAssigner(sigs);
+        RangeAssigner rangeAssigner = new RangeAssigner(sigs, sortPolicy);
 
         TranslatorManager translatorManager = new TranslatorManager(options.portusOptions, sortPolicy);
         TranslationContext context = new TranslationContext(options.portusOptions, scoper, sortPolicy, rangeAssigner);

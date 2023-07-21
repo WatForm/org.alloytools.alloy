@@ -17,23 +17,26 @@ import java.util.stream.Collectors;
 
 /**
  * A range assigner is in charge of assigning ranges of domain elements to signatures.
- * @see #getDomainElementRange(Sig, SortPolicy, TranslationContext) 
+ * @see #getDomainElementRange(Sig, TranslationContext) 
  */
 class RangeAssigner {
 
     private final List<Sig> allSigs;
+    private final SortPolicy sortPolicy;
 
     // Keep state: which sigs have we added DE axioms for, so we don't add duplicates?
     private final Set<Sig> sigsWithDEAxioms;
 
-    public RangeAssigner(Iterable<Sig> allSigs) {
+    public RangeAssigner(Iterable<Sig> allSigs, SortPolicy sortPolicy) {
         this.allSigs = PortusUtil.iterableToList(allSigs);
+        this.sortPolicy = sortPolicy;
         this.sigsWithDEAxioms = new HashSet<>();
     }
 
     public RangeAssigner(RangeAssigner other) {
         // Deep copy so changes in the copy don't affect the original
         this.allSigs = new ArrayList<>(other.allSigs);
+        this.sortPolicy = other.sortPolicy;
         this.sigsWithDEAxioms = new HashSet<>(other.sigsWithDEAxioms);
     }
 
@@ -41,7 +44,7 @@ class RangeAssigner {
      * Get the inclusive range of domain element indices in the sort spanned by the sig.
      * May be null if an exact domain element range cannot be determined.
      * To ensure that the domain elements in the range actually are assigned to the sig,
-     * call {@link #addRangeAxiom(Sig, Translator, SortPolicy, TranslationContext)}.
+     * call {@link #addRangeAxiom(Sig, Translator, TranslationContext)}.
      *
      * WARNING: If sig has a non-exact scope, we return a range of the minimum size that is forced by any child with an
      * exact scope. (For example, if A has a non-exact scope but its (only) child A1 has an exact scope of 2, we return
@@ -53,7 +56,7 @@ class RangeAssigner {
      * beginning, with the DEs which are fluid between non-exact-scope sigs at the end. This ensures that each exact-
      * scope sig has a continuous range of DEs which fits in the actual list of DEs.
      */
-    public Pair<Integer, Integer> getDomainElementRange(Sig sig, SortPolicy sortPolicy, TranslationContext context) {
+    public Pair<Integer, Integer> getDomainElementRange(Sig sig, TranslationContext context) {
         if (!(sig instanceof Sig.PrimSig)) {
             // TODO: can we support subset sigs?
             return null;
@@ -93,7 +96,7 @@ class RangeAssigner {
             if (primSig.isTopLevel()) {
                 domainElementStart = 1; // the range of the univ sig starts at 1
             } else {
-                Pair<Integer, Integer> parentRange = getDomainElementRange(primSig.parent, sortPolicy, context);
+                Pair<Integer, Integer> parentRange = getDomainElementRange(primSig.parent, context);
                 if (parentRange == null) {
                     // We can't get the range of the parent sig, so we can't get the range of this sig
                     return null;
@@ -105,7 +108,7 @@ class RangeAssigner {
             // (Note this will always succeed since siblings contains primSig and we checked it isn't first)
             // TODO sometimes this is O(n!) (!!)
             for (int i = 0; i < siblings.size() - 1; i++) {
-                Pair<Integer, Integer> siblingRange = getDomainElementRange(siblings.get(i), sortPolicy, context);
+                Pair<Integer, Integer> siblingRange = getDomainElementRange(siblings.get(i), context);
                 domainElementStart = siblingRange.b + 1;
                 if (siblings.get(i+1) == primSig) {
                     break;
@@ -137,13 +140,13 @@ class RangeAssigner {
      * to this sig. This must be called for any sig for which we rely on the domain element range.
      * This object handles not adding duplicate axioms.
      */
-    public void addRangeAxiom(Sig sig, Translator translator, SortPolicy sortPolicy, TranslationContext context) {
+    public void addRangeAxiom(Sig sig, Translator translator, TranslationContext context) {
         if (sig.builtin) {
             // Sanity check - we should never try to add a range axiom for a builtin sig
             throw new ErrorFatal("Can't add range axiom for builtin sig!");
         }
 
-        Pair<Integer, Integer> range = getDomainElementRange(sig, sortPolicy, context);
+        Pair<Integer, Integer> range = getDomainElementRange(sig, context);
         if (range == null) {
             return; // Don't bother if we can't assign a range
         }

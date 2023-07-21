@@ -41,7 +41,8 @@ public class PortusUtilTest {
     @Before
     public void setUp() {
         policy = mock(SortPolicy.class, CALLS_REAL_METHODS);
-        RangeAssigner mockRangeAssigner = mock(RangeAssigner.class, withSettings().useConstructor(new ArrayList<>()));
+        RangeAssigner mockRangeAssigner = mock(RangeAssigner.class,
+                withSettings().useConstructor(new ArrayList<>(), policy));
         context = new TranslationContext(new PortusOptions(), mock(ScopeComputer.class), policy, mockRangeAssigner);
     }
 

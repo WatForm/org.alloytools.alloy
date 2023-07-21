@@ -71,7 +71,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
             if (sortPolicy.getSort(sig) == null) {
                 throw new ErrorFatal("Sig " + sig.label + " can't be ordered because Portus can't determine a sort");
             }
-            if (context.rangeAssigner.getDomainElementRange(sig, sortPolicy, context) == null) {
+            if (context.rangeAssigner.getDomainElementRange(sig, context) == null) {
                 // this probably shouldn't happen
                 throw new ErrorFatal("Sig " + sig.label + " can't be ordered for unknown reasons");
             }
@@ -98,7 +98,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
             // Add the range axiom here rather than in the constructor because ordSig hasn't been parsed by the
             // rest of the translators then, so translating [[@de \in ordSig]] will fail.
             // At this point ordSig has been run through all translators, so this is safe.
-            context.rangeAssigner.addRangeAxiom(ordSig, topLevelTranslator, sortPolicy, context);
+            context.rangeAssigner.addRangeAxiom(ordSig, topLevelTranslator, context);
             return Term.mkEq(term, ordDE);
         }
 
@@ -149,14 +149,14 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
 
         public AnnotatedTerm getFirstScalar(TranslationContext context) {
             // Use the first in the range of domain elements
-            context.rangeAssigner.addRangeAxiom(sig, topLevelTranslator, sortPolicy, context); // ensure range is valid
+            context.rangeAssigner.addRangeAxiom(sig, topLevelTranslator, context); // ensure range is valid
             Sort sort = sortPolicy.getSort(sig);
-            Pair<Integer, Integer> range = context.rangeAssigner.getDomainElementRange(sig, sortPolicy, context);
+            Pair<Integer, Integer> range = context.rangeAssigner.getDomainElementRange(sig, context);
             return new AnnotatedTerm(Term.mkDomainElement(range.a, sort), sort, Collections.emptyList());
         }
 
         public Pair<AnnotatedTerm, Term> getNextScalarAndGuard(AnnotatedTerm left, TranslationContext context) {
-            context.rangeAssigner.addRangeAxiom(sig, topLevelTranslator, sortPolicy, context); // ensure range is valid
+            context.rangeAssigner.addRangeAxiom(sig, topLevelTranslator, context); // ensure range is valid
             Sort sort = sortPolicy.getSort(sig);
             if (!Objects.equals(left.getSort(), sort)) {
                 // Sorts don't match - ignore
@@ -165,7 +165,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
 
             // Use [[x \in sig]] && x != last as the guard, and next(x) as the scalar
             // We check x != last because next(last) is left undefined, and x \in sig to avoid extraneous entries
-            Pair<Integer, Integer> range = context.rangeAssigner.getDomainElementRange(sig, sortPolicy, context);
+            Pair<Integer, Integer> range = context.rangeAssigner.getDomainElementRange(sig, context);
             DomainElement lastDE = Term.mkDomainElement(range.b, sort);
 
             Term guard = Term.mkAnd(
@@ -187,8 +187,8 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
 
             // Constrain it by hardcoding the order, leaving next(last) undefined
             // Note: deRange is inclusive, so we exclude the last element in the range
-            context.rangeAssigner.addRangeAxiom(sig, topLevelTranslator, sortPolicy, context); // ensure range is valid
-            Pair<Integer, Integer> deRange = context.rangeAssigner.getDomainElementRange(sig, sortPolicy, context);
+            context.rangeAssigner.addRangeAxiom(sig, topLevelTranslator, context); // ensure range is valid
+            Pair<Integer, Integer> deRange = context.rangeAssigner.getDomainElementRange(sig, context);
             for (int de = deRange.a; de < deRange.b; de++) {
                 // "next(_@de) = _@(de+1)"
                 Term axiom = Term.mkEq(

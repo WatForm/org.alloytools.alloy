@@ -63,7 +63,8 @@ public class FunctionOptTranslatorTest {
         mockSortPolicy = mock(SortPolicy.class);
         when(mockSortPolicy.addSortsToTheory(any())).thenReturn(
                 Theory.empty().withSort(sortA).withSort(sortB).withSort(Sort.Int()));
-        RangeAssigner mockRangeAssigner = mock(RangeAssigner.class, withSettings().useConstructor(new ArrayList<>()));
+        RangeAssigner mockRangeAssigner = mock(RangeAssigner.class,
+                withSettings().useConstructor(new ArrayList<>(), mockSortPolicy));
         ScopeComputer mockScoper = mock(ScopeComputer.class);
         context = new TranslationContext(new PortusOptions(), mockScoper, mockSortPolicy, mockRangeAssigner);
     }

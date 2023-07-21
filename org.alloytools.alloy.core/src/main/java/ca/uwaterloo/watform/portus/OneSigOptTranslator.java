@@ -29,7 +29,7 @@ class OneSigOptTranslator extends AbstractTranslator implements ScalarCaster, Ev
         if (sig.isOne == null || !(sig instanceof Sig.PrimSig)) return null;
 
         // Don't add all the axioms or create a predicate, just use the range axiom
-        context.rangeAssigner.addRangeAxiom(sig, topLevelTranslator, sortPolicy, context);
+        context.rangeAssigner.addRangeAxiom(sig, topLevelTranslator, context);
         return Term.mkTop();
     }
 
