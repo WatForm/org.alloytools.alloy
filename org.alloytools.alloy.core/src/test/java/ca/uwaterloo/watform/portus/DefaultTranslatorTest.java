@@ -89,7 +89,7 @@ public class DefaultTranslatorTest {
                 new SigAxioms(mockRoot, mockSortPolicy), mockSortPolicy);
         // Use the constructor so RangeAssigner's list of sigs isn't null (causes issues with copy constructor)
         RangeAssigner mockRangeAssigner = mock(RangeAssigner.class,
-                withSettings().useConstructor(new ArrayList<>(), mockSortPolicy));
+                withSettings().useConstructor(new ArrayList<>(), mockSortPolicy, mockScoper));
         context = new TranslationContext(new PortusOptions(), mockScoper, mockSortPolicy, mockRangeAssigner);
     }
 

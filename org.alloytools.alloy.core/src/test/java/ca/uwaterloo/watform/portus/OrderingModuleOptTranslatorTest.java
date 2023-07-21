@@ -60,7 +60,7 @@ public class OrderingModuleOptTranslatorTest {
 
         SortPolicy policy = mock(SortPolicy.class);
         rangeAssigner = mock(RangeAssigner.class, withSettings()
-                .useConstructor(Arrays.asList(ordSig, orderedSig), policy));
+                .useConstructor(Arrays.asList(ordSig, orderedSig), policy, scoper));
         scoper = mock(ScopeComputer.class);
         scalarCaster = mock(ScalarCaster.class);
         translator = new OrderingModuleOptTranslator((expr, context) -> {
@@ -76,7 +76,7 @@ public class OrderingModuleOptTranslatorTest {
         when(policy.getSort(orderedSig)).thenReturn(orderedSigSort);
         when(policy.addSortsToTheory(any())).thenReturn(Theory.empty().withSort(orderedSigSort).withSort(ordSigSort));
         when(policy.getSort(ordSig)).thenReturn(ordSigSort);
-        when(rangeAssigner.getDomainElementRange(eq(ordSig), any())).thenReturn(new Pair<>(1, 1));
+        when(rangeAssigner.getDomainElementRange(eq(ordSig))).thenReturn(new Pair<>(1, 1));
         ordSig.addFact(ExprList.makeTOTALORDER(null, null, Arrays.asList(
                 orderedSig, ordSig.join(firstField), ordSig.join(nextField))));
 
@@ -87,7 +87,7 @@ public class OrderingModuleOptTranslatorTest {
     public void testTranslate_orderedSig_notLazy() {
         // nothing translated, but next is still added
         when(scoper.sig2scope(orderedSig)).thenReturn(3);
-        when(rangeAssigner.getDomainElementRange(orderedSig, context)).thenReturn(new Pair<>(1, 3));
+        when(rangeAssigner.getDomainElementRange(orderedSig)).thenReturn(new Pair<>(1, 3));
         translator.translate(ordSig, context);
 
         // there should be one function, next: orderedSigSort -> orderedSigSort
@@ -117,7 +117,7 @@ public class OrderingModuleOptTranslatorTest {
         // first is hardcoded as the first DE in the range: [[x \in first]] := x = @_(first)
         // now this is failing?????
         when(scoper.sig2scope(orderedSig)).thenReturn(3);
-        when(rangeAssigner.getDomainElementRange(orderedSig, context)).thenReturn(new Pair<>(1, 3));
+        when(rangeAssigner.getDomainElementRange(orderedSig)).thenReturn(new Pair<>(1, 3));
         translator.translate(ordSig, context);
         Var x = Term.mkVar("x");
         Term result = translator.translate(ExprElementOf.make(
@@ -129,7 +129,7 @@ public class OrderingModuleOptTranslatorTest {
     public void testTranslate_orderedSig_first_notDE1() {
         // first is hardcoded as the first DE in the range: [[x \in first]] := x = @_(first)
         when(scoper.sig2scope(orderedSig)).thenReturn(10);
-        when(rangeAssigner.getDomainElementRange(orderedSig, context)).thenReturn(new Pair<>(5, 10));
+        when(rangeAssigner.getDomainElementRange(orderedSig)).thenReturn(new Pair<>(5, 10));
         translator.translate(ordSig, context);
         Var x = Term.mkVar("x");
         Term result = translator.translate(ExprElementOf.make(
@@ -143,7 +143,7 @@ public class OrderingModuleOptTranslatorTest {
         // next(@_1) = @_2, next(@_2) = @_3, but next(@_3) is left undefined
         // and [[(x,y) \in next]] := ([[x \in orderedSig]] && x != @_3) && next(x) = y
         when(scoper.sig2scope(orderedSig)).thenReturn(3);
-        when(rangeAssigner.getDomainElementRange(orderedSig, context)).thenReturn(new Pair<>(1, 3));
+        when(rangeAssigner.getDomainElementRange(orderedSig)).thenReturn(new Pair<>(1, 3));
         translator.translate(ordSig, context);
 
         Var x = Term.mkVar("x"), y = Term.mkVar("y");
@@ -187,7 +187,7 @@ public class OrderingModuleOptTranslatorTest {
         // next(@_3) = @_4, next(@_4) = @_5, next(@_5) = @_6, but next(@_6) is left undefined
         // and [[(x,y) \in next]] := ([[x \in orderedSig]] && x != @_6) && next(x) = y
         when(scoper.sig2scope(orderedSig)).thenReturn(4);
-        when(rangeAssigner.getDomainElementRange(orderedSig, context)).thenReturn(new Pair<>(3, 6));
+        when(rangeAssigner.getDomainElementRange(orderedSig)).thenReturn(new Pair<>(3, 6));
         translator.translate(ordSig, context);
 
         Var x = Term.mkVar("x"), y = Term.mkVar("y");
@@ -233,7 +233,7 @@ public class OrderingModuleOptTranslatorTest {
         // edge case: what happens when the scope is 1?
         // no axioms and [[(x,y) \in next]] := ([[x \in orderedSig]] && x != @_1) && next(x) = y
         when(scoper.sig2scope(orderedSig)).thenReturn(1);
-        when(rangeAssigner.getDomainElementRange(orderedSig, context)).thenReturn(new Pair<>(1, 1));
+        when(rangeAssigner.getDomainElementRange(orderedSig)).thenReturn(new Pair<>(1, 1));
         translator.translate(ordSig, context);
 
         Var x = Term.mkVar("x"), y = Term.mkVar("y");
@@ -267,7 +267,7 @@ public class OrderingModuleOptTranslatorTest {
     public void testCastToScalar_first() {
         // test castToScalar(Ord.first) = (@1: Int, Top)
         when(scoper.sig2scope(orderedSig)).thenReturn(3);
-        when(rangeAssigner.getDomainElementRange(orderedSig, context)).thenReturn(new Pair<>(1, 3));
+        when(rangeAssigner.getDomainElementRange(orderedSig)).thenReturn(new Pair<>(1, 3));
         translator.translate(ordSig, context);
 
         Pair<AnnotatedTerm, Term> scalar = translator.castToScalar(ordSig.join(firstField), context);
@@ -290,7 +290,7 @@ public class OrderingModuleOptTranslatorTest {
     public void testCastToScalar_next() {
         // test castToScalar(x.(Ord.next)) = (next(x): Sort, guardX && (inOrderedSig(x) && x != @last))
         when(scoper.sig2scope(orderedSig)).thenReturn(3);
-        when(rangeAssigner.getDomainElementRange(orderedSig, context)).thenReturn(new Pair<>(1, 3));
+        when(rangeAssigner.getDomainElementRange(orderedSig)).thenReturn(new Pair<>(1, 3));
         translator.translate(ordSig, context);
 
         ExprVar alloyX = ExprVar.make(null, "x");
@@ -323,7 +323,7 @@ public class OrderingModuleOptTranslatorTest {
     public void testCastToScalar_nextWithNoops() {
         // test castToScalar(x.NOOP(Ord.next)) = (next(x): Sort, guardX && (inOrderedSig(x) && x != @last))
         when(scoper.sig2scope(orderedSig)).thenReturn(3);
-        when(rangeAssigner.getDomainElementRange(orderedSig, context)).thenReturn(new Pair<>(1, 3));
+        when(rangeAssigner.getDomainElementRange(orderedSig)).thenReturn(new Pair<>(1, 3));
         translator.translate(ordSig, context);
 
         ExprVar alloyX = ExprVar.make(null, "x");

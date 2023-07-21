@@ -169,7 +169,7 @@ final class PortusUtil {
         if (sig.isOne == null) {
             throw new IllegalArgumentException("getOneSigDomainElement expects a one sig");
         }
-        Pair<Integer, Integer> deRange = context.rangeAssigner.getDomainElementRange(sig, context);
+        Pair<Integer, Integer> deRange = context.rangeAssigner.getDomainElementRange(sig);
         Sort sort = sortPolicy.getSort(sig);
         if (deRange == null || sort == null) {
             throw new ErrorFatal("Portus error: one sig " + sig + " has null domain element range or sort");

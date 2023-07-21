@@ -71,7 +71,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
             if (sortPolicy.getSort(sig) == null) {
                 throw new ErrorFatal("Sig " + sig.label + " can't be ordered because Portus can't determine a sort");
             }
-            if (context.rangeAssigner.getDomainElementRange(sig, context) == null) {
+            if (context.rangeAssigner.getDomainElementRange(sig) == null) {
                 // this probably shouldn't happen
                 throw new ErrorFatal("Sig " + sig.label + " can't be ordered for unknown reasons");
             }
@@ -151,7 +151,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
             // Use the first in the range of domain elements
             context.rangeAssigner.addRangeAxiom(sig, topLevelTranslator, context); // ensure range is valid
             Sort sort = sortPolicy.getSort(sig);
-            Pair<Integer, Integer> range = context.rangeAssigner.getDomainElementRange(sig, context);
+            Pair<Integer, Integer> range = context.rangeAssigner.getDomainElementRange(sig);
             return new AnnotatedTerm(Term.mkDomainElement(range.a, sort), sort, Collections.emptyList());
         }
 
@@ -165,7 +165,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
 
             // Use [[x \in sig]] && x != last as the guard, and next(x) as the scalar
             // We check x != last because next(last) is left undefined, and x \in sig to avoid extraneous entries
-            Pair<Integer, Integer> range = context.rangeAssigner.getDomainElementRange(sig, context);
+            Pair<Integer, Integer> range = context.rangeAssigner.getDomainElementRange(sig);
             DomainElement lastDE = Term.mkDomainElement(range.b, sort);
 
             Term guard = Term.mkAnd(
@@ -188,7 +188,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
             // Constrain it by hardcoding the order, leaving next(last) undefined
             // Note: deRange is inclusive, so we exclude the last element in the range
             context.rangeAssigner.addRangeAxiom(sig, topLevelTranslator, context); // ensure range is valid
-            Pair<Integer, Integer> deRange = context.rangeAssigner.getDomainElementRange(sig, context);
+            Pair<Integer, Integer> deRange = context.rangeAssigner.getDomainElementRange(sig);
             for (int de = deRange.a; de < deRange.b; de++) {
                 // "next(_@de) = _@(de+1)"
                 Term axiom = Term.mkEq(

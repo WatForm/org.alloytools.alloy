@@ -47,7 +47,7 @@ public class FortressSolutionTest {
         ScopeComputer mockScoper = mock(ScopeComputer.class);
         SortPolicy sortPolicy = new UnivSortPolicy(univ, new ArrayList<>(), mockScoper);
         RangeAssigner mockRangeAssigner = mock(RangeAssigner.class,
-                withSettings().useConstructor(new ArrayList<>(), sortPolicy));
+                withSettings().useConstructor(new ArrayList<>(), sortPolicy, mockScoper));
         TranslationContext context = new TranslationContext(
                 new PortusOptions(), mockScoper, sortPolicy, mockRangeAssigner);
 

@@ -62,7 +62,7 @@ public class OneSigOptTranslatorTest {
 
         Term flagRangeAxiom = Term.mkVar("rangeAxiom");
         when(mockTranslator.translate(any(), any())).thenReturn(flagRangeAxiom);
-        when(mockRangeAssigner.getDomainElementRange(testOneSig, context)).thenReturn(new Pair<>(1, 1));
+        when(mockRangeAssigner.getDomainElementRange(testOneSig)).thenReturn(new Pair<>(1, 1));
 
         Pair<AnnotatedTerm, Term> result = opt.castToScalar(testOneSig, context);
         assertNotNull(result);

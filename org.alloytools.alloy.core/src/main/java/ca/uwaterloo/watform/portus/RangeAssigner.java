@@ -17,26 +17,29 @@ import java.util.stream.Collectors;
 
 /**
  * A range assigner is in charge of assigning ranges of domain elements to signatures.
- * @see #getDomainElementRange(Sig, TranslationContext) 
+ * @see #getDomainElementRange(Sig) 
  */
 class RangeAssigner {
 
     private final List<Sig> allSigs;
     private final SortPolicy sortPolicy;
+    private final ScopeComputer scoper;
 
     // Keep state: which sigs have we added DE axioms for, so we don't add duplicates?
     private final Set<Sig> sigsWithDEAxioms;
 
-    public RangeAssigner(Iterable<Sig> allSigs, SortPolicy sortPolicy) {
+    public RangeAssigner(Iterable<Sig> allSigs, SortPolicy sortPolicy, ScopeComputer scoper) {
         this.allSigs = PortusUtil.iterableToList(allSigs);
         this.sortPolicy = sortPolicy;
+        this.scoper = scoper;
         this.sigsWithDEAxioms = new HashSet<>();
     }
 
     public RangeAssigner(RangeAssigner other) {
         // Deep copy so changes in the copy don't affect the original
         this.allSigs = new ArrayList<>(other.allSigs);
-        this.sortPolicy = other.sortPolicy;
+        this.sortPolicy = other.sortPolicy; // sort policy is immutable
+        this.scoper = other.scoper; // we probably don't mutate it...
         this.sigsWithDEAxioms = new HashSet<>(other.sigsWithDEAxioms);
     }
 
@@ -56,7 +59,7 @@ class RangeAssigner {
      * beginning, with the DEs which are fluid between non-exact-scope sigs at the end. This ensures that each exact-
      * scope sig has a continuous range of DEs which fits in the actual list of DEs.
      */
-    public Pair<Integer, Integer> getDomainElementRange(Sig sig, TranslationContext context) {
+    public Pair<Integer, Integer> getDomainElementRange(Sig sig) {
         if (!(sig instanceof Sig.PrimSig)) {
             // TODO: can we support subset sigs?
             return null;
@@ -72,7 +75,7 @@ class RangeAssigner {
             // they've passed in something we can't deal with
             return null;
         }
-        int sigScope = getMinimumSize(primSig, context.scoper);
+        int sigScope = getMinimumSize(primSig, scoper);
 
         List<Sig.PrimSig> siblings = allSigs.stream()
                 .filter(otherSig -> otherSig instanceof Sig.PrimSig)
@@ -96,7 +99,7 @@ class RangeAssigner {
             if (primSig.isTopLevel()) {
                 domainElementStart = 1; // the range of the univ sig starts at 1
             } else {
-                Pair<Integer, Integer> parentRange = getDomainElementRange(primSig.parent, context);
+                Pair<Integer, Integer> parentRange = getDomainElementRange(primSig.parent);
                 if (parentRange == null) {
                     // We can't get the range of the parent sig, so we can't get the range of this sig
                     return null;
@@ -108,7 +111,7 @@ class RangeAssigner {
             // (Note this will always succeed since siblings contains primSig and we checked it isn't first)
             // TODO sometimes this is O(n!) (!!)
             for (int i = 0; i < siblings.size() - 1; i++) {
-                Pair<Integer, Integer> siblingRange = getDomainElementRange(siblings.get(i), context);
+                Pair<Integer, Integer> siblingRange = getDomainElementRange(siblings.get(i));
                 domainElementStart = siblingRange.b + 1;
                 if (siblings.get(i+1) == primSig) {
                     break;
@@ -146,7 +149,7 @@ class RangeAssigner {
             throw new ErrorFatal("Can't add range axiom for builtin sig!");
         }
 
-        Pair<Integer, Integer> range = getDomainElementRange(sig, context);
+        Pair<Integer, Integer> range = getDomainElementRange(sig);
         if (range == null) {
             return; // Don't bother if we can't assign a range
         }
