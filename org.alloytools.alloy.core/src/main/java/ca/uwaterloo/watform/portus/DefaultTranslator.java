@@ -1004,9 +1004,30 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
         }
         List<AnnotatedVar> vars = new ArrayList<>(arity);
 
-        List<Sort> exprSorts = sortPolicy.getMinimalExprDefiniteSorts(expr,
-                "Translating a quantified expression requires the inner expression to have definite sorts!",
-                context);
+        SortResolvant exprResolvant = sortPolicy.getMinimalExprSorts(expr, context);
+
+        if (exprResolvant.isNone()) {
+            // Short-circuit if we're quantifying over none
+            // [[one none]] = [[some none]] = false
+            // [[no none]] = [[lone none]] = true
+            switch (quantifier) {
+                case ONE:
+                case SOME:
+                    return Term.mkBottom();
+                case NO:
+                case LONE:
+                    return Term.mkTop();
+                default:
+                    throw new ErrorFatal("Invalid quantifier for quantified expression: " + quantifier);
+            }
+        }
+
+        // Otherwise, we can only translate definite sorts
+        if (!exprResolvant.isDefinite()) {
+            throw new ErrorFatal("Quantified expressions must have definite sorts!");
+        }
+        List<Sort> exprSorts = exprResolvant.getDefiniteSorts();
+
         for (int i = 0; i < arity; i++) {
             Var var = Term.mkVar(context.nameGenerator.freshName("x" + i));
             vars.add(var.of(exprSorts.get(i)));
@@ -1028,6 +1049,28 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
             expr = (ExprQt) desugared;
         } else {
             return recursivelyTranslate(desugared, context);
+        }
+
+        // Check if any of the decls statically resolve to none - if so, we can short-circuit.
+        boolean isNone = expr.decls.stream()
+                .map(decl -> sortPolicy.getMinimalExprSorts(decl.expr, context))
+                .anyMatch(SortResolvant::isNone);
+        if (isNone) {
+            // One of the things we're quantifying over is none: short-circuit.
+            switch (expr.op) {
+                case ALL: // "all x: none | f" is vacuously true
+                case NO:
+                case LONE:
+                    return Term.mkTop();
+                case SOME:
+                case ONE:
+                    return Term.mkBottom();
+                case SUM:
+                    // Easiest to handle here: empty sum is 0
+                    return IntegerLiteral.apply(0);
+                default:
+                    throw new ErrorFatal("Unknown quantifier for formulas: " + expr.op);
+            }
         }
 
         // Translate all the decls into Fortress
@@ -1449,6 +1492,8 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
      *   condition expresses that each variable is in the expr the decl declares it to be in.
      *   The condition must be true for the variables to be used.
      * @apiNote The variable names are added to the context's var mapping and must be cleaned up after.
+     * We assume that none of the decls' expressions resolve to "none" (i.e. their sort resolvants are empty).
+     * This must be handled at a higher level.
      */
     private Pair<Map<String, AnnotatedVar>, Term> translateDeclList(
             List<Decl> decls, TranslationContext context) {

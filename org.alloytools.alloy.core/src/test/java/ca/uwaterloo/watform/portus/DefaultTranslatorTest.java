@@ -3164,6 +3164,54 @@ public class DefaultTranslatorTest {
     }
 
     @Test
+    public void testTranslate_all_shortCircuit() {
+        // test [[all x: none | f]] := true
+        ExprVar f = makeTestFormulaVar("f");
+        Expr formula = f.forAll(ExprConstant.EMPTYNESS.oneOf("x"));
+        assertEquals(Term.mkTop(), translator.translate(formula, context));
+    }
+
+    @Test
+    public void testTranslate_some_shortCircuit() {
+        // test [[some x: none | f]] := false
+        ExprVar f = makeTestFormulaVar("f");
+        Expr formula = f.forSome(ExprConstant.EMPTYNESS.oneOf("x"));
+        assertEquals(Term.mkBottom(), translator.translate(formula, context));
+    }
+
+    @Test
+    public void testTranslate_no_shortCircuit() {
+        // test [[no x: none | f]] := true
+        ExprVar f = makeTestFormulaVar("f");
+        Expr formula = f.forNo(ExprConstant.EMPTYNESS.oneOf("x"));
+        assertEquals(Term.mkTop(), translator.translate(formula, context));
+    }
+
+    @Test
+    public void testTranslate_lone_shortCircuit() {
+        // test [[lone x: none | f]] := true
+        ExprVar f = makeTestFormulaVar("f");
+        Expr formula = f.forLone(ExprConstant.EMPTYNESS.oneOf("x"));
+        assertEquals(Term.mkTop(), translator.translate(formula, context));
+    }
+
+    @Test
+    public void testTranslate_one_shortCircuit() {
+        // test [[one x: none | f]] := false
+        ExprVar f = makeTestFormulaVar("f");
+        Expr formula = f.forOne(ExprConstant.EMPTYNESS.oneOf("x"));
+        assertEquals(Term.mkBottom(), translator.translate(formula, context));
+    }
+
+    @Test
+    public void testTranslate_sum_shortCircuit() {
+        // test [[sum x: none | e]] := 0
+        ExprVar e = makeTestSmallIntVar("e");
+        Expr sum = e.sumOver(ExprConstant.EMPTYNESS.oneOf("x"));
+        assertEquals(IntegerLiteral.apply(0), translator.translate(sum, context));
+    }
+
+    @Test
     public void testTranslate_sum_oneVar_scope1() {
         // test [[sum x: e | f]] := ([[x \in e]] => [[f]] else 0)[x/@1]
         // where univ has scope 1 and @n is the nth domain element in univ
@@ -3813,6 +3861,30 @@ public class DefaultTranslatorTest {
                         Term.mkEq(x, y)))));
         assertEquals(expected, result);
         assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_someExpr_shortCircuit() {
+        // test [[some none]] := false
+        assertEquals(Term.mkBottom(), translator.translate(ExprConstant.EMPTYNESS.some(), context));
+    }
+
+    @Test
+    public void testTranslate_noExpr_shortCircuit() {
+        // test [[no none]] := true
+        assertEquals(Term.mkTop(), translator.translate(ExprConstant.EMPTYNESS.no(), context));
+    }
+
+    @Test
+    public void testTranslate_loneExpr_shortCircuit() {
+        // test [[lone none]] := true
+        assertEquals(Term.mkTop(), translator.translate(ExprConstant.EMPTYNESS.lone(), context));
+    }
+
+    @Test
+    public void testTranslate_oneExpr_shortCircuit() {
+        // test [[one none]] := false
+        assertEquals(Term.mkBottom(), translator.translate(ExprConstant.EMPTYNESS.one(), context));
     }
 
     @Test

@@ -103,6 +103,7 @@ class RangeAssigner {
         } else {
             // Otherwise, go after the range of the closest sibling behind us with a valid range
             // (Note this will always succeed since siblings contains primSig and we checked it isn't first)
+            // TODO sometimes this is O(n!) (!!)
             for (int i = 0; i < siblings.size() - 1; i++) {
                 Pair<Integer, Integer> siblingRange = getDomainElementRange(siblings.get(i), sortPolicy, context);
                 domainElementStart = siblingRange.b + 1;

@@ -302,7 +302,7 @@ public final class FortressSolution implements AlloySolution {
     }
 
     // A4SolutionReader/Writer want the int literals to be actual Integer objects, so convert IntegerLiterals.
-    // TODO: duplicates TupleSet
+    // TODO: duplicates ValueTupleSet
     private List<Object> sanitizeLiteralsForKodkod(List<Value> values) {
         return values.stream()
                 .map(value -> {
