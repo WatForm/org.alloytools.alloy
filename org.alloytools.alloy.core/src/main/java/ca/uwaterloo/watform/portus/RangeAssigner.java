@@ -10,8 +10,10 @@ import fortress.msfol.Term;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -28,11 +30,17 @@ class RangeAssigner {
     // Keep state: which sigs have we added DE axioms for, so we don't add duplicates?
     private final Set<Sig> sigsWithDEAxioms;
 
+    // Memoize getDomainElementRange() for performance reasons.
+    // It's valid to do this because getDomainElementRange() is a pure function, since it only depends
+    // on sortPolicy and scoper which *should* be fixed.
+    private final Map<Sig, Pair<Integer, Integer>> memoizedSigToDERange;
+
     public RangeAssigner(Iterable<Sig> allSigs, SortPolicy sortPolicy, ScopeComputer scoper) {
         this.allSigs = PortusUtil.iterableToList(allSigs);
         this.sortPolicy = sortPolicy;
         this.scoper = scoper;
         this.sigsWithDEAxioms = new HashSet<>();
+        this.memoizedSigToDERange = new HashMap<>();
     }
 
     public RangeAssigner(RangeAssigner other) {
@@ -41,6 +49,7 @@ class RangeAssigner {
         this.sortPolicy = other.sortPolicy; // sort policy is immutable
         this.scoper = other.scoper; // we probably don't mutate it...
         this.sigsWithDEAxioms = new HashSet<>(other.sigsWithDEAxioms);
+        this.memoizedSigToDERange = new HashMap<>(other.memoizedSigToDERange);
     }
 
     /**
@@ -68,6 +77,10 @@ class RangeAssigner {
             // domain elements of Int are special, so we don't support them
             return null;
         }
+        if (memoizedSigToDERange.containsKey(sig)) {
+            // We've computed it before, return the precomputed value
+            return memoizedSigToDERange.get(sig);
+        }
 
         Sig.PrimSig primSig = (Sig.PrimSig) sig;
         Sort sort = sortPolicy.getSort(primSig);
@@ -93,7 +106,7 @@ class RangeAssigner {
         assert siblings.contains(primSig);
 
         // find the start of our range according to our parent/siblings
-        int domainElementStart = -1;
+        int domainElementStart;
         if (primSig == siblings.get(0)) {
             // If we're the first of our siblings, we start in the parent's range
             if (primSig.isTopLevel()) {
@@ -109,19 +122,14 @@ class RangeAssigner {
         } else {
             // Otherwise, go after the range of the closest sibling behind us with a valid range
             // (Note this will always succeed since siblings contains primSig and we checked it isn't first)
-            // TODO sometimes this is O(n!) (!!)
-            for (int i = 0; i < siblings.size() - 1; i++) {
-                Pair<Integer, Integer> siblingRange = getDomainElementRange(siblings.get(i));
-                domainElementStart = siblingRange.b + 1;
-                if (siblings.get(i+1) == primSig) {
-                    break;
-                }
-            }
-            assert domainElementStart != -1;
+            int primSigIdx = siblings.indexOf(primSig);
+            Pair<Integer, Integer> prevSiblingRange = getDomainElementRange(siblings.get(primSigIdx - 1));
+            domainElementStart = prevSiblingRange.b + 1;
         }
 
-
-        return new Pair<>(domainElementStart, domainElementStart + sigScope - 1);
+        Pair<Integer, Integer> deRange = new Pair<>(domainElementStart, domainElementStart + sigScope - 1);
+        memoizedSigToDERange.put(sig, deRange);
+        return deRange;
     }
 
     private int getMinimumSize(Sig.PrimSig sig, ScopeComputer scoper) {
