@@ -247,10 +247,6 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
 
     /** Evaluate a sig given a solution. */
     private ValueTupleSet evaluateSig(Sig sig, FortressSolution solution) {
-        // If the sig is the entire sort, the results are the entire sort
-        if (sortPolicy.isSigEntireSort(sig)) {
-            return ValueTupleSet.atoms(solution.getSortAtoms(sortPolicy.getSort(sig)));
-        }
         // Evaluate only sigs which we've translated here
         if (!sigMemberPredicateDecls.containsKey(sig)) return null; // not translated here
 
@@ -1177,6 +1173,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
     @Override
     public Set<Sort> determineExpandedSorts(Expr expr, VarMappingContext varMappingContext) {
         // A sort is unchanging, for our purposes, if we have to expand over it due to cardinality or sum.
+        // TODO: TEST THIS WITH NONE!
         if (expr instanceof ExprUnary) {
             ExprUnary exprUnary = (ExprUnary) expr;
             if (exprUnary.op == ExprUnary.Op.CARDINALITY) {
