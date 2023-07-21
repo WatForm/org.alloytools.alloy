@@ -62,32 +62,46 @@ abstract class ContextVisitReturn<T> extends FortressVisitReturn<T> {
 
     public abstract T visitLet(ExprLet x) throws Err;
 
+    /**
+     * Visit an ExprQt. Note that any quantified variables after one with sorts resolving to none will not
+     * be added to the context!
+     */
     @Override
     public final T visit(ExprQt x) throws Err {
         // add var mappings for the quantified variables as we move into the quantifier
         List<T> argResults = new ArrayList<>();
-        for (Decl decl : x.decls) {
-            for (ExprHasName name : decl.names) {
-                argResults.add(visitQuantifierArg(decl.expr));
-
-                List<Sort> sorts = sortPolicy.getMinimalExprDefiniteSorts(
-                        decl.expr, "Quantifier decl expression must have definite sorts!", varMappingContext);
-                // We only support arity 1
-                if (sorts.size() > 1) {
-                    throw new ErrorFatal("Portus only supports unary quantifier decl expressions!");
-                }
-                Sort sort = sorts.get(0);
-                varMappingContext.addTermMapping(name.label, new AnnotatedTerm(boundPlaceholderVar.of(sort)));
-            }
-        }
+        List<String> varNamesAdded = new ArrayList<>();
         try {
-            return visitQuantifier(x, argResults);
-        } finally {
-            // remove the var mappings
             for (Decl decl : x.decls) {
                 for (ExprHasName name : decl.names) {
-                    varMappingContext.removeMapping(name.label);
+                    argResults.add(visitQuantifierArg(decl.expr));
+
+                    SortResolvant resolvant = sortPolicy.getMinimalExprSorts(decl.expr, varMappingContext);
+                    if (resolvant.isNone()) {
+                        // If the resolvant is none, **do not visit any further variables or add them to the context**.
+                        // This is because we always short-circuit any quantifiers with none sorts, so we do not
+                        // recurse into them. This is necessary for Portus to work with e.g. "some x: none | ...".
+                        // THIS MAY CAUSE BUGS! THIS IS A LIKELY SPOT FOR ODD BEHAVIOUR!
+                        return visitQuantifier(x, argResults);
+                    }
+
+                    if (!resolvant.isDefinite()) {
+                        throw new ErrorFatal("Quantifier decl expression must have definite sorts!");
+                    }
+                    if (resolvant.arity() > 1) {
+                        throw new ErrorFatal("Portus only supports unary quantifier decl expressions!");
+                    }
+                    Sort sort = resolvant.getDefiniteSorts().get(0);
+                    varMappingContext.addTermMapping(name.label, new AnnotatedTerm(boundPlaceholderVar.of(sort)));
+                    varNamesAdded.add(name.label);
                 }
+            }
+            return visitQuantifier(x, argResults);
+        } finally {
+            // remove the var mappings in reverse order
+            for (int i = varNamesAdded.size() - 1; i >= 0; i--) {
+                String varName = varNamesAdded.get(i);
+                varMappingContext.removeMapping(varName);
             }
         }
     }
