@@ -1177,13 +1177,28 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
         if (expr instanceof ExprUnary) {
             ExprUnary exprUnary = (ExprUnary) expr;
             if (exprUnary.op == ExprUnary.Op.CARDINALITY) {
-                List<Sort> sorts = sortPolicy.getMinimalExprDefiniteSorts(exprUnary.sub,
-                        "Argument of cardinality must have definite sorts!", varMappingContext);
-                return new HashSet<>(sorts);
+                SortResolvant resolvant = sortPolicy.getMinimalExprSorts(exprUnary.sub, varMappingContext);
+                if (resolvant.isNone()) {
+                    // special case, "#none" - don't worry about it
+                    return new HashSet<>();
+                }
+                if (!resolvant.isDefinite()) {
+                    throw new ErrorFatal("Argument of cardinality must have definite sorts!");
+                }
+                return new HashSet<>(resolvant.getDefiniteSorts());
             }
         } else if (expr instanceof ExprQt) {
             ExprQt exprQt = (ExprQt) expr;
             if (exprQt.op == ExprQt.Op.SUM) {
+                // If any of them are none, we don't have to expand over anything
+                boolean anyNone = exprQt.decls.stream()
+                        .map(decl -> sortPolicy.getMinimalExprSorts(decl.expr, varMappingContext))
+                        .anyMatch(SortResolvant::isNone);
+                if (anyNone) {
+                    return new HashSet<>();
+                }
+
+                // Otherwise, everything has to have definite sorts.
                 return exprQt.decls.stream()
                         .map(decl -> decl.expr)
                         .flatMap(declExpr -> {
