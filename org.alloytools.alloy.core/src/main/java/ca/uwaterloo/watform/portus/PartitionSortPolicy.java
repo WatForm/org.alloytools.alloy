@@ -336,7 +336,11 @@ final class PartitionSortPolicy extends SortPolicy {
         for (Sig.PrimSig sig : allSigs) {
             scope += scoper.sig2scope(sig);
         }
-        return scope;
+
+        // Don't set a scope of 0, Fortress doesn't support that.
+        // This is okay because MembershipPredicateOptTranslator doesn't optimize out the membership predicate
+        // when the sort scope would be 0, so correctness isn't impacted.
+        return Math.max(scope, 1);
     }
 
     @Override

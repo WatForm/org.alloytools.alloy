@@ -72,6 +72,13 @@ final class MembershipPredicateOptTranslator extends AbstractTranslator implemen
         // TODO: but if we change the cardinality implementation, it might not need it...
         if (!scoper.isExact(primSig) && !primSig.children().isEmpty()) {
             inapplicableSorts.add(sort);
+            return;
+        }
+
+        // Patch: Alloy allows sig scopes to be set to 0, but Fortress sorts don't support scope 0.
+        // Avoid setting a scope of 0 on Fortress sorts by disallowing sigs of scope 0.
+        if (scoper.sig2scope(primSig) == 0) {
+            inapplicableSorts.add(sort);
         }
     }
 
