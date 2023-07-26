@@ -16,11 +16,11 @@ import fortress.msfol.Var;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * A translator for the function optimization, based on KT 5.5.
@@ -454,51 +454,37 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
             return solution.functionPreimage(info.getDecl(), Term.mkTop());
         }
 
-        // Take the product of all the bound exprs in the domain formula above
-        // If there's no "this", just evaluate the exprs
-        ValueTupleSet first = null;
-        ValueTupleSet result = ValueTupleSet.singleton(Collections.emptyList()); // the identity for cartesian product
-        for (Expr expr : info.boundExprs.subList(0, info.boundExprs.size() - 1)) {
-            int arity = expr.type().arity();
-
-            // TODO: this is overkill, if this is a bottleneck then just write a search-for-free-var routine
-            boolean hasThis = PortusUtil.computeFreeVariables(expr, context, sortPolicy).stream()
-                    .anyMatch(var -> var.name().equals("this"));
-
-            ValueTupleSet exprResult;
-            if (hasThis) {
-                if (first == null) {
-                    // first should be the sig and defines this, so it shouldn't contain this
-                    throw new ErrorFatal("First bound expr can't contain this!");
-                }
-                if (first.arity() != 1) {
-                    // first should be the sig so it should translate to a pure set (arity 1)
-                    throw new ErrorFatal("First bound expr should be a pure set!");
-                }
-
-                // Use each value in the sig in turn as "this" and then union the results together
-                Sort sigSort = info.argSorts.get(0);
-                exprResult = first.singleValueStream().map(thisValue -> {
-                    context.addTermMapping("this", new AnnotatedTerm(thisValue, sigSort));
-                    try {
-                        return rootEvaluator.evaluate(expr, solution, context);
-                    } finally {
-                        context.removeMapping("this");
-                    }
-                }).reduce(ValueTupleSet.empty(arity), ValueTupleSet::union);
-            } else {
-                exprResult = rootEvaluator.evaluate(expr, solution, context);
-            }
-
-            if (first == null) {
-                first = exprResult;
-            }
-
-            // Take the product of the results for each expression
-            result = result.cartesianProduct(exprResult);
+        // Evaluate the first bound expr, which can't contain "this"
+        ValueTupleSet first = rootEvaluator.evaluate(info.boundExprs.get(0), solution, context);
+        if (first.arity() != 1) {
+            // It should be the sig
+            throw new ErrorFatal("First bound expr should be a pure set!");
         }
 
-        return result;
+        // For each value of the first bound expr, evaluate the rest of the bound exprs separately
+        // using the value of the first expr as "this". Then union all of them together.
+        // Use atomic because Java requires variables used in lambdas to be effectively final.
+        AtomicReference<ValueTupleSet> result = new AtomicReference<>(null);
+        Sort sigSort = info.argSorts.get(0);
+        first.singleValueStream().forEach(thisValue -> {
+            context.addTermMapping("this", new AnnotatedTerm(thisValue, sigSort));
+            try {
+                ValueTupleSet thisResult = ValueTupleSet.singleton(thisValue);
+                for (Expr boundExpr : info.boundExprs.subList(1, info.boundExprs.size() - 1)) {
+                    ValueTupleSet exprResult = rootEvaluator.evaluate(boundExpr, solution, context);
+                    thisResult = thisResult.cartesianProduct(exprResult);
+                }
+                if (result.get() == null) {
+                    result.set(thisResult);
+                } else {
+                    result.set(result.get().union(thisResult));
+                }
+            } finally {
+                context.removeMapping("this");
+            }
+        });
+
+        return result.get();
     }
 
 }
