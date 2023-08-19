@@ -13,6 +13,7 @@ final class PortusCLIOptions {
     public final Option help = new Option("-h", "Print this help");
     public final Option adjustBitwidth = new Option(
             "-b", "Adjust bitwidths to be large enough for the cardinality scope axiom strategy");
+    public final Option noTimeout = new Option("-nt", "Disable the 20-minute SMT solver timeout");
 
     public final Option useCorrectnessProcessor = new Option("-c", "Check Portus correctness on each command.");
     public final Option useOutputPreSmtlibProcessor = new Option(
@@ -21,7 +22,8 @@ final class PortusCLIOptions {
             "-smtlib-all", "Output SMTLIB+ (post-Fortress) for each command.");
 
     public final Option[] allOptions = new Option[] {
-            help, adjustBitwidth, useCorrectnessProcessor, useOutputPreSmtlibProcessor, useOutputPostSmtlibProcessor,
+            help, adjustBitwidth, noTimeout,
+            useCorrectnessProcessor, useOutputPreSmtlibProcessor, useOutputPostSmtlibProcessor,
     };
 
     // The positional arguments - a list of Alloy command specifiers.

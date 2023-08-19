@@ -123,6 +123,11 @@ public final class PortusCLI {
             A4Options alloyOptions = new A4Options();
             alloyOptions.originalFilename = alloyFilename;
 
+            if (options.noTimeout.active()) {
+                // Set the timeout to something silly like 20 days
+                alloyOptions.portusOptions.timeoutMillis = 20 * 24 * 60 * 60 * 1000;
+            }
+
             for (Command command : commands) {
                 if (runAllCommands || commandNames.contains(command.label)) {
                     processCommand(world, command, alloyOptions, options, processors);
