@@ -460,6 +460,10 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
             // It should be the sig
             throw new ErrorFatal("First bound expr should be a pure set!");
         }
+        if (first.isEmpty()) {
+            // There are none: return an empty ValueTupleSet of the appropriate arity (to avoid returning null)
+            return ValueTupleSet.empty(info.boundExprs.size() - 1);
+        }
 
         // For each value of the first bound expr, evaluate the rest of the bound exprs separately
         // using the value of the first expr as "this". Then union all of them together.

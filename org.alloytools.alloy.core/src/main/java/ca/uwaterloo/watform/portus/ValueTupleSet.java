@@ -111,6 +111,10 @@ final class ValueTupleSet {
         return tupleSet.size();
     }
 
+    public boolean isEmpty() {
+        return tupleSet.isEmpty();
+    }
+
     public Stream<Value> singleValueStream() {
         return tupleSet.singleValueStream();
     }
