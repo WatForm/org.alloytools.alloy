@@ -2,8 +2,10 @@ package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.ast.Expr;
+import edu.mit.csail.sdg.ast.ExprBinary;
 import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Sig;
+import edu.mit.csail.sdg.ast.Type;
 import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.msfol.FuncDecl;
 import fortress.msfol.IntegerLiteral;
@@ -16,6 +18,7 @@ import org.junit.Test;
 import org.mockito.stubbing.Answer;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 
 import static ca.uwaterloo.watform.portus.FortressASTMatcher.isAlphaEquivalentTerm;
 import static ca.uwaterloo.watform.portus.IsSameMatcher.isSameAs;
@@ -36,6 +39,7 @@ public class FunctionOptTranslatorTest {
     // Some test sorts
     private final Sort sortA = Sort.mkSortConst("sortA");
     private final Sort sortB = Sort.mkSortConst("sortB");
+    private final Sort sortC = Sort.mkSortConst("sortC");
 
     private Translator mockRoot;
     private ScalarCaster mockScalarCaster;
@@ -62,7 +66,7 @@ public class FunctionOptTranslatorTest {
         mockEvaluator = mock(Evaluator.class);
         mockSortPolicy = mock(SortPolicy.class);
         when(mockSortPolicy.addSortsToTheory(any())).thenReturn(
-                Theory.empty().withSort(sortA).withSort(sortB).withSort(Sort.Int()));
+                Theory.empty().withSort(sortA).withSort(sortB).withSort(sortC).withSort(Sort.Int()));
         ScopeComputer mockScoper = mock(ScopeComputer.class);
         RangeAssigner mockRangeAssigner = mock(RangeAssigner.class,
                 withSettings().useConstructor(new ArrayList<>(), mockSortPolicy, mockScoper));
@@ -126,6 +130,93 @@ public class FunctionOptTranslatorTest {
         Term expectedAxiom = Term.mkForall(x.of(sortA), Term.mkImp(
                 Term.mkApp("inA", x),
                 Term.mkApp("inB", Term.mkApp(func.name(), x))));
+        assertThat(theory.axioms().head(), isAlphaEquivalentTerm(expectedAxiom));
+    }
+
+    @Test
+    public void translate_arity2() {
+        // test translating "sig A { f: B->one C }" leads to:
+        // - function f: sort(A) x sort(B) -> sort(C)
+        // - axiom "forall x1: sort(A), x2: sort(B) . inA(x1) && inB(x2) => inC(f(x1,x2))
+        Sig.PrimSig sigA = new Sig.PrimSig("A");
+        Sig.PrimSig sigB = new Sig.PrimSig("B");
+        Sig.PrimSig sigC = new Sig.PrimSig("C");
+        when(mockSortPolicy.getSort(sigA)).thenReturn(sortA);
+        when(mockSortPolicy.getSort(sigB)).thenReturn(sortB);
+        when(mockSortPolicy.getSort(sigC)).thenReturn(sortC);
+        Sig.Field field = sigA.addField("f", sigB.any_arrow_one(sigC));
+
+        // even when lone opt is on
+        Translator translator = new FunctionOptTranslator(
+                mockRoot, mockScalarCaster, mockEvaluator, mockSortPolicy, true);
+        when(mockRoot.translate(any(), any()))
+                .then(useTestFunction("inA", sigA))
+                .then(useTestFunction("inB", sigB))
+                .then(useTestFunction("inC", sigC));
+
+        Term result = translator.translate(field, context);
+        assertNotNull(result); // opt applied
+
+        // should have one function and one axiom
+        Theory theory = context.getTheory();
+        assertEquals(1, theory.functionDeclarations().size());
+        assertEquals(1, theory.axioms().size());
+
+        FuncDecl func = theory.functionDeclarations().head();
+        assertEquals(2, func.arity());
+        assertEquals(sortA, func.argSorts().head());
+        assertEquals(sortB, func.argSorts().tail().head());
+        assertEquals(sortC, func.resultSort());
+
+        Var x1 = Term.mkVar("x0_0");
+        Var x2 = Term.mkVar("x1_0");
+        Term expectedAxiom = Term.mkForall(Arrays.asList(x1.of(sortA), x2.of(sortB)), Term.mkImp(
+                Term.mkAnd(Term.mkApp("inA", x1), Term.mkApp("inB", x2)),
+                Term.mkApp("inC", Term.mkApp(func.name(), x1, x2))));
+        assertThat(theory.axioms().head(), isAlphaEquivalentTerm(expectedAxiom));
+    }
+
+    @Test
+    public void testTranslate_withThis() {
+        // test "sig A { f: A, g: f }" translates properly
+        Sig.PrimSig sigA = new Sig.PrimSig("A");
+        when(mockSortPolicy.getSort(sigA)).thenReturn(sortA);
+        Sig.Field fieldF = sigA.addField("f", sigA.oneOf());
+        Sig.Field fieldG = sigA.addField("g", ExprVar.make(null, "this", Type.make(sigA)).join(fieldF).oneOf());
+
+        Translator translator = new FunctionOptTranslator(
+                mockRoot, mockScalarCaster, mockEvaluator, mockSortPolicy, true);
+        when(mockRoot.translate(any(), any()))
+                .then(useTestFunction("inA", sigA))
+                .then(ctx -> {
+                    Expr argExpr = ctx.getArgument(0);
+                    assertTrue(argExpr instanceof ExprElementOf);
+                    ExprElementOf elementOf = (ExprElementOf) argExpr;
+                    assertTrue(elementOf.sub instanceof ExprBinary);
+                    ExprBinary join = (ExprBinary) elementOf.sub;
+                    assertEquals(ExprBinary.Op.JOIN, join.op);
+                    assertTrue(join.left instanceof ExprVar);
+                    assertEquals("this", ((ExprVar) join.left).label);
+                    assertTrue(join.right instanceof Sig.Field);
+                    return Term.mkApp(((Sig.Field) join.right).label, elementOf.tuple.getTerms());
+                });
+
+        Term resultG = translator.translate(fieldG, context);
+        assertNotNull(resultG); // opt applied
+
+        Theory theory = context.getTheory();
+        assertEquals(1, theory.functionDeclarations().size());
+        assertEquals(1, theory.axioms().size());
+
+        FuncDecl funcG = theory.functionDeclarations().head();
+        assertEquals(1, funcG.arity());
+        assertEquals(sortA, funcG.argSorts().head());
+        assertEquals(sortA, funcG.resultSort());
+
+        Var x = Term.mkVar("x0_0");
+        Term expectedAxiom = Term.mkForall(x.of(sortA), Term.mkImp(
+                Term.mkApp("inA", x),
+                Term.mkApp("f", Term.mkApp(funcG.name(), x))));
         assertThat(theory.axioms().head(), isAlphaEquivalentTerm(expectedAxiom));
     }
 
