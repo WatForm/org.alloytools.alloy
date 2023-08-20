@@ -78,6 +78,13 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
         public FuncDecl getDecl() {
             return FuncDecl.mkFuncDecl(funcName, argSorts, resultSort);
         }
+
+        public FuncDecl getDomainPredDecl() {
+            if (domainPredName == null) {
+                throw new ErrorFatal("Cannot get domain predicate declaration: no domain predicate!");
+            }
+            return FuncDecl.mkFuncDecl(domainPredName, argSorts, Sort.Bool());
+        }
     }
 
     // The base scalar caster; use this instead of calling castToScalar directly for generality.
@@ -451,7 +458,7 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
             FieldFuncInfo info, FortressSolution solution, TranslationContext context) {
         if (info.domainPredName != null) {
             // reverse the domain predicate if available
-            return solution.functionPreimage(info.getDecl(), Term.mkTop());
+            return solution.functionPreimage(info.getDomainPredDecl(), Term.mkTop());
         }
 
         // Evaluate the first bound expr, which can't contain "this"
