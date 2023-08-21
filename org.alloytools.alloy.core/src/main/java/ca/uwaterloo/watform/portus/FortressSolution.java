@@ -85,7 +85,7 @@ public class FortressSolution implements AlloySolution {
             // Manually include integers if they aren't already included
             if (!sortInterpretations.containsKey(Sort.Int())) {
                 int bitwidth = context.getBitwidth();
-                sortInterpretations.put(Sort.Int(), IntStream.range(Util.min(bitwidth), Util.max(bitwidth))
+                sortInterpretations.put(Sort.Int(), IntStream.range(Util.min(bitwidth), Util.max(bitwidth) + 1)
                         .mapToObj(IntegerLiteral::apply)
                         .collect(Collectors.toList()));
             }
