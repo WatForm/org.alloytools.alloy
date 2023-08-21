@@ -453,7 +453,6 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
         }
     }
 
-    // TODO: test this (significantly!)
     private ValueTupleSet getTuplesInDomain(
             FieldFuncInfo info, FortressSolution solution, TranslationContext context) {
         if (info.domainPredName != null) {

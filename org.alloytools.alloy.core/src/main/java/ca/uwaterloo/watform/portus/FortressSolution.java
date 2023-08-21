@@ -43,7 +43,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-public final class FortressSolution implements AlloySolution {
+public class FortressSolution implements AlloySolution {
 
     /** The Fortress interpretation corresponding to this solution (null if unsat). */
     private final Interpretation interpretation;

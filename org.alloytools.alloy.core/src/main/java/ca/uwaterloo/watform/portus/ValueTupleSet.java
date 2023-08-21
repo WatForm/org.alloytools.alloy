@@ -9,6 +9,7 @@ import kodkod.instance.Tuple;
 import kodkod.instance.TupleFactory;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -43,12 +44,20 @@ final class ValueTupleSet {
         return new ValueTupleSet(TupleSet.singleton(tuple));
     }
 
+    public static ValueTupleSet singleton(Value... tuple) {
+        return new ValueTupleSet(TupleSet.singleton(Arrays.asList(tuple)));
+    }
+
     public static ValueTupleSet singleton(Value value) {
         return new ValueTupleSet(TupleSet.singleton(value));
     }
 
     public static ValueTupleSet atoms(Iterable<Value> atoms) {
         return new ValueTupleSet(TupleSet.singletons(atoms));
+    }
+
+    public static ValueTupleSet atoms(Value... atoms) {
+        return new ValueTupleSet(TupleSet.singletons(Arrays.asList(atoms)));
     }
 
     public static ValueTupleSet from(Set<List<Value>> tuples) {
