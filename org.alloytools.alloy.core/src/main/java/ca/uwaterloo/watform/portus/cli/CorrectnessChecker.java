@@ -59,7 +59,15 @@ final class CorrectnessChecker {
             this.kind = kind;
             this.fortressSolution = fortressSolution;
         }
+
+        @Override
+        public String toString() {
+            return kind.description;
+        }
     }
+
+    public static final A4Options.SatSolver DEFAULT_FORTRESS_SOLVER = A4Options.SatSolver.Z3;
+    public static final A4Options.SatSolver DEFAULT_KODKOD_SOLVER = A4Options.SatSolver.SAT4J;
 
     private final A4Options.SatSolver fortressSolver;
     private final A4Options.SatSolver kodkodSolver;
@@ -67,6 +75,10 @@ final class CorrectnessChecker {
     public CorrectnessChecker(A4Options.SatSolver fortressSolver, A4Options.SatSolver kodkodSolver) {
         this.fortressSolver = fortressSolver;
         this.kodkodSolver = kodkodSolver;
+    }
+
+    public CorrectnessChecker() {
+        this(DEFAULT_FORTRESS_SOLVER, DEFAULT_KODKOD_SOLVER);
     }
 
     private static A4Solution convertToKodkod(AlloySolution solution) {

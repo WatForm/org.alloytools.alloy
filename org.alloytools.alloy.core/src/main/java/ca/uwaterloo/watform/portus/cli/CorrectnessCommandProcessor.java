@@ -11,10 +11,7 @@ import edu.mit.csail.sdg.translator.A4Options;
  */
 final class CorrectnessCommandProcessor implements CommandProcessor {
 
-    private static final A4Options.SatSolver FORTRESS_SOLVER = A4Options.SatSolver.Z3;
-    private static final A4Options.SatSolver KODKOD_SOLVER = A4Options.SatSolver.SAT4J;
-
-    private final CorrectnessChecker correctnessChecker = new CorrectnessChecker(FORTRESS_SOLVER, KODKOD_SOLVER);
+    private final CorrectnessChecker correctnessChecker = new CorrectnessChecker();
 
     @Override
     public void process(Iterable<Sig> sigs, Command command, A4Options options) {

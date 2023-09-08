@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 // TODO clean up public fields
-public final class State {
+final class State {
 
     public final List<Sig> sigs;
     public final Expr formula;

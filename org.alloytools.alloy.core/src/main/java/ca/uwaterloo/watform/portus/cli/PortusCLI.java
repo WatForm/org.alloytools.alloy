@@ -146,6 +146,9 @@ public final class PortusCLI {
         if (options.useCorrectnessProcessor.active()) {
             processors.add(new CorrectnessCommandProcessor());
         }
+        if (options.useDeltaDebugProcessor.active()) {
+            processors.add(new DeltaDebugCommandProcessor());
+        }
         if (options.useOutputPreSmtlibProcessor.active()) {
             processors.add(new OutputSmtlibCommandProcessor(A4Options.SatSolver.PRE_FORTRESS_SMTLIB));
         } else if (options.useOutputPostSmtlibProcessor.active()) { // don't do both - confusing

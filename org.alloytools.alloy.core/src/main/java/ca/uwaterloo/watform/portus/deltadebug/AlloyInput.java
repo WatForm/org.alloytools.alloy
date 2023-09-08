@@ -17,4 +17,12 @@ public final class AlloyInput {
         this.options = options;
     }
 
+    @Override
+    public String toString() {
+        return "AlloyInput{" +
+                "sigs=" + sigs +
+                ", command=" + command.formula +
+                '}';
+    }
+
 }

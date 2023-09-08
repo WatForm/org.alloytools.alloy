@@ -16,6 +16,8 @@ final class PortusCLIOptions {
     public final Option noTimeout = new Option("-nt", "Disable the 20-minute SMT solver timeout");
 
     public final Option useCorrectnessProcessor = new Option("-c", "Check Portus correctness on each command.");
+    public final Option useDeltaDebugProcessor = new Option(
+            "-dd", "Run delta debugging on each command to minimize the model.");
     public final Option useOutputPreSmtlibProcessor = new Option(
             "-smtlib-tc", "Output SMTLIB+ (typechecking only) for each command.");
     public final Option useOutputPostSmtlibProcessor = new Option(
@@ -23,7 +25,8 @@ final class PortusCLIOptions {
 
     public final Option[] allOptions = new Option[] {
             help, adjustBitwidth, noTimeout,
-            useCorrectnessProcessor, useOutputPreSmtlibProcessor, useOutputPostSmtlibProcessor,
+            useCorrectnessProcessor, useDeltaDebugProcessor,
+            useOutputPreSmtlibProcessor, useOutputPostSmtlibProcessor,
     };
 
     // The positional arguments - a list of Alloy command specifiers.
