@@ -15,20 +15,23 @@ final class CorrectnessCommandProcessor implements CommandProcessor {
 
     @Override
     public void process(Iterable<Sig> sigs, Command command, A4Options options) {
-        try {
-            CorrectnessChecker.Result result = correctnessChecker.checkCorrectness(sigs, command, options);
-            System.out.println("Portus result: " + (result.fortressSolution.satisfiable() ? "SAT" : "UNSAT"));
-            if (result.fortressSolution.satisfiable()) {
-                System.out.println("Portus interpretation: " + result.fortressSolution.format());
-            }
-            if (result.kind.isError) {
-                System.err.println("ERROR: " + result.kind.description);
-            } else {
-                System.out.println(result.kind.description);
-            }
-        } catch (Exception e) {
+        CorrectnessChecker.Result result = correctnessChecker.checkCorrectness(sigs, command, options);
+
+        if (result.kind == CorrectnessChecker.Result.Kind.EXCEPTION) {
             System.err.println("ERROR: Exception!");
-            e.printStackTrace();
+            assert result.exception != null;
+            result.exception.printStackTrace();
+        }
+        assert result.fortressSolution != null;
+
+        System.out.println("Portus result: " + (result.fortressSolution.satisfiable() ? "SAT" : "UNSAT"));
+        if (result.fortressSolution.satisfiable()) {
+            System.out.println("Portus interpretation: " + result.fortressSolution.format());
+        }
+        if (result.kind.isError) {
+            System.err.println("ERROR: " + result.kind.description);
+        } else {
+            System.out.println(result.kind.description);
         }
     }
 

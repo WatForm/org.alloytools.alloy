@@ -41,7 +41,8 @@ final class CorrectnessChecker {
         public enum Kind {
             OK("OK", false),
             KODKOD_SAT_FORTRESS_UNSAT("Fortress gives UNSAT but Kodkod gives SAT", true),
-            FORTRESS_INTERPRETATION_INVALID("Fortress SAT interpretation not valid according to Kodkod", true);
+            FORTRESS_INTERPRETATION_INVALID("Fortress SAT interpretation not valid according to Kodkod", true),
+            EXCEPTION("Exception thrown", true);
 
             public final String description;
             public final boolean isError;
@@ -53,11 +54,19 @@ final class CorrectnessChecker {
         }
 
         public final Kind kind;
-        public final AlloySolution fortressSolution;
+        public final AlloySolution fortressSolution; // nonnull for kind != EXCEPTION
+        public final Exception exception; // nonnull for kind == EXCEPTION
 
         public Result(Kind kind, AlloySolution fortressSolution) {
             this.kind = kind;
             this.fortressSolution = fortressSolution;
+            this.exception = null;
+        }
+
+        public Result(Kind kind, Exception exception) {
+            this.kind = kind;
+            this.fortressSolution = null;
+            this.exception = exception;
         }
 
         @Override
@@ -220,8 +229,13 @@ final class CorrectnessChecker {
 
     public Result checkCorrectness(Iterable<Sig> sigs, Command command, A4Options options) {
         // Run through Portus and get a solution using Fortress
-        AlloySolution fortressSol = fortressSolver.commandRunner().executeCommand(
-                A4Reporter.NOP, sigs, command, options);
+        AlloySolution fortressSol;
+        try {
+            fortressSol = fortressSolver.commandRunner().executeCommand(
+                    A4Reporter.NOP, sigs, command, options);
+        } catch (Exception exception) {
+            return new Result(Result.Kind.EXCEPTION, exception);
+        }
 
         if (!fortressSol.satisfiable()) {
             // Make sure Kodkod also thinks it's unsat
