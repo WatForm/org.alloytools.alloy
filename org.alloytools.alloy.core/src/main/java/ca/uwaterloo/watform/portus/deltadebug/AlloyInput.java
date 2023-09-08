@@ -1,6 +1,7 @@
 package ca.uwaterloo.watform.portus.deltadebug;
 
 import edu.mit.csail.sdg.ast.Command;
+import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.A4Options;
 
@@ -15,6 +16,13 @@ public final class AlloyInput {
         this.sigs = sigs;
         this.command = command;
         this.options = options;
+    }
+
+    public AlloyInput withFormula(Expr formula) {
+        Command newCommand = new Command(
+                command.check, command.overall, command.bitwidth, command.maxseq,
+                command.commandKeyword, formula);
+        return new AlloyInput(sigs, newCommand, options);
     }
 
     @Override

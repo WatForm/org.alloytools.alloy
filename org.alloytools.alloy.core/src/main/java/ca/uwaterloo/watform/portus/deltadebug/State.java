@@ -69,7 +69,8 @@ final class State {
     public State replaceCurrentSubformula(Expr newSubformula) {
         Deque<Expr> pathToNewSubformula = new ArrayDeque<>(pathToCurrentSubformula);
         replaceSubformula(pathToNewSubformula, newSubformula);
-        return new State(toInput(), newSubformula, pathToNewSubformula);
+        Expr newRoot = pathToNewSubformula.peekFirst();
+        return new State(toInput().withFormula(newRoot), newSubformula, pathToNewSubformula);
     }
 
     private static void replaceSubformula(Deque<Expr> pathToSubformula, Expr newSubformula) {
