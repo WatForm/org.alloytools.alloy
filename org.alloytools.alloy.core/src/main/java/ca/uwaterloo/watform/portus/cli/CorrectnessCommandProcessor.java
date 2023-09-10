@@ -1,7 +1,7 @@
 package ca.uwaterloo.watform.portus.cli;
 
 import edu.mit.csail.sdg.ast.Command;
-import edu.mit.csail.sdg.ast.Sig;
+import edu.mit.csail.sdg.ast.Module;
 import edu.mit.csail.sdg.translator.A4Options;
 
 /**
@@ -14,13 +14,15 @@ final class CorrectnessCommandProcessor implements CommandProcessor {
     private final CorrectnessChecker correctnessChecker = new CorrectnessChecker();
 
     @Override
-    public void process(Iterable<Sig> sigs, Command command, A4Options options) {
-        CorrectnessChecker.Result result = correctnessChecker.checkCorrectness(sigs, command, options);
+    public void process(Module world, Command command, A4Options options) {
+        CorrectnessChecker.Result result = correctnessChecker.checkCorrectness(
+                world.getAllReachableSigs(), command, options);
 
         if (result.kind == CorrectnessChecker.Result.Kind.EXCEPTION) {
             System.err.println("ERROR: Exception!");
             assert result.exception != null;
             result.exception.printStackTrace();
+            return;
         }
         assert result.fortressSolution != null;
 

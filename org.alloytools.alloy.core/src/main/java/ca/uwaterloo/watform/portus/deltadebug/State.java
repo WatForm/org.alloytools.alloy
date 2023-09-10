@@ -2,11 +2,10 @@ package ca.uwaterloo.watform.portus.deltadebug;
 
 import edu.mit.csail.sdg.ast.Command;
 import edu.mit.csail.sdg.ast.Expr;
-import edu.mit.csail.sdg.ast.Sig;
+import edu.mit.csail.sdg.ast.Module;
 import edu.mit.csail.sdg.translator.A4Options;
 
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.List;
@@ -15,7 +14,7 @@ import java.util.stream.Collectors;
 // TODO clean up public fields
 final class State {
 
-    public final List<Sig> sigs;
+    public final Module world;
     public final Expr formula;
     public final Expr currentSubformula;
     public final A4Options options;
@@ -26,8 +25,7 @@ final class State {
     private final Deque<Expr> pathToCurrentSubformula;
 
     public State(AlloyInput input) {
-        this.sigs = new ArrayList<>();
-        input.sigs.forEach(this.sigs::add);
+        this.world = input.world;
         this.formula = input.command.formula;
         this.options = input.options;
         this.command = input.command;
@@ -38,8 +36,7 @@ final class State {
     }
 
     private State(AlloyInput input, Expr currentSubformula, Deque<Expr> pathToCurrentSubformula) {
-        this.sigs = new ArrayList<>();
-        input.sigs.forEach(this.sigs::add);
+        this.world = input.world;
         this.formula = input.command.formula;
         this.options = input.options;
         this.command = input.command;
@@ -52,7 +49,7 @@ final class State {
         Command newCommand = new Command(
                 command.check, command.overall, command.bitwidth,
                 command.maxseq, command.commandKeyword, formula);
-        return new AlloyInput(sigs, newCommand, options);
+        return new AlloyInput(world, newCommand, options);
     }
 
     /** Get the states created by moving the current subformula to our current subformula's children. */

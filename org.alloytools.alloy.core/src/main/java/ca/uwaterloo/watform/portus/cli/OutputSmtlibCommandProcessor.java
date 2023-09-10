@@ -3,7 +3,7 @@ package ca.uwaterloo.watform.portus.cli;
 import ca.uwaterloo.watform.portus.PortusOptions;
 import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.ast.Command;
-import edu.mit.csail.sdg.ast.Sig;
+import edu.mit.csail.sdg.ast.Module;
 import edu.mit.csail.sdg.translator.A4Options;
 
 import java.nio.file.FileSystems;
@@ -23,14 +23,14 @@ final class OutputSmtlibCommandProcessor implements CommandProcessor {
     }
 
     @Override
-    public void process(Iterable<Sig> sigs, Command command, A4Options options) {
+    public void process(Module world, Command command, A4Options options) {
         // Setup how we want to output the SMTLIB+ file: "filename_command.smttc" in the Alloy file's directory.
         Path alloyFilePath = Paths.get(options.originalFilename).toAbsolutePath();
         options.portusOptions.outputDirectory = alloyFilePath.getParent().toString();
         options.portusOptions.outputName = getOutputName(alloyFilePath.getFileName().toString(), command.label);
         options.solver = solver;
 
-        options.solver.commandRunner().executeCommand(A4Reporter.NOP, sigs, command, options);
+        options.solver.commandRunner().executeCommand(A4Reporter.NOP, world.getAllReachableSigs(), command, options);
         System.out.println("  Done. Output to " + options.portusOptions.outputDirectory
                 + FileSystems.getDefault().getSeparator()
                 + options.portusOptions.outputName

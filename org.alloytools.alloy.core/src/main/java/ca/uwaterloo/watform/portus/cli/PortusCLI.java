@@ -79,7 +79,7 @@ public final class PortusCLI {
         for (CommandProcessor processor : processors) {
             System.out.println("Running with processor: " + processor.displayName());
             try {
-                processor.process(world.getAllReachableSigs(), command, alloyOptions);
+                processor.process(world, command, alloyOptions);
             } catch (TimeoutException e) {
                 System.out.println("  SMT solver timeout!");
             } catch (Exception e) {
