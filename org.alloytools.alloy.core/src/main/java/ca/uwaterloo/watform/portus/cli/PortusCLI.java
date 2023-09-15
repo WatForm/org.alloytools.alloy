@@ -1,5 +1,6 @@
 package ca.uwaterloo.watform.portus.cli;
 
+import ca.uwaterloo.watform.portus.PortusOptions;
 import ca.uwaterloo.watform.portus.SortPolicy;
 import ca.uwaterloo.watform.portus.TimeoutException;
 import edu.mit.csail.sdg.alloy4.A4Reporter;
@@ -56,6 +57,19 @@ public final class PortusCLI {
                 command.minprefix, command.maxprefix, command.expects, command.scope, command.additionalExactScopes,
                 command.commandKeyword, command.formula, command.parent);
         return new Pair<>(scoper.getBitwidth(), newCommand);
+    }
+
+    private static void applyOptimizationFlags(PortusOptions options, PortusCLIOptions cliOptions) {
+        boolean disableAll = cliOptions.disableAllOpts.active();
+        options.enableSimpleScalarOptimization = !disableAll && !cliOptions.disableSimpleScalarOpt.active();
+        options.enableOneSigOptimization = !disableAll && !cliOptions.disableOneSigOpt.active();
+        options.enableJoinOptimization = !disableAll && !cliOptions.disableJoinOpt.active();
+        options.enableOrderingModuleOptimization = !disableAll && !cliOptions.disableOrderingModuleOpt.active();
+        options.enableMembershipPredicateOptimization = !disableAll
+                && !cliOptions.disableMembershipPredicateOpt.active();
+        options.enablePartitionSortPolicy = !disableAll && !cliOptions.disablePartitionSortPolicy.active();
+        options.enableConstantsScopeAxiomStrategy = !disableAll
+                && !cliOptions.useCardinalityScopeAxiomStrategy.active();
     }
 
     /** Process a single command in an Alloy file with each of the chosen processors. */
@@ -122,6 +136,7 @@ public final class PortusCLI {
 
             A4Options alloyOptions = new A4Options();
             alloyOptions.originalFilename = alloyFilename;
+            applyOptimizationFlags(alloyOptions.portusOptions, options);
 
             if (options.noTimeout.active()) {
                 // Set the timeout to something silly like 20 days

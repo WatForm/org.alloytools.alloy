@@ -47,11 +47,16 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
      *                on the options selected by the user.
      */
     public TranslatorManager(PortusOptions options, SortPolicy sortPolicy) {
-        // TODO: use options to come up with a list of translators
-        // but for now:
-        ScopeAxiomStrategy scopeAxiomStrategy = new ConstantsScopeAxiomStrategy(sortPolicy);
+        // Use the options to come up with a list of translators
+        ScopeAxiomStrategy scopeAxiomStrategy;
+        if (options.enableConstantsScopeAxiomStrategy) {
+            scopeAxiomStrategy = new ConstantsScopeAxiomStrategy(sortPolicy);
+        } else {
+            scopeAxiomStrategy = new CardinalityScopeAxiomStrategy(sortPolicy);
+        }
         SigAxioms sigAxioms = new SigAxioms(this, sortPolicy);
 
+        // There *shouldn't* be side effects in the constructors, so it should be ok to always construct these
         OneSigOptTranslator oneSigOpt = new OneSigOptTranslator(this, sortPolicy);
         FunctionOptTranslator functionOpt = new FunctionOptTranslator(this, this, this, sortPolicy, true);
         OrderingModuleOptTranslator orderingModuleOpt = new OrderingModuleOptTranslator(this, this, sortPolicy);
@@ -62,25 +67,45 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
         List<ScopeExpansionMarker> scopeExpansionMarkers = new ArrayList<>();
         scopeExpansionMarkers.add(defaultTranslator);
 
-        passes.add(membershipPredOpt.getApplicabilityDeterminingPass(scopeExpansionMarkers));
+        if (options.enableMembershipPredicateOptimization) {
+            passes.add(membershipPredOpt.getApplicabilityDeterminingPass(scopeExpansionMarkers));
+        }
         passes.add(new TranslationPass(this, sortPolicy, sigAxioms));
 
-        translators.add(new SimpleScalarOptTranslator(this));
-        translators.add(oneSigOpt);
+        if (options.enableSimpleScalarOptimization) {
+            translators.add(new SimpleScalarOptTranslator(this));
+        }
+        if (options.enableOneSigOptimization) {
+            translators.add(oneSigOpt);
+        }
         translators.add(functionOpt);
-        translators.add(new JoinOptTranslator(this, this));
-        translators.add(orderingModuleOpt);
-        translators.add(membershipPredOpt);
+        if (options.enableJoinOptimization) {
+            translators.add(new JoinOptTranslator(this, this));
+        }
+        if (options.enableOrderingModuleOptimization) {
+            translators.add(orderingModuleOpt);
+        }
+        if (options.enableMembershipPredicateOptimization) {
+            translators.add(membershipPredOpt);
+        }
         translators.add(defaultTranslator);
 
-        scalarCasters.add(oneSigOpt);
+        if (options.enableOneSigOptimization) {
+            scalarCasters.add(oneSigOpt);
+        }
         scalarCasters.add(functionOpt);
-        scalarCasters.add(orderingModuleOpt);
+        if (options.enableOrderingModuleOptimization) {
+            scalarCasters.add(orderingModuleOpt);
+        }
         scalarCasters.add(new DefaultScalarCaster(this, this, sortPolicy));
 
-        evaluators.add(oneSigOpt);
+        if (options.enableOneSigOptimization) {
+            evaluators.add(oneSigOpt);
+        }
         evaluators.add(functionOpt);
-        evaluators.add(membershipPredOpt);
+        if (options.enableMembershipPredicateOptimization) {
+            evaluators.add(membershipPredOpt);
+        }
         evaluators.add(defaultTranslator);
         evaluators.add(new SimpleEvaluator(this));
         evaluators.add(new BruteForceEvaluator(this, sortPolicy));

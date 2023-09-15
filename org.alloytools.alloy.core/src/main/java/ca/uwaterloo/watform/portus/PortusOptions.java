@@ -56,6 +56,16 @@ public final class PortusOptions implements Serializable {
     // By default, a random filename.
     public String outputName = "tmp" + Math.abs(new Random().nextLong());
 
+    // Enable or disable each optimization individually.
+    // Don't allow disabling the function optimization because it can affect correctness (join as integer expression).
+    public boolean enableSimpleScalarOptimization = true;
+    public boolean enableOneSigOptimization = true;
+    public boolean enableJoinOptimization = true;
+    public boolean enableOrderingModuleOptimization = true;
+    public boolean enableMembershipPredicateOptimization = true;
+    public boolean enablePartitionSortPolicy = true;
+    public boolean enableConstantsScopeAxiomStrategy = true; // alternative: cardinality; TODO: refactor this
+
     // Create a PortusOptions specifying options.
     public PortusOptions(String outputDirectory, String outputName) {
         this.outputDirectory = outputDirectory;
@@ -73,11 +83,11 @@ public final class PortusOptions implements Serializable {
     /** Which sort policy should we use to translate? */
     public SortPolicy getSortPolicy(Iterable<Sig> sigs, Command command, ScopeComputer scoper) {
         // For now, always use the partition sort policy
-        // TODO swap between univ and partition based on options
-        return new PartitionSortPolicy(sigs, command, scoper);
-//        return new UnivSortPolicy(sigs, scoper);
+        if (enablePartitionSortPolicy) {
+            return new PartitionSortPolicy(sigs, command, scoper);
+        } else {
+            return new UnivSortPolicy(sigs, scoper);
+        }
     }
-
-    // TODO: some options, used to determine optimizations
 
 }
