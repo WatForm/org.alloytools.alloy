@@ -80,6 +80,11 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
         this.sortPolicy = sortPolicy;
     }
 
+    @Override
+    public String name() {
+        return "Default";
+    }
+
     /** Translate a signature declaration. */
     @Override
     public Term translate(Sig sig, TranslationContext context) {

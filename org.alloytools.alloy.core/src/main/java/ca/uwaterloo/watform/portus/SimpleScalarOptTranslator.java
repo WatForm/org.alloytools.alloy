@@ -19,6 +19,11 @@ final class SimpleScalarOptTranslator implements Translator {
     }
 
     @Override
+    public String name() {
+        return "Simple Scalar Optimization";
+    }
+
+    @Override
     public Term translate(Expr expr, TranslationContext context) {
         if (expr instanceof ExprBinary) {
             return translateExprBinary((ExprBinary) expr, context);

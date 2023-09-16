@@ -17,6 +17,11 @@ final class JoinOptTranslator extends AbstractTranslator {
     }
 
     @Override
+    public String name() {
+        return "Join Optimization";
+    }
+
+    @Override
     public Term translate(TermTuple tuple, ExprBinary expr, TranslationContext context) {
         if (expr.op != ExprBinary.Op.JOIN) return null;
 

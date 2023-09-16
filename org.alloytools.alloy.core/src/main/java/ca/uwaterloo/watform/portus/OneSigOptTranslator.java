@@ -22,6 +22,11 @@ class OneSigOptTranslator extends AbstractTranslator implements ScalarCaster, Ev
         this.sortPolicy = sortPolicy;
     }
 
+    @Override
+    public String name() {
+        return "One Sig Optimization";
+    }
+
     /** Process one sigs and add axioms. */
     @Override
     public Term translate(Sig sig, TranslationContext context) {

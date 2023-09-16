@@ -110,6 +110,11 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
         this.optimizeLone = optimizeLone;
     }
 
+    @Override
+    public String name() {
+        return "Function Optimization";
+    }
+
     /** Translate declarations of fields declared as partial functions. */
     @Override
     public Term translate(Sig.Field field, TranslationContext context) {

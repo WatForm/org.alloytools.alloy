@@ -211,6 +211,11 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
     }
 
     @Override
+    public String name() {
+        return "Ordering Module Optimization";
+    }
+
+    @Override
     public Term translate(Sig sig, TranslationContext context) {
         // Parse a "totalOrder" ExprList making up a fact.
         // We do this instead of just translating total orders normally to ensure we find all

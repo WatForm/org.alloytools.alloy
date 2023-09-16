@@ -19,4 +19,11 @@ interface Translator {
      */
     Term translate(Expr expr, TranslationContext context);
 
+    /**
+     * The name of the translator, for display purposes.
+     */
+    default String name() {
+        return "(anonymous)";
+    }
+
 }

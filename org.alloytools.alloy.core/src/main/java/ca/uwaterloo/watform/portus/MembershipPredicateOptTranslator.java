@@ -29,6 +29,11 @@ final class MembershipPredicateOptTranslator extends AbstractTranslator implemen
         this.sigAxioms = sigAxioms;
     }
 
+    @Override
+    public String name() {
+        return "Membership Predicate Optimization";
+    }
+
     /**
      * Return a Pass that must be run before the main translation pass which populates the list of sorts
      * this optimization is inapplicable to. The list of scope expansion markers will be consulted for every

@@ -42,6 +42,9 @@ abstract class AbstractTranslator implements Translator {
         this.topLevelTranslator = topLevel;
     }
 
+    // Descendents must override name().
+    public abstract String name();
+
     /**
      * Translate an expression. This method *must* be used when recursively
      * translating from within a translator in order to let the top-level
