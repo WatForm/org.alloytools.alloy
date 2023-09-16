@@ -33,7 +33,7 @@ import fortress.util.Nanoseconds;
 
 /**
  * Encapsulates all interaction with the A4Reporter system, and doubles as an EventLogger to log internal
- * Portus events.
+ * Fortress events.
  */
 public final class PortusLogger implements EventLogger {
 

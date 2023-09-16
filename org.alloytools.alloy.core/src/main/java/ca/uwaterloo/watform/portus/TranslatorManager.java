@@ -33,6 +33,8 @@ import java.util.List;
  */
 final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
 
+    private final PortusStatistics statistics;
+
     private final List<Pass> passes = new ArrayList<>();
 
     private final List<Translator> translators = new ArrayList<>();
@@ -46,7 +48,9 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
      *                This usually means enabling/disabling optimizations based
      *                on the options selected by the user.
      */
-    public TranslatorManager(PortusOptions options, SortPolicy sortPolicy) {
+    public TranslatorManager(PortusOptions options, PortusStatistics statistics, SortPolicy sortPolicy) {
+        this.statistics = statistics;
+
         // Use the options to come up with a list of translators
         ScopeAxiomStrategy scopeAxiomStrategy;
         if (options.enableConstantsScopeAxiomStrategy) {
@@ -130,6 +134,7 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
         for (Translator translator : translators) {
             Term attempt = translator.translate(expr, context);
             if (attempt != null) {
+                statistics.incrementUsageCount(translator);
                 return attempt;
             }
         }

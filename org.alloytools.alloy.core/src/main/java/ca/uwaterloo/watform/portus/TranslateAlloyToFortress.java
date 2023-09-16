@@ -49,6 +49,16 @@ import java.util.List;
  */
 public final class TranslateAlloyToFortress implements CommandRunner {
 
+    private final PortusStatistics statistics;
+
+    public TranslateAlloyToFortress() {
+        this.statistics = new PortusStatistics();
+    }
+
+    public TranslateAlloyToFortress(PortusStatistics statistics) {
+        this.statistics = statistics;
+    }
+
     /**
      * Execute a command. Throws {@link TimeoutException} if the solver times out.
      */
@@ -83,7 +93,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
         SortPolicy sortPolicy = options.portusOptions.getSortPolicy(sigs, command, scoper);
         RangeAssigner rangeAssigner = new RangeAssigner(sigs, sortPolicy, scoper);
 
-        TranslatorManager translatorManager = new TranslatorManager(options.portusOptions, sortPolicy);
+        TranslatorManager translatorManager = new TranslatorManager(options.portusOptions, statistics, sortPolicy);
         TranslationContext context = new TranslationContext(options.portusOptions, scoper, sortPolicy, rangeAssigner);
 
         // Perform the entire translation.

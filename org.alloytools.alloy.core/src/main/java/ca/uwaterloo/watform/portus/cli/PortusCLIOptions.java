@@ -39,6 +39,9 @@ final class PortusCLIOptions {
             "-disable-all-opts", "Shortcut: Disable all optimizations and the partition sort policy, " +
             "use the cardinality scope axiom strategy");
 
+    public final Option displayTranslatorUsageCounts = new Option(
+            "-usage-counts", "Display usage counts for each translator after processing each command.");
+
     public final Option[] allOptions = new Option[] {
             help, adjustBitwidth, noTimeout,
             useCorrectnessProcessor, useOutputPreSmtlibProcessor, useOutputPostSmtlibProcessor,

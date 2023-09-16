@@ -40,6 +40,13 @@ public final class PortusOptions implements Serializable {
             return new TranslateAlloyToFortress();
         }
 
+        /**
+         * Get a command runner that additionally measures statistics.
+         */
+        public CommandRunner commandRunnerWithStatistics(PortusStatistics statistics) {
+            return new TranslateAlloyToFortress(statistics);
+        }
+
     }
 
     /** Ensure we can serialize correctly. */

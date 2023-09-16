@@ -2,6 +2,8 @@ package ca.uwaterloo.watform.portus.cli;
 
 import ca.uwaterloo.watform.portus.ExprElementOf;
 import ca.uwaterloo.watform.portus.FortressVisitReturn;
+import ca.uwaterloo.watform.portus.PortusOptions;
+import ca.uwaterloo.watform.portus.PortusStatistics;
 import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.alloy4.Err;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
@@ -42,7 +44,7 @@ import java.util.stream.Collectors;
  */
 final class CorrectnessCommandProcessor implements CommandProcessor {
 
-    private static final A4Options.SatSolver FORTRESS_SOLVER = A4Options.SatSolver.Z3;
+    private static final PortusOptions.FortressSmtSolver FORTRESS_SOLVER = A4Options.SatSolver.Z3;
     private static final A4Options.SatSolver KODKOD_SOLVER = A4Options.SatSolver.SAT4J;
 
     private static A4Solution convertToKodkod(AlloySolution solution) {
@@ -184,11 +186,34 @@ final class CorrectnessCommandProcessor implements CommandProcessor {
 
     @Override
     public void process(Iterable<Sig> sigs, Command command, A4Options options) {
+        PortusStatistics statistics = new PortusStatistics();
+
         // Run through Portus and get a solution using Fortress
-        AlloySolution fortressSol = FORTRESS_SOLVER.commandRunner().executeCommand(
+        AlloySolution fortressSol = FORTRESS_SOLVER.commandRunnerWithStatistics(statistics).executeCommand(
                 A4Reporter.NOP, sigs, command, options);
 
-        if (!fortressSol.satisfiable()) {
+        if (fortressSol.satisfiable()) {
+            System.out.println("  Interpretation: " + fortressSol.format());
+
+            // Convert it to an A4Solution to validate it with Kodkod
+            A4Solution kodkodSol = convertToKodkod(fortressSol);
+
+            System.out.println("  Kodkod interpretation: " + kodkodSol);
+
+            // The Kodkod-converted formula uses different objects for Sig/Field than the original formula (because it
+            // was reconstructed from XML), so A4Solution.eval() won't recognize them as equivalent. Fix this by
+            // mapping the Sig/Field objects to those in the new A4Solution.
+            Expr kodkodCompatibleFormula = mapFormulaToNewA4Solution(command.formula, kodkodSol);
+
+            // The assertion in the command needs to be valid according to Kodkod too
+            // Typechecking should ensure we don't get any class cast errors here...
+            boolean assertionValid = (boolean) kodkodSol.eval(kodkodCompatibleFormula);
+            if (assertionValid) {
+                System.out.println("  OK");
+            } else {
+                System.err.println("  ERROR: Interpretation not valid according to Kodkod! " + fortressSol.format());
+            }
+        } else {
             // Make sure Kodkod also thinks it's unsat
             AlloySolution kodkodSol = KODKOD_SOLVER.commandRunner().executeCommand(
                     A4Reporter.NOP, sigs, command, options);
@@ -197,29 +222,9 @@ final class CorrectnessCommandProcessor implements CommandProcessor {
             } else {
                 System.out.println("  OK");
             }
-            return;
         }
 
-        System.out.println("  Interpretation: " + fortressSol.format());
-
-        // Convert it to an A4Solution to validate it with Kodkod
-        A4Solution kodkodSol = convertToKodkod(fortressSol);
-
-        System.out.println("  Kodkod interpretation: " + kodkodSol);
-
-        // The Kodkod-converted formula uses different objects for Sig/Field than the original formula (because it
-        // was reconstructed from XML), so A4Solution.eval() won't recognize them as equivalent. Fix this by
-        // mapping the Sig/Field objects to those in the new A4Solution.
-        Expr kodkodCompatibleFormula = mapFormulaToNewA4Solution(command.formula, kodkodSol);
-
-        // The assertion in the command needs to be valid according to Kodkod too
-        // Typechecking should ensure we don't get any class cast errors here...
-        boolean assertionValid = (boolean) kodkodSol.eval(kodkodCompatibleFormula);
-        if (assertionValid) {
-            System.out.println("  OK");
-        } else {
-            System.err.println("  ERROR: Interpretation not valid according to Kodkod! " + fortressSol.format());
-        }
+        statistics.printSummary();
     }
 
     @Override
