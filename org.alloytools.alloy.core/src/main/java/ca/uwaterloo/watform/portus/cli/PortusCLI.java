@@ -158,6 +158,12 @@ public final class PortusCLI {
     private static List<CommandProcessor> getCommandProcessors(PortusCLIOptions options) {
         // This could be abstracted if needed, but it's probably fine.
         List<CommandProcessor> processors = new ArrayList<>();
+        if (options.useRunPortusProcessor.active()) {
+            processors.add(new RunCommandProcessor(A4Options.SatSolver.Z3));
+        }
+        if (options.useRunKodkodProcessor.active()) {
+            processors.add(new RunCommandProcessor(A4Options.SatSolver.SAT4J));
+        }
         if (options.useCorrectnessProcessor.active()) {
             processors.add(new CorrectnessCommandProcessor());
         }

@@ -15,6 +15,8 @@ final class PortusCLIOptions {
             "-b", "Adjust bitwidths to be large enough for the cardinality scope axiom strategy");
     public final Option noTimeout = new Option("-nt", "Disable the 20-minute SMT solver timeout");
 
+    public final Option useRunPortusProcessor = new Option("-r", "Run Portus on each command.");
+    public final Option useRunKodkodProcessor = new Option("-rk", "Run Kodkod (Sat4j) on each command.");
     public final Option useCorrectnessProcessor = new Option("-c", "Check Portus correctness on each command.");
     public final Option useOutputPreSmtlibProcessor = new Option(
             "-smtlib-tc", "Output SMTLIB+ (typechecking only) for each command.");
@@ -44,6 +46,7 @@ final class PortusCLIOptions {
 
     public final Option[] allOptions = new Option[] {
             help, adjustBitwidth, noTimeout,
+            useRunPortusProcessor, useRunKodkodProcessor,
             useCorrectnessProcessor, useOutputPreSmtlibProcessor, useOutputPostSmtlibProcessor,
             disableSimpleScalarOpt, disableOneSigOpt, disableJoinOpt, disableOrderingModuleOpt,
             disableMembershipPredicateOpt, disablePartitionSortPolicy, useCardinalityScopeAxiomStrategy,

@@ -20,7 +20,7 @@ public class PortusStatistics {
 
     public void printSummary() {
         final String indent = "  ";
-        System.out.println("Summary:");
+        System.out.println("Statistics summary:");
         System.out.println(indent + "Translator usage counts:");
         translatorUsageCounts.entrySet().stream()
                 .sorted(Comparator.comparing(entry -> entry.getKey().name(), String::compareToIgnoreCase))
