@@ -10,6 +10,9 @@ import edu.mit.csail.sdg.translator.A4Options;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.io.UncheckedIOException;
 import java.io.Writer;
 import java.nio.file.FileSystems;
@@ -34,6 +37,14 @@ final class DeltaDebugCommandProcessor implements CommandProcessor {
             CorrectnessChecker.Result result = correctnessChecker.checkCorrectness(
                     input.world.getAllReachableSigs(), input.command, input.options);
             System.out.println("Result: " + result + " (expected: " + initialResult + ")");
+            System.out.println("Model:");
+            try {
+                StringWriter writer = new StringWriter();
+                input.writeAlloy(writer);
+                System.out.print(writer);
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
             return result.kind == initialResult.kind;
         };
 
