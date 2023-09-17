@@ -4,7 +4,7 @@ import ca.uwaterloo.watform.portus.PortusOptions;
 import ca.uwaterloo.watform.portus.PortusStatistics;
 import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.ast.Command;
-import edu.mit.csail.sdg.ast.Sig;
+import edu.mit.csail.sdg.ast.Module;
 import edu.mit.csail.sdg.translator.A4Options;
 import edu.mit.csail.sdg.translator.AlloySolution;
 import edu.mit.csail.sdg.translator.CommandRunner;
@@ -18,7 +18,7 @@ final class RunCommandProcessor implements CommandProcessor {
     }
 
     @Override
-    public boolean process(Iterable<Sig> sigs, Command command, A4Options options) {
+    public boolean process(Module world, Command command, A4Options options) {
         // Run with statistics if this solver if a Portus solver
         // TODO: this is an ugly hack, fix it somehow
         boolean isPortus = solver instanceof PortusOptions.FortressSmtSolver;
@@ -34,7 +34,8 @@ final class RunCommandProcessor implements CommandProcessor {
         // TODO: time it - that should be done by PortusStatistics, I think, or a separate Stopwatch
 
         try {
-            AlloySolution solution = runner.executeCommand(A4Reporter.NOP, sigs, command, options);
+            AlloySolution solution = runner.executeCommand(
+                    A4Reporter.NOP, world.getAllReachableSigs(), command, options);
             System.out.println("Result: " + (solution.satisfiable() ? "SAT" : "UNSAT"));
             if (solution.satisfiable()) {
                 System.out.println("Interpretation:");

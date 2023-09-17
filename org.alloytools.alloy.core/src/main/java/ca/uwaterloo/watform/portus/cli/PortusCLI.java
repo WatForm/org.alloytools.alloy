@@ -95,7 +95,7 @@ public final class PortusCLI {
             System.out.println("Running with processor: " + processor.displayName());
             boolean success;
             try {
-                success = processor.process(world.getAllReachableSigs(), command, alloyOptions);
+                success = processor.process(world, command, alloyOptions);
             } catch (TimeoutException e) {
                 System.out.println("  SMT solver timeout!");
                 success = false;
@@ -176,6 +176,9 @@ public final class PortusCLI {
         }
         if (options.useCorrectnessProcessor.active()) {
             processors.add(new CorrectnessCommandProcessor());
+        }
+        if (options.useDeltaDebugProcessor.active()) {
+            processors.add(new DeltaDebugCommandProcessor());
         }
         if (options.useOutputPreSmtlibProcessor.active()) {
             processors.add(new OutputSmtlibCommandProcessor(A4Options.SatSolver.PRE_FORTRESS_SMTLIB));

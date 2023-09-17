@@ -1,7 +1,7 @@
 package ca.uwaterloo.watform.portus.cli;
 
 import edu.mit.csail.sdg.ast.Command;
-import edu.mit.csail.sdg.ast.Sig;
+import edu.mit.csail.sdg.ast.Module;
 import edu.mit.csail.sdg.translator.A4Options;
 
 /**
@@ -11,7 +11,7 @@ import edu.mit.csail.sdg.translator.A4Options;
 interface CommandProcessor {
 
     /** Process the given command with the given list of sigs. Return whether it was successful. */
-    boolean process(Iterable<Sig> sigs, Command command, A4Options options);
+    boolean process(Module world, Command command, A4Options options);
 
     // What should this processor be called in output?
     String displayName();

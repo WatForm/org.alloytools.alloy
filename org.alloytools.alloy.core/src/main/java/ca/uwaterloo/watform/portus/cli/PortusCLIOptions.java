@@ -18,6 +18,8 @@ final class PortusCLIOptions {
     public final Option useRunPortusProcessor = new Option("-r", "Run Portus on each command.");
     public final Option useRunKodkodProcessor = new Option("-rk", "Run Kodkod (Sat4j) on each command.");
     public final Option useCorrectnessProcessor = new Option("-c", "Check Portus correctness on each command.");
+    public final Option useDeltaDebugProcessor = new Option(
+            "-dd", "Run delta debugging on each command to minimize the model.");
     public final Option useOutputPreSmtlibProcessor = new Option(
             "-smtlib-tc", "Output SMTLIB+ (typechecking only) for each command.");
     public final Option useOutputPostSmtlibProcessor = new Option(
@@ -44,7 +46,8 @@ final class PortusCLIOptions {
     public final Option[] allOptions = new Option[] {
             help, adjustBitwidth, noTimeout,
             useRunPortusProcessor, useRunKodkodProcessor,
-            useCorrectnessProcessor, useOutputPreSmtlibProcessor, useOutputPostSmtlibProcessor,
+            useCorrectnessProcessor, useDeltaDebugProcessor,
+            useOutputPreSmtlibProcessor, useOutputPostSmtlibProcessor,
             disableSimpleScalarOpt, disableOneSigOpt, disableJoinOpt, disableOrderingModuleOpt,
             disableMembershipPredicateOpt, disablePartitionSortPolicy, useCardinalityScopeAxiomStrategy,
             disableAllOpts,
