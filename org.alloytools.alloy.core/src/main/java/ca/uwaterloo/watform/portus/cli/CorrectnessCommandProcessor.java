@@ -56,7 +56,6 @@ final class CorrectnessCommandProcessor implements CommandProcessor {
         stringWriter.flush();
 
         String xml = stringWriter.toString();
-        System.out.println(xml);
         try {
             return A4SolutionReader.read(null, new XMLNode(new StringReader(xml)));
         } catch (IOException e) {
@@ -185,20 +184,21 @@ final class CorrectnessCommandProcessor implements CommandProcessor {
     }
 
     @Override
-    public void process(Iterable<Sig> sigs, Command command, A4Options options) {
+    public boolean process(Iterable<Sig> sigs, Command command, A4Options options) {
         PortusStatistics statistics = new PortusStatistics();
 
         // Run through Portus and get a solution using Fortress
         AlloySolution fortressSol = FORTRESS_SOLVER.commandRunnerWithStatistics(statistics).executeCommand(
                 A4Reporter.NOP, sigs, command, options);
 
+        boolean success;
         if (fortressSol.satisfiable()) {
             System.out.println("  Interpretation: " + fortressSol.format());
 
             // Convert it to an A4Solution to validate it with Kodkod
             A4Solution kodkodSol = convertToKodkod(fortressSol);
 
-            System.out.println("  Kodkod interpretation: " + kodkodSol);
+            System.out.println("  Converted interpretation: " + kodkodSol);
 
             // The Kodkod-converted formula uses different objects for Sig/Field than the original formula (because it
             // was reconstructed from XML), so A4Solution.eval() won't recognize them as equivalent. Fix this by
@@ -208,6 +208,7 @@ final class CorrectnessCommandProcessor implements CommandProcessor {
             // The assertion in the command needs to be valid according to Kodkod too
             // Typechecking should ensure we don't get any class cast errors here...
             boolean assertionValid = (boolean) kodkodSol.eval(kodkodCompatibleFormula);
+            success = assertionValid;
             if (assertionValid) {
                 System.out.println("  OK");
             } else {
@@ -217,6 +218,7 @@ final class CorrectnessCommandProcessor implements CommandProcessor {
             // Make sure Kodkod also thinks it's unsat
             AlloySolution kodkodSol = KODKOD_SOLVER.commandRunner().executeCommand(
                     A4Reporter.NOP, sigs, command, options);
+            success = !kodkodSol.satisfiable();
             if (kodkodSol.satisfiable()) {
                 System.out.println("  ERROR: Fortress gives UNSAT but Kodkod gives SAT");
             } else {
@@ -225,6 +227,7 @@ final class CorrectnessCommandProcessor implements CommandProcessor {
         }
 
         statistics.printSummary();
+        return success;
     }
 
     @Override

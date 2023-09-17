@@ -18,7 +18,7 @@ final class RunCommandProcessor implements CommandProcessor {
     }
 
     @Override
-    public void process(Iterable<Sig> sigs, Command command, A4Options options) {
+    public boolean process(Iterable<Sig> sigs, Command command, A4Options options) {
         // Run with statistics if this solver if a Portus solver
         // TODO: this is an ugly hack, fix it somehow
         boolean isPortus = solver instanceof PortusOptions.FortressSmtSolver;
@@ -43,9 +43,12 @@ final class RunCommandProcessor implements CommandProcessor {
         } catch (Exception e) {
             System.out.println("Result: exception");
             e.printStackTrace();
+            statistics.printSummary();
+            return false;
         }
 
         statistics.printSummary();
+        return true;
     }
 
     @Override

@@ -72,9 +72,9 @@ public final class PortusCLI {
                 && !cliOptions.useCardinalityScopeAxiomStrategy.active();
     }
 
-    /** Process a single command in an Alloy file with each of the chosen processors. */
-    private static void processCommand(Module world, Command command, A4Options alloyOptions, PortusCLIOptions options,
-                                       List<CommandProcessor> processors) {
+    /** Process a single command in an Alloy file with each of the chosen processors. Return whether all successful. */
+    private static boolean processCommand(Module world, Command command, A4Options alloyOptions,
+                                          PortusCLIOptions options, List<CommandProcessor> processors) {
         System.out.println("Command: " + command.label);
 
         if (options.adjustBitwidth.active()) {
@@ -90,17 +90,23 @@ public final class PortusCLI {
             }
         }
 
+        boolean allSuccessful = true;
         for (CommandProcessor processor : processors) {
             System.out.println("Running with processor: " + processor.displayName());
+            boolean success;
             try {
-                processor.process(world.getAllReachableSigs(), command, alloyOptions);
+                success = processor.process(world.getAllReachableSigs(), command, alloyOptions);
             } catch (TimeoutException e) {
                 System.out.println("  SMT solver timeout!");
+                success = false;
             } catch (Exception e) {
                 System.out.println("  EXCEPTION:");
                 e.printStackTrace();
+                success = false;
             }
+            allSuccessful = allSuccessful && success;
         }
+        return allSuccessful;
     }
 
     // specifier format: filename [: command_name [, command_name]*]
@@ -120,9 +126,9 @@ public final class PortusCLI {
         return new Pair<>(filename, commandNames);
     }
 
-    /** Process all the commands in an Alloy file. */
-    private static void processSpecifier(String specifier, PortusCLIOptions options,
-                                         List<CommandProcessor> processors) {
+    /** Process all the commands in an Alloy file. Return true iff all of them succeeded. */
+    private static boolean processSpecifier(String specifier, PortusCLIOptions options,
+                                            List<CommandProcessor> processors) {
         System.out.println("Processing " + specifier + "...");
 
         Pair<String, String[]> split = splitSpecifier(specifier);
@@ -143,14 +149,18 @@ public final class PortusCLI {
                 alloyOptions.portusOptions.timeoutMillis = 20 * 24 * 60 * 60 * 1000;
             }
 
+            boolean allSuccessful = true;
             for (Command command : commands) {
                 if (runAllCommands || commandNames.contains(command.label)) {
-                    processCommand(world, command, alloyOptions, options, processors);
+                    boolean success = processCommand(world, command, alloyOptions, options, processors);
+                    allSuccessful = allSuccessful && success;
                 }
             }
+            return allSuccessful;
         } catch (Exception e) {
             System.err.println("EXCEPTION:");
             e.printStackTrace();
+            return false;
         }
     }
 
@@ -179,25 +189,29 @@ public final class PortusCLI {
         PortusCLIOptions options = new PortusCLIOptions(args);
         if (options.help.active()) {
             options.printHelp(PROGRAM_NAME);
-            return;
+            System.exit(-1);
         }
 
         if (options.specifiers.isEmpty()) {
             System.err.println("Error: no Alloy filenames/specifiers specified");
             options.printHelp(PROGRAM_NAME);
-            return;
+            System.exit(-1);
         }
 
         List<CommandProcessor> processors = getCommandProcessors(options);
         if (processors.size() == 0) {
             System.err.println("Error: no command processing options specified.");
             options.printHelp(PROGRAM_NAME);
-            return;
+            System.exit(-1);
         }
 
+        boolean allSuccessful = true;
         for (String specifier : options.specifiers) {
-            processSpecifier(specifier, options, processors);
+            boolean success = processSpecifier(specifier, options, processors);
+            allSuccessful = allSuccessful && success;
         }
+
+        System.exit(allSuccessful ? 0 : 1);
     }
 
 }

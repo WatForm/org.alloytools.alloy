@@ -10,7 +10,8 @@ import edu.mit.csail.sdg.translator.A4Options;
  */
 interface CommandProcessor {
 
-    void process(Iterable<Sig> sigs, Command command, A4Options options);
+    /** Process the given command with the given list of sigs. Return whether it was successful. */
+    boolean process(Iterable<Sig> sigs, Command command, A4Options options);
 
     // What should this processor be called in output?
     String displayName();

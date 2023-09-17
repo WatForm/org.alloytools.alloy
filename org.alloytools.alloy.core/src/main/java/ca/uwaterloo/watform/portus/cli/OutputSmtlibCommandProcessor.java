@@ -23,7 +23,7 @@ final class OutputSmtlibCommandProcessor implements CommandProcessor {
     }
 
     @Override
-    public void process(Iterable<Sig> sigs, Command command, A4Options options) {
+    public boolean process(Iterable<Sig> sigs, Command command, A4Options options) {
         // Setup how we want to output the SMTLIB+ file: "filename_command.smttc" in the Alloy file's directory.
         Path alloyFilePath = Paths.get(options.originalFilename).toAbsolutePath();
         options.portusOptions.outputDirectory = alloyFilePath.getParent().toString();
@@ -35,6 +35,7 @@ final class OutputSmtlibCommandProcessor implements CommandProcessor {
                 + FileSystems.getDefault().getSeparator()
                 + options.portusOptions.outputName
                 + PortusOptions.SMTLIBPLUS_EXTENSION);
+        return true;
     }
 
     private String getOutputName(String filename, String commandLabel) {
