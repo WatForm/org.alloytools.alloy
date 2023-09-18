@@ -37,6 +37,11 @@ final class DeltaDebugCommandProcessor implements CommandProcessor {
             CorrectnessChecker.Result result = correctnessChecker.checkCorrectness(
                     input.world.getAllReachableSigs(), input.command, input.options);
             System.out.println("Result: " + result + " (expected: " + initialResult + ")");
+            if (result.kind == CorrectnessChecker.Result.Kind.EXCEPTION) {
+                assert result.exception != null;
+                System.out.print("Exception: ");
+                result.exception.printStackTrace();
+            }
             System.out.println("Model:");
             try {
                 StringWriter writer = new StringWriter();
