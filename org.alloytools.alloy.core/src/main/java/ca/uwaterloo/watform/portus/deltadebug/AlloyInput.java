@@ -1,15 +1,31 @@
 package ca.uwaterloo.watform.portus.deltadebug;
 
+import edu.mit.csail.sdg.alloy4.Err;
 import edu.mit.csail.sdg.alloy4.TableView;
+import edu.mit.csail.sdg.alloy4.Util;
+import edu.mit.csail.sdg.ast.Assert;
 import edu.mit.csail.sdg.ast.Command;
 import edu.mit.csail.sdg.ast.CommandScope;
+import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
+import edu.mit.csail.sdg.ast.ExprBinary;
+import edu.mit.csail.sdg.ast.ExprCall;
+import edu.mit.csail.sdg.ast.ExprConstant;
+import edu.mit.csail.sdg.ast.ExprITE;
+import edu.mit.csail.sdg.ast.ExprLet;
+import edu.mit.csail.sdg.ast.ExprList;
+import edu.mit.csail.sdg.ast.ExprQt;
+import edu.mit.csail.sdg.ast.ExprUnary;
+import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Func;
 import edu.mit.csail.sdg.ast.Module;
 import edu.mit.csail.sdg.ast.Sig;
+import edu.mit.csail.sdg.ast.VisitReturn;
+import edu.mit.csail.sdg.parser.Macro;
 import edu.mit.csail.sdg.translator.A4Options;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.io.Writer;
 import java.util.stream.Collectors;
 
@@ -107,16 +123,206 @@ public final class AlloyInput {
             writer.write(field.label);
             writer.write(": ");
             writeExpr(writer, field.decl().expr);
-            writer.write("\n");
+            writer.write(",\n");
         }
 
         writer.write("}\n");
     }
 
-    private static void writeExpr(Writer writer, Expr expr) throws IOException {
-        StringBuilder builder = new StringBuilder();
-        expr.toString(builder, -1);
-        writer.write(builder.toString());
+    private static void writeExpr(Writer writer, Expr expr) {
+        new VisitReturn<Void>() {
+            private void write(String string) {
+                try {
+                    writer.write(string);
+                } catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+            }
+
+            @Override
+            public Void visit(ExprBinary x) throws Err {
+                write("(");
+                visitThis(x.left);
+                write(") ");
+                write(x.op.toString());
+                write(" (");
+                visitThis(x.right);
+                write(")");
+                return null;
+            }
+
+            @Override
+            public Void visit(ExprList x) throws Err {
+                // Handle AND and OR specially
+                if (x.op == ExprList.Op.AND || x.op == ExprList.Op.OR) {
+                    write("(");
+                    for (int i = 0; i < x.args.size(); i++) {
+                        if (i > 0) {
+                            if (x.op == ExprList.Op.AND) {
+                                write(") and (");
+                            } else {
+                                write(") or (");
+                            }
+                        }
+                        visitThis(x.args.get(i));
+                    }
+                    write(")");
+                } else {
+                    write(x.op.toString());
+                    write("[");
+                    for (int i = 0; i < x.args.size(); i++) {
+                        if (i > 0) {
+                            write(", ");
+                        }
+                        visitThis(x.args.get(i));
+                    }
+                    write("]");
+                }
+                return null;
+            }
+
+            @Override
+            public Void visit(ExprCall x) throws Err {
+                write(x.fun.label);
+                write("[");
+                for (int i = 0; i < x.args.size(); i++) {
+                    if (i > 0) {
+                        write(", ");
+                    }
+                    visitThis(x.args.get(i));
+                }
+                write("]");
+                return null;
+            }
+
+            @Override
+            public Void visit(ExprConstant x) throws Err {
+                if (x.op == ExprConstant.Op.STRING) {
+                    write(x.string);
+                } else if (x.op == ExprConstant.Op.NUMBER) {
+                    write(Integer.toString(x.num));
+                } else {
+                    write(x.op.toString());
+                }
+                return null;
+            }
+
+            @Override
+            public Void visit(ExprITE x) throws Err {
+                write("(");
+                visitThis(x.cond);
+                write(") => (");
+                visitThis(x.left);
+                write(") else (");
+                visitThis(x.right);
+                write(")");
+                return null;
+            }
+
+            @Override
+            public Void visit(ExprLet x) throws Err {
+                write("let ");
+                visitThis(x.var);
+                write(" = ");
+                visitThis(x.expr);
+                write(" | ");
+                visitThis(x.sub);
+                return null;
+            }
+
+            @Override
+            public Void visit(ExprQt x) throws Err {
+                // comprehensions are special
+                if (x.op == ExprQt.Op.COMPREHENSION) {
+                    write("{");
+                } else {
+                    write(x.op.toString());
+                }
+
+                for (int i = 0; i < x.decls.size(); i++) {
+                    if (i > 0) {
+                        write(", ");
+                    }
+                    Decl decl = x.decls.get(i);
+                    for (int j = 0; j < decl.names.size(); j++) {
+                        if (j > 0) {
+                            write(", ");
+                        }
+                        write(decl.names.get(i).label);
+                    }
+                    write(": ");
+                    visitThis(decl.expr);
+                }
+
+                write(" | ");
+                visitThis(x.sub);
+
+                if (x.op == ExprQt.Op.COMPREHENSION) {
+                    write("}");
+                }
+                return null;
+            }
+
+            @Override
+            public Void visit(ExprUnary x) throws Err {
+                if (x.op == ExprUnary.Op.NOOP
+                        || x.op == ExprUnary.Op.CAST2INT 
+                        || x.op == ExprUnary.Op.CAST2SIGINT) {
+                    visitThis(x.sub);
+                    return null;
+                }
+                if (x.op == ExprUnary.Op.LONEOF) {
+                    write("lone ");
+                } else if (x.op == ExprUnary.Op.SOMEOF) {
+                    write("some ");
+                } else if (x.op == ExprUnary.Op.ONEOF) {
+                    write("one ");
+                } else if (x.op == ExprUnary.Op.SETOF) {
+                    write("set ");
+                } else if (x.op == ExprUnary.Op.EXACTLYOF) {
+                    write("exactly ");
+                } else {
+                    write(x.op.toString());
+                }
+                write("(");
+                visitThis(x.sub);
+                write(")");
+                return null;
+            }
+
+            @Override
+            public Void visit(ExprVar x) throws Err {
+                write(x.label);
+                return null;
+            }
+
+            @Override
+            public Void visit(Sig x) throws Err {
+                write(x.label);
+                return null;
+            }
+
+            @Override
+            public Void visit(Sig.Field x) throws Err {
+                write(x.label);
+                return null;
+            }
+
+            @Override
+            public Void visit(Func x) throws Err {
+                return null;
+            }
+
+            @Override
+            public Void visit(Assert x) throws Err {
+                return null;
+            }
+
+            @Override
+            public Void visit(Macro macro) throws Err {
+                return null;
+            }
+        }.visitThis(expr);
     }
 
     private static void writeCommand(Writer writer, Command command) throws IOException {
@@ -132,7 +338,7 @@ public final class AlloyInput {
             writer.write(scope.toString());
             writer.write(", ");
         }
-        writer.write(Integer.toString(command.bitwidth));
+        writer.write(Integer.toString(1 << (command.bitwidth < 0 ? 4 : command.bitwidth)));
         writer.write(" int");
         if (command.maxseq >= 0) {
             writer.write(" seq ");
