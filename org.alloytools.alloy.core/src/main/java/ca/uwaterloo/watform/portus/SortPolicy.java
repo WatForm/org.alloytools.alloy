@@ -387,7 +387,17 @@ public abstract class SortPolicy {
         public SortResolvant visit(Sig.Field x) throws Err {
             // manually construct the sort for S->e for the translation of "sig S { f: e }"
             SortResolvant sigSorts = visitThis(x.sig);
-            SortResolvant exprSorts = visitThis(x.decl().expr);
+
+            // map "this" in order to visit the field's expr, since it might be defined relatively
+            // we map "this" to the sig because it has the right sort
+            varMappingContext.addLetMapping("this", x.sig);
+            SortResolvant exprSorts;
+            try {
+                exprSorts = visitThis(x.decl().expr);
+            } finally {
+                varMappingContext.removeMapping("this");
+            }
+
             return sigSorts.cartesianProduct(exprSorts);
         }
 
