@@ -2,7 +2,6 @@ package ca.uwaterloo.watform.portus.deltadebug;
 
 import edu.mit.csail.sdg.alloy4.Err;
 import edu.mit.csail.sdg.alloy4.TableView;
-import edu.mit.csail.sdg.alloy4.Util;
 import edu.mit.csail.sdg.ast.Assert;
 import edu.mit.csail.sdg.ast.Command;
 import edu.mit.csail.sdg.ast.CommandScope;
@@ -237,6 +236,7 @@ public final class AlloyInput {
                     write("{");
                 } else {
                     write(x.op.toString());
+                    write(" ");
                 }
 
                 for (int i = 0; i < x.decls.size(); i++) {
