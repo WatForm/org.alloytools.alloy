@@ -11,6 +11,7 @@ import org.junit.Test;
 
 import java.util.ArrayList;
 
+import static ca.uwaterloo.watform.portus.AlloyASTMatcher.isAlphaEquivalent;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.mockito.ArgumentMatchers.any;
@@ -18,15 +19,18 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
+import static org.mockito.hamcrest.MockitoHamcrest.argThat;
 
 public class SimpleScalarOptTranslatorTest {
 
+    private Translator mockTranslator;
     private ScalarCaster mockScalarCaster;
 
     private TranslationContext context;
 
     @Before
     public void setUp() {
+        mockTranslator = mock(Translator.class);
         mockScalarCaster = mock(ScalarCaster.class);
         SortPolicy mockSortPolicy = mock(SortPolicy.class);
         ScopeComputer mockScoper = mock(ScopeComputer.class);
@@ -50,7 +54,7 @@ public class SimpleScalarOptTranslatorTest {
         when(mockScalarCaster.castToScalar(eq(alloyY), any()))
                 .thenReturn(new Pair<>(new AnnotatedTerm(y.of(sort)), guardY));
 
-        Translator translator = new SimpleScalarOptTranslator(mockScalarCaster);
+        Translator translator = new SimpleScalarOptTranslator(mockTranslator, mockScalarCaster);
         //noinspection SuspiciousNameCombination
         Term result = translator.translate(alloyX.equal(alloyY), context);
 
@@ -75,7 +79,7 @@ public class SimpleScalarOptTranslatorTest {
         when(mockScalarCaster.castToScalar(eq(alloyY), any()))
                 .thenReturn(new Pair<>(new AnnotatedTerm(y.of(sort)), guardY));
 
-        Translator translator = new SimpleScalarOptTranslator(mockScalarCaster);
+        Translator translator = new SimpleScalarOptTranslator(mockTranslator, mockScalarCaster);
         //noinspection SuspiciousNameCombination
         Term result = translator.translate(alloyX.in(alloyY), context);
 
@@ -99,7 +103,7 @@ public class SimpleScalarOptTranslatorTest {
         when(mockScalarCaster.castToScalar(eq(alloyY), any()))
                 .thenReturn(new Pair<>(new AnnotatedTerm(y.of(sortY)), guardY));
 
-        Translator translator = new SimpleScalarOptTranslator(mockScalarCaster);
+        Translator translator = new SimpleScalarOptTranslator(mockTranslator, mockScalarCaster);
         //noinspection SuspiciousNameCombination
         Term result = translator.translate(alloyX.equal(alloyY), context);
         assertEquals(Term.mkBottom(), result);
@@ -121,10 +125,31 @@ public class SimpleScalarOptTranslatorTest {
         when(mockScalarCaster.castToScalar(eq(alloyY), any()))
                 .thenReturn(new Pair<>(new AnnotatedTerm(y.of(sortY)), guardY));
 
-        Translator translator = new SimpleScalarOptTranslator(mockScalarCaster);
+        Translator translator = new SimpleScalarOptTranslator(mockTranslator, mockScalarCaster);
         //noinspection SuspiciousNameCombination
         Term result = translator.translate(alloyX.in(alloyY), context);
         assertEquals(Term.mkBottom(), result);
+    }
+
+    @Test
+    public void testTranslate_scalarInNonScalar() {
+        // test [[v in e]] := guard => [[v \in e]]
+        Sort sort = Sort.mkSortConst("Sort");
+        ExprVar alloyX = ExprVar.make(null, "x");
+        ExprVar alloyE = ExprVar.make(null, "e");
+        Var x = Term.mkVar("x");
+        Term guardX = Term.mkVar("guardX");
+        when(mockScalarCaster.castToScalar(eq(alloyX), any()))
+                .thenReturn(new Pair<>(new AnnotatedTerm(x.of(sort)), guardX));
+
+        Var flag = Term.mkVar("flag");
+        when(mockTranslator.translate(argThat(isAlphaEquivalent(ExprElementOf.make(x.of(sort), alloyE))), any()))
+                .thenReturn(flag);
+
+        Translator translator = new SimpleScalarOptTranslator(mockTranslator, mockScalarCaster);
+        Term result = translator.translate(alloyX.in(alloyE), context);
+        Term expected = Term.mkImp(guardX, flag);
+        assertEquals(expected, result);
     }
 
     @Test
@@ -138,7 +163,7 @@ public class SimpleScalarOptTranslatorTest {
         when(mockScalarCaster.castToScalar(eq(alloyE), any()))
                 .thenReturn(new Pair<>(new AnnotatedTerm(e.of(sort)), guard));
 
-        Translator translator = new SimpleScalarOptTranslator(mockScalarCaster);
+        Translator translator = new SimpleScalarOptTranslator(mockTranslator, mockScalarCaster);
         Term result = translator.translate(ExprElementOf.make(v.of(sort), alloyE), context);
 
         Term expected = Term.mkAnd(guard, Term.mkEq(v, e));
@@ -153,7 +178,7 @@ public class SimpleScalarOptTranslatorTest {
         Var v = Term.mkVar("v");
         when(mockScalarCaster.castToScalar(eq(alloyE), any())).thenReturn(null);
 
-        Translator translator = new SimpleScalarOptTranslator(mockScalarCaster);
+        Translator translator = new SimpleScalarOptTranslator(mockTranslator, mockScalarCaster);
         Term result = translator.translate(ExprElementOf.make(v.of(sort), alloyE), context);
         assertNull(result);
     }
@@ -170,7 +195,7 @@ public class SimpleScalarOptTranslatorTest {
         when(mockScalarCaster.castToScalar(eq(alloyE), any()))
                 .thenReturn(new Pair<>(new AnnotatedTerm(e.of(sort)), guard));
 
-        Translator translator = new SimpleScalarOptTranslator(mockScalarCaster);
+        Translator translator = new SimpleScalarOptTranslator(mockTranslator, mockScalarCaster);
         Term result = translator.translate(ExprElementOf.make(
                 TermTuple.fromVars(v1.of(sort), v2.of(sort)), alloyE), context);
         assertNull(result);
@@ -188,7 +213,7 @@ public class SimpleScalarOptTranslatorTest {
         when(mockScalarCaster.castToScalar(eq(alloyE), any()))
                 .thenReturn(new Pair<>(new AnnotatedTerm(e.of(sortE)), guard));
 
-        Translator translator = new SimpleScalarOptTranslator(mockScalarCaster);
+        Translator translator = new SimpleScalarOptTranslator(mockTranslator, mockScalarCaster);
         Term result = translator.translate(ExprElementOf.make(v.of(sortV), alloyE), context);
         assertEquals(Term.mkBottom(), result);
     }

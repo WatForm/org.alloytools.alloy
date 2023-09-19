@@ -77,7 +77,7 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
         passes.add(new TranslationPass(this, sortPolicy, sigAxioms));
 
         if (options.enableSimpleScalarOptimization) {
-            translators.add(new SimpleScalarOptTranslator(this));
+            translators.add(new SimpleScalarOptTranslator(this, this));
         }
         if (options.enableOneSigOptimization) {
             translators.add(oneSigOpt);

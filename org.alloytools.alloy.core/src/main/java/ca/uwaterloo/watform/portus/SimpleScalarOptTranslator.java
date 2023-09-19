@@ -12,9 +12,11 @@ import java.util.Objects;
  */
 final class SimpleScalarOptTranslator implements Translator {
 
+    private final Translator rootTranslator;
     private final ScalarCaster scalarCaster;
 
-    public SimpleScalarOptTranslator(ScalarCaster scalarCaster) {
+    public SimpleScalarOptTranslator(Translator rootTranslator, ScalarCaster scalarCaster) {
+        this.rootTranslator = rootTranslator;
         this.scalarCaster = scalarCaster;
     }
 
@@ -60,6 +62,7 @@ final class SimpleScalarOptTranslator implements Translator {
     /**
      * For "in" and "=", if both are scalars, just translate [[left = right]] or [[left in right]]
      * as a plain equals.
+     * For "in", if left is a scalar, translate [[left in right]] as [[left \in right]].
      */
     private Term translateExprBinary(ExprBinary expr, TranslationContext context) {
         if (expr.op != ExprBinary.Op.EQUALS && expr.op != ExprBinary.Op.IN) {
@@ -72,7 +75,11 @@ final class SimpleScalarOptTranslator implements Translator {
         }
         Pair<AnnotatedTerm, Term> rightScalarData = scalarCaster.castToScalar(expr.right, context);
         if (rightScalarData == null) {
-            return null;
+            // Left is a scalar - translate as [[guardLeft => left \in right]].
+            AnnotatedTerm scalarLeft = leftScalarData.a;
+            Term guardLeft = leftScalarData.b;
+            return Term.mkImp(guardLeft,
+                    rootTranslator.translate(ExprElementOf.make(scalarLeft, expr.right), context));
         }
 
         // Short-circuit if the sorts aren't the same
