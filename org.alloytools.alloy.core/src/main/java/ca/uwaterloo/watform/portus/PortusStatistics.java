@@ -18,6 +18,25 @@ public class PortusStatistics {
         translatorUsageCounts.put(translator, translatorUsageCounts.get(translator) + 1);
     }
 
+    private final Stopwatch portusStopwatch = new Stopwatch();
+    private final Stopwatch smtSolverStopwatch = new Stopwatch();
+
+    public void onStartPortus() {
+        portusStopwatch.start();
+    }
+
+    public void onPortusFinished() {
+        portusStopwatch.stop();
+    }
+
+    public void onStartSmtSolver() {
+        smtSolverStopwatch.start();
+    }
+
+    public void onSmtSolverFinished() {
+        smtSolverStopwatch.stop();
+    }
+
     public void printSummary() {
         final String indent = "  ";
         System.out.println("Statistics summary:");
@@ -30,6 +49,8 @@ public class PortusStatistics {
                     System.out.print(": ");
                     System.out.println(entry.getValue());
                 });
+        System.out.println(indent + "Portus time: " + portusStopwatch.formatDuration());
+        System.out.println(indent + "SMT solver time: " + smtSolverStopwatch.formatDuration());
     }
 
 }

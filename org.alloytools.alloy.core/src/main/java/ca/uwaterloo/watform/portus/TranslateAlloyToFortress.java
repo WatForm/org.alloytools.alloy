@@ -70,9 +70,11 @@ public final class TranslateAlloyToFortress implements CommandRunner {
 
         try {
             // Actually execute the command, and time it.
+            statistics.onStartPortus();
             logger.translationStarted(options.solver.id(), scoper.getBitwidth(), scoper.getMaxSeq());
             AlloySolution solution = executeCommand(logger, sigs, command, scoper, options);
             logger.outputResult(command, solution);
+            statistics.onPortusFinished();
             return solution;
         } catch (IOException e) {
             throw new ErrorFatal("IOException in Fortress translation", e);
@@ -116,7 +118,10 @@ public final class TranslateAlloyToFortress implements CommandRunner {
             context.configureModelFinder(finder, sortPolicy);
             finder.setTimeout(Milliseconds.apply(options.portusOptions.timeoutMillis));
             finder.addLogger(logger);
+
+            statistics.onStartSmtSolver();
             ModelFinderResult result = finder.checkSat();
+            statistics.onSmtSolverFinished();
 
             if (result instanceof ErrorResult) {
                 throw new ErrorFatal("Fortress error: " + ((ErrorResult) result).message());
