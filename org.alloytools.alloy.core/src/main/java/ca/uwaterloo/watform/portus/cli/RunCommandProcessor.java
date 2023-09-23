@@ -31,8 +31,6 @@ final class RunCommandProcessor implements CommandProcessor {
             runner = solver.commandRunner();
         }
 
-        // TODO: time it - that should be done by PortusStatistics, I think, or a separate Stopwatch
-
         try {
             AlloySolution solution = runner.executeCommand(
                     A4Reporter.NOP, world.getAllReachableSigs(), command, options);

@@ -70,7 +70,6 @@ public final class PortusLogger implements EventLogger {
 
     @Override
     public void allTransformersFinished(Theory finalTheory, Nanoseconds totalTime) {
-        // TODO: some stats about the final theory
         reporter.debug("All transformers finished. Total time: " + formatTime(totalTime) + ".");
         reporter.debug("Final theory stats: " + formatTheoryStats(finalTheory));
     }
