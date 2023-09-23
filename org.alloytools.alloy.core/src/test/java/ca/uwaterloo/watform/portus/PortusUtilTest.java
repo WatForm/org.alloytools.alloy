@@ -2,14 +2,19 @@ package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
+import edu.mit.csail.sdg.ast.ExprCall;
 import edu.mit.csail.sdg.ast.ExprConstant;
+import edu.mit.csail.sdg.ast.ExprLet;
 import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.ExprVar;
+import edu.mit.csail.sdg.ast.Func;
 import edu.mit.csail.sdg.ast.Sig;
+import edu.mit.csail.sdg.ast.Type;
 import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.msfol.AnnotatedVar;
 import fortress.msfol.IntegerLiteral;
 import fortress.msfol.Sort;
+import fortress.msfol.Term;
 import fortress.msfol.Value;
 import fortress.msfol.Var;
 import org.junit.Before;
@@ -17,6 +22,7 @@ import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -348,6 +354,130 @@ public class PortusUtilTest {
                 .mapToObj(IntegerLiteral::apply)
                 .collect(Collectors.toSet());
         assertEquals(expected, elements);
+    }
+
+    @Test
+    public void testExpandLets_simple() {
+        // test that if x is mapped to y in the var mapping context, x expands to y
+        ExprVar x = makeTestVar("x");
+        ExprVar y = makeTestVar("y");
+        VarMappingContext varMappingContext = new VarMappingContext();
+        varMappingContext.addLetMapping("x", y);
+
+        Expr expanded = PortusUtil.expandLets(x, varMappingContext, policy);
+        assertEquals(y, expanded);
+    }
+
+    @Test
+    public void testExpandLets_twoLevels() {
+        // if the var mapping context maps y->z and x->y then x should expand to z
+        ExprVar x = makeTestVar("x");
+        ExprVar y = makeTestVar("y");
+        ExprVar z = makeTestVar("z");
+        VarMappingContext varMappingContext = new VarMappingContext();
+        varMappingContext.addLetMapping("y", z);
+        varMappingContext.addLetMapping("x", y);
+
+        Expr expanded = PortusUtil.expandLets(x, varMappingContext, policy);
+        assertEquals(z, expanded);
+    }
+
+    @Test
+    public void testExpandLets_withLet() {
+        // test "let x = y | x" gets expanded to "y" (the let gets replaced)
+        ExprVar x = makeTestVar("x");
+        ExprVar y = makeTestVar("y");
+        VarMappingContext varMappingContext = new VarMappingContext();
+
+        Expr letExpr = ExprLet.make(null, x, y, x);
+        Expr expanded = PortusUtil.expandLets(letExpr, varMappingContext, policy);
+        assertEquals(y, expanded);
+    }
+
+    @Test
+    public void testExpandLets_unchanged() {
+        // test that expandLets reconstructs a variety of expressions properly
+        Sort sort = Sort.mkSortConst("Sort");
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        when(policy.getSort(sig)).thenReturn(sort);
+        Sig.Field field = sig.addField("field", ExprConstant.ONE);
+        ExprVar x = makeTestVar("x");
+        ExprVar y = makeTestVar("y");
+        ExprVar z = ExprVar.make(null, "z", Type.make(sig));
+        Func f = new Func(null, null, "f", Collections.singletonList(z.oneOf("x")), z, x);
+
+        @SuppressWarnings("SuspiciousNameCombination")
+        List<Expr> testExprs = Arrays.asList(
+                // Binary ops
+                x.plus(y),
+                x.minus(y),
+                x.intersect(y),
+                x.join(y),
+                x.product(y),
+                x.any_arrow_some(y),
+                x.lone_arrow_any(y),
+                (x.product(y)).transpose(),
+                x.lt(y),
+                x.gt(y),
+                x.lte(y),
+                x.gte(y),
+                x.equal(y),
+                x.in(y),
+                x.and(y),
+                x.or(y),
+                x.implies(y),
+                x.iff(y),
+                x.iplus(y),
+                x.iminus(y),
+                x.mul(y),
+                x.div(y),
+                x.shl(y),
+                x.shr(y),
+                // Unary ops
+                x.not(),
+                x.transpose(),
+                x.no(),
+                x.one(),
+                x.some(),
+                x.lone(),
+                x.oneOf(),
+                x.someOf(),
+                x.loneOf(),
+                x.closure(),
+                x.reflexiveClosure(),
+                x.cardinality(),
+                x.cast2int(),
+                x.cast2sigint(),
+                ExprUnary.Op.NOOP.make(null, x),
+                // Constants
+                ExprConstant.TRUE,
+                ExprConstant.FALSE,
+                ExprConstant.IDEN,
+                ExprConstant.EMPTYNESS,
+                ExprConstant.MAX,
+                ExprConstant.MIN,
+                ExprConstant.ONE,
+                ExprConstant.ZERO,
+                // Quantifier expressions
+                x.equal(y).forAll(z.oneOf("x")),
+                x.equal(y).forSome(z.oneOf("x")),
+                x.equal(y).forLone(z.oneOf("x")),
+                x.equal(y).forOne(z.oneOf("x")),
+                x.equal(y).forNo(z.oneOf("x")),
+                x.equal(y).forAll(z.oneOf("x")).forSome(z.oneOf("y")),
+                // Misc
+                x.ite(y, z),
+                sig,
+                field,
+                ExprElementOf.make(Term.mkVar("t").of(sort), x),
+                // We don't expand ExprCalls
+                ExprCall.make(null, null, f, Collections.singletonList(y), 0L));
+        for (Expr expr : testExprs) {
+            Expr expanded = PortusUtil.expandLets(expr, new VarMappingContext(), policy);
+            // Super sketchy way to make sure they're the same, because Alloy doesn't implement
+            // isSame() or equals() consistently.
+            assertEquals(expr.toString(), expanded.toString());
+        }
     }
 
 }

@@ -422,20 +422,20 @@ final class PortusUtil {
     /**
      * Expand all the 'let's in an expression, for use when disambiguating expressions.
      */
-    public static Expr expandLets(Expr expr, TranslationContext originalContext, SortPolicy sortPolicy) {
+    public static Expr expandLets(Expr expr, VarMappingContext varMappingContext, SortPolicy sortPolicy) {
         // note: this is vulnerable to exponential blowup in cases like
         // let x1=A+A | let x2=x1+x1 | let x3=x2+x2 | ... | let x64=x63+x63 | f[x64]
         // which will cause us to generate a union of 2^64 A's (!!)
         // but let's assume our users aren't evil enough to do that, eh?
-        return expr.accept(new ContextVisitReturn<Expr>(originalContext, sortPolicy) {
+        return expr.accept(new ContextVisitReturn<Expr>(varMappingContext, sortPolicy) {
             @Override
             public Expr visit(ExprBinary x) throws Err {
-                return x.op.make(null, null, visitThis(x.left), visitThis(x.right));
+                return x.op.make(x.pos, x.closingBracket, visitThis(x.left), visitThis(x.right));
             }
 
             @Override
             public Expr visit(ExprList x) throws Err {
-                return ExprList.make(null, null, x.op, x.args.stream()
+                return ExprList.make(x.pos, x.closingBracket, x.op, x.args.stream()
                         .map(this::visitThis)
                         .collect(Collectors.toList()));
             }
@@ -458,7 +458,7 @@ final class PortusUtil {
 
             @Override
             public Expr visit(ExprITE x) throws Err {
-                return ExprITE.make(null, visitThis(x.cond), visitThis(x.left), visitThis(x.right));
+                return ExprITE.make(x.pos, visitThis(x.cond), visitThis(x.left), visitThis(x.right));
             }
 
             @Override
@@ -468,16 +468,17 @@ final class PortusUtil {
 
             @Override
             public Expr visitQuantifier(ExprQt x, List<Expr> ignoredArgResults) throws Err {
-                return visitThis(x.sub);
+                return x.op.make(x.pos, x.closingBracket, x.decls, visitThis(x.sub));
             }
 
             @Override
             public Expr visit(ExprUnary x) throws Err {
-                return visitThis(x.sub);
+                return x.op.make(x.pos, visitThis(x.sub));
             }
 
             @Override
             public Expr visitVar(ExprVar x) throws Err {
+                // expansion was performed by ContextVisitReturn
                 return x;
             }
 

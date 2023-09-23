@@ -906,7 +906,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
 
         // Use this as the key to compare previous expr/sort combos so that we don't get confused by lets
         // (without this otherwise e.g. with "fun f[x] { ^x }", we'd use the same aux function for all arguments x)
-        Expr expandedExpr = PortusUtil.expandLets(expr, context, sortPolicy);
+        Expr expandedExpr = PortusUtil.expandLets(expr, context.varMappingContext, sortPolicy);
 
         // Have we already translated this expr/sort combo? If so, use its name.
         for (Pair<Pair<Expr, List<Sort>>, String> exprAndClosureName : auxClosureRelationNames) {

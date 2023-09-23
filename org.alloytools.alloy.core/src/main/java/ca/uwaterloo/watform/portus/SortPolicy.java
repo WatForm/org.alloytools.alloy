@@ -135,11 +135,8 @@ public abstract class SortPolicy {
     }
 
     /**
-     * TODO update this description
-     * For each position i in the arity of `expr` (i.e. 1<=i<=arity), find the single sort Si such that
-     * (x1,...,xn) \in expr implies xi \in Si, or null if no such sort exists.
-     * Null corresponds to INDEFINITE in the paper.
-     * Returns null for the whole list if the sorts are incompatible.
+     * Statically find the sort resolvant that describes the possible Fortress sorts that expr could have.
+     * @see SortResolvant
      */
     public final SortResolvant getMinimalExprSorts(Expr expr, VarMappingContext varMappingContext) {
         return expr.accept(new SortVisitor(varMappingContext));
