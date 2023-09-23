@@ -102,6 +102,9 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
             scalarCasters.add(orderingModuleOpt);
         }
         scalarCasters.add(new DefaultScalarCaster(this, this, sortPolicy));
+        if (options.enableElementOfScalarOptimization) {
+            scalarCasters.add(new ElementOfScalarCaster(this, sortPolicy));
+        }
 
         if (options.enableOneSigOptimization) {
             evaluators.add(oneSigOpt);

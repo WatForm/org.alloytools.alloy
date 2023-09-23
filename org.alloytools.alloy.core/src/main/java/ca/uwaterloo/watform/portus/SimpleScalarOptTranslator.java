@@ -9,6 +9,7 @@ import java.util.Objects;
 
 /**
  * Simple optimizations when the expressions involved translate to scalars.
+ * TODO: ITE?
  */
 final class SimpleScalarOptTranslator implements Translator {
 
