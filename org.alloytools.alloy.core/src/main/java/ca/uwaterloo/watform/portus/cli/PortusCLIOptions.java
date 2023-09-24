@@ -35,8 +35,6 @@ final class PortusCLIOptions {
             "-disable-ordering-opt", "Disable ordering module optimization.");
     public final Option disableMembershipPredicateOpt = new Option(
             "-disable-mem-pred-opt", "Disable membership predicate optimization.");
-    public final Option disableElementOfScalarOpt = new Option(
-            "-disable-element-scalar-opt", "Disable element-of scalar caster optimization.");
     public final Option disablePartitionSortPolicy = new Option(
             "-disable-partition-sp", "Disable the partition sort policy, use the univ sort policy.");
     public final Option useCardinalityScopeAxiomStrategy = new Option(
@@ -44,6 +42,8 @@ final class PortusCLIOptions {
     public final Option disableAllOpts = new Option(
             "-disable-all-opts", "Shortcut: Disable all optimizations and the partition sort policy, " +
             "use the cardinality scope axiom strategy");
+    public final Option enableElementOfScalarOpt = new Option(
+            "-enable-element-scalar-opt", "Enable element-of scalar caster optimization (experimental.");
 
     public final Option[] allOptions = new Option[] {
             help, adjustBitwidth, noTimeout,
@@ -51,8 +51,8 @@ final class PortusCLIOptions {
             useCorrectnessProcessor, useDeltaDebugProcessor,
             useOutputPreSmtlibProcessor, useOutputPostSmtlibProcessor,
             disableSimpleScalarOpt, disableOneSigOpt, disableJoinOpt, disableOrderingModuleOpt,
-            disableMembershipPredicateOpt, disableElementOfScalarOpt, disablePartitionSortPolicy,
-            useCardinalityScopeAxiomStrategy, disableAllOpts,
+            disableMembershipPredicateOpt, disablePartitionSortPolicy, useCardinalityScopeAxiomStrategy,
+            disableAllOpts, enableElementOfScalarOpt,
     };
 
     // The positional arguments - a list of Alloy command specifiers.

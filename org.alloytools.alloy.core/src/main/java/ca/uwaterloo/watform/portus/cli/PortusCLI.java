@@ -67,11 +67,10 @@ public final class PortusCLI {
         options.enableOrderingModuleOptimization = !disableAll && !cliOptions.disableOrderingModuleOpt.active();
         options.enableMembershipPredicateOptimization = !disableAll
                 && !cliOptions.disableMembershipPredicateOpt.active();
-        options.enableElementOfScalarOptimization = !disableAll
-                && !cliOptions.disableElementOfScalarOpt.active();
         options.enablePartitionSortPolicy = !disableAll && !cliOptions.disablePartitionSortPolicy.active();
         options.enableConstantsScopeAxiomStrategy = !disableAll
                 && !cliOptions.useCardinalityScopeAxiomStrategy.active();
+        options.enableElementOfScalarOptimization = cliOptions.enableElementOfScalarOpt.active();
     }
 
     /** Process a single command in an Alloy file with each of the chosen processors. Return whether all successful. */
