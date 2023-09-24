@@ -41,6 +41,9 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
     private final List<ScalarCaster> scalarCasters = new ArrayList<>();
     private final List<Evaluator> evaluators = new ArrayList<>();
 
+    private final boolean useCaching;
+    private final ContextExprCache<Term> translationCache;
+
     /**
      * Create a TranslatorManager that uses the given reporter and options
      * to create its list of translators to delegate to.
@@ -50,6 +53,9 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
      */
     public TranslatorManager(PortusOptions options, PortusStatistics statistics, SortPolicy sortPolicy) {
         this.statistics = statistics;
+
+        this.useCaching = options.enableCaching;
+        this.translationCache = new ContextExprCache<>(sortPolicy);
 
         // Use the options to come up with a list of translators
         ScopeAxiomStrategy scopeAxiomStrategy;
@@ -134,13 +140,28 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
      */
     @Override
     public Term translate(Expr expr, TranslationContext context) throws Err {
+        if (useCaching) {
+            // Try the cache if possible.
+            // There's no separate "has" to avoid recomputing the cache key.
+            Term cached = translationCache.get(expr, context);
+            if (cached != null) {
+                // Cache hit!
+                statistics.incrementTranslationCacheHitCount();
+                return cached;
+            }
+        }
+
         for (Translator translator : translators) {
             Term attempt = translator.translate(expr, context);
             if (attempt != null) {
                 statistics.incrementUsageCount(translator);
+                if (useCaching) {
+                    translationCache.put(expr, context, attempt);
+                }
                 return attempt;
             }
         }
+
         throw new ErrorFatal("No Fortress translation implemented for node: " + expr);
     }
 

@@ -18,6 +18,16 @@ public class PortusStatistics {
         translatorUsageCounts.put(translator, translatorUsageCounts.get(translator) + 1);
     }
 
+    private int translationCacheHitCount = 0;
+
+    public void incrementTranslationCacheHitCount() {
+        translationCacheHitCount++;
+    }
+
+    public int getTranslationCacheHitCount() {
+        return translationCacheHitCount;
+    }
+
     private final Stopwatch portusStopwatch = new Stopwatch();
     private final Stopwatch smtSolverStopwatch = new Stopwatch();
 
@@ -49,6 +59,7 @@ public class PortusStatistics {
                     System.out.print(": ");
                     System.out.println(entry.getValue());
                 });
+        System.out.println(indent + "Translation cache hits: " + getTranslationCacheHitCount());
         System.out.println(indent + "Portus time: " + portusStopwatch.formatDuration());
         System.out.println(indent + "SMT solver time: " + smtSolverStopwatch.formatDuration());
     }

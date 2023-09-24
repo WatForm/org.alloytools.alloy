@@ -71,6 +71,7 @@ public final class PortusCLI {
         options.enableConstantsScopeAxiomStrategy = !disableAll
                 && !cliOptions.useCardinalityScopeAxiomStrategy.active();
         options.enableElementOfScalarOptimization = cliOptions.enableElementOfScalarOpt.active();
+        options.enableCaching = cliOptions.enableCaching.active();
     }
 
     /** Process a single command in an Alloy file with each of the chosen processors. Return whether all successful. */

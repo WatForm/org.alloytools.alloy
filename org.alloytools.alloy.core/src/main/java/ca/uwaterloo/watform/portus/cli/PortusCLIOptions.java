@@ -43,7 +43,9 @@ final class PortusCLIOptions {
             "-disable-all-opts", "Shortcut: Disable all optimizations and the partition sort policy, " +
             "use the cardinality scope axiom strategy");
     public final Option enableElementOfScalarOpt = new Option(
-            "-enable-element-scalar-opt", "Enable element-of scalar caster optimization (experimental.");
+            "-enable-element-scalar-opt", "Enable element-of scalar caster optimization (experimental).");
+    public final Option enableCaching = new Option(
+            "-enable-caching", "Enable caching translations (experimental).");
 
     public final Option[] allOptions = new Option[] {
             help, adjustBitwidth, noTimeout,
@@ -52,7 +54,7 @@ final class PortusCLIOptions {
             useOutputPreSmtlibProcessor, useOutputPostSmtlibProcessor,
             disableSimpleScalarOpt, disableOneSigOpt, disableJoinOpt, disableOrderingModuleOpt,
             disableMembershipPredicateOpt, disablePartitionSortPolicy, useCardinalityScopeAxiomStrategy,
-            disableAllOpts, enableElementOfScalarOpt,
+            disableAllOpts, enableElementOfScalarOpt, enableCaching,
     };
 
     // The positional arguments - a list of Alloy command specifiers.
