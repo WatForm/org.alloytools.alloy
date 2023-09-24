@@ -4,6 +4,7 @@ import edu.mit.csail.sdg.alloy4.Err;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.ast.Assert;
+import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprBinary;
 import edu.mit.csail.sdg.ast.ExprCall;
@@ -512,6 +513,277 @@ final class PortusUtil {
                 throw new ErrorFatal("Visiting Macro isn't supported!");
             }
         });
+    }
+
+    /**
+     * Determine whether a and b are syntactically equal for our purposes.
+     * This does not take into account contexts -- free variables may have different meanings in a and b
+     * if they are from different contexts, even if they are syntactically equal.
+     * Does not do any commutativity simplification: x && y is not equal to y && x, and all x, y: A | f
+     * is not equal to all y, x: A | f.
+     */
+    public static boolean areExprsEqual(Expr a, Expr b) {
+        if (a == null || b == null) {
+            return a == null && b == null;
+        }
+
+        Expr strippedA = PortusUtil.stripPortusNoops(a);
+        Expr strippedB = PortusUtil.stripPortusNoops(b);
+
+        // Unfortunately, isSame() isn't implemented consistently, so we have to do this.
+        return new FortressVisitReturn<Boolean>() {
+            private boolean areDeclsEqual(Decl x, Decl y) {
+                return x.names.size() == y.names.size()
+                        && IntStream.range(0, x.names.size())
+                            .allMatch(idx -> areExprsEqual(x.names.get(idx), y.names.get(idx)))
+                        && areExprsEqual(x.expr, y.expr);
+            }
+
+            private boolean areDeclListsEqual(List<Decl> x, List<Decl> y) {
+                return x.size() == y.size() && IntStream.range(0, x.size())
+                        .allMatch(idx -> areDeclsEqual(x.get(idx), y.get(idx)));
+            }
+
+            private boolean areExprListsEqual(List<Expr> x, List<Expr> y) {
+                return x.size() == y.size() && IntStream.range(0, x.size())
+                        .allMatch(idx -> areExprsEqual(x.get(idx), y.get(idx)));
+            }
+
+            @Override
+            public Boolean visit(ExprElementOf x) throws Err {
+                if (!(strippedB instanceof ExprElementOf)) return false;
+                ExprElementOf y = (ExprElementOf) strippedB;
+
+                // Require syntactic equality on the LHS and then recurse on the RHS
+                return x.tuple.equals(y.tuple) && areExprsEqual(x.sub, y.sub);
+            }
+
+            @Override
+            public Boolean visit(ExprBinary x) throws Err {
+                if (!(strippedB instanceof ExprBinary)) return false;
+                ExprBinary y = (ExprBinary) strippedB;
+                return x.op == y.op
+                        && areExprsEqual(x.left, y.left)
+                        && areExprsEqual(x.right, y.right);
+            }
+
+            @Override
+            public Boolean visit(ExprList x) throws Err {
+                if (!(strippedB instanceof ExprList)) return false;
+                ExprList y = (ExprList) strippedB;
+                return x.op == y.op && areExprListsEqual(x.args, y.args);
+            }
+
+            @Override
+            public Boolean visit(ExprCall x) throws Err {
+                if (!(strippedB instanceof ExprCall)) return false;
+                ExprCall y = (ExprCall) strippedB;
+                return areExprsEqual(x.fun, y.fun) && areExprListsEqual(x.args, y.args);
+            }
+
+            @Override
+            public Boolean visit(ExprConstant x) throws Err {
+                if (!(strippedB instanceof ExprConstant)) return false;
+                ExprConstant y = (ExprConstant) strippedB;
+                return x.op == y.op
+                        && (x.op != ExprConstant.Op.NUMBER || x.num == y.num)
+                        && (x.op != ExprConstant.Op.STRING || x.string.equals(y.string));
+            }
+
+            @Override
+            public Boolean visit(ExprITE x) throws Err {
+                if (!(strippedB instanceof ExprITE)) return false;
+                ExprITE y = (ExprITE) strippedB;
+                return areExprsEqual(x.cond, y.cond)
+                        && areExprsEqual(x.left, y.left)
+                        && areExprsEqual(x.right, y.right);
+            }
+
+            @Override
+            public Boolean visit(ExprLet x) throws Err {
+                if (!(strippedB instanceof ExprLet)) return false;
+                ExprLet y = (ExprLet) strippedB;
+
+                // Syntactic equality only
+                return areExprsEqual(x.var, y.var)
+                        && areExprsEqual(x.expr, y.expr)
+                        && areExprsEqual(x.sub, y.sub);
+            }
+
+            @Override
+            public Boolean visit(ExprQt x) throws Err {
+                if (!(strippedB instanceof ExprQt)) return false;
+                ExprQt y = (ExprQt) strippedB;
+                return x.op == y.op
+                        && areDeclListsEqual(x.decls, y.decls)
+                        && areExprsEqual(x.sub, y.sub);
+            }
+
+            @Override
+            public Boolean visit(ExprUnary x) throws Err {
+                if (!(strippedB instanceof ExprUnary)) return false;
+                ExprUnary y = (ExprUnary) strippedB;
+                return x.op == y.op && areExprsEqual(x.sub, y.sub);
+            }
+
+            @Override
+            public Boolean visit(ExprVar x) throws Err {
+                if (!(strippedB instanceof ExprVar)) return false;
+                ExprVar y = (ExprVar) strippedB;
+                return x.label.equals(y.label);
+            }
+
+            @Override
+            public Boolean visit(Sig x) throws Err {
+                if (!(strippedB instanceof Sig)) return false;
+                Sig y = (Sig) strippedB;
+
+                // Assume that sigs have unique labels, don't bother checking other fields
+                return x.label.equals(y.label);
+            }
+
+            @Override
+            public Boolean visit(Sig.Field x) throws Err {
+                if (!(strippedB instanceof Sig.Field)) return false;
+                Sig.Field y = (Sig.Field) strippedB;
+
+                // Don't bother checking the expr - fields should be uniquely named per sig
+                return x.label.equals(y.label) && areExprsEqual(x.sig, y.sig);
+            }
+
+            @Override
+            public Boolean visit(Func x) throws Err {
+                if (!(strippedB instanceof Func)) return false;
+                Func y = (Func) strippedB;
+                return x.isPred == y.isPred && x.label.equals(y.label)
+                        && areExprsEqual(x.returnDecl, y.returnDecl)
+                        && areDeclListsEqual(x.decls, y.decls);
+            }
+
+            @Override
+            public Boolean visit(Assert x) throws Err {
+                throw new ErrorFatal("Cannot check equality of Assert!");
+            }
+
+            @Override
+            public Boolean visit(Macro macro) throws Err {
+                throw new ErrorFatal("Cannot check equality of Macro!");
+            }
+        }.visitThis(strippedA);
+    }
+
+    /**
+     * A hashCode() implementation for Expr which is compliant with areExprsEqual() above.
+     * That is, two exprs that compare equal via areExprsEqual() have the same hash code.
+     */
+    public static int exprHashCode(Expr expr) {
+        if (expr == null) {
+            return 3; // arbitrary to avoid NPEs
+        }
+
+        expr = PortusUtil.stripPortusNoops(expr);
+
+        // Strategy: hash together the constituents used for the comparison together with
+        // a distinct prime for each AST node.
+        return new FortressVisitReturn<Integer>() {
+            private int hashDecl(Decl decl) {
+                return Objects.hash(53, exprHashCode(decl.expr), decl.names.stream()
+                        .map(PortusUtil::exprHashCode)
+                        .collect(Collectors.toList())
+                        .hashCode());
+            }
+
+            private int hashDeclList(List<Decl> decls) {
+                return Objects.hash(19, decls.stream()
+                        .map(this::hashDecl)
+                        .collect(Collectors.toList())
+                        .hashCode());
+            }
+
+            private int hashExprList(List<Expr> expr) {
+                return Objects.hash(87, expr.stream()
+                        .map(PortusUtil::exprHashCode)
+                        .collect(Collectors.toList())
+                        .hashCode());
+            }
+
+            @Override
+            public Integer visit(ExprElementOf x) throws Err {
+                return Objects.hash(17, x.tuple.hashCode(), exprHashCode(x.sub));
+            }
+
+            @Override
+            public Integer visit(ExprBinary x) throws Err {
+                return Objects.hash(37, x.op, exprHashCode(x.left), exprHashCode(x.right));
+            }
+
+            @Override
+            public Integer visit(ExprList x) throws Err {
+                return Objects.hash(7, x.op, hashExprList(x.args));
+            }
+
+            @Override
+            public Integer visit(ExprCall x) throws Err {
+                return Objects.hash(23, exprHashCode(x.fun), hashExprList(x.args));
+            }
+
+            @Override
+            public Integer visit(ExprConstant x) throws Err {
+                return Objects.hash(11, x.op,
+                        x.op == ExprConstant.Op.NUMBER ? x.num : 0,
+                        x.op == ExprConstant.Op.STRING ? x.string : "");
+            }
+
+            @Override
+            public Integer visit(ExprITE x) throws Err {
+                return Objects.hash(61, exprHashCode(x.cond), exprHashCode(x.left), exprHashCode(x.right));
+            }
+
+            @Override
+            public Integer visit(ExprLet x) throws Err {
+                return Objects.hash(43, exprHashCode(x.var), exprHashCode(x.expr), exprHashCode(x.sub));
+            }
+
+            @Override
+            public Integer visit(ExprQt x) throws Err {
+                return Objects.hash(47, x.op, hashDeclList(x.decls), exprHashCode(x.sub));
+            }
+
+            @Override
+            public Integer visit(ExprUnary x) throws Err {
+                return Objects.hash(71, x.op, exprHashCode(x.sub));
+            }
+
+            @Override
+            public Integer visit(ExprVar x) throws Err {
+                return Objects.hash(83, x.label);
+            }
+
+            @Override
+            public Integer visit(Sig x) throws Err {
+                return Objects.hash(91, x.label);
+            }
+
+            @Override
+            public Integer visit(Sig.Field x) throws Err {
+                return Objects.hash(97, x.label, exprHashCode(x.sig));
+            }
+
+            @Override
+            public Integer visit(Func x) throws Err {
+                return Objects.hash(101, x.isPred, x.label, hashDeclList(x.decls), exprHashCode(x.returnDecl));
+            }
+
+            @Override
+            public Integer visit(Assert x) throws Err {
+                throw new ErrorFatal("Cannot compute hash code for Assert!");
+            }
+
+            @Override
+            public Integer visit(Macro macro) throws Err {
+                throw new ErrorFatal("Cannot compute hash code for Macro!");
+            }
+        }.visitThis(expr);
     }
 
 }

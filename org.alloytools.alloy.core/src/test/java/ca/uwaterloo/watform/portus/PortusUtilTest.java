@@ -1,5 +1,7 @@
 package ca.uwaterloo.watform.portus;
 
+import edu.mit.csail.sdg.alloy4.Pair;
+import edu.mit.csail.sdg.alloy4.Pos;
 import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprCall;
@@ -25,6 +27,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -32,6 +35,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
@@ -474,9 +478,471 @@ public class PortusUtilTest {
                 ExprCall.make(null, null, f, Collections.singletonList(y), 0L));
         for (Expr expr : testExprs) {
             Expr expanded = PortusUtil.expandLets(expr, new VarMappingContext(), policy);
-            // Super sketchy way to make sure they're the same, because Alloy doesn't implement
-            // isSame() or equals() consistently.
-            assertEquals(expr.toString(), expanded.toString());
+            assertTrue(PortusUtil.areExprsEqual(expr, expanded));
+        }
+    }
+
+    @Test
+    public void testAreExprsEqual_basicConstants() {
+        assertTrue(PortusUtil.areExprsEqual(ExprConstant.TRUE, ExprConstant.TRUE));
+        assertFalse(PortusUtil.areExprsEqual(ExprConstant.TRUE, ExprConstant.FALSE));
+        assertTrue(PortusUtil.areExprsEqual(ExprConstant.IDEN, ExprConstant.IDEN));
+        assertFalse(PortusUtil.areExprsEqual(ExprConstant.IDEN, ExprConstant.EMPTYNESS));
+        assertTrue(PortusUtil.areExprsEqual(ExprConstant.EMPTYNESS, ExprConstant.EMPTYNESS));
+        assertTrue(PortusUtil.areExprsEqual(ExprConstant.MAX, ExprConstant.MAX));
+        assertTrue(PortusUtil.areExprsEqual(ExprConstant.MIN, ExprConstant.MIN));
+        assertFalse(PortusUtil.areExprsEqual(ExprConstant.MAX, ExprConstant.MIN));
+        assertTrue(PortusUtil.areExprsEqual(ExprConstant.NEXT, ExprConstant.NEXT));
+    }
+
+    @Test
+    public void testAreExprsEqual_integers() {
+        assertTrue(PortusUtil.areExprsEqual(ExprConstant.ZERO, ExprConstant.ZERO));
+        assertTrue(PortusUtil.areExprsEqual(ExprConstant.ONE, ExprConstant.ONE));
+        assertFalse(PortusUtil.areExprsEqual(ExprConstant.ZERO, ExprConstant.ONE));
+        assertTrue(PortusUtil.areExprsEqual(ExprConstant.makeNUMBER(5), ExprConstant.makeNUMBER(5)));
+        assertFalse(PortusUtil.areExprsEqual(ExprConstant.makeNUMBER(5), ExprConstant.makeNUMBER(-5)));
+
+        // not even under default bitwidth modulus
+        assertFalse(PortusUtil.areExprsEqual(ExprConstant.makeNUMBER(0), ExprConstant.makeNUMBER(64)));
+    }
+
+    @Test
+    public void testAreExprsEqual_strings() {
+        Function<String, Expr> makeString = str -> ExprConstant.Op.STRING.make(null, str);
+        assertTrue(PortusUtil.areExprsEqual(makeString.apply("foo"), makeString.apply("foo")));
+        assertFalse(PortusUtil.areExprsEqual(makeString.apply("foo"), makeString.apply("bar")));
+        assertTrue(PortusUtil.areExprsEqual(makeString.apply(""), makeString.apply("")));
+        assertFalse(PortusUtil.areExprsEqual(makeString.apply(""), makeString.apply(" ")));
+    }
+
+    @Test
+    public void testAreExprsEqual_var() {
+        ExprVar sameVar = makeTestVar("sameVar");
+        assertTrue(PortusUtil.areExprsEqual(sameVar, sameVar));
+        assertTrue(PortusUtil.areExprsEqual(makeTestVar("x"), makeTestVar("x"))); // same label
+        assertFalse(PortusUtil.areExprsEqual(makeTestVar("x"), makeTestVar("y"))); // different labels
+
+        // even with different pos
+        ExprVar varWithPos1 = ExprVar.make(new Pos("abc.als", 10, 23), "foo");
+        ExprVar varWithPos2 = ExprVar.make(new Pos("def.als", 653, 1), "foo");
+        ExprVar varWithNullPos = ExprVar.make(null, "foo");
+        assertTrue(PortusUtil.areExprsEqual(varWithPos1, varWithPos2));
+        assertTrue(PortusUtil.areExprsEqual(varWithPos1, varWithNullPos));
+        assertTrue(PortusUtil.areExprsEqual(varWithPos2, varWithNullPos));
+    }
+
+    @Test
+    public void testAreExprsEqual_unaryOps() {
+        ExprVar x = makeTestVar("x");
+        assertTrue(PortusUtil.areExprsEqual(x.transpose(), x.transpose()));
+        assertTrue(PortusUtil.areExprsEqual(x.cardinality(), x.cardinality()));
+        assertTrue(PortusUtil.areExprsEqual(x.closure(), x.closure()));
+        assertTrue(PortusUtil.areExprsEqual(x.reflexiveClosure(), x.reflexiveClosure()));
+        assertFalse(PortusUtil.areExprsEqual(x.closure(), x.reflexiveClosure()));
+        assertTrue(PortusUtil.areExprsEqual(x.not(), x.not()));
+        assertFalse(PortusUtil.areExprsEqual(x.not(), x.no()));
+        assertTrue(PortusUtil.areExprsEqual(x.no(), x.no()));
+        assertTrue(PortusUtil.areExprsEqual(x.some(), x.some()));
+        assertTrue(PortusUtil.areExprsEqual(x.lone(), x.lone()));
+        assertTrue(PortusUtil.areExprsEqual(x.one(), x.one()));
+        assertFalse(PortusUtil.areExprsEqual(x.no(), x.one()));
+        assertFalse(PortusUtil.areExprsEqual(x.no(), x.lone()));
+        assertFalse(PortusUtil.areExprsEqual(x.some(), x.lone()));
+        assertTrue(PortusUtil.areExprsEqual(x.oneOf(), x.oneOf()));
+        assertTrue(PortusUtil.areExprsEqual(x.loneOf(), x.loneOf()));
+        assertTrue(PortusUtil.areExprsEqual(x.setOf(), x.setOf()));
+        assertTrue(PortusUtil.areExprsEqual(x.someOf(), x.someOf()));
+        assertFalse(PortusUtil.areExprsEqual(x.oneOf(), x.one()));
+        assertFalse(PortusUtil.areExprsEqual(x.loneOf(), x.lone()));
+        assertFalse(PortusUtil.areExprsEqual(x.someOf(), x.some()));
+
+        ExprVar y = makeTestVar("y");
+        assertFalse(PortusUtil.areExprsEqual(x.not(), y.not()));
+        assertFalse(PortusUtil.areExprsEqual(x.transpose(), y.transpose()));
+        assertFalse(PortusUtil.areExprsEqual(x.closure(), y.closure()));
+    }
+
+    @Test
+    @SuppressWarnings("SuspiciousNameCombination")
+    public void testAreExprsEqual_binaryOps() {
+        ExprVar x = makeTestVar("x");
+        ExprVar y = makeTestVar("y");
+
+        assertTrue(PortusUtil.areExprsEqual(x.and(y), x.and(y)));
+        assertTrue(PortusUtil.areExprsEqual(x.or(y), x.or(y)));
+        assertTrue(PortusUtil.areExprsEqual(x.implies(y), x.implies(y)));
+        assertTrue(PortusUtil.areExprsEqual(x.iff(y), x.iff(y)));
+        assertTrue(PortusUtil.areExprsEqual(x.plus(y), x.plus(y)));
+        assertTrue(PortusUtil.areExprsEqual(x.minus(y), x.minus(y)));
+        assertTrue(PortusUtil.areExprsEqual(x.intersect(y), x.intersect(y)));
+        assertTrue(PortusUtil.areExprsEqual(x.domain(y), x.domain(y)));
+        assertTrue(PortusUtil.areExprsEqual(x.range(y), x.range(y)));
+        assertTrue(PortusUtil.areExprsEqual(x.iplus(y), x.iplus(y)));
+        assertTrue(PortusUtil.areExprsEqual(x.iminus(y), x.iminus(y)));
+        assertTrue(PortusUtil.areExprsEqual(x.mul(y), x.mul(y)));
+        assertTrue(PortusUtil.areExprsEqual(x.div(y), x.div(y)));
+        assertTrue(PortusUtil.areExprsEqual(x.rem(y), x.rem(y)));
+        assertTrue(PortusUtil.areExprsEqual(x.in(y), x.in(y)));
+        assertTrue(PortusUtil.areExprsEqual(x.equal(y), x.equal(y)));
+        assertFalse(PortusUtil.areExprsEqual(x.equal(y), x.in(y)));
+        assertTrue(PortusUtil.areExprsEqual(x.gt(y), x.gt(y)));
+        assertFalse(PortusUtil.areExprsEqual(x.gt(y), x.gte(y)));
+        assertTrue(PortusUtil.areExprsEqual(x.gte(y), x.gte(y)));
+        assertTrue(PortusUtil.areExprsEqual(x.lt(y), x.lt(y)));
+        assertTrue(PortusUtil.areExprsEqual(x.lte(y), x.lte(y)));
+        assertTrue(PortusUtil.areExprsEqual(x.lte(y), x.lte(y)));
+        assertFalse(PortusUtil.areExprsEqual(x.lte(y), x.lt(y)));
+        assertFalse(PortusUtil.areExprsEqual(x.gt(y), x.lt(y)));
+
+        assertTrue(PortusUtil.areExprsEqual(x.product(y), x.product(y)));
+        assertTrue(PortusUtil.areExprsEqual(x.any_arrow_one(y), x.any_arrow_one(y)));
+        assertTrue(PortusUtil.areExprsEqual(x.any_arrow_lone(y), x.any_arrow_lone(y)));
+        assertTrue(PortusUtil.areExprsEqual(x.any_arrow_some(y), x.any_arrow_some(y)));
+        assertTrue(PortusUtil.areExprsEqual(x.one_arrow_any(y), x.one_arrow_any(y)));
+        assertTrue(PortusUtil.areExprsEqual(x.one_arrow_one(y), x.one_arrow_one(y)));
+        assertTrue(PortusUtil.areExprsEqual(x.one_arrow_lone(y), x.one_arrow_lone(y)));
+        assertTrue(PortusUtil.areExprsEqual(x.one_arrow_some(y), x.one_arrow_some(y)));
+        assertTrue(PortusUtil.areExprsEqual(x.lone_arrow_any(y), x.lone_arrow_any(y)));
+        assertTrue(PortusUtil.areExprsEqual(x.lone_arrow_one(y), x.lone_arrow_one(y)));
+        assertTrue(PortusUtil.areExprsEqual(x.lone_arrow_lone(y), x.lone_arrow_lone(y)));
+        assertTrue(PortusUtil.areExprsEqual(x.lone_arrow_some(y), x.lone_arrow_some(y)));
+        assertTrue(PortusUtil.areExprsEqual(x.some_arrow_any(y), x.some_arrow_any(y)));
+        assertTrue(PortusUtil.areExprsEqual(x.some_arrow_one(y), x.some_arrow_one(y)));
+        assertTrue(PortusUtil.areExprsEqual(x.some_arrow_lone(y), x.some_arrow_lone(y)));
+        assertTrue(PortusUtil.areExprsEqual(x.some_arrow_some(y), x.some_arrow_some(y)));
+        assertFalse(PortusUtil.areExprsEqual(x.any_arrow_one(y), x.any_arrow_lone(y)));
+        assertFalse(PortusUtil.areExprsEqual(x.product(y), x.any_arrow_one(y)));
+        assertFalse(PortusUtil.areExprsEqual(x.one_arrow_one(y), x.one_arrow_any(y)));
+        assertFalse(PortusUtil.areExprsEqual(x.lone_arrow_one(y), x.lone_arrow_lone(y)));
+        assertFalse(PortusUtil.areExprsEqual(x.any_arrow_one(y), x.lone_arrow_lone(y)));
+        assertFalse(PortusUtil.areExprsEqual(x.some_arrow_some(y), x.some_arrow_one(y)));
+        assertFalse(PortusUtil.areExprsEqual(x.some_arrow_some(y), x.any_arrow_some(y)));
+    }
+
+    @Test
+    @SuppressWarnings("SuspiciousNameCombination")
+    public void testAreExprsEqual_noCommutativity() {
+        ExprVar x = makeTestVar("x");
+        ExprVar y = makeTestVar("y");
+
+        // x && y !== y && x, and similar: no commutativity simplifications
+        assertFalse(PortusUtil.areExprsEqual(x.and(y), y.and(x)));
+        assertFalse(PortusUtil.areExprsEqual(x.or(y), y.or(x)));
+        assertFalse(PortusUtil.areExprsEqual(x.iff(y), y.iff(x)));
+        assertFalse(PortusUtil.areExprsEqual(x.plus(y), y.plus(x)));
+        assertFalse(PortusUtil.areExprsEqual(x.intersect(y), y.intersect(x)));
+        assertFalse(PortusUtil.areExprsEqual(x.iplus(y), y.iplus(x)));
+        assertFalse(PortusUtil.areExprsEqual(x.iminus(y), y.iminus(x)));
+        assertFalse(PortusUtil.areExprsEqual(x.mul(y), y.mul(x)));
+        assertFalse(PortusUtil.areExprsEqual(x.equal(y), y.equal(x)));
+    }
+
+    @Test
+    public void testAreExprsEqual_noAssociativity() {
+        ExprVar x = makeTestVar("x");
+
+        // (x + x) + x !== x + (x + x), and similar: no associativity simplifications
+        // Note: ExprList for AND and OR performs flattening
+        assertFalse(PortusUtil.areExprsEqual(x.plus(x.plus(x)), (x.plus(x)).plus(x)));
+        assertFalse(PortusUtil.areExprsEqual(x.intersect(x.intersect(x)), (x.intersect(x)).intersect(x)));
+        assertFalse(PortusUtil.areExprsEqual(x.iplus(x.iplus(x)), (x.iplus(x)).iplus(x)));
+        assertFalse(PortusUtil.areExprsEqual(x.iminus(x.iminus(x)), (x.iminus(x)).iminus(x)));
+        assertFalse(PortusUtil.areExprsEqual(x.mul(x.mul(x)), (x.mul(x)).mul(x)));
+        assertFalse(PortusUtil.areExprsEqual(x.product(x.product(x)), (x.product(x)).product(x)));
+    }
+
+    @Test
+    @SuppressWarnings("SuspiciousNameCombination")
+    public void testAreExprsEqual_ite() {
+        ExprVar x = makeTestVar("x");
+        ExprVar y = makeTestVar("y");
+        ExprVar z = makeTestVar("z");
+        assertTrue(PortusUtil.areExprsEqual(x.ite(y, z), x.ite(y, z)));
+        assertFalse(PortusUtil.areExprsEqual(x.ite(y, z), x.ite(z, y)));
+        assertFalse(PortusUtil.areExprsEqual(y.ite(y, z), x.ite(y, z)));
+        assertFalse(PortusUtil.areExprsEqual(x.ite(x, z), x.ite(y, z)));
+        assertFalse(PortusUtil.areExprsEqual(x.ite(y, x), x.ite(y, z)));
+    }
+
+    @Test
+    public void testAreExprsEqual_list() {
+        ExprVar x = makeTestVar("x");
+
+        // AND and OR are implemented as ExprList.
+        assertTrue(PortusUtil.areExprsEqual(x.and(x), x.and(x)));
+        assertTrue(PortusUtil.areExprsEqual(x.and(x).and(x), x.and(x).and(x)));
+        assertFalse(PortusUtil.areExprsEqual(x.and(x).and(x), x.and(x)));
+        assertFalse(PortusUtil.areExprsEqual(x.and(x), x.and(x).and(x)));
+    }
+
+    @Test
+    public void testAreExprsEqual_sig() {
+        Sig sigA = new Sig.PrimSig("A");
+        Sig sigB = new Sig.PrimSig("B");
+        Sig sigASubset = new Sig.SubsetSig(null, "A", null, Collections.singletonList(sigB));
+
+        assertTrue(PortusUtil.areExprsEqual(sigA, sigA));
+        assertFalse(PortusUtil.areExprsEqual(sigA, sigB));
+
+        // Sigs are compared *only* on their labels
+        assertTrue(PortusUtil.areExprsEqual(sigA, sigASubset));
+        assertFalse(PortusUtil.areExprsEqual(sigB, sigASubset));
+    }
+
+    @Test
+    public void testAreExprsEqual_field() {
+        Sig sigA = new Sig.PrimSig("A");
+        Sig sigB = new Sig.PrimSig("B");
+        Sig sigASubset = new Sig.SubsetSig(null, "A", null, Collections.singletonList(sigB));
+
+        Sig.Field fieldA1 = sigA.addField("f", ExprConstant.ONE);
+        Sig.Field fieldA2 = sigA.addField("g", ExprConstant.ONE);
+        Sig.Field fieldB = sigB.addField("f", ExprConstant.ONE);
+        Sig.Field fieldASubset = sigASubset.addField("f", ExprConstant.EMPTYNESS);
+
+        // Fields are compared *only* on label + parent sig label (and *not* on bounding expr)
+        assertTrue(PortusUtil.areExprsEqual(fieldA1, fieldA1));
+        assertTrue(PortusUtil.areExprsEqual(fieldA2, fieldA2));
+        assertFalse(PortusUtil.areExprsEqual(fieldA1, fieldA2));
+        assertFalse(PortusUtil.areExprsEqual(fieldA1, fieldB));
+        assertTrue(PortusUtil.areExprsEqual(fieldA1, fieldASubset)); // !!
+    }
+
+    @Test
+    public void testAreExprsEqual_quantifier() {
+        ExprVar x = makeTestVar("x");
+        ExprVar y = makeTestVar("y");
+        ExprVar w = makeTestVar("w");
+        assertTrue(PortusUtil.areExprsEqual(x.forAll(y.oneOf("z")), x.forAll(y.oneOf("z"))));
+        assertTrue(PortusUtil.areExprsEqual(x.forSome(y.oneOf("z")), x.forSome(y.oneOf("z"))));
+        assertTrue(PortusUtil.areExprsEqual(x.forLone(y.oneOf("z")), x.forLone(y.oneOf("z"))));
+        assertTrue(PortusUtil.areExprsEqual(x.forOne(y.oneOf("z")), x.forOne(y.oneOf("z"))));
+        assertTrue(PortusUtil.areExprsEqual(x.forNo(y.oneOf("z")), x.forNo(y.oneOf("z"))));
+        assertTrue(PortusUtil.areExprsEqual(x.comprehensionOver(y.oneOf("z")), x.comprehensionOver(y.oneOf("z"))));
+        assertFalse(PortusUtil.areExprsEqual(x.forAll(y.oneOf("z")), x.forNo(y.oneOf("z"))));
+        assertFalse(PortusUtil.areExprsEqual(x.forSome(y.oneOf("z")), x.forLone(y.oneOf("z"))));
+        assertFalse(PortusUtil.areExprsEqual(x.forAll(y.oneOf("w")), x.forAll(y.oneOf("z"))));
+        assertFalse(PortusUtil.areExprsEqual(x.forAll(w.oneOf("z")), x.forAll(y.oneOf("z"))));
+        assertFalse(PortusUtil.areExprsEqual(w.forAll(y.oneOf("z")), x.forAll(y.oneOf("z"))));
+
+        assertTrue(PortusUtil.areExprsEqual(
+                x.forAll(y.oneOf("z"), y.oneOf("k")), x.forAll(y.oneOf("z"), y.oneOf("k"))));
+        assertFalse(PortusUtil.areExprsEqual(x.forAll(y.oneOf("z")), x.forAll(y.oneOf("z"), y.oneOf("k"))));
+    }
+
+    @Test
+    public void testAreExprsEqual_let() {
+        // Purely syntactic
+        ExprVar x = makeTestVar("x");
+        ExprVar y = makeTestVar("y");
+        ExprVar z = makeTestVar("z");
+        ExprVar w = makeTestVar("w");
+        assertTrue(PortusUtil.areExprsEqual(ExprLet.make(null, x, y, z), ExprLet.make(null, x, y, z)));
+        assertFalse(PortusUtil.areExprsEqual(ExprLet.make(null, x, y, w), ExprLet.make(null, x, y, z)));
+        assertFalse(PortusUtil.areExprsEqual(ExprLet.make(null, x, w, z), ExprLet.make(null, x, y, z)));
+        assertFalse(PortusUtil.areExprsEqual(ExprLet.make(null, w, y, z), ExprLet.make(null, x, y, z)));
+    }
+
+    @Test
+    public void testAreExprsEqual_call() {
+        ExprVar x = makeTestVar("x");
+        ExprVar y = makeTestVar("y");
+        ExprVar z = makeTestVar("z");
+        Func predF = new Func(null, null, "f", Collections.emptyList(), null, x);
+        Func funcF = new Func(null, null, "f", Collections.emptyList(), y, x);
+        Func predG = new Func(null, null, "g", Collections.emptyList(), null, x);
+        Func predFArgs1 = new Func(null, null, "f", Collections.singletonList(y.oneOf("k")), null, x);
+        Func predFArgs2 = new Func(null, null, "f", Collections.singletonList(y.oneOf("l")), null, x);
+        Func predFArgs3 = new Func(
+                null, null, "f", Arrays.asList(y.oneOf("k"), y.oneOf("l")), null, x);
+
+        assertTrue(PortusUtil.areExprsEqual(
+                ExprCall.make(null, null, predF, Collections.emptyList(), 0L),
+                ExprCall.make(null, null, predF, Collections.emptyList(), 0L)));
+        // Weight doesn't matter
+        assertTrue(PortusUtil.areExprsEqual(
+                ExprCall.make(null, null, predF, Collections.emptyList(), 0L),
+                ExprCall.make(null, null, predF, Collections.emptyList(), 1L)));
+
+        assertFalse(PortusUtil.areExprsEqual(
+                ExprCall.make(null, null, predF, Collections.emptyList(), 0L),
+                ExprCall.make(null, null, funcF, Collections.emptyList(), 0L)));
+        assertFalse(PortusUtil.areExprsEqual(
+                ExprCall.make(null, null, predF, Collections.emptyList(), 0L),
+                ExprCall.make(null, null, predG, Collections.emptyList(), 0L)));
+        assertFalse(PortusUtil.areExprsEqual(
+                ExprCall.make(null, null, predF, Collections.emptyList(), 0L),
+                ExprCall.make(null, null, predFArgs1, Collections.singletonList(z), 0L)));
+        assertFalse(PortusUtil.areExprsEqual(
+                ExprCall.make(null, null, predFArgs1, Collections.singletonList(z), 0L),
+                ExprCall.make(null, null, predFArgs1, Collections.singletonList(y), 0L)));
+        assertFalse(PortusUtil.areExprsEqual(
+                ExprCall.make(null, null, predFArgs1, Collections.singletonList(z), 0L),
+                ExprCall.make(null, null, predFArgs2, Collections.singletonList(z), 0L)));
+        assertFalse(PortusUtil.areExprsEqual(
+                ExprCall.make(null, null, predFArgs1, Collections.singletonList(z), 0L),
+                ExprCall.make(null, null, predFArgs3, Arrays.asList(z, y), 0L)));
+    }
+
+    @Test
+    public void testAreExprsEqual_elementOf() {
+        ExprVar x = makeTestVar("x");
+        ExprVar y = makeTestVar("y");
+        Sort sort = Sort.mkSortConst("Sort");
+        Sort sort2 = Sort.mkSortConst("Sort2");
+        AnnotatedVar fortressX = Term.mkVar("fx").of(sort);
+        AnnotatedVar fortressXSort2 = Term.mkVar("fx").of(sort2);
+        AnnotatedVar fortressY = Term.mkVar("fy").of(sort);
+
+        assertTrue(PortusUtil.areExprsEqual(
+                ExprElementOf.make(fortressX, x), ExprElementOf.make(fortressX, x)));
+        assertTrue(PortusUtil.areExprsEqual(
+                ExprElementOf.make(new TermTuple(new AnnotatedTerm(fortressX), new AnnotatedTerm(fortressY)), x),
+                ExprElementOf.make(new TermTuple(new AnnotatedTerm(fortressX), new AnnotatedTerm(fortressY)), x)));
+        assertFalse(PortusUtil.areExprsEqual(
+                ExprElementOf.make(fortressY, x), ExprElementOf.make(fortressX, x)));
+        assertFalse(PortusUtil.areExprsEqual(
+                ExprElementOf.make(fortressX, y), ExprElementOf.make(fortressX, x)));
+        assertFalse(PortusUtil.areExprsEqual(
+                ExprElementOf.make(fortressXSort2, x), ExprElementOf.make(fortressX, x)));
+        assertFalse(PortusUtil.areExprsEqual(
+                ExprElementOf.make(new TermTuple(new AnnotatedTerm(fortressX), new AnnotatedTerm(fortressY)), x),
+                ExprElementOf.make(fortressX, x)));
+    }
+
+    @Test
+    public void testAreExprsEqual_noops() {
+        ExprVar x = makeTestVar("x");
+        assertTrue(PortusUtil.areExprsEqual(x, ExprUnary.Op.NOOP.make(null, x)));
+        assertTrue(PortusUtil.areExprsEqual(ExprUnary.Op.NOOP.make(null, x), x));
+        assertTrue(PortusUtil.areExprsEqual(x, x.cast2int()));
+        assertTrue(PortusUtil.areExprsEqual(x.cast2int(), x));
+        assertTrue(PortusUtil.areExprsEqual(x, x.cast2sigint()));
+        assertTrue(PortusUtil.areExprsEqual(x.cast2sigint(), x));
+        assertTrue(PortusUtil.areExprsEqual(
+                ExprUnary.Op.NOOP.make(null, x).plus(x.cast2int().cast2sigint()),
+                x.plus(ExprUnary.Op.NOOP.make(null, x.cast2int()))));
+    }
+
+    @Test
+    public void testAreExprsEqual_null() {
+        ExprVar x = makeTestVar("x");
+        assertTrue(PortusUtil.areExprsEqual(null, null));
+        assertFalse(PortusUtil.areExprsEqual(x, null));
+        assertFalse(PortusUtil.areExprsEqual(null, x));
+    }
+
+    @Test
+    @SuppressWarnings("SuspiciousNameCombination")
+    public void testExprHashCode() {
+        // For a large list of expressions, test the invariant:
+        // exprHashCode(expr1) == exprHashCode(expr2) iff areExprsEqual(expr1, expr2).
+        // It's possible that we get unlucky and get a hash collision, but these are simple enough
+        // expressions that that should be considered a bug in exprHashCode.
+
+        ExprVar x = makeTestVar("x");
+        ExprVar y = makeTestVar("y");
+        ExprVar z = makeTestVar("z");
+        Func predF = new Func(null, null, "f", Collections.emptyList(), null, x);
+        Func funcF = new Func(null, null, "f", Collections.emptyList(), y, x);
+        Func predG = new Func(null, null, "g", Collections.emptyList(), null, x);
+        Func predFArgs1 = new Func(null, null, "f", Collections.singletonList(y.oneOf("k")), null, x);
+        Func predFArgs2 = new Func(null, null, "f", Collections.singletonList(y.oneOf("l")), null, x);
+        Func predFArgs3 = new Func(
+                null, null, "f", Arrays.asList(y.oneOf("k"), y.oneOf("l")), null, x);
+        Sort sort = Sort.mkSortConst("Sort");
+        Sort sort2 = Sort.mkSortConst("Sort2");
+        AnnotatedVar fortressX = Term.mkVar("fx").of(sort);
+        AnnotatedVar fortressXSort2 = Term.mkVar("fx").of(sort2);
+        AnnotatedVar fortressY = Term.mkVar("fy").of(sort);
+
+        @SuppressWarnings("RedundantTypeArguments (explicit type arguments speedup compilation and analysis time)")
+        List<Pair<Expr, Expr>> testExprs = Arrays.<Pair<Expr, Expr>> asList(
+                new Pair<>(x, x),
+                new Pair<>(makeTestVar("x"), makeTestVar("x")),
+                new Pair<>(x, y),
+                new Pair<>(x, ExprVar.make(new Pos("abc.als", 10, 45), "x")),
+                new Pair<>(x.and(y), x.and(y)),
+                new Pair<>(x.and(y), y.and(x)),
+                new Pair<>(x.and(y), x.or(y)),
+                new Pair<>(x.and(x), x.and(x).and(x)),
+                new Pair<>(x.plus(y), x.plus(y)),
+                new Pair<>(x.plus(y), y.plus(x)),
+                new Pair<>(x.plus(x.plus(x)), x.plus(x).plus(x)),
+                new Pair<>(x.plus(y), x.minus(y)),
+                new Pair<>(x, x.transpose()),
+                new Pair<>(x.transpose(), makeTestVar("x").transpose()),
+                new Pair<>(x.closure(), x.closure()),
+                new Pair<>(x.closure(), x.reflexiveClosure()),
+                new Pair<>(x.one(), x.oneOf()),
+                new Pair<>(x.product(y), x.product(y)),
+                new Pair<>(x.product(y), x.any_arrow_one(y)),
+                new Pair<>(x.one_arrow_lone(y), x.one_arrow_some(y)),
+                new Pair<>(x.ite(y, z), x.ite(y, z)),
+                new Pair<>(x.ite(y, z), x.ite(z, y)),
+                new Pair<>(x.ite(y, z), x.ite(y, x)),
+                new Pair<>(x.ite(y, z), y.ite(y, z)),
+                new Pair<>(ExprLet.make(null, x, y, z), ExprLet.make(null, x, y, z)),
+                new Pair<>(ExprLet.make(null, x, y, z), ExprLet.make(new Pos("foo.als", 53, 1), x, y, z)),
+                new Pair<>(ExprLet.make(null, x, y, z), ExprLet.make(null, x, z, y)),
+                new Pair<>(ExprLet.make(null, x, y, z), ExprLet.make(null, z, y, z)),
+                new Pair<>(x.forAll(y.oneOf("z")), x.forAll(y.oneOf("z"))),
+                new Pair<>(x.forAll(y.oneOf("z")), x.forAll(y.oneOf("k"))),
+                new Pair<>(x.forAll(y.oneOf("z")), x.forAll(y.oneOf("z"), y.oneOf("k"))),
+                new Pair<>(x.forAll(y.oneOf("z")), x.forSome(y.oneOf("z"))),
+                new Pair<>(x.forAll(y.oneOf("z")), x.forNo(y.oneOf("z"))),
+                new Pair<>(x.forNo(y.oneOf("z")), x.forNo(y.oneOf("z"))),
+                new Pair<>(x.forAll(y.oneOf("z")), x.forAll(z.oneOf("z"))),
+                new Pair<>(ExprCall.make(null, null, predF, Collections.emptyList(), 0L),
+                        ExprCall.make(null, null, predF, Collections.emptyList(), 0L)),
+                new Pair<>(ExprCall.make(null, null, predF, Collections.emptyList(), 0L),
+                        ExprCall.make(null, null, predF, Collections.emptyList(), 1L)),
+                new Pair<>(ExprCall.make(null, null, predF, Collections.emptyList(), 0L),
+                        ExprCall.make(null, null, funcF, Collections.emptyList(), 0L)),
+                new Pair<>(ExprCall.make(null, null, predF, Collections.emptyList(), 0L),
+                        ExprCall.make(null, null, predG, Collections.emptyList(), 0L)),
+                new Pair<>(ExprCall.make(null, null, predF, Collections.emptyList(), 0L),
+                        ExprCall.make(null, null, predFArgs1, Collections.singletonList(z), 0L)),
+                new Pair<>(ExprCall.make(null, null, predFArgs1, Collections.singletonList(z), 0L),
+                        ExprCall.make(null, null, predFArgs1, Collections.singletonList(y), 0L)),
+                new Pair<>(ExprCall.make(null, null, predFArgs1, Collections.singletonList(z), 0L),
+                        ExprCall.make(null, null, predFArgs2, Collections.singletonList(z), 0L)),
+                new Pair<>(ExprCall.make(null, null, predFArgs1, Collections.singletonList(z), 0L),
+                        ExprCall.make(null, null, predFArgs3, Arrays.asList(z, y), 0L)),
+                new Pair<>(ExprElementOf.make(fortressX, x), ExprElementOf.make(fortressX, x)),
+                new Pair<>(
+                        ExprElementOf.make(
+                                new TermTuple(new AnnotatedTerm(fortressX), new AnnotatedTerm(fortressY)), x),
+                        ExprElementOf.make(
+                                new TermTuple(new AnnotatedTerm(fortressX), new AnnotatedTerm(fortressY)), x)),
+                new Pair<>(ExprElementOf.make(fortressY, x), ExprElementOf.make(fortressX, x)),
+                new Pair<>(ExprElementOf.make(fortressX, y), ExprElementOf.make(fortressX, x)),
+                new Pair<>(ExprElementOf.make(fortressXSort2, x), ExprElementOf.make(fortressX, x)),
+                new Pair<>(
+                        ExprElementOf.make(
+                                new TermTuple(new AnnotatedTerm(fortressX), new AnnotatedTerm(fortressY)), x),
+                        ExprElementOf.make(fortressX, x)),
+                new Pair<>(x, ExprUnary.Op.NOOP.make(null, x)),
+                new Pair<>(ExprUnary.Op.NOOP.make(null, x), x),
+                new Pair<>(x, x.cast2int()),
+                new Pair<>(x.cast2int(), x),
+                new Pair<>(x, x.cast2sigint()),
+                new Pair<>(x.cast2sigint(), x),
+                new Pair<>(ExprUnary.Op.NOOP.make(null, x).plus(x.cast2int().cast2sigint()),
+                        x.plus(ExprUnary.Op.NOOP.make(null, x.cast2int()))),
+                new Pair<>(null, null),
+                new Pair<>(null, x),
+                new Pair<>(x, null));
+
+        for (Pair<Expr, Expr> testExprPair : testExprs) {
+            Expr expr1 = testExprPair.a;
+            Expr expr2 = testExprPair.b;
+            if (PortusUtil.areExprsEqual(expr1, expr2)) {
+                assertEquals(PortusUtil.exprHashCode(expr1), PortusUtil.exprHashCode(expr2));
+            } else {
+                assertNotEquals(PortusUtil.exprHashCode(expr1), PortusUtil.exprHashCode(expr2));
+            }
         }
     }
 
