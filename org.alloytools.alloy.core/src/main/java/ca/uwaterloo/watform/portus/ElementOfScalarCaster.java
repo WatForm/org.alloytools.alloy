@@ -25,6 +25,7 @@ import java.util.List;
  * casting "y.(x.f)" to "f(x,y)", where f is a binary function and x and y are variables.
  *
  * This has the effect of greatly increasing calls to the translators!
+ * TODO: Will this produce unnecessary side-effect axioms due to RangeAssigner?
  */
 final class ElementOfScalarCaster implements ScalarCaster {
 

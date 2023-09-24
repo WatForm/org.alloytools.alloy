@@ -29,7 +29,7 @@ import java.util.List;
  * It is also responsible for coming up with a list of all Passes and running
  * the entire translation by iterating through the passes.
  *
- * TODO: This is getting unsustainable. Also, caching.
+ * TODO: Caching!
  */
 final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
 

@@ -301,9 +301,18 @@ final class PortusUtil {
      */
     public static List<AnnotatedVar> computeFreeVariables(
             Expr expr, TranslationContext context, SortPolicy sortPolicy) {
+        return computeFreeVariables(expr, context.varMappingContext, sortPolicy);
+    }
+
+    /**
+     * Get a list of the variables which are free in the translation of expr, with sorts determined by the context
+     * (which should assign a Fortress var for each free Alloy var).
+     */
+    public static List<AnnotatedVar> computeFreeVariables(
+            Expr expr, VarMappingContext varMappingContext, SortPolicy sortPolicy) {
         // TODO: find sorts of free vars via earlier quantifiers
         // simple recursive implementation
-        return expr.accept(new ContextVisitReturn<List<AnnotatedVar>>(context, sortPolicy) {
+        return expr.accept(new ContextVisitReturn<List<AnnotatedVar>>(varMappingContext, sortPolicy) {
             @SafeVarargs
             private final List<AnnotatedVar> union(List<AnnotatedVar>... lists) {
                 // this is O(n^2) to union two lists of length n, but this shouldn't be a bottleneck
@@ -516,13 +525,34 @@ final class PortusUtil {
     }
 
     /**
+     * Compare a and b for syntactically equality. See
+     * {@link #areExprsEqual(Expr, Expr, VarMappingContext, VarMappingContext)}, without the context complications.
+     * No variables are dereferenced.
+     */
+    public static boolean areExprsEqual(Expr a, Expr b) {
+        return areExprsEqual(a, b, null, null);
+    }
+
+    /**
      * Determine whether a and b are syntactically equal for our purposes.
      * This does not take into account contexts -- free variables may have different meanings in a and b
      * if they are from different contexts, even if they are syntactically equal.
      * Does not do any commutativity simplification: x && y is not equal to y && x, and all x, y: A | f
      * is not equal to all y, x: A | f.
+     * If the var mapping contexts are not null, use it to dereference term mappings only: that is,
+     * if a's var mapping context maps the Alloy variable x to a Fortress term f and b's maps y to f, then
+     * x and y compare equal.
+     * If the var mapping contexts *are* null, all free variables are compared purely syntactically.
+     * Note that let mappings are never dereferenced. If you want let mappings to be dereferenced,
+     * expand with expandLets() first.
+     * TODO: This is far too complicated, refactor.
      */
-    public static boolean areExprsEqual(Expr a, Expr b) {
+    public static boolean areExprsEqual(Expr a, Expr b, VarMappingContext contextA, VarMappingContext contextB) {
+        // Either both or neither context must be null.
+        if ((contextA == null) != (contextB == null)) {
+            throw new IllegalStateException("areExprsEqual: both or neither contexts must be null");
+        }
+
         if (a == null || b == null) {
             return a == null && b == null;
         }
@@ -630,6 +660,21 @@ final class PortusUtil {
             public Boolean visit(ExprVar x) throws Err {
                 if (!(strippedB instanceof ExprVar)) return false;
                 ExprVar y = (ExprVar) strippedB;
+
+                // If using contexts and we can dereference one, we must be able to dereference both
+                // and they must be equal.
+                if (contextA != null && (contextA.hasTermMapping(x.label) || contextB.hasTermMapping(y.label))) {
+                    // We must be able to dereference both.
+                    if (!(contextA.hasTermMapping(x.label) && contextB.hasTermMapping(y.label))) {
+                        return false;
+                    }
+                    // And they must compare equal.
+                    AnnotatedTerm dereferencedX = contextA.getTermMapping(x.label);
+                    AnnotatedTerm dereferencedY = contextB.getTermMapping(y.label);
+                    return Objects.equals(dereferencedX, dereferencedY);
+                }
+
+                // Otherwise, just compare for syntactic equality.
                 return x.label.equals(y.label);
             }
 
@@ -677,6 +722,15 @@ final class PortusUtil {
      * That is, two exprs that compare equal via areExprsEqual() have the same hash code.
      */
     public static int exprHashCode(Expr expr) {
+        return exprHashCode(expr, null);
+    }
+
+    /**
+     * A hashCode() implementation for Expr which is compliant with areExprsEqual() above.
+     * That is, two exprs that compare equal via areExprsEqual() have the same hash code.
+     * If the context passed is not null, this includes the context logic above.
+     */
+    public static int exprHashCode(Expr expr, VarMappingContext context) {
         if (expr == null) {
             return 3; // arbitrary to avoid NPEs
         }
@@ -756,6 +810,10 @@ final class PortusUtil {
 
             @Override
             public Integer visit(ExprVar x) throws Err {
+                if (context != null && context.hasTermMapping(x.label)) {
+                    // Use the term mapping instead
+                    return Objects.hash(73, context.getTermMapping(x.label));
+                }
                 return Objects.hash(83, x.label);
             }
 

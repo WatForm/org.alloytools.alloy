@@ -834,6 +834,24 @@ public class PortusUtilTest {
     }
 
     @Test
+    public void testAreExprsEqual_termMappings() {
+        // Test the context functionality - map to the same term, should compare equal.
+        ExprVar x = makeTestVar("x");
+        ExprVar y = makeTestVar("y");
+        Sort sort = Sort.mkSortConst("Sort");
+        AnnotatedVar fortressX = Term.mkVar("fx").of(sort);
+
+        VarMappingContext context1 = new VarMappingContext();
+        VarMappingContext context2 = new VarMappingContext();
+        context1.addTermMapping("x", new AnnotatedTerm(fortressX));
+        context2.addTermMapping("y", new AnnotatedTerm(fortressX));
+
+        assertTrue(PortusUtil.areExprsEqual(x, y, context1, context2));
+        assertFalse(PortusUtil.areExprsEqual(x, x, context1, context2)); // only one maps correctly
+        assertFalse(PortusUtil.areExprsEqual(y, y, context1, context2)); // only one maps correctly
+    }
+
+    @Test
     @SuppressWarnings("SuspiciousNameCombination")
     public void testExprHashCode() {
         // For a large list of expressions, test the invariant:
@@ -944,6 +962,24 @@ public class PortusUtilTest {
                 assertNotEquals(PortusUtil.exprHashCode(expr1), PortusUtil.exprHashCode(expr2));
             }
         }
+    }
+
+    @Test
+    public void testExprHashCode_termMapping() {
+        // map to the same term, should have the same hash code.
+        ExprVar x = makeTestVar("x");
+        ExprVar y = makeTestVar("y");
+        Sort sort = Sort.mkSortConst("Sort");
+        AnnotatedVar fortressX = Term.mkVar("fx").of(sort);
+
+        VarMappingContext context1 = new VarMappingContext();
+        VarMappingContext context2 = new VarMappingContext();
+        context1.addTermMapping("x", new AnnotatedTerm(fortressX));
+        context2.addTermMapping("y", new AnnotatedTerm(fortressX));
+
+        assertEquals(PortusUtil.exprHashCode(x, context1), PortusUtil.exprHashCode(y, context2));
+        assertNotEquals(PortusUtil.exprHashCode(x, context1), PortusUtil.exprHashCode(x, context2));
+        assertNotEquals(PortusUtil.exprHashCode(y, context1), PortusUtil.exprHashCode(y, context2));
     }
 
 }
