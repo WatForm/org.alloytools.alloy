@@ -66,18 +66,9 @@ final class Stopwatch {
         ns %= nsPerMinute;
 
         long nsPerSecond = 1000000000L;
-        long secs = ns / nsPerSecond;
-        if (secs > 0) {
-            builder.append(secs);
-            builder.append("s");
-        }
-        ns %= nsPerSecond;
-
-        // Only go down to millisecond precision
-        long nsPerMillis = 1000000L;
-        long ms = ns / nsPerMillis;
-        builder.append(ms);
-        builder.append("ms");
+        double secs = (double) ns / nsPerSecond;
+        builder.append(String.format("%.3f", secs));
+        builder.append("s");
         return builder.toString();
     }
 

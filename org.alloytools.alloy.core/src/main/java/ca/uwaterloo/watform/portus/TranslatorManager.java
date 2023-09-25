@@ -43,6 +43,7 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
 
     private final boolean useCaching;
     private final ContextExprCache<Term> translationCache;
+    private final ContextExprCache<Pair<AnnotatedTerm, Term>> castToScalarCache;
 
     /**
      * Create a TranslatorManager that uses the given reporter and options
@@ -56,6 +57,7 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
 
         this.useCaching = options.enableCaching;
         this.translationCache = new ContextExprCache<>(sortPolicy);
+        this.castToScalarCache = new ContextExprCache<>(sortPolicy);
 
         // Use the options to come up with a list of translators
         ScopeAxiomStrategy scopeAxiomStrategy;
@@ -171,9 +173,20 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
      */
     @Override
     public Pair<AnnotatedTerm, Term> castToScalar(Expr expr, TranslationContext context) {
+        if (useCaching) {
+            Pair<AnnotatedTerm, Term> cached = castToScalarCache.get(expr, context);
+            if (cached != null) {
+                statistics.incrementCastToScalarCacheHitCount();
+                return cached;
+            }
+        }
+
         for (ScalarCaster scalarCaster : scalarCasters) {
             Pair<AnnotatedTerm, Term> attempt = scalarCaster.castToScalar(expr, context);
             if (attempt != null) {
+                if (useCaching) {
+                    castToScalarCache.put(expr, context, attempt);
+                }
                 return attempt;
             }
         }
