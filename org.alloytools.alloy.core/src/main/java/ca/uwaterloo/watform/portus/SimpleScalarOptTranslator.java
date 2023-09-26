@@ -76,11 +76,15 @@ final class SimpleScalarOptTranslator implements Translator {
         }
         Pair<AnnotatedTerm, Term> rightScalarData = scalarCaster.castToScalar(expr.right, context);
         if (rightScalarData == null) {
-            // Left is a scalar - translate as [[guardLeft => left \in right]].
-            AnnotatedTerm scalarLeft = leftScalarData.a;
-            Term guardLeft = leftScalarData.b;
-            return Term.mkImp(guardLeft,
-                    rootTranslator.translate(ExprElementOf.make(scalarLeft, expr.right), context));
+            if (expr.op == ExprBinary.Op.IN) {
+                // Left is a scalar - translate as [[guardLeft => left \in right]].
+                AnnotatedTerm scalarLeft = leftScalarData.a;
+                Term guardLeft = leftScalarData.b;
+                return Term.mkImp(guardLeft,
+                        rootTranslator.translate(ExprElementOf.make(scalarLeft, expr.right), context));
+            } else {
+                return null;
+            }
         }
 
         // Short-circuit if the sorts aren't the same

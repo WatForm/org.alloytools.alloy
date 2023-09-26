@@ -153,6 +153,22 @@ public class SimpleScalarOptTranslatorTest {
     }
 
     @Test
+    public void testTranslate_scalarEqualsNonScalar_doesntApply() {
+        // test that the optimization tested above doesn't apply to [[v = e]]
+        Sort sort = Sort.mkSortConst("Sort");
+        ExprVar alloyX = ExprVar.make(null, "x");
+        ExprVar alloyE = ExprVar.make(null, "e");
+        Var x = Term.mkVar("x");
+        Term guardX = Term.mkVar("guardX");
+        when(mockScalarCaster.castToScalar(eq(alloyX), any()))
+                .thenReturn(new Pair<>(new AnnotatedTerm(x.of(sort)), guardX));
+
+        Translator translator = new SimpleScalarOptTranslator(mockTranslator, mockScalarCaster);
+        Term result = translator.translate(alloyX.equal(alloyE), context);
+        assertNull(result);
+    }
+
+    @Test
     public void testTranslate_scalarElementOf() {
         // test [[v \in e]] := guard && v = e
         Sort sort = Sort.mkSortConst("Sort");
