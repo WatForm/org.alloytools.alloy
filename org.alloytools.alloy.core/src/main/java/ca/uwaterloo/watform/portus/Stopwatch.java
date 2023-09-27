@@ -1,11 +1,20 @@
 package ca.uwaterloo.watform.portus;
 
+import fortress.util.StopWatch;
+
 import java.lang.management.ManagementFactory;
 
 /**
- * A single-shot stopwatch that measures CPU time.
+ * A single-shot stopwatch that measures CPU time or wall-clock time.
  */
 final class Stopwatch {
+
+    public enum TimeType {
+        CPU_TIME,
+        WALL_CLOCK_TIME,
+    }
+
+    private final TimeType timeType;
 
     private enum State {
         NOT_STARTED,
@@ -15,13 +24,36 @@ final class Stopwatch {
 
     private State state = State.NOT_STARTED;
 
+    public Stopwatch(TimeType timeType) {
+        this.timeType = timeType;
+    }
+
+    // Use wall-clock time by default.
+    public Stopwatch() {
+        this(TimeType.WALL_CLOCK_TIME);
+    }
+
     private long startTimestampNs = -1;
     private long durationNs = -1;
 
     private long getTimestampNs() {
-        // Use CPU time and not wall-clock time
+        switch (timeType) {
+            case CPU_TIME:
+                return getCpuTimeNs();
+            case WALL_CLOCK_TIME:
+            default:
+                return getWallClockTimeNs();
+        }
+    }
+
+    private static long getCpuTimeNs() {
+        // TODO: This seems to give horribly inaccurate times.
         long threadId = Thread.currentThread().getId();
         return ManagementFactory.getThreadMXBean().getThreadCpuTime(threadId);
+    }
+
+    private static long getWallClockTimeNs() {
+        return System.nanoTime();
     }
 
     public void start() {
