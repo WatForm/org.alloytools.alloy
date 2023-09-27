@@ -367,7 +367,6 @@ public class FortressSolution implements AlloySolution {
     @Override
     public void writeXML(
             A4Reporter rep, String filename, Iterable<Func> macros, Map<String, String> sourceFiles) throws Err {
-        System.out.println(filename);
         try (PrintWriter out = new PrintWriter(filename, "UTF-8")) {
             writeXML(rep, out, macros, sourceFiles);
             if (out.checkError()) {
