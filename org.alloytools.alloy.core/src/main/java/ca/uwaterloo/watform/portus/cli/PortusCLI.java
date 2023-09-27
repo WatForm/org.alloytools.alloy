@@ -151,6 +151,14 @@ public final class PortusCLI {
                 alloyOptions.portusOptions.timeoutMillis = 20 * 24 * 60 * 60 * 1000;
             }
 
+            // If no command names were specified and the option to run the nth command is specified,
+            // run only that command.
+            if (runAllCommands && options.pickCommandNumber.active()) {
+                int commandIndex = parsePickCommandNumber(options, commands.size(), alloyFilename);
+                Command command = commands.get(commandIndex);
+                return processCommand(world, command, alloyOptions, options, processors);
+            }
+
             boolean allSuccessful = true;
             for (Command command : commands) {
                 if (runAllCommands || commandNames.contains(command.label)) {
@@ -164,6 +172,37 @@ public final class PortusCLI {
             e.printStackTrace();
             return false;
         }
+    }
+
+    private static int parsePickCommandNumber(PortusCLIOptions options, int numCommands, String filename) {
+        if (!options.pickCommandNumber.active()) {
+            return -1;
+        }
+
+        String argument = options.pickCommandNumber.arguments().get(0);
+        int passedNumber;
+        try {
+            passedNumber = Integer.parseInt(argument);
+        } catch (NumberFormatException e) {
+            System.err.println("Error: invalid command number: " + argument);
+            options.printHelp(PROGRAM_NAME);
+            System.exit(-1);
+            return -1;
+        }
+
+        // User passes 1-indexed command number, convert to 0-indexed
+        int commandNumber = passedNumber - 1;
+        if (commandNumber < 0) {
+            System.err.println("Error: invalid command number (must be postive and 0-indexed): " + argument);
+            options.printHelp(PROGRAM_NAME);
+            System.exit(-1);
+        } else if (commandNumber >= numCommands) {
+            System.err.println("Error: command number " + argument + " is too large, there are only "
+                    + numCommands + " command(s) in " + filename);
+            options.printHelp(PROGRAM_NAME);
+            System.exit(-1);
+        }
+        return commandNumber;
     }
 
     /** Get a list of all the processors to use based on the options. */
@@ -191,7 +230,14 @@ public final class PortusCLI {
     }
 
     public static void main(String[] args) {
-        PortusCLIOptions options = new PortusCLIOptions(args);
+        PortusCLIOptions options;
+        try {
+            options = new PortusCLIOptions(args, PROGRAM_NAME);
+        } catch (IllegalArgumentException e) {
+            System.exit(-1);
+            return;
+        }
+
         if (options.help.active()) {
             options.printHelp(PROGRAM_NAME);
             System.exit(-1);

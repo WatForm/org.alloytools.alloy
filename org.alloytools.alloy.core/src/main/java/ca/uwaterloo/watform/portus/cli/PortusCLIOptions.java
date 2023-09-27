@@ -1,8 +1,11 @@
 package ca.uwaterloo.watform.portus.cli;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Map;
+import java.util.Objects;
 
 /**
  * The command-line options to the CLI. Handles parsing the command-line arguments and printing help.
@@ -14,6 +17,9 @@ final class PortusCLIOptions {
     public final Option adjustBitwidth = new Option(
             "-b", "Adjust bitwidths to be large enough for the cardinality scope axiom strategy");
     public final Option noTimeout = new Option("-nt", "Disable the 20-minute SMT solver timeout");
+
+    public final Option pickCommandNumber = new Option(
+            "-command", 1, "Run the arg'th command (1-indexed) in each file if no specific command is specified.");
 
     public final Option useRunPortusProcessor = new Option("-r", "Run Portus on each command.");
     public final Option useRunKodkodProcessor = new Option("-rk", "Run Kodkod (Sat4j) on each command.");
@@ -48,7 +54,7 @@ final class PortusCLIOptions {
             "-enable-caching", "Enable caching translations (experimental).");
 
     public final Option[] allOptions = new Option[] {
-            help, adjustBitwidth, noTimeout,
+            help, adjustBitwidth, noTimeout, pickCommandNumber,
             useRunPortusProcessor, useRunKodkodProcessor,
             useCorrectnessProcessor, useDeltaDebugProcessor,
             useOutputPreSmtlibProcessor, useOutputPostSmtlibProcessor,
@@ -58,16 +64,53 @@ final class PortusCLIOptions {
     };
 
     // The positional arguments - a list of Alloy command specifiers.
-    public final List<String> specifiers;
+    public final List<String> specifiers = new ArrayList<>();
 
-    private final List<String> args;
+    private final Map<Option, List<String>> activeOptionsToArgs = new HashMap<>();
 
-    public PortusCLIOptions(String[] args) {
-        this.args = Arrays.asList(args);
-        // filter out all the options
-        this.specifiers = this.args.stream()
-                .filter(arg -> Arrays.stream(allOptions).noneMatch(option -> option.name.equals(arg)))
-                .collect(Collectors.toList());
+    public PortusCLIOptions(String[] args, String programName) {
+        // parse through the args manually
+        int idx = 0;
+        while (idx < args.length) {
+            boolean foundOption = false;
+            for (Option option : allOptions) {
+                if (option.name.equals(args[idx])) {
+                    // don't allow options to be specified multiple times
+                    if (option.active()) {
+                        System.err.println("Error: option " + option.name
+                                + " cannot be specified multiple times.");
+                        printHelp(programName);
+                        throw new IllegalArgumentException();
+                    }
+
+                    // it's an option - capture its arguments
+                    List<String> optionArgs = new ArrayList<>();
+                    idx++; // advance past the option itself
+
+                    for (int i = 0; i < option.arity; i++) {
+                        if (idx >= args.length) {
+                            System.err.println("Error: not enough arguments for option: " + option.name
+                                    + " (expected " + option.arity + ")");
+                            printHelp(programName);
+                            throw new IllegalArgumentException();
+                        }
+                        optionArgs.add(args[idx]);
+                        idx++;
+                    }
+
+                    // set the option active and move on
+                    activeOptionsToArgs.put(option, optionArgs);
+                    foundOption = true;
+                    break;
+                }
+            }
+
+            if (!foundOption) {
+                // not an option - it's a specifier
+                specifiers.add(args[idx]);
+                idx++;
+            }
+        }
     }
 
     public void printHelp(String programName) {
@@ -99,25 +142,60 @@ final class PortusCLIOptions {
         }
     }
 
-    // We only support flag options (0-ary) for now.
     public final class Option {
 
         private final String name;
+        private final int arity;
+
         private final String help;
 
-        public Option(String name, String help) {
+        public Option(String name, int arity, String help) {
+            if (name == null || help == null) {
+                throw new NullPointerException();
+            }
             this.name = name;
             this.help = help;
+            this.arity = arity;
+        }
+
+        // Default to 0-ary
+        public Option(String name, String help) {
+            this(name, 0, help);
         }
 
         // Is the option enabled?
         public boolean active() {
-            return args.contains(name);
+            return activeOptionsToArgs.containsKey(this);
+        }
+
+        // Get the arguments passed to the option; must be active.
+        public List<String> arguments() {
+            if (!active()) {
+                throw new IllegalArgumentException("Option is not active!");
+            }
+            return activeOptionsToArgs.get(this);
         }
 
         // What should we display the option as for printing?
         public String displayName() {
-            return name;
+            StringBuilder builder = new StringBuilder(name);
+            for (int i = 0; i < arity; i++) {
+                builder.append(" <arg>");
+            }
+            return builder.toString();
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            Option option = (Option) o;
+            return arity == option.arity && name.equals(option.name);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(name, arity);
         }
 
     }
