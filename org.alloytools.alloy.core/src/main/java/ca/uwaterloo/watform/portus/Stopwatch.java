@@ -1,7 +1,5 @@
 package ca.uwaterloo.watform.portus;
 
-import fortress.util.StopWatch;
-
 import java.lang.management.ManagementFactory;
 
 /**
@@ -112,7 +110,7 @@ final class Stopwatch {
             case RUNNING:
                 return "(running)";
             case STOPPED:
-                return formatNanoseconds(durationNs);
+                return formatNanoseconds(getDurationInNanoseconds());
         }
     }
 

@@ -26,6 +26,7 @@ import java.util.List;
  *
  * This has the effect of greatly increasing calls to the translators!
  * TODO: Will this produce unnecessary side-effect axioms due to RangeAssigner?
+ * TODO: prune nodes that will never be scalars (all formulas)
  */
 final class ElementOfScalarCaster implements ScalarCaster {
 
