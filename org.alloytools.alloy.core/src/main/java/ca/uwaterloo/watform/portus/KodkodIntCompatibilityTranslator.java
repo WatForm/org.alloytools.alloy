@@ -1,0 +1,73 @@
+package ca.uwaterloo.watform.portus;
+
+import edu.mit.csail.sdg.alloy4.ErrorFatal;
+import edu.mit.csail.sdg.ast.ExprBinary;
+import fortress.msfol.IntegerLiteral;
+import fortress.msfol.Sort;
+import fortress.msfol.Term;
+
+/**
+ * A translator that tweaks Portus's integer semantics to be the same as that of Kodkod.
+ * Specifically, we patch division-by-zero semantics for consistency with Kodkod.
+ * The implementation is quite inefficient, so this should not be enabled by default.
+ */
+final class KodkodIntCompatibilityTranslator extends AbstractTranslator {
+
+    private final SortPolicy sortPolicy;
+
+    public KodkodIntCompatibilityTranslator(Translator topLevel, SortPolicy sortPolicy) {
+        super(topLevel);
+        this.sortPolicy = sortPolicy;
+    }
+
+    @Override
+    public Term translate(ExprBinary expr, TranslationContext context) {
+        if (expr.op != ExprBinary.Op.DIV) return null;
+
+        sortPolicy.checkIsInt(
+                expr.op + " requires both sides to be integer expressions!", expr.left, expr.right);
+
+        return makeKodkodCompatibleDiv(
+                recursivelyTranslate(expr.left, context),
+                recursivelyTranslate(expr.right, context));
+    }
+
+    @Override
+    public Term translate(TermTuple tuple, ExprBinary expr, TranslationContext context) {
+        if (expr.op != ExprBinary.Op.DIV) return null;
+
+        if (tuple.size() != 1) {
+            throw new ErrorFatal("The arity of an arithmetic operation must be 1.");
+        }
+        if (!tuple.getSort(0).equals(Sort.Int())) {
+            // Fortress will reject = with mismatched sorts, but we know they aren't equal if it's not an int
+            return Term.mkBottom();
+        }
+
+        return Term.mkEq(tuple.getTerm(0), makeKodkodCompatibleDiv(
+                recursivelyTranslate(expr.left, context),
+                recursivelyTranslate(expr.right, context)));
+    }
+
+    private Term makeKodkodCompatibleDiv(Term num, Term denom) {
+        // Kodkod division-by-zero semantics, as determined empirically:
+        //         { -1 if x > 0
+        //   x/0 = {  0 if x = 0
+        //         {  1 if x < 0
+        // Fortress might produce different results, so explicitly implement the above for full
+        // compatibility with Kodkod. This is very inefficient but provides compatibility.
+        return Term.mkIfThenElse(Term.mkEq(denom, IntegerLiteral.apply(0)),
+                Term.mkIfThenElse(Term.mkEq(num, IntegerLiteral.apply(0)),
+                        IntegerLiteral.apply(0),
+                        Term.mkIfThenElse(Term.mkGT(num, IntegerLiteral.apply(0)),
+                                IntegerLiteral.apply(-1),
+                                IntegerLiteral.apply(1))),
+                Term.mkDiv(num, denom));
+    }
+
+    @Override
+    public String name() {
+        return "Kodkod Integer Compatibility";
+    }
+
+}

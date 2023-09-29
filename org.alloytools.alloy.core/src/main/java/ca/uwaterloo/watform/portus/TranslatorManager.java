@@ -100,6 +100,9 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
         if (options.enableMembershipPredicateOptimization) {
             translators.add(membershipPredOpt);
         }
+        if (options.enableKodkodIntCompatibility) {
+            translators.add(new KodkodIntCompatibilityTranslator(this, sortPolicy));
+        }
         translators.add(defaultTranslator);
 
         if (options.enableOneSigOptimization) {

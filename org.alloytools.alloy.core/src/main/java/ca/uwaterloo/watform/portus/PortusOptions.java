@@ -70,10 +70,14 @@ public final class PortusOptions implements Serializable {
     public boolean enableJoinOptimization = true;
     public boolean enableOrderingModuleOptimization = true;
     public boolean enableMembershipPredicateOptimization = true;
+
     public boolean enablePartitionSortPolicy = true;
     public boolean enableConstantsScopeAxiomStrategy = true; // alternative: cardinality; TODO: refactor this
+
     public boolean enableElementOfScalarOptimization = false;
     public boolean enableCaching = false;
+
+    public boolean enableKodkodIntCompatibility = true;// false;
 
     // Create a PortusOptions specifying options.
     public PortusOptions(String outputDirectory, String outputName) {

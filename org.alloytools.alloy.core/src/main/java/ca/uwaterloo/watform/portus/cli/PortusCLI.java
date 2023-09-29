@@ -59,19 +59,22 @@ public final class PortusCLI {
         return new Pair<>(scoper.getBitwidth(), newCommand);
     }
 
-    private static void applyOptimizationFlags(PortusOptions options, PortusCLIOptions cliOptions) {
-        boolean disableAll = cliOptions.disableAllOpts.active();
-        options.enableSimpleScalarOptimization = !disableAll && !cliOptions.disableSimpleScalarOpt.active();
-        options.enableOneSigOptimization = !disableAll && !cliOptions.disableOneSigOpt.active();
-        options.enableJoinOptimization = !disableAll && !cliOptions.disableJoinOpt.active();
-        options.enableOrderingModuleOptimization = !disableAll && !cliOptions.disableOrderingModuleOpt.active();
-        options.enableMembershipPredicateOptimization = !disableAll
+    private static void applyOptionFlags(PortusOptions options, PortusCLIOptions cliOptions) {
+        boolean disableAllOpts = cliOptions.disableAllOpts.active();
+        options.enableSimpleScalarOptimization = !disableAllOpts && !cliOptions.disableSimpleScalarOpt.active();
+        options.enableOneSigOptimization = !disableAllOpts && !cliOptions.disableOneSigOpt.active();
+        options.enableJoinOptimization = !disableAllOpts && !cliOptions.disableJoinOpt.active();
+        options.enableOrderingModuleOptimization = !disableAllOpts && !cliOptions.disableOrderingModuleOpt.active();
+        options.enableMembershipPredicateOptimization = !disableAllOpts
                 && !cliOptions.disableMembershipPredicateOpt.active();
-        options.enablePartitionSortPolicy = !disableAll && !cliOptions.disablePartitionSortPolicy.active();
-        options.enableConstantsScopeAxiomStrategy = !disableAll
+        options.enablePartitionSortPolicy = !disableAllOpts && !cliOptions.disablePartitionSortPolicy.active();
+        options.enableConstantsScopeAxiomStrategy = !disableAllOpts
                 && !cliOptions.useCardinalityScopeAxiomStrategy.active();
+
         options.enableElementOfScalarOptimization = cliOptions.enableElementOfScalarOpt.active();
         options.enableCaching = cliOptions.enableCaching.active();
+
+        options.enableKodkodIntCompatibility = cliOptions.enableKodkodIntCompatibility.active();
     }
 
     /** Process a single command in an Alloy file with each of the chosen processors. Return whether all successful. */
@@ -144,7 +147,7 @@ public final class PortusCLI {
 
             A4Options alloyOptions = new A4Options();
             alloyOptions.originalFilename = alloyFilename;
-            applyOptimizationFlags(alloyOptions.portusOptions, options);
+            applyOptionFlags(alloyOptions.portusOptions, options);
 
             if (options.noTimeout.active()) {
                 // Set the timeout to something silly like 20 days
