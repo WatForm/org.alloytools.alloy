@@ -37,7 +37,7 @@ final class CorrectnessCommandProcessor implements CommandProcessor {
         } else {
             System.out.println(result.kind.description);
         }
-        statistics.printSummary();
+        statistics.printSummary(options.portusOptions);
         return !result.kind.isError;
     }
 

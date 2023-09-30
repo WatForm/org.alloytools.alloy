@@ -57,7 +57,7 @@ public class PortusStatistics {
         smtSolverStopwatch.stop();
     }
 
-    public void printSummary() {
+    public void printSummary(PortusOptions options) {
         final String indent = "  ";
         System.out.println("Statistics summary:");
         System.out.println(indent + "Translator usage counts:");
@@ -69,8 +69,10 @@ public class PortusStatistics {
                     System.out.print(": ");
                     System.out.println(entry.getValue());
                 });
-        System.out.println(indent + "Translation cache hits: " + getTranslationCacheHitCount());
-        System.out.println(indent + "Cast-to-scalar cache hits: " + getCastToScalarCacheHitCount());
+        if (options.enableCaching) {
+            System.out.println(indent + "Translation cache hits: " + getTranslationCacheHitCount());
+            System.out.println(indent + "Cast-to-scalar cache hits: " + getCastToScalarCacheHitCount());
+        }
         System.out.println(indent + "Portus time: " + portusStopwatch.formatDuration());
         System.out.println(indent + "SMT solver time: " + smtSolverStopwatch.formatDuration());
     }

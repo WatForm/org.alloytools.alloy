@@ -42,11 +42,11 @@ final class RunCommandProcessor implements CommandProcessor {
         } catch (Exception e) {
             System.out.println("Result: exception");
             e.printStackTrace();
-            statistics.printSummary();
+            statistics.printSummary(options.portusOptions);
             return false;
         }
 
-        statistics.printSummary();
+        statistics.printSummary(options.portusOptions);
         return true;
     }
 

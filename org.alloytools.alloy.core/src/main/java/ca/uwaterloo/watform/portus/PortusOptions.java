@@ -77,7 +77,7 @@ public final class PortusOptions implements Serializable {
     public boolean enableElementOfScalarOptimization = false;
     public boolean enableCaching = false;
 
-    public boolean enableKodkodIntCompatibility = true;// false;
+    public boolean enableKodkodIntCompatibility = false;
 
     // Create a PortusOptions specifying options.
     public PortusOptions(String outputDirectory, String outputName) {
