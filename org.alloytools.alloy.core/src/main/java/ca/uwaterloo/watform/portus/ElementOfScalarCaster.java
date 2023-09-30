@@ -25,8 +25,7 @@ import java.util.List;
  * casting "y.(x.f)" to "f(x,y)", where f is a binary function and x and y are variables.
  *
  * This has the effect of greatly increasing calls to the translators!
- * TODO: Will this produce unnecessary side-effect axioms due to RangeAssigner?
- * TODO: prune nodes that will never be scalars (all formulas)
+ * TODO: Will this produce unnecessary side-effect axioms due to RangeAssigner? (Copy the context?)
  */
 final class ElementOfScalarCaster implements ScalarCaster {
 
@@ -69,6 +68,12 @@ final class ElementOfScalarCaster implements ScalarCaster {
             return null;
         }
         Sort sort = resolvant.getDefiniteSorts().get(0);
+        if (sort.equals(Sort.Bool())) {
+            // Boolean expressions are formulas, not scalars.
+            // Note: this should prune out a large number of large expressions that this function is
+            // otherwise called on, because non-formula nodes tend to be close to the leaves of the AST.
+            return null;
+        }
         AnnotatedVar x = Term.mkVar(context.nameGenerator.freshName("x")).of(sort);
 
         // Translate [[x \in expr]] and see what we get.
