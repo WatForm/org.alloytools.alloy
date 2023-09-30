@@ -18,4 +18,11 @@ interface ScalarCaster {
      */
     Pair<AnnotatedTerm, Term> castToScalar(Expr expr, TranslationContext context);
 
+    /**
+     * The name of the scalar caster, for display purposes.
+     */
+    default String name() {
+        return "(anonymous)";
+    }
+
 }

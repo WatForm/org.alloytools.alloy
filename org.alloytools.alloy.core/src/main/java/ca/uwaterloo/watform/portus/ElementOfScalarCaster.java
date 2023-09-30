@@ -31,15 +31,22 @@ final class ElementOfScalarCaster implements ScalarCaster {
 
     private final Translator rootTranslator;
     private final SortPolicy sortPolicy;
+    private final PortusStatistics statistics;
 
     // Unfortunately we have to keep state to avoid stack overflows: we shouldn't invoke this scalar caster
     // during the translations it invokes.
     // This means that this scalar caster is not threadsafe (but all of Portus likely isn't).
     private boolean currentlyRunning = false;
 
-    public ElementOfScalarCaster(Translator rootTranslator, SortPolicy sortPolicy) {
+    public ElementOfScalarCaster(Translator rootTranslator, SortPolicy sortPolicy, PortusStatistics statistics) {
         this.rootTranslator = rootTranslator;
         this.sortPolicy = sortPolicy;
+        this.statistics = statistics;
+    }
+
+    @Override
+    public String name() {
+        return "Element-of";
     }
 
     @Override
@@ -136,6 +143,7 @@ final class ElementOfScalarCaster implements ScalarCaster {
         // return an AnnotatedTerm.
         // Also TODO: should we be using getTheory()?
         if (!TermOps.wrapTerm(scalar).freeVars(context.getTheory().signature()).isEmpty()) {
+            statistics.incrementElementOfScalarCasterIgnoredDueToFreeVarsCount();
             return null;
         }
 

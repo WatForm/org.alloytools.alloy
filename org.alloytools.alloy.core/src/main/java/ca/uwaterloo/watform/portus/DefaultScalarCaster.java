@@ -68,6 +68,11 @@ final class DefaultScalarCaster implements ScalarCaster {
     }
 
     @Override
+    public String name() {
+        return "Default";
+    }
+
+    @Override
     public Pair<AnnotatedTerm, Term> castToScalar(Expr expr, TranslationContext context) {
         return new ContextVisitReturn<Pair<AnnotatedTerm, Term>>(context, sortPolicy) {
             private Pair<AnnotatedTerm, Term> castByTranslating(Expr expr, Sort sort) {

@@ -18,6 +18,25 @@ public class PortusStatistics {
         translatorUsageCounts.put(translator, translatorUsageCounts.get(translator) + 1);
     }
 
+    private final Map<ScalarCaster, Integer> scalarCasterUsageCounts = new HashMap<>();
+
+    public void incrementUsageCount(ScalarCaster scalarCaster) {
+        if (!scalarCasterUsageCounts.containsKey(scalarCaster)) {
+            scalarCasterUsageCounts.put(scalarCaster, 0);
+        }
+        scalarCasterUsageCounts.put(scalarCaster, scalarCasterUsageCounts.get(scalarCaster) + 1);
+    }
+
+    private int elementOfScalarCasterIgnoredDueToFreeVarsCount = 0;
+
+    public void incrementElementOfScalarCasterIgnoredDueToFreeVarsCount() {
+        elementOfScalarCasterIgnoredDueToFreeVarsCount++;
+    }
+
+    public int getElementOfScalarCasterIgnoredDueToFreeVarsCount() {
+        return elementOfScalarCasterIgnoredDueToFreeVarsCount;
+    }
+
     private int translationCacheHitCount = 0;
 
     public void incrementTranslationCacheHitCount() {
@@ -69,6 +88,17 @@ public class PortusStatistics {
                     System.out.print(": ");
                     System.out.println(entry.getValue());
                 });
+        System.out.println(indent + "Scalar caster usage counts:");
+        scalarCasterUsageCounts.entrySet().stream()
+                .sorted(Comparator.comparing(entry -> entry.getKey().name(), String::compareToIgnoreCase))
+                .forEach(entry -> {
+                    System.out.print(indent + indent);
+                    System.out.print(entry.getKey().name());
+                    System.out.print(": ");
+                    System.out.println(entry.getValue());
+                });
+        System.out.println(indent + "Times element-of scalar caster couldn't optimize due to free vars: "
+                + getElementOfScalarCasterIgnoredDueToFreeVarsCount());
         if (options.enableCaching) {
             System.out.println(indent + "Translation cache hits: " + getTranslationCacheHitCount());
             System.out.println(indent + "Cast-to-scalar cache hits: " + getCastToScalarCacheHitCount());

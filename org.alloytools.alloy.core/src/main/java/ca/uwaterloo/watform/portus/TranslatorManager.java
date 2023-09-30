@@ -114,7 +114,7 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
         }
         scalarCasters.add(new DefaultScalarCaster(this, this, sortPolicy));
         if (options.enableElementOfScalarOptimization) {
-            scalarCasters.add(new ElementOfScalarCaster(this, sortPolicy));
+            scalarCasters.add(new ElementOfScalarCaster(this, sortPolicy, statistics));
         }
 
         if (options.enableOneSigOptimization) {
@@ -127,6 +127,11 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
         evaluators.add(defaultTranslator);
         evaluators.add(new SimpleEvaluator(this));
         evaluators.add(new BruteForceEvaluator(this, sortPolicy));
+    }
+
+    @Override
+    public String name() {
+        return "Root";
     }
 
     /**
@@ -187,6 +192,7 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
         for (ScalarCaster scalarCaster : scalarCasters) {
             Pair<AnnotatedTerm, Term> attempt = scalarCaster.castToScalar(expr, context);
             if (attempt != null) {
+                statistics.incrementUsageCount(scalarCaster);
                 if (useCaching) {
                     castToScalarCache.put(expr, context, attempt);
                 }
