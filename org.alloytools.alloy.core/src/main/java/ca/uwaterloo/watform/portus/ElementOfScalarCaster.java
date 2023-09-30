@@ -25,7 +25,6 @@ import java.util.List;
  * casting "y.(x.f)" to "f(x,y)", where f is a binary function and x and y are variables.
  *
  * This has the effect of greatly increasing calls to the translators!
- * TODO: Will this produce unnecessary side-effect axioms due to RangeAssigner? (Copy the context?)
  */
 final class ElementOfScalarCaster implements ScalarCaster {
 
@@ -84,8 +83,12 @@ final class ElementOfScalarCaster implements ScalarCaster {
         AnnotatedVar x = Term.mkVar(context.nameGenerator.freshName("x")).of(sort);
 
         // Translate [[x \in expr]] and see what we get.
+        // Use a copy of the context to ignore side effects because this translation isn't being used.
+        // TODO: Since we ignore side effects, cache entries from this translation are invalid because
+        // TODO: further cache hits in the main translation will expect the side effect to have already occurred.
         Expr elementOf = ExprElementOf.make(x, expr);
-        Term elementOfResult = rootTranslator.translate(elementOf, context);
+        TranslationContext contextCopy = new TranslationContext(context);
+        Term elementOfResult = rootTranslator.translate(elementOf, contextCopy);
 
         // See if it's of the form "guard && x = f".
         // There should be one conjunct of the form "x = f", and the rest shouldn't reference x (they're the guard).
@@ -115,7 +118,7 @@ final class ElementOfScalarCaster implements ScalarCaster {
                 }
 
                 // The scalar term shouldn't reference x
-                if (!isVarFreeInTerm(x.variable(), scalar)) {
+                if (isVarFreeInTerm(x.variable(), scalar)) {
                     return null;
                 }
             } else {
