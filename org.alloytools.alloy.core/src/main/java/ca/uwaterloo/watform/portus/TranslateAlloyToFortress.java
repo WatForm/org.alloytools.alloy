@@ -100,6 +100,8 @@ public final class TranslateAlloyToFortress implements CommandRunner {
 
         // Perform the entire translation.
         translatorManager.runAllPasses(sigs, command, scoper, context);
+
+        statistics.setTheoryStats(context.getTheory());
         logger.translationFinished(context.getTheory());
 
         // Write raw MSFOL or SMTLIB+ to file if the appropriate solver is chosen

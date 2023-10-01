@@ -1,5 +1,7 @@
 package ca.uwaterloo.watform.portus;
 
+import fortress.msfol.Theory;
+
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
@@ -68,19 +70,59 @@ public final class PortusStatistics {
         smtSolverStopwatch.stop();
     }
 
+    private boolean hasTheoryStats = false;
+    private int theorySortCount = -1;
+    private int theoryFuncCount = -1;
+    private int theoryConstCount = -1;
+    private int theoryAxiomCount = -1;
+    private int theorySymbolCount = -1;
+
+    public void setTheoryStats(Theory theory) {
+        hasTheoryStats = true;
+        theorySortCount = theory.sorts().size();
+        theoryFuncCount = theory.functionDeclarations().size();
+        theoryConstCount = theory.constantDeclarations().size();
+        theoryAxiomCount = theory.axioms().size();
+        theorySymbolCount = PortusUtil.countSymbols(theory);
+    }
+
+    @SuppressWarnings("SameParameterValue")
+    private void printTheoryStats(String indent) {
+        if (!hasTheoryStats) {
+            System.out.println(indent + "(none)");
+            return;
+        }
+
+        System.out.println(indent + "Sorts: " + theorySortCount);
+        System.out.println(indent + "Functions: " + theoryFuncCount);
+        System.out.println(indent + "Constants: " + theoryConstCount);
+        System.out.println(indent + "Axioms: " + theoryAxiomCount);
+        System.out.println(indent + "Symbols: " + theorySymbolCount);
+    }
+
     public void printSummary(PortusOptions options) {
         final String indent = "  ";
         System.out.println("Statistics summary:");
+
+        System.out.println(indent + "Theory statistics:");
+        printTheoryStats(indent + indent);
+
         System.out.println(indent + "Translator usage counts:");
         translatorUsageCounts.print(indent + indent, Translator::name);
+
         System.out.println(indent + "Scalar caster usage counts:");
         scalarCasterUsageCounts.print(indent + indent, ScalarCaster::name);
-        System.out.println(indent + "Times element-of scalar caster couldn't optimize due to free vars: "
-                + elementOfScalarCasterIgnoredDueToFreeVarsCount.count);
+
+        if (options.enableElementOfScalarOptimization) {
+            System.out.println(indent + "Times element-of scalar caster couldn't optimize due to free vars: "
+                    + elementOfScalarCasterIgnoredDueToFreeVarsCount.count);
+        }
+
         if (options.enableCaching) {
             System.out.println(indent + "Translation cache hits: " + translationCacheHitCount.count);
             System.out.println(indent + "Cast-to-scalar cache hits: " + castToScalarCacheHitCount.count);
         }
+
         System.out.println(indent + "Portus time: " + portusStopwatch.formatDuration());
         System.out.println(indent + "SMT solver time: " + smtSolverStopwatch.formatDuration());
     }
