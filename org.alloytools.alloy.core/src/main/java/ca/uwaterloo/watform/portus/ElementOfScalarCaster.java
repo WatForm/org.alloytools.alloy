@@ -146,7 +146,7 @@ final class ElementOfScalarCaster implements ScalarCaster {
         // return an AnnotatedTerm.
         // Also TODO: should we be using getTheory()?
         if (!TermOps.wrapTerm(scalar).freeVars(context.getTheory().signature()).isEmpty()) {
-            statistics.incrementElementOfScalarCasterIgnoredDueToFreeVarsCount();
+            statistics.elementOfScalarCasterIgnoredDueToFreeVarsCount.increment();
             return null;
         }
 

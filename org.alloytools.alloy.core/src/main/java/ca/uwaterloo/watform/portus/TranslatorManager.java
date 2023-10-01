@@ -156,7 +156,7 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
             Term cached = translationCache.get(expr, context);
             if (cached != null) {
                 // Cache hit!
-                statistics.incrementTranslationCacheHitCount();
+                statistics.translationCacheHitCount.increment();
                 return cached;
             }
         }
@@ -164,7 +164,7 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
         for (Translator translator : translators) {
             Term attempt = translator.translate(expr, context);
             if (attempt != null) {
-                statistics.incrementUsageCount(translator);
+                statistics.translatorUsageCounts.increment(translator);
                 if (useCaching) {
                     translationCache.put(expr, context, attempt);
                 }
@@ -184,7 +184,7 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
         if (useCaching) {
             Pair<AnnotatedTerm, Term> cached = castToScalarCache.get(expr, context);
             if (cached != null) {
-                statistics.incrementCastToScalarCacheHitCount();
+                statistics.castToScalarCacheHitCount.increment();
                 return cached;
             }
         }
@@ -192,7 +192,7 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
         for (ScalarCaster scalarCaster : scalarCasters) {
             Pair<AnnotatedTerm, Term> attempt = scalarCaster.castToScalar(expr, context);
             if (attempt != null) {
-                statistics.incrementUsageCount(scalarCaster);
+                statistics.scalarCasterUsageCounts.increment(scalarCaster);
                 if (useCaching) {
                     castToScalarCache.put(expr, context, attempt);
                 }

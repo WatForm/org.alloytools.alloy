@@ -3,59 +3,51 @@ package ca.uwaterloo.watform.portus;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Function;
 
 /**
  * Performs all the data collection needed for the paper.
+ * Objects should have no side effects outside of the explicit output functions like printSummary().
  */
-public class PortusStatistics {
+public final class PortusStatistics {
 
-    private final Map<Translator, Integer> translatorUsageCounts = new HashMap<>();
+    public static final class UsageCounts<T> {
+        private final Map<T, Integer> usageCounts = new HashMap<>();
 
-    public void incrementUsageCount(Translator translator) {
-        if (!translatorUsageCounts.containsKey(translator)) {
-            translatorUsageCounts.put(translator, 0);
+        public void increment(T t) {
+            if (!usageCounts.containsKey(t)) {
+                usageCounts.put(t, 0);
+            }
+            usageCounts.put(t, usageCounts.get(t) + 1);
         }
-        translatorUsageCounts.put(translator, translatorUsageCounts.get(translator) + 1);
-    }
 
-    private final Map<ScalarCaster, Integer> scalarCasterUsageCounts = new HashMap<>();
-
-    public void incrementUsageCount(ScalarCaster scalarCaster) {
-        if (!scalarCasterUsageCounts.containsKey(scalarCaster)) {
-            scalarCasterUsageCounts.put(scalarCaster, 0);
+        @SuppressWarnings("SameParameterValue")
+        private void print(String indent, Function<T, String> namer) {
+            usageCounts.entrySet().stream()
+                    .sorted(Comparator.comparing(entry -> namer.apply(entry.getKey()), String::compareToIgnoreCase))
+                    .forEach(entry -> {
+                        System.out.print(indent);
+                        System.out.print(namer.apply(entry.getKey()));
+                        System.out.print(": ");
+                        System.out.println(entry.getValue());
+                    });
         }
-        scalarCasterUsageCounts.put(scalarCaster, scalarCasterUsageCounts.get(scalarCaster) + 1);
     }
 
-    private int elementOfScalarCasterIgnoredDueToFreeVarsCount = 0;
+    public static final class Counter {
+        private int count = 0;
 
-    public void incrementElementOfScalarCasterIgnoredDueToFreeVarsCount() {
-        elementOfScalarCasterIgnoredDueToFreeVarsCount++;
+        public void increment() {
+            count++;
+        }
     }
 
-    public int getElementOfScalarCasterIgnoredDueToFreeVarsCount() {
-        return elementOfScalarCasterIgnoredDueToFreeVarsCount;
-    }
+    public final UsageCounts<Translator> translatorUsageCounts = new UsageCounts<>();
+    public final UsageCounts<ScalarCaster> scalarCasterUsageCounts = new UsageCounts<>();
 
-    private int translationCacheHitCount = 0;
-
-    public void incrementTranslationCacheHitCount() {
-        translationCacheHitCount++;
-    }
-
-    public int getTranslationCacheHitCount() {
-        return translationCacheHitCount;
-    }
-
-    private int castToScalarCacheHitCount = 0;
-
-    public void incrementCastToScalarCacheHitCount() {
-        castToScalarCacheHitCount++;
-    }
-
-    public int getCastToScalarCacheHitCount() {
-        return castToScalarCacheHitCount;
-    }
+    public final Counter elementOfScalarCasterIgnoredDueToFreeVarsCount = new Counter();
+    public final Counter translationCacheHitCount = new Counter();
+    public final Counter castToScalarCacheHitCount = new Counter();
 
     private final Stopwatch portusStopwatch = new Stopwatch();
     private final Stopwatch smtSolverStopwatch = new Stopwatch();
@@ -80,28 +72,14 @@ public class PortusStatistics {
         final String indent = "  ";
         System.out.println("Statistics summary:");
         System.out.println(indent + "Translator usage counts:");
-        translatorUsageCounts.entrySet().stream()
-                .sorted(Comparator.comparing(entry -> entry.getKey().name(), String::compareToIgnoreCase))
-                .forEach(entry -> {
-                    System.out.print(indent + indent);
-                    System.out.print(entry.getKey().name());
-                    System.out.print(": ");
-                    System.out.println(entry.getValue());
-                });
+        translatorUsageCounts.print(indent + indent, Translator::name);
         System.out.println(indent + "Scalar caster usage counts:");
-        scalarCasterUsageCounts.entrySet().stream()
-                .sorted(Comparator.comparing(entry -> entry.getKey().name(), String::compareToIgnoreCase))
-                .forEach(entry -> {
-                    System.out.print(indent + indent);
-                    System.out.print(entry.getKey().name());
-                    System.out.print(": ");
-                    System.out.println(entry.getValue());
-                });
+        scalarCasterUsageCounts.print(indent + indent, ScalarCaster::name);
         System.out.println(indent + "Times element-of scalar caster couldn't optimize due to free vars: "
-                + getElementOfScalarCasterIgnoredDueToFreeVarsCount());
+                + elementOfScalarCasterIgnoredDueToFreeVarsCount.count);
         if (options.enableCaching) {
-            System.out.println(indent + "Translation cache hits: " + getTranslationCacheHitCount());
-            System.out.println(indent + "Cast-to-scalar cache hits: " + getCastToScalarCacheHitCount());
+            System.out.println(indent + "Translation cache hits: " + translationCacheHitCount.count);
+            System.out.println(indent + "Cast-to-scalar cache hits: " + castToScalarCacheHitCount.count);
         }
         System.out.println(indent + "Portus time: " + portusStopwatch.formatDuration());
         System.out.println(indent + "SMT solver time: " + smtSolverStopwatch.formatDuration());
