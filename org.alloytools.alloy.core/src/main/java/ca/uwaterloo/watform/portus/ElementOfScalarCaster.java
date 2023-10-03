@@ -84,11 +84,15 @@ final class ElementOfScalarCaster implements ScalarCaster {
 
         // Translate [[x \in expr]] and see what we get.
         // Use a copy of the context to ignore side effects because this translation isn't being used.
+        // FIXME: We can't currently copy the context because DefaultTranslator keeps the closure aux function state.
+        // FIXME: Refactor by moving that state to TranslationContext, then we can copy the context here.
+        // FIXME: Wait, but what if the result refers to a function that only makes sense in the mutated context?
         // TODO: Since we ignore side effects, cache entries from this translation are invalid because
         // TODO: further cache hits in the main translation will expect the side effect to have already occurred.
         Expr elementOf = ExprElementOf.make(x, expr);
-        TranslationContext contextCopy = new TranslationContext(context);
-        Term elementOfResult = rootTranslator.translate(elementOf, contextCopy);
+//        TranslationContext contextCopy = new TranslationContext(context);
+//        Term elementOfResult = rootTranslator.translate(elementOf, contextCopy);
+        Term elementOfResult = rootTranslator.translate(elementOf, context);
 
         // See if it's of the form "guard && x = f".
         // There should be one conjunct of the form "x = f", and the rest shouldn't reference x (they're the guard).
