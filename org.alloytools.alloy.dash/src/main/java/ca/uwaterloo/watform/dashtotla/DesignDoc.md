@@ -31,7 +31,23 @@ The same format is followed when multiple `.dsh` files are translated at a time.
 
 ## Guide to the Source Code
 
-All translation is done by [DashtoTLA.java](). The argument `-tla` is defined in [Dash.java](), which calls `MainFunctions.translateTLA() ` in [MainFunctions.java](), which in turn calls `DashtoTLA.translate()`. 
+- The argument `-tla` is defined in [Dash.java](), which calls `MainFunctions.translateTLA() ` in [MainFunctions.java](), which in turn calls `DashtoTLA.translate()`. 
+
+- The functions and global constants used in the translation are stored in different classes, purely to enhance readability. The classes have no non-static elements and are not intended to be used as object templates
+
+- [Util.java] stores useful functions that perform operations independent of the context of the transation.
+
+- [Transition.java]() contains code responsible for providing the formulae for all the transitions. Each transition is broken into a precondition and a postcondition for output readability.
+
+- [Atom.java]() contains a class concerned with defining the literals to which symbols point to. The literals defined here are not meant to be referred to in any other part of the translatin; they exist only because `TLA+` does not alloy one to use variables without initialization to some primitive type (or a composition thereof)
+
+- [StandardFormulae.java]() holds functions which generate formulae that occur in every translation, like `stutter`, `Init`, `Next` and `TypeOK`.
+
+- [Variable.java]() holds functions and constants which deal with `TLA+` variables (both standard ones like `conf`, `internal_events`, `environmental_events`, `scope_used` etc and those defined in the input)
+
+- [State.java]() contains formulae dealing with the control states in the input. (Note that the term "control state" does not refer to the term "state" as commonly understood)
+
+-[TLA.java]() contains everything to do with the syntax of TLA+. All syntax is encoded here, nothing is hardcoded in other classes. This class serves as a layer of abstraction over the final TLA+ output
 
 ## Design Decisions
 
@@ -52,5 +68,9 @@ All translation is done by [DashtoTLA.java](). The argument `-tla` is defined in
 - Formulae are global variables to enable quick edits
 
 - Internal and Environmental events are segregated
+
+- isInState will not guarantee that current value of conf is legal, but /\ is used to check for conc states since /\ is faster to compute
+
+- Cardinality is expensive to compute so Cardinality(S)=1 is the same as \all x,y \in S : x=y
 
 
