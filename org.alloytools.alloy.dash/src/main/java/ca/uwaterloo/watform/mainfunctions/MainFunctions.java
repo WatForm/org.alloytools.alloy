@@ -67,7 +67,15 @@ public class MainFunctions {
     }
     public static String translateTLA(DashModule d, String moduleName)
     {
-        return DashToTLA.translate(d, moduleName);
+        try
+        {
+            return DashToTLA.translate(new Object[]{d, moduleName});
+        }
+        catch(Exception e)
+        {
+            
+        }
+        return null;
     }
 
     public static CompModule resolveAlloy(CompModule c, A4Reporter rep) {
