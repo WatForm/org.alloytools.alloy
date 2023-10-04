@@ -18,7 +18,7 @@ import ca.uwaterloo.watform.core.DashOptions;
 import ca.uwaterloo.watform.core.DashErrors;
 import ca.uwaterloo.watform.parser.DashUtil;
 import ca.uwaterloo.watform.parser.DashModule;
-import ca.uwaterloo.watform.dashtotla.DashtoTLA;
+import ca.uwaterloo.watform.dashtotla.DashToTLA;
 
 
 // no io in these!
@@ -67,7 +67,7 @@ public class MainFunctions {
     }
     public static String translateTLA(DashModule d, String moduleName)
     {
-        return DashtoTLA.translate(d, moduleName);
+        return DashToTLA.translate(d, moduleName);
     }
 
     public static CompModule resolveAlloy(CompModule c, A4Reporter rep) {
