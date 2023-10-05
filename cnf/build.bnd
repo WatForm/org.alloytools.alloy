@@ -50,6 +50,9 @@ Bundle-Version:         ${base.version}.${tstamp}
         snapshotUrl         ='https://oss.sonatype.org/content/repositories/snapshots/,https://bndtools.jfrog.io/bndtools/update';\
         index               ='${.}/central.mvn';\
         readOnly            =true,\
+    aQute.bnd.deployer.repository.LocalIndexedRepo;\
+      name                =LocalLocal;\
+      local               ='${.}/libs'
 
 -releaserepo: Nexus
 -buildrepo: Local

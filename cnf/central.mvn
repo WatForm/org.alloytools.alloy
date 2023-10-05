@@ -27,6 +27,10 @@ biz.aQute:biz.aQute.wrapper.junit:4.13.1
 biz.aQute.bnd:aQute.libg:6.1.0
 org.osgi:org.osgi.annotation.bundle:1.1.1
 org.osgi:osgi.annotation:8.0.1
+org.junit.jupiter:junit-jupiter-engine:5.10.0
+org.junit.vintage:junit-vintage-engine:5.10.0
+com.code-intelligence:jazzer-junit:0.21.1
+com.code-intelligence:jazzer-api:0.21.1
 # Mockito and dependencies
 org.mockito:mockito-core:4.3.1
 net.bytebuddy:byte-buddy:1.12.8

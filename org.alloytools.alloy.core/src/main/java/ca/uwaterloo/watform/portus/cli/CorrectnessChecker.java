@@ -37,7 +37,7 @@ import java.io.StringWriter;
 import java.io.UncheckedIOException;
 import java.util.stream.Collectors;
 
-final class CorrectnessChecker {
+public final class CorrectnessChecker {
 
     public static final class Result {
         public enum Kind {

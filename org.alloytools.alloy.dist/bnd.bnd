@@ -34,6 +34,7 @@ JPM-Command: alloy
     @${repo;org.eclipse.equinox.common}, \
     @${repo;org.apache.commons.io}, \
     @${repo;org.alloytools.fortress.core}, \
+    @${workspace}/libs/jazzer_standalone.jar, \
 	LICENSES
 
 -dependson: *

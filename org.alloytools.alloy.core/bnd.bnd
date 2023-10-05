@@ -5,6 +5,7 @@
     @${repo;slf4j.api}, \
 
 -buildpath: \
+	../libs/jazzer_standalone.jar;version=file,\
 	org.alloytools:pardinus.core;version='1.3.0',\
 	org.alloytools:pardinus.nativesat;version='1.3.0',\
 	org.alloytools.fortress.core;version=latest,\
@@ -14,6 +15,10 @@
 	slf4j.api
 
 -testpath: \
+	org.junit.jupiter:junit-jupiter-engine;version=5.10.0, \
+	org.junit.vintage:junit-vintage-engine;version=5.10.0, \
+	com.code-intelligence:jazzer-junit;version=0.21.1, \
+	com.code-intelligence:jazzer-api;version=0.21.1, \
 	biz.aQute.wrapper.junit, \
 	biz.aQute.wrapper.hamcrest, \
     src/main/resources;version=file, \
