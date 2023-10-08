@@ -1,0 +1,624 @@
+package ca.uwaterloo.watform.portus.fuzz;
+
+import ca.uwaterloo.watform.portus.cli.CorrectnessChecker;
+import com.code_intelligence.jazzer.api.FuzzedDataProvider;
+import edu.mit.csail.sdg.alloy4.ErrorFatal;
+import edu.mit.csail.sdg.alloy4.Pair;
+import edu.mit.csail.sdg.ast.Command;
+import edu.mit.csail.sdg.ast.Decl;
+import edu.mit.csail.sdg.ast.Expr;
+import edu.mit.csail.sdg.ast.ExprBinary;
+import edu.mit.csail.sdg.ast.ExprCall;
+import edu.mit.csail.sdg.ast.ExprConstant;
+import edu.mit.csail.sdg.ast.ExprHasName;
+import edu.mit.csail.sdg.ast.ExprLet;
+import edu.mit.csail.sdg.ast.ExprList;
+import edu.mit.csail.sdg.ast.ExprQt;
+import edu.mit.csail.sdg.ast.ExprUnary;
+import edu.mit.csail.sdg.ast.ExprVar;
+import edu.mit.csail.sdg.ast.Func;
+import edu.mit.csail.sdg.ast.Sig;
+import edu.mit.csail.sdg.translator.A4Options;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
+@SuppressWarnings("unused")
+public class ASTFuzzTarget {
+
+    private static class FuzzContext {
+        List<Sig> sigs = new ArrayList<>();
+        List<ExprVar> formulaVars = new ArrayList<>();
+        List<Pair<Expr, Integer>> exprVars = new ArrayList<>(); // (var, arity)
+        List<ExprVar> intVars = new ArrayList<>();
+        List<Func> funcs = new ArrayList<>();
+    }
+
+    public static void fuzzerTestOneInput(FuzzedDataProvider data) {
+        FuzzContext context = new FuzzContext();
+
+        // Generate all sigs
+        int numSigs = data.consumeInt(0, 10);
+        List<Sig.PrimSig> primSigs = new ArrayList<>();
+        for (int i = 0; i < numSigs; i++) {
+            String sigName = "S_" + makeName(data) + "_" + i; // make them unique
+            boolean usePrimSig = primSigs.isEmpty() || data.consumeBoolean();
+            if (usePrimSig) {
+                Sig.PrimSig sig;
+                boolean useParent = !primSigs.isEmpty() && data.consumeBoolean();
+                if (useParent) {
+                    Sig.PrimSig parent = pick(primSigs, data);
+                    sig = new Sig.PrimSig(null, sigName, null, parent);
+                } else {
+                    sig = new Sig.PrimSig(sigName);
+                }
+                primSigs.add(sig);
+                context.sigs.add(sig);
+            } else { // subset sig
+                int numParents = data.consumeInt(1, context.sigs.size());
+                List<Sig> parents = pickSubset(context.sigs, numParents, data);
+                Sig.SubsetSig sig = new Sig.SubsetSig(null, sigName, null, parents);
+                context.sigs.add(sig);
+            }
+        }
+
+        // Generate fields for each sig
+        for (Sig sig : context.sigs) {
+            int numFields = data.consumeInt(0, 5);
+            for (int i = 0; i < numFields; i++) {
+                String fieldName = "f_" + makeName(data) + "_" + i; // make them unique within a sig
+                int arity = data.consumeInt(1, 4);
+
+                // TODO: field expr bounds use some special AST nodes, like SOMEOF
+                Expr bound = makeExpr(data, arity, context);
+                Sig.Field field = sig.addField(fieldName, bound);
+                context.exprVars.add(new Pair<>(field, arity));
+            }
+        }
+
+        // Generate funcs
+        int numFuncs = data.consumeInt(0, 10);
+        for (int i = 0; i < numFuncs; i++) {
+            String funcName = "F_" + makeName(data) + "_" + i; // make them unique
+
+            int numDecls = data.consumeInt(0, 5);
+            List<Decl> decls = new ArrayList<>();
+            List<Pair<Expr, Integer>> addedVars = new ArrayList<>();
+            for (int j = 0; j < numDecls; j++) {
+                int arity = data.consumeInt(1, 3);
+                // Use univ to avoid typechecking issues
+                Expr bound = tileWithArity(Sig.UNIV, arity);
+                int numVars = data.consumeInt(1, 3);
+                List<ExprVar> vars = new ArrayList<>();
+                for (int k = 0; k < numVars; k++) {
+                    ExprVar newVar = ExprVar.make(null, makeName(data));
+                    Pair<Expr, Integer> varAndArity = new Pair<>(newVar, arity);
+                    addedVars.add(varAndArity);
+                    context.exprVars.add(varAndArity);
+                    vars.add(newVar);
+                }
+                decls.add(new Decl(null, null, null, null, vars, bound));
+            }
+
+            Func func;
+            boolean isPred = data.consumeBoolean();
+            if (isPred) {
+                Expr body = makeFormula(data, context);
+                func = new Func(null, null, funcName, decls, null, body);
+            } else {
+                int arity = data.consumeInt(1, 3);
+                Expr body = makeExpr(data, arity, context);
+                Expr returnBound = tileWithArity(Sig.UNIV, arity); // avoid typechecking issues
+                func = new Func(null, null, funcName, decls, returnBound, body);
+            }
+            context.funcs.add(func);
+
+            // Remove all the vars we added for the func
+            for (Pair<Expr, Integer> varAndArity : addedVars) {
+                context.exprVars.remove(varAndArity);
+            }
+        }
+
+        // Generate the command
+        Expr formula = makeFormula(data, context);
+        Command command = new Command(
+                data.consumeBoolean(), // is it a check or a run?
+                data.consumeInt(-1, 12), // overall scope; -1 = not specified
+                data.consumeInt(-1, 8), // bitwidth; -1 = not specified
+                data.consumeInt(-1, 8), // maxseq; -1 = not specified
+                ExprVar.make(null, "check"), // command keyword?
+                formula);
+        A4Options options = new A4Options();
+
+        // Check correctness and throw if bad
+        CorrectnessChecker checker = new CorrectnessChecker();
+        CorrectnessChecker.Result result = checker.checkCorrectness(context.sigs, command, options);
+        if (result.kind != CorrectnessChecker.Result.Kind.OK) {
+            throw new RuntimeException("Oh no! Result: " + result);
+        }
+    }
+
+    private static <T> T pick(List<? extends T> ts, FuzzedDataProvider data) {
+        return ts.get(data.consumeInt(0, ts.size() - 1));
+    }
+
+    private static <T> List<T> pickSubset(List<? extends T> ts, int amount, FuzzedDataProvider data) {
+        if (amount < 0 || amount >= ts.size()) {
+            throw new IllegalArgumentException("Bad subset size");
+        }
+        // Super inefficient!
+        List<? extends T> copy = new ArrayList<>(ts);
+        List<T> subset = new ArrayList<>();
+        for (int i = 0; i < amount; i++) {
+            int idx = data.consumeInt(0, copy.size() - 1);
+            subset.add(copy.get(idx));
+            copy.remove(idx);
+        }
+        return subset;
+    }
+
+    private static Expr makeFormula(FuzzedDataProvider data, FuzzContext context) {
+        switch (data.consumeInt(1, 14)) {
+            case 1: {
+                // variable
+                if (context.formulaVars.isEmpty()) {
+                    return ExprConstant.TRUE;
+                }
+                return pick(context.formulaVars, data);
+            }
+            case 2: {
+                // ExprBinary with formula
+                ExprBinary.Op op = pick(Arrays.asList(
+                        ExprBinary.Op.IFF,
+                        ExprBinary.Op.IMPLIES,
+                        ExprBinary.Op.EQUALS,
+                        ExprBinary.Op.NOT_EQUALS), data);
+                return op.make(null, null, makeFormula(data, context), makeFormula(data, context));
+            }
+            case 3: {
+                // ExprBinary with expr, any sort
+                int arity = data.consumeInt(0, 5);
+                ExprBinary.Op op = pick(Arrays.asList(
+                        ExprBinary.Op.EQUALS,
+                        ExprBinary.Op.NOT_EQUALS,
+                        ExprBinary.Op.IN,
+                        ExprBinary.Op.NOT_IN), data);
+                return op.make(null, null, makeExpr(data, arity, context), makeExpr(data, arity, context));
+            }
+            case 4: {
+                // ExprBinary with expr, int-specific
+                ExprBinary.Op op = pick(Arrays.asList(
+                        ExprBinary.Op.GT,
+                        ExprBinary.Op.GTE,
+                        ExprBinary.Op.LT,
+                        ExprBinary.Op.LTE,
+                        ExprBinary.Op.NOT_GT,
+                        ExprBinary.Op.NOT_GTE,
+                        ExprBinary.Op.NOT_LT,
+                        ExprBinary.Op.NOT_LTE), data);
+                return op.make(null, null, makeIntExpr(data, context), makeIntExpr(data, context));
+            }
+            case 5: {
+                // ExprUnary with formula
+                ExprUnary.Op op = pick(Arrays.asList(
+                        ExprUnary.Op.NOOP,
+                        ExprUnary.Op.NOT), data);
+                return op.make(null, makeFormula(data, context));
+            }
+            case 6: {
+                // ExprUnary with expr, any sort
+                int arity = data.consumeInt(0, 5);
+                ExprUnary.Op op = pick(Arrays.asList(
+                        ExprUnary.Op.NOOP,
+                        ExprUnary.Op.LONE,
+                        ExprUnary.Op.ONE,
+                        ExprUnary.Op.NO,
+                        ExprUnary.Op.SOME), data);
+                return op.make(null, makeExpr(data, arity, context));
+            }
+            case 7: {
+                // ExprConstant
+                return pick(Arrays.asList(ExprConstant.TRUE, ExprConstant.FALSE), data);
+            }
+            case 8: {
+                // ExprITE
+                return makeFormula(data, context).ite(
+                        makeFormula(data, context), makeFormula(data, context));
+            }
+            case 9: {
+                // ExprList
+                ExprList.Op op = pick(Arrays.asList(
+                        ExprList.Op.AND,
+                        ExprList.Op.OR,
+                        ExprList.Op.DISJOINT), data);
+                int length = data.consumeInt(2, 10);
+                return ExprList.make(null, null, op, IntStream.range(0, length)
+                        .mapToObj(i -> makeFormula(data, context))
+                        .collect(Collectors.toList()));
+            }
+            case 10: {
+                // ExprQt
+                ExprQt.Op op = pick(Arrays.asList(
+                        ExprQt.Op.ALL,
+                        ExprQt.Op.SOME,
+                        ExprQt.Op.LONE,
+                        ExprQt.Op.ONE,
+                        ExprQt.Op.NO), data);
+                List<Pair<Expr, Integer>> addedVars = new ArrayList<>();
+
+                int numDecls = data.consumeInt(1, 3);
+                List<Decl> decls = new ArrayList<>();
+                for (int i = 0; i < numDecls; i++) {
+                    Expr expr = makeExpr(data, 1, context); // Portus only supports arity 1 here
+                    int numVars = data.consumeInt(1, 3);
+                    for (int j = 0; j < numDecls; j++) {
+                        ExprVar newVar = ExprVar.make(null, makeName(data), expr.type());
+                        Pair<Expr, Integer> varAndArity = new Pair<>(newVar, 1);
+                        context.exprVars.add(varAndArity);
+                        addedVars.add(varAndArity);
+                    }
+                }
+
+                Expr sub = makeFormula(data, context);
+
+                // remove the added vars to recover the context
+                for (Pair<Expr, Integer> addedVar : addedVars) {
+                    context.exprVars.remove(addedVar);
+                }
+
+                return op.make(null, null, decls, sub);
+            }
+            case 11: {
+                // ExprLet with formula
+                Expr formula = makeFormula(data, context);
+                ExprVar newVar = ExprVar.make(null, makeName(data), formula.type());
+                context.formulaVars.add(newVar);
+                Expr sub = makeFormula(data, context);
+                context.formulaVars.remove(newVar);
+                return ExprLet.make(null, newVar, formula, sub);
+            }
+            case 12: {
+                // ExprLet with expression
+                int arity = data.consumeInt(1, 3);
+                Expr expr = makeExpr(data, arity, context);
+                ExprVar newVar = ExprVar.make(null, makeName(data), expr.type());
+                Pair<Expr, Integer> varAndArity = new Pair<>(newVar, arity);
+                context.exprVars.add(varAndArity);
+                Expr sub = makeFormula(data, context);
+                context.exprVars.remove(varAndArity);
+                return ExprLet.make(null, newVar, expr, sub);
+            }
+            case 13: {
+                // ExprLet with integer expression
+                Expr expr = makeIntExpr(data, context);
+                ExprVar newVar = ExprVar.make(null, makeName(data), expr.type());
+                context.intVars.add(newVar);
+                Expr sub = makeFormula(data, context);
+                context.intVars.remove(newVar);
+                return ExprLet.make(null, newVar, expr, sub);
+            }
+            case 14: {
+                // ExprCall
+                List<Func> preds = context.funcs.stream()
+                        .filter(func -> func.isPred)
+                        .collect(Collectors.toList());
+                if (preds.isEmpty()) {
+                    return ExprConstant.TRUE;
+                }
+                Func pred = pick(preds, data);
+
+                // TODO: this might cause too many typechecking errors to not respect the decl expr
+                // TODO: (maybe make them all univ?)
+                List<Expr> args = new ArrayList<>();
+                for (Decl decl : pred.decls) {
+                    // *ignoring* the decl expr except for its arity
+                    int arity = decl.expr.type().arity();
+                    for (ExprHasName name : decl.names) {
+                        args.add(makeExpr(data, arity, context));
+                    }
+                }
+                return ExprCall.make(null, null, pred, args, 0L);
+            }
+        }
+        throw new ErrorFatal("ASTFuzzTarget: unreachable!");
+    }
+
+    private static Expr makeExpr(FuzzedDataProvider data, int arity, FuzzContext context) {
+        if (arity <= 0) {
+            throw new ErrorFatal("ASTFuzzTarget: cannot make expression with arity <= 0");
+        }
+        switch (data.consumeInt(1, 16)) {
+            case 1: {
+                // ExprVar
+                List<Expr> withArity = context.exprVars.stream()
+                        .filter(varAndArity -> varAndArity.b == arity)
+                        .map(varAndArity -> varAndArity.a)
+                        .collect(Collectors.toList());
+                if (withArity.isEmpty()) {
+                    return makeNoneWithArity(arity);
+                }
+                return pick(withArity, data);
+            }
+            case 2: {
+                // ExprBinary with same arity on left and right
+                ExprBinary.Op op = pick(Arrays.asList(
+                        ExprBinary.Op.PLUS,
+                        ExprBinary.Op.MINUS,
+                        ExprBinary.Op.INTERSECT,
+                        ExprBinary.Op.PLUSPLUS), data);
+                return op.make(null, null, makeExpr(data, arity, context), makeExpr(data, arity, context));
+            }
+            case 3: {
+                // Arrow
+                // TODO: what to do about the multiplicities (need to be in for field decls)?
+                if (arity == 1) {
+                    return makeNoneWithArity(arity);
+                }
+                int leftArity = data.consumeInt(1, arity - 1);
+                int rightArity = arity - leftArity;
+                return makeExpr(data, leftArity, context).product(makeExpr(data, rightArity, context));
+            }
+            case 4: {
+                // Join
+                int leftArity = data.consumeInt(1, arity);
+                int rightArity = arity - leftArity + 1;
+                return makeExpr(data, leftArity, context).join(makeExpr(data, rightArity, context));
+            }
+            case 5: {
+                // Domain, range
+                Expr sub = makeExpr(data, arity, context);
+                Expr restriction = makeExpr(data, 1, context);
+                if (data.consumeBoolean()) {
+                    return sub.domain(restriction);
+                } else {
+                    return sub.range(restriction);
+                }
+            }
+            // TODO: SOMEOF, etc (for field decls)
+            case 6: {
+                // NOOP
+                return ExprUnary.Op.NOOP.make(null, makeExpr(data, arity, context));
+            }
+            case 7: {
+                // Transpose
+                if (arity != 2) {
+                    return makeNoneWithArity(arity);
+                }
+                return makeExpr(data, arity, context).transpose();
+            }
+            case 8: {
+                // Closure
+                if (arity != 2) {
+                    return makeNoneWithArity(arity);
+                }
+                Expr sub = makeExpr(data, arity, context);
+                if (data.consumeBoolean()) {
+                    return sub.closure();
+                } else {
+                    return sub.reflexiveClosure();
+                }
+            }
+            case 9: {
+                // ExprConstant
+                // *avoid* giving out univ to avoid quantifying over univ
+                if (arity == 2 && data.consumeBoolean()) {
+                    return ExprConstant.IDEN;
+                }
+                return makeNoneWithArity(arity);
+            }
+            case 10: {
+                // ExprITE
+                return makeFormula(data, context).ite(
+                        makeExpr(data, arity, context), makeExpr(data, arity, context));
+            }
+            case 11: {
+                // Comprehension
+                List<Pair<Expr, Integer>> addedVars = new ArrayList<>();
+
+                int numDecls = data.consumeInt(1, 3);
+                List<Decl> decls = new ArrayList<>();
+                for (int i = 0; i < numDecls; i++) {
+                    Expr expr = makeExpr(data, 1, context); // Portus only supports arity 1 here
+                    int numVars = data.consumeInt(1, 3);
+                    for (int j = 0; j < numDecls; j++) {
+                        ExprVar newVar = ExprVar.make(null, makeName(data), expr.type());
+                        Pair<Expr, Integer> varAndArity = new Pair<>(newVar, 1);
+                        context.exprVars.add(varAndArity);
+                        addedVars.add(varAndArity);
+                    }
+                }
+
+                Expr sub = makeExpr(data, arity, context);
+
+                // remove the added vars to recover the context
+                for (Pair<Expr, Integer> addedVar : addedVars) {
+                    context.exprVars.remove(addedVar);
+                }
+
+                return ExprQt.Op.COMPREHENSION.make(null, null, decls, sub);
+            }
+            case 12: {
+                // Sig: *don't* return Int to avoid mixing Int and other sorts (like A+Int)
+                if (arity != 1) {
+                    return makeNoneWithArity(arity);
+                }
+                return pick(context.sigs, data);
+            }
+            case 13: {
+                // ExprLet with formula
+                Expr formula = makeFormula(data, context);
+                ExprVar newVar = ExprVar.make(null, makeName(data), formula.type());
+                context.formulaVars.add(newVar);
+                Expr sub = makeExpr(data, arity, context);
+                context.formulaVars.remove(newVar);
+                return ExprLet.make(null, newVar, formula, sub);
+            }
+            case 14: {
+                int varArity = data.consumeInt(1, 3);
+                Expr expr = makeExpr(data, varArity, context);
+                ExprVar newVar = ExprVar.make(null, makeName(data), expr.type());
+                Pair<Expr, Integer> varAndArity = new Pair<>(newVar, varArity);
+                context.exprVars.add(varAndArity);
+                Expr sub = makeExpr(data, arity, context);
+                context.exprVars.remove(varAndArity);
+                return ExprLet.make(null, newVar, expr, sub);
+            }
+            case 15: {
+                // ExprLet with integer expression
+                Expr expr = makeIntExpr(data, context);
+                ExprVar newVar = ExprVar.make(null, makeName(data), expr.type());
+                context.intVars.add(newVar);
+                Expr sub = makeExpr(data, arity, context);
+                context.intVars.remove(newVar);
+                return ExprLet.make(null, newVar, expr, sub);
+            }
+            case 16: {
+                // ExprCall
+                List<Func> funcs = context.funcs.stream()
+                        .filter(func -> !func.isPred && func.returnDecl.type().arity() == arity)
+                        .collect(Collectors.toList());
+                if (funcs.isEmpty()) {
+                    return makeNoneWithArity(arity);
+                }
+                Func func = pick(funcs, data);
+
+                List<Expr> args = new ArrayList<>();
+                for (Decl decl : func.decls) {
+                    // *ignoring* the decl expr except for its arity
+                    int declArity = decl.expr.type().arity();
+                    for (ExprHasName name : decl.names) {
+                        args.add(makeExpr(data, declArity, context));
+                    }
+                }
+                return ExprCall.make(null, null, func, args, 0L);
+            }
+        }
+        throw new ErrorFatal("ASTFuzzTarget: unreachable");
+    }
+
+    private static Expr makeNoneWithArity(int arity) {
+        return tileWithArity(ExprConstant.EMPTYNESS, arity);
+    }
+
+    private static Expr tileWithArity(Expr expr, int arity) {
+        if (arity <= 0) {
+            throw new ErrorFatal("ASTFuzzTarget: cannot make expression with arity <= 0");
+        }
+        if (arity == 1) {
+            return expr;
+        }
+        return tileWithArity(expr, arity - 1).product(expr);
+    }
+
+    private static Expr makeIntExpr(FuzzedDataProvider data, FuzzContext context) {
+        switch (data.consumeInt(1, 10)) {
+            case 1: {
+                // ExprVar
+                if (context.intVars.isEmpty()) {
+                    return ExprConstant.makeNUMBER(0);
+                }
+                return pick(context.intVars, data);
+            }
+            case 2: {
+                // ExprConstant
+                if (data.consumeBoolean() || data.consumeBoolean()) {
+                    return ExprConstant.makeNUMBER(data.consumeInt(-5000, 5000));
+                } else {
+                    return pick(Arrays.asList(ExprConstant.MAX, ExprConstant.MIN), data);
+                }
+            }
+            case 3: {
+                // ExprBinary
+                // Exclude shift operators because Portus doesn't support them
+                ExprBinary.Op op = pick(Arrays.asList(
+                        ExprBinary.Op.IPLUS,
+                        ExprBinary.Op.IMINUS,
+                        ExprBinary.Op.MUL,
+                        ExprBinary.Op.DIV,
+                        ExprBinary.Op.REM), data);
+                return op.make(null, null, makeIntExpr(data, context), makeIntExpr(data, context));
+            }
+            case 4: {
+                // Various noops
+                ExprUnary.Op op = pick(Arrays.asList(
+                        ExprUnary.Op.NOOP,
+                        ExprUnary.Op.CAST2INT,
+                        ExprUnary.Op.CAST2SIGINT), data);
+                return op.make(null, makeIntExpr(data, context));
+            }
+            case 5: {
+                // Cardinality
+                int arity = data.consumeInt(1, 3);
+                return makeExpr(data, arity, context).cardinality();
+            }
+            case 6: {
+                // ExprITE
+                return makeFormula(data, context).ite(makeIntExpr(data, context), makeIntExpr(data, context));
+            }
+            case 7: {
+                // ExprLet with formula
+                Expr formula = makeFormula(data, context);
+                ExprVar newVar = ExprVar.make(null, makeName(data), formula.type());
+                context.formulaVars.add(newVar);
+                Expr sub = makeIntExpr(data, context);
+                context.formulaVars.remove(newVar);
+                return ExprLet.make(null, newVar, formula, sub);
+            }
+            case 8: {
+                // ExprLet with expression
+                int arity = data.consumeInt(1, 3);
+                Expr expr = makeExpr(data, arity, context);
+                ExprVar newVar = ExprVar.make(null, makeName(data), expr.type());
+                Pair<Expr, Integer> varAndArity = new Pair<>(newVar, arity);
+                context.exprVars.add(varAndArity);
+                Expr sub = makeIntExpr(data, context);
+                context.exprVars.remove(varAndArity);
+                return ExprLet.make(null, newVar, expr, sub);
+            }
+            case 9: {
+                // ExprLet with integer expression
+                Expr expr = makeIntExpr(data, context);
+                ExprVar newVar = ExprVar.make(null, makeName(data), expr.type());
+                context.intVars.add(newVar);
+                Expr sub = makeIntExpr(data, context);
+                context.intVars.remove(newVar);
+                return ExprLet.make(null, newVar, expr, sub);
+            }
+            case 10: {
+                // ExprCall
+                List<Func> funcs = context.funcs.stream()
+                        .filter(func -> !func.isPred && func.returnDecl.equals(Sig.SIGINT))
+                        .collect(Collectors.toList());
+                if (funcs.isEmpty()) {
+                    return ExprConstant.makeNUMBER(0);
+                }
+                Func func = pick(funcs, data);
+
+                List<Expr> args = new ArrayList<>();
+                for (Decl decl : func.decls) {
+                    // *ignoring* the decl expr except for its arity
+                    int declArity = decl.expr.type().arity();
+                    for (ExprHasName name : decl.names) {
+                        args.add(makeExpr(data, declArity, context));
+                    }
+                }
+                return ExprCall.make(null, null, func, args, 0L);
+            }
+        }
+        throw new ErrorFatal("ASTFuzzTarget: unreachable");
+    }
+
+    private static String makeName(FuzzedDataProvider data) {
+        // 2-letter names, so it's easier to collide if we want to + no keywords (but don't allow "in")
+        String validFirstChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_\"";
+        // Sketchy solution: remove "n" from the next chars so we can't make "in"
+        String validNextChars = "abcdefghijklmopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_\"1234567890";
+        char first = validFirstChars.charAt(data.consumeInt(0, validFirstChars.length() - 1));
+        char next = validNextChars.charAt(data.consumeInt(0, validNextChars.length() - 1));
+        return new String(new char[] {first, next});
+    }
+
+}

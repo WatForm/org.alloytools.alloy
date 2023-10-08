@@ -1,5 +1,6 @@
-package ca.uwaterloo.watform.portus.cli;
+package ca.uwaterloo.watform.portus.fuzz;
 
+import ca.uwaterloo.watform.portus.cli.CorrectnessChecker;
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import edu.mit.csail.sdg.alloy4.ErrorSyntax;
 import edu.mit.csail.sdg.ast.Command;
@@ -9,7 +10,7 @@ import edu.mit.csail.sdg.parser.CompUtil;
 import edu.mit.csail.sdg.translator.A4Options;
 
 @SuppressWarnings("unused")
-public class PortusFuzzTest {
+public class StringFuzzTarget {
 
     public static void fuzzerTestOneInput(FuzzedDataProvider data) {
         String alloy = data.consumeRemainingAsAsciiString();
