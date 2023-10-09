@@ -6,6 +6,7 @@ import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprCall;
 import edu.mit.csail.sdg.ast.ExprConstant;
 import edu.mit.csail.sdg.ast.ExprITE;
+import edu.mit.csail.sdg.ast.ExprLet;
 import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Func;
@@ -121,6 +122,19 @@ public class DefaultScalarCasterTest {
         assertNotNull(result);
         assertEquals(flag, result.a);
         assertEquals(flagGuard, result.b);
+    }
+
+    @Test
+    public void testCastToScalar_let() {
+        // test castToScalar(let a=0 | 1) = 1
+        ExprVar a = ExprVar.make(null, "a");
+        Pair<AnnotatedTerm, Term> flag = new Pair<>(
+                new AnnotatedTerm(Term.mkVar("flag").of(testSort)), Term.mkVar("flagGuard"));
+        when(mockRoot.castToScalar(eq(ExprConstant.ONE), any())).thenReturn(flag);
+
+        Expr let = ExprLet.make(null, a, ExprConstant.ZERO, ExprConstant.ONE);
+        Pair<AnnotatedTerm, Term> result = scalarCaster.castToScalar(let, context);
+        assertEquals(flag, result);
     }
 
     @Test
