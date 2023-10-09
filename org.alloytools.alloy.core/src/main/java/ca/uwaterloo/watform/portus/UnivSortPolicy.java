@@ -18,7 +18,7 @@ import java.util.stream.Collectors;
  * A simple sort policy which assigns everything to a single univ sort, except for integers, which it assigns
  * to the built-in Int sort. Immutable.
  */
-final class UnivSortPolicy extends SortPolicy {
+public final class UnivSortPolicy extends SortPolicy {
 
     private final Sort univ;
     private final int univScope;

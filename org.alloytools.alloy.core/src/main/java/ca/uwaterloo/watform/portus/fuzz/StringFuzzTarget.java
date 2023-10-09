@@ -9,8 +9,12 @@ import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.parser.CompUtil;
 import edu.mit.csail.sdg.translator.A4Options;
 
+/**
+ * A Jazzer fuzz test target which interprets the input as Alloy code.
+ * This might be useful for testing the parser but turns out to be way too slow for testing Portus code.
+ */
 @SuppressWarnings("unused")
-public class StringFuzzTarget {
+public final class StringFuzzTarget {
 
     public static void fuzzerTestOneInput(FuzzedDataProvider data) {
         String alloy = data.consumeRemainingAsAsciiString();

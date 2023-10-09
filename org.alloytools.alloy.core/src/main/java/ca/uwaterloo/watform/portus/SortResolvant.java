@@ -15,7 +15,7 @@ import java.util.stream.Stream;
  * E.g., "(A+B)->(C+D)" would get sorts {(A,C), (A,D), (B,C), (B, D)}.
  * We do it this way so we can model iden.
  */
-final class SortResolvant {
+public final class SortResolvant {
 
     private final TupleSet<Sort> sortTuples;
 

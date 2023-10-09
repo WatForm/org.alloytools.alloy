@@ -19,7 +19,7 @@ import java.util.Stack;
  * Responsible for keeping track of the current lexical scope's mapping from Alloy variables to Fortress Terms
  * (e.g. from quantifiers) and Alloy expressions (e.g. from lets).
  */
-final class VarMappingContext {
+public final class VarMappingContext {
 
     // The current lexical scope's mapping from Alloy variable labels to either
     // Fortress Terms (i.e. for quantified vars) or Alloy expressions as used in the "let x = e | ..." construct.

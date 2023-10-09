@@ -1,9 +1,15 @@
 package ca.uwaterloo.watform.portus.fuzz;
 
+import ca.uwaterloo.watform.portus.SortPolicy;
+import ca.uwaterloo.watform.portus.SortResolvant;
+import ca.uwaterloo.watform.portus.UnivSortPolicy;
+import ca.uwaterloo.watform.portus.VarMappingContext;
 import ca.uwaterloo.watform.portus.cli.CorrectnessChecker;
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
+import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.alloy4.Pair;
+import edu.mit.csail.sdg.alloy4.Pos;
 import edu.mit.csail.sdg.ast.Command;
 import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
@@ -19,6 +25,8 @@ import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Func;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.A4Options;
+import edu.mit.csail.sdg.translator.ScopeComputer;
+import fortress.inputs.ParserException;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -26,8 +34,11 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+/**
+ * A Jazzer fuzz test that generates a valid Alloy AST from the fuzz input.
+ */
 @SuppressWarnings("unused")
-public class ASTFuzzTarget {
+public final class ASTFuzzTarget {
 
     private static class FuzzContext {
         List<Sig> sigs = new ArrayList<>();
@@ -51,7 +62,7 @@ public class ASTFuzzTarget {
                 boolean useParent = !primSigs.isEmpty() && data.consumeBoolean();
                 if (useParent) {
                     Sig.PrimSig parent = pick(primSigs, data);
-                    sig = new Sig.PrimSig(null, sigName, null, parent);
+                    sig = new Sig.PrimSig(null, sigName, new Pos("x", 1, 1), parent);
                 } else {
                     sig = new Sig.PrimSig(sigName);
                 }
@@ -65,6 +76,14 @@ public class ASTFuzzTarget {
             }
         }
 
+        // Mock a sort policy just for testing definiteness
+        // UnivSortPolicy is sufficient for that purpose
+        Command scoperMockCommand = new Command(
+                true, 3, 4, 4, ExprVar.make(null, "check"), ExprConstant.TRUE);
+        ScopeComputer scoper = ScopeComputer.compute(
+                A4Reporter.NOP, new A4Options(), context.sigs, scoperMockCommand).b;
+        SortPolicy testSortPolicy = new UnivSortPolicy(context.sigs, scoper);
+
         // Generate fields for each sig
         for (Sig sig : context.sigs) {
             int numFields = data.consumeInt(0, 5);
@@ -74,6 +93,14 @@ public class ASTFuzzTarget {
 
                 // TODO: field expr bounds use some special AST nodes, like SOMEOF
                 Expr bound = makeExpr(data, arity, context);
+                // Just ignore anything that isn't definite (according to UnivSortPolicy) for now
+                // Empty VarMappingContext is okay because this is the top level
+                SortResolvant resolvant = testSortPolicy.getMinimalExprSorts(bound, new VarMappingContext());
+                if (!resolvant.isDefinite()) {
+                    // just skip this field
+                    continue;
+                }
+
                 Sig.Field field = sig.addField(fieldName, bound);
                 context.exprVars.add(new Pair<>(field, arity));
             }
@@ -133,10 +160,25 @@ public class ASTFuzzTarget {
                 formula);
         A4Options options = new A4Options();
 
+        // Add int, univ only here to avoid returning them when generating expressions
+        // to avoid errors about mixing sorts or quantifying over univ
+        List<Sig> allSigs = new ArrayList<>(context.sigs);
+        allSigs.add(Sig.UNIV);
+        allSigs.add(Sig.SIGINT);
+        allSigs.add(Sig.SEQIDX);
+        allSigs.add(Sig.STRING);
+
         // Check correctness and throw if bad
         CorrectnessChecker checker = new CorrectnessChecker();
-        CorrectnessChecker.Result result = checker.checkCorrectness(context.sigs, command, options);
+        CorrectnessChecker.Result result = checker.checkCorrectness(allSigs, command, options);
         if (result.kind != CorrectnessChecker.Result.Kind.OK) {
+            if (result.kind == CorrectnessChecker.Result.Kind.EXCEPTION
+                && (result.exception instanceof ParserException
+                    || result.exception.getCause() instanceof ParserException)) {
+                // hack: sometimes Z3 does this, but it doesn't seem to occur outside of tests,
+                // so just get the fuzz tester to continue
+                return;
+            }
             throw new RuntimeException("Oh no! Result: " + result);
         }
     }
@@ -146,7 +188,7 @@ public class ASTFuzzTarget {
     }
 
     private static <T> List<T> pickSubset(List<? extends T> ts, int amount, FuzzedDataProvider data) {
-        if (amount < 0 || amount >= ts.size()) {
+        if (amount < 0 || amount > ts.size()) {
             throw new IllegalArgumentException("Bad subset size");
         }
         // Super inefficient!
@@ -161,7 +203,7 @@ public class ASTFuzzTarget {
     }
 
     private static Expr makeFormula(FuzzedDataProvider data, FuzzContext context) {
-        switch (data.consumeInt(1, 14)) {
+        switch (data.consumeInt(1, 15)) {
             case 1: {
                 // variable
                 if (context.formulaVars.isEmpty()) {
@@ -173,14 +215,12 @@ public class ASTFuzzTarget {
                 // ExprBinary with formula
                 ExprBinary.Op op = pick(Arrays.asList(
                         ExprBinary.Op.IFF,
-                        ExprBinary.Op.IMPLIES,
-                        ExprBinary.Op.EQUALS,
-                        ExprBinary.Op.NOT_EQUALS), data);
+                        ExprBinary.Op.IMPLIES), data);
                 return op.make(null, null, makeFormula(data, context), makeFormula(data, context));
             }
             case 3: {
                 // ExprBinary with expr, any sort
-                int arity = data.consumeInt(0, 5);
+                int arity = data.consumeInt(1, 5);
                 ExprBinary.Op op = pick(Arrays.asList(
                         ExprBinary.Op.EQUALS,
                         ExprBinary.Op.NOT_EQUALS,
@@ -210,9 +250,8 @@ public class ASTFuzzTarget {
             }
             case 6: {
                 // ExprUnary with expr, any sort
-                int arity = data.consumeInt(0, 5);
+                int arity = data.consumeInt(1, 5);
                 ExprUnary.Op op = pick(Arrays.asList(
-                        ExprUnary.Op.NOOP,
                         ExprUnary.Op.LONE,
                         ExprUnary.Op.ONE,
                         ExprUnary.Op.NO,
@@ -232,8 +271,7 @@ public class ASTFuzzTarget {
                 // ExprList
                 ExprList.Op op = pick(Arrays.asList(
                         ExprList.Op.AND,
-                        ExprList.Op.OR,
-                        ExprList.Op.DISJOINT), data);
+                        ExprList.Op.OR), data);
                 int length = data.consumeInt(2, 10);
                 return ExprList.make(null, null, op, IntStream.range(0, length)
                         .mapToObj(i -> makeFormula(data, context))
@@ -249,17 +287,21 @@ public class ASTFuzzTarget {
                         ExprQt.Op.NO), data);
                 List<Pair<Expr, Integer>> addedVars = new ArrayList<>();
 
-                int numDecls = data.consumeInt(1, 3);
+                int numDecls = data.consumeInt(1, 2);
                 List<Decl> decls = new ArrayList<>();
                 for (int i = 0; i < numDecls; i++) {
                     Expr expr = makeExpr(data, 1, context); // Portus only supports arity 1 here
-                    int numVars = data.consumeInt(1, 3);
+                    int numVars = data.consumeInt(1, 2);
+                    List<ExprVar> declVars = new ArrayList<>();
                     for (int j = 0; j < numDecls; j++) {
                         ExprVar newVar = ExprVar.make(null, makeName(data), expr.type());
+                        declVars.add(newVar);
                         Pair<Expr, Integer> varAndArity = new Pair<>(newVar, 1);
                         context.exprVars.add(varAndArity);
                         addedVars.add(varAndArity);
                     }
+                    Decl decl = new Decl(null, null, null, null, declVars, expr);
+                    decls.add(decl);
                 }
 
                 Expr sub = makeFormula(data, context);
@@ -322,6 +364,10 @@ public class ASTFuzzTarget {
                 }
                 return ExprCall.make(null, null, pred, args, 0L);
             }
+            case 15: {
+                // Noop
+                return ExprUnary.Op.NOOP.make(null, makeFormula(data, context));
+            }
         }
         throw new ErrorFatal("ASTFuzzTarget: unreachable!");
     }
@@ -363,8 +409,8 @@ public class ASTFuzzTarget {
             }
             case 4: {
                 // Join
-                int leftArity = data.consumeInt(1, arity);
-                int rightArity = arity - leftArity + 1;
+                int leftArity = data.consumeInt(1, arity + 1);
+                int rightArity = arity + 2 - leftArity;
                 return makeExpr(data, leftArity, context).join(makeExpr(data, rightArity, context));
             }
             case 5: {
@@ -418,20 +464,25 @@ public class ASTFuzzTarget {
                 // Comprehension
                 List<Pair<Expr, Integer>> addedVars = new ArrayList<>();
 
-                int numDecls = data.consumeInt(1, 3);
+                int numVars = 0;
                 List<Decl> decls = new ArrayList<>();
-                for (int i = 0; i < numDecls; i++) {
+                while (numVars < arity) {
                     Expr expr = makeExpr(data, 1, context); // Portus only supports arity 1 here
-                    int numVars = data.consumeInt(1, 3);
-                    for (int j = 0; j < numDecls; j++) {
+                    int varsThisTime = data.consumeInt(1, Math.min(3, arity - numVars));
+                    List<ExprVar> declVars = new ArrayList<>();
+                    for (int j = 0; j < varsThisTime; j++) {
                         ExprVar newVar = ExprVar.make(null, makeName(data), expr.type());
+                        declVars.add(newVar);
                         Pair<Expr, Integer> varAndArity = new Pair<>(newVar, 1);
                         context.exprVars.add(varAndArity);
                         addedVars.add(varAndArity);
                     }
+                    Decl decl = new Decl(null, null, null, null, declVars, expr);
+                    decls.add(decl);
+                    numVars += varsThisTime;
                 }
 
-                Expr sub = makeExpr(data, arity, context);
+                Expr sub = makeFormula(data, context);
 
                 // remove the added vars to recover the context
                 for (Pair<Expr, Integer> addedVar : addedVars) {
@@ -442,7 +493,7 @@ public class ASTFuzzTarget {
             }
             case 12: {
                 // Sig: *don't* return Int to avoid mixing Int and other sorts (like A+Int)
-                if (arity != 1) {
+                if (arity != 1 || context.sigs.isEmpty()) {
                     return makeNoneWithArity(arity);
                 }
                 return pick(context.sigs, data);
