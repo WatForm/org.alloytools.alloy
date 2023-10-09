@@ -190,7 +190,7 @@ final class DefaultScalarCaster implements ScalarCaster {
             @Override
             public Pair<AnnotatedTerm, Term> visitLet(ExprLet x) {
                 // The mappings are already taken care of for us, so just cast the body
-                return rootScalarCaster.castToScalar(x.expr, context);
+                return rootScalarCaster.castToScalar(x.sub, context);
             }
 
             @Override
