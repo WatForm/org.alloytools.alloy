@@ -252,7 +252,8 @@ final class PartitionSortPolicy extends SortPolicy {
             // We can't merge built-in sorts
             if (sort.isBuiltin()) {
                 // TODO: this error message is rather cryptic
-                throw new ErrorFatal("Incompatible sorts: cannot merge Int or other built-in sorts!");
+                throw new ErrorNoPortusSupport(
+                        "Incompatible sorts: cannot merge Int or other built-in sorts!");
             }
 
             Sig.PrimSig sig = getAnySigFromSort(sort);

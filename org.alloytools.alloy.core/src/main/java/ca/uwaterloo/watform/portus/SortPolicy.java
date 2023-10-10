@@ -152,7 +152,9 @@ public abstract class SortPolicy {
      */
     public static List<Sort> requireAllSortsDefinite(SortResolvant sortResolvant, String errorMessage) {
         if (!sortResolvant.isDefinite()) {
-            throw new ErrorFatal(errorMessage);
+            // We can throw ErrorNoPortusSupport because Kodkod doesn't have any notion of definite sorts,
+            // so this function *should* disallow only models that Kodkod allows.
+            throw new ErrorNoPortusSupport(errorMessage);
         }
         return sortResolvant.getDefiniteSorts();
     }
@@ -272,7 +274,7 @@ public abstract class SortPolicy {
                 case EMPTYNESS:
                     return SortResolvant.NONE;
                 default:
-                    throw new ErrorFatal("Can't get sort from constant: " + x);
+                    throw new ErrorNoPortusSupport("Can't get sort from constant: " + x);
             }
         }
 
@@ -375,7 +377,7 @@ public abstract class SortPolicy {
             } else if (x.equals(Sig.NONE)) {
                 return SortResolvant.NONE;
             } else if (x.equals(Sig.STRING)) {
-                throw new ErrorFatal("Portus does not support strings!");
+                throw new ErrorNoPortusSupport("Portus does not support strings!");
             }
 
             // fetch it using our policy
@@ -461,7 +463,7 @@ public abstract class SortPolicy {
     public final List<Sort> getTypeSorts(Type type) {
         int arity = type.arity();
         if (arity == -1) {
-            throw new ErrorFatal("Portus does not support sets with multiple arities!");
+            throw new ErrorNoPortusSupport("Portus does not support sets with multiple arities!");
         }
         return IntStream.range(0, arity)
                 .mapToObj(idx -> getIndexSort(idx, type))

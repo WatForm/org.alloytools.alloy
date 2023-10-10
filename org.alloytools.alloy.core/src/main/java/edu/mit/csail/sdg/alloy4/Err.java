@@ -40,7 +40,7 @@ public abstract class Err extends RuntimeException {
      * @param msg - the actual error message (can be null)
      * @param cause - if nonnull, it will be recorded as the cause of this exception
      */
-    Err(Pos pos, String msg, Throwable cause) {
+    public Err(Pos pos, String msg, Throwable cause) {
         super((msg == null ? "" : msg), cause);
         this.pos = (pos == null ? Pos.UNKNOWN : pos);
         this.msg = (msg == null ? "" : msg);

@@ -183,7 +183,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
                 // TODO - implement strings for real
                 return Term.mkBottom();
             } else {
-                throw new ErrorFatal("Unsupported builtin sig: " + sig);
+                throw new ErrorNoPortusSupport("Unsupported builtin sig: " + sig);
             }
         }
 
@@ -312,7 +312,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
                         expr.op, expr.left, expr.right, context));
             default:
                 // others are either not supported or not terms
-                throw new ErrorFatal("Unsupported ExprBinary term: " + expr.op);
+                throw new ErrorNoPortusSupport("Unsupported ExprBinary term: " + expr.op);
         }
     }
 
@@ -364,7 +364,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
                 leftSort.getSortsInColumn(leftSort.arity() - 1),
                 rightSort.getSortsInColumn(0));
         if (middleIntersection.size() != 1) {
-            throw new ErrorFatal("Joined columns must intersect in one Portus sort!");
+            throw new ErrorNoPortusSupport("Joined columns must intersect in one Portus sort!");
         }
         Sort ySort = middleIntersection.iterator().next(); // get the single value
         AnnotatedVar y = yVar.of(ySort);
@@ -515,7 +515,8 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
                 return translateArithmeticOperation(expr.op, expr.left, expr.right, context);
             case JOIN:
                 // "x.y" might be an integer expression, but we don't handle it here because it needs functions
-                throw new ErrorFatal("Join integer expressions are only supported with the function optimization");
+                throw new ErrorNoPortusSupport(
+                        "Join integer expressions are only supported with the function optimization");
             case AND:
             case OR:
                 // confusingly, AND and OR aren't real ExprBinary ops
@@ -588,7 +589,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
         SortResolvant e1Sorts = sortPolicy.getMinimalExprSorts(e1, context);
         SortResolvant e2Sorts = sortPolicy.getMinimalExprSorts(e2, context);
         if (e1Sorts.arity() != e2Sorts.arity()) { // typechecker should have ensured this
-            throw new ErrorFatal("Both sides in an 'in' or '=' formula must have the same arity!");
+            throw new ErrorNoPortusSupport("Both sides in an 'in' or '=' formula must have the same arity!");
         }
 
         // "exactly" is used in the meta feature and means to treat "in exactly" like "=" as a hack
@@ -635,13 +636,13 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
             // Note: since the intersection of e1Sorts and e2Sorts is not empty, if both sorts are definite,
             // then they're equal.
             if (!e1Sorts.isDefinite() || !e2Sorts.isDefinite()) {
-                throw new ErrorFatal("Both sides of an '=' formula must have definite Portus sorts!");
+                throw new ErrorNoPortusSupport("Both sides of an '=' formula must have definite Portus sorts!");
             }
         } else {
             // Note: we know the intersection of e1Sorts and e2Sorts is not empty, so if e1Sorts is definite
             // (i.e., there is only one sort tuple), then e1Sorts must be a subset of e2Sorts.
             if (!e1Sorts.isDefinite()) {
-                throw new ErrorFatal("The LHS of an 'in' formula must have definite Portus sorts!");
+                throw new ErrorNoPortusSupport("The LHS of an 'in' formula must have definite Portus sorts!");
             }
         }
 
@@ -700,7 +701,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
             case NOT_LT:
                 return Term.mkGE(left, right);
             default:
-                throw new ErrorFatal("Unsupported arithmetic comparison operator: " + op);
+                throw new ErrorNoPortusSupport("Unsupported arithmetic comparison operator: " + op);
         }
     }
 
@@ -722,7 +723,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
             case REM:
                 return Term.mkMod(left, right);
             default:
-                throw new ErrorFatal("Unsupported arithmetic operation: " + op);
+                throw new ErrorNoPortusSupport("Unsupported arithmetic operation: " + op);
         }
     }
 
@@ -798,7 +799,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
             return IntegerLiteral.apply(0);
         }
         if (!resolvant.isDefinite()) {
-            throw new ErrorFatal("Argument of cardinality must have definite sorts!");
+            throw new ErrorNoPortusSupport("Argument of cardinality must have definite sorts!");
         }
         List<Sort> sorts = resolvant.getDefiniteSorts();
 
@@ -863,7 +864,8 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
         // If the sorts aren't the same, we can't translate.
         // (We can't short-circuit: consider (a,b) \in ^iden vs (a,b) \in ^(univ->univ) where a,b have different sorts)
         if (!tuple.getSort(0).equals(tuple.getSort(1))) {
-            throw new ErrorFatal("Portus doesn't support transitive closure with distinct Fortress sorts!");
+            throw new ErrorNoPortusSupport(
+                    "Portus doesn't support transitive closure with distinct Fortress sorts!");
         }
         Sort commonSort = tuple.getSort(0);
 
@@ -951,7 +953,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
         if (expr.op == ExprList.Op.DISJOINT) {
             return translateDisjoint(expr.args, context);
         } else if (expr.op == ExprList.Op.TOTALORDER) {
-            throw new ErrorFatal("Portus does not yet support TOTALORDER");
+            throw new ErrorNoPortusSupport("Portus does not yet support TOTALORDER");
         }
 
         // first, just translate all the args (they all must be formulas)
@@ -969,7 +971,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
                 return translatedArgs.size() == 0 ? Term.mkBottom() : Term.mkOr(translatedArgs);
             default:
                 // we don't yet support DISJOINT or TOTALORDER
-                throw new ErrorFatal("Unsupported ExprList formula: " + expr.op);
+                throw new ErrorNoPortusSupport("Unsupported ExprList formula: " + expr.op);
         }
     }
 
@@ -992,13 +994,14 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
                     return context.getTermMapping(var.label);
                 }
             }
-            throw new ErrorFatal("Portus only supports disj[] with bound variables.");
+            throw new ErrorNoPortusSupport("Portus only supports disj[] with bound variables.");
         }).collect(Collectors.toList());
 
         // Make sure they have the same sort - we don't support it if they don't.
         // (If we do have to support this - partition by sort and map to a conjunction of distincts.)
         if (terms.stream().map(AnnotatedTerm::getSort).distinct().count() > 1) {
-            throw new ErrorFatal("Portus only supports disj[] with variables of the same top-level sort.");
+            throw new ErrorNoPortusSupport(
+                    "Portus only supports disj[] with variables of the same top-level sort.");
         }
 
         return Term.mkDistinct(terms.stream().map(AnnotatedTerm::getTerm).collect(Collectors.toList()));
@@ -1010,7 +1013,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
         // for simplicity.
         int arity = expr.type().arity();
         if (arity <= 0) {
-            throw new ErrorFatal("Portus doesn't support types with multiple arities");
+            throw new ErrorNoPortusSupport("Portus doesn't support types with multiple arities");
         }
         List<AnnotatedVar> vars = new ArrayList<>(arity);
 
@@ -1034,7 +1037,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
 
         // Otherwise, we can only translate definite sorts
         if (!exprResolvant.isDefinite()) {
-            throw new ErrorFatal("Quantified expressions must have definite sorts!");
+            throw new ErrorNoPortusSupport("Quantified expressions must have definite sorts!");
         }
         List<Sort> exprSorts = exprResolvant.getDefiniteSorts();
 
@@ -1197,7 +1200,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
                     return new HashSet<>();
                 }
                 if (!resolvant.isDefinite()) {
-                    throw new ErrorFatal("Argument of cardinality must have definite sorts!");
+                    throw new ErrorNoPortusSupport("Argument of cardinality must have definite sorts!");
                 }
                 return new HashSet<>(resolvant.getDefiniteSorts());
             }
@@ -1392,7 +1395,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
             case MAX:
                 return IntegerLiteral.apply(Util.max(context.getBitwidth()));
             default:
-                throw new ErrorFatal("Unsupported ExprConstant formula/int expression: " + expr);
+                throw new ErrorNoPortusSupport("Unsupported ExprConstant formula/int expression: " + expr);
         }
     }
 
@@ -1412,7 +1415,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
             case NEXT:
                 return translateNext(tuple, context);
             default:
-                throw new ErrorFatal("Unsupported ExprConstant expression: " + expr);
+                throw new ErrorNoPortusSupport("Unsupported ExprConstant expression: " + expr);
         }
     }
 
@@ -1539,7 +1542,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
                             && (!(decl.expr.deNOP() instanceof ExprUnary)
                                 || ((ExprUnary) decl.expr.deNOP()).op != ExprUnary.Op.SETOF);
                     if (!noMultiplicity) {
-                        throw new ErrorFatal("Unsupported quantifier multiplicity for Fortress: "
+                        throw new ErrorNoPortusSupport("Unsupported quantifier multiplicity for Fortress: "
                                 + decl.expr.mult());
                     }
                 }
@@ -1561,7 +1564,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
                 if (exprSorts.size() != 1) {
                     // Could happen for cases Kodkod skolemizes, like e.g. "some s: one A->B | ..."
                     // Also occurs e.g. with "pred foo[s: A->B] {...}; run foo" since that runs "some s: A->B | foo[s]"
-                    throw new ErrorFatal("Portus doesn't support quantifying over tuples!");
+                    throw new ErrorNoPortusSupport("Portus doesn't support quantifying over tuples!");
                 }
                 Sort varSort = exprSorts.get(0);
                 AnnotatedVar annotatedVar = var.of(varSort);

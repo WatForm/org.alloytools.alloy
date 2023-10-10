@@ -86,10 +86,10 @@ abstract class ContextVisitReturn<T> extends FortressVisitReturn<T> {
                     }
 
                     if (!resolvant.isDefinite()) {
-                        throw new ErrorFatal("Quantifier decl expression must have definite sorts!");
+                        throw new ErrorNoPortusSupport("Quantifier decl expression must have definite sorts!");
                     }
                     if (resolvant.arity() > 1) {
-                        throw new ErrorFatal("Portus only supports unary quantifier decl expressions!");
+                        throw new ErrorNoPortusSupport("Portus only supports unary quantifier decl expressions!");
                     }
                     Sort sort = resolvant.getDefiniteSorts().get(0);
                     varMappingContext.addTermMapping(name.label, new AnnotatedTerm(boundPlaceholderVar.of(sort)));
