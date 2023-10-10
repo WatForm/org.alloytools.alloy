@@ -164,6 +164,9 @@ public final class ASTFuzzTarget {
                 formula);
         A4Options options = new A4Options();
 
+        // Use Kodkod-compatible integer semantics for correctness testing
+        options.portusOptions.enableKodkodIntCompatibility = true;
+
         // Add int, univ only here to avoid returning them when generating expressions
         // to avoid errors about mixing sorts or quantifying over univ
         List<Sig> allSigs = new ArrayList<>(context.sigs);
