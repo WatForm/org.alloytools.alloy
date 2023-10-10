@@ -153,8 +153,8 @@ public final class ASTFuzzTarget {
 
         // Generate the command
         Expr formula = makeFormula(data, context);
-        int bitwidth = data.consumeInt(-1, 8);
-        int maxseq = (bitwidth == -1) ? -1 : data.consumeInt(-1, Math.min(8, Util.max(bitwidth)));
+        int bitwidth = data.consumeInt(1, 8);
+        int maxseq = data.consumeInt(0, Math.min(8, Util.max(bitwidth)));
         Command command = new Command(
                 data.consumeBoolean(), // is it a check or a run?
                 data.consumeInt(-1, 12), // overall scope; -1 = not specified
