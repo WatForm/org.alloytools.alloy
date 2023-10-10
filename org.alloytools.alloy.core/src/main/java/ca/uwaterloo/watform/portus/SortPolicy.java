@@ -319,8 +319,7 @@ public abstract class SortPolicy {
                 case ONEOF:
                 case SETOF:
                 case EXACTLYOF:
-                case CLOSURE:
-                case RCLOSURE:
+                case CLOSURE: // assume it's well-typed: arity 2 and subset of iden
                 case NOOP:
                 case CAST2INT: // these might be int-typed, but we ignore them in the translation
                 case CAST2SIGINT: // so let's ignore them here too
@@ -341,6 +340,9 @@ public abstract class SortPolicy {
                     }
                     return sub.transpose();
                 }
+                case RCLOSURE:
+                    // rclosure = closure + iden
+                    return visitThis(x.sub).union(SortResolvant.iden(SortPolicy.this));
                 default:
                     throw new ErrorFatal("Unsupported ExprUnary node: " + x.op);
             }

@@ -123,6 +123,14 @@ final class PartitionSortPolicy extends SortPolicy {
                         || x.op == ExprUnary.Op.ONE) {
                     // the expression in a quantification like "some e" must have definite sorts
                     mergeSorts(x.sub, varMappingContext);
+                } else if (x.op == ExprUnary.Op.CLOSURE || x.op == ExprUnary.Op.RCLOSURE) {
+                    // for closure and rclosure, the subexpression's sorts must have arity 2 and
+                    // the first and second positions must be the same in all options
+                    SortResolvant subSorts = getMinimalExprSorts(x.sub, varMappingContext);
+                    if (subSorts.arity() != 2) {
+                        throw new ErrorFatal("Argument of ^ or * must have arity 2!");
+                    }
+                    subSorts.stream().forEach(sorts -> mergeSorts(sorts, varMappingContext));
                 }
                 return visitThis(x.sub);
             }
@@ -238,7 +246,7 @@ final class PartitionSortPolicy extends SortPolicy {
         }
     }
 
-    private void mergeSorts(Set<Sort> sorts, VarMappingContext varMappingContext) {
+    private void mergeSorts(Iterable<Sort> sorts, VarMappingContext varMappingContext) {
         Sig.PrimSig first = null;
         for (Sort sort : sorts) {
             // We can't merge built-in sorts

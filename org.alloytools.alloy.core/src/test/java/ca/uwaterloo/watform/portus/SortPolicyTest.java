@@ -302,6 +302,31 @@ public class SortPolicyTest {
     }
 
     @Test
+    public void testGetMinimalExprSorts_closure() {
+        Sig sig1 = new Sig.PrimSig("S1");
+        Sig sig2 = new Sig.PrimSig("S2");
+        Sort sort1 = Sort.mkSortConst("sort1");
+        Sort sort2 = Sort.mkSortConst("sort2");
+        when(policy.getSort(sig1)).thenReturn(sort1);
+        when(policy.getSort(sig2)).thenReturn(sort2);
+        assertEquals(SortResolvant.definite(sort1, sort2),
+                policy.getMinimalExprSorts(sig1.product(sig2).closure(), context));
+    }
+
+    @Test
+    public void testGetMinimalExprSorts_reflexiveClosure() {
+        Sig sig1 = new Sig.PrimSig("S1");
+        Sig sig2 = new Sig.PrimSig("S2");
+        Sort sort1 = Sort.mkSortConst("sort1");
+        Sort sort2 = Sort.mkSortConst("sort2");
+        when(policy.getSort(sig1)).thenReturn(sort1);
+        when(policy.getSort(sig2)).thenReturn(sort2);
+        when(policy.getAllSorts()).thenReturn(Arrays.asList(Sort.Int(), Sort.Bool(), sort1, sort2));
+        assertEquals(SortResolvant.definite(sort1, sort2).union(SortResolvant.iden(policy)),
+                policy.getMinimalExprSorts(sig1.product(sig2).reflexiveClosure(), context));
+    }
+
+    @Test
     public void testGetMinimalExprSorts_join() {
         // the middle isn't checked
         Sig sig1 = new Sig.PrimSig("S1");
