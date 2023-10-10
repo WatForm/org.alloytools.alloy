@@ -22,19 +22,23 @@ final class KodkodIntCompatibilityTranslator extends AbstractTranslator {
 
     @Override
     public Term translate(ExprBinary expr, TranslationContext context) {
-        if (expr.op != ExprBinary.Op.DIV) return null;
+        if (expr.op != ExprBinary.Op.DIV && expr.op != ExprBinary.Op.REM) return null;
 
         sortPolicy.checkIsInt(
                 expr.op + " requires both sides to be integer expressions!", expr.left, expr.right);
 
-        return makeKodkodCompatibleDiv(
-                recursivelyTranslate(expr.left, context),
-                recursivelyTranslate(expr.right, context));
+        Term left = recursivelyTranslate(expr.left, context);
+        Term right = recursivelyTranslate(expr.right, context);
+        if (expr.op == ExprBinary.Op.DIV) {
+            return makeKodkodCompatibleDiv(left, right);
+        } else { // ExprBinary.Op.REM
+            return makeKodkodCompatibleRem(left, right);
+        }
     }
 
     @Override
     public Term translate(TermTuple tuple, ExprBinary expr, TranslationContext context) {
-        if (expr.op != ExprBinary.Op.DIV) return null;
+        if (expr.op != ExprBinary.Op.DIV && expr.op != ExprBinary.Op.REM) return null;
 
         if (tuple.size() != 1) {
             throw new ErrorFatal("The arity of an arithmetic operation must be 1.");
@@ -44,9 +48,15 @@ final class KodkodIntCompatibilityTranslator extends AbstractTranslator {
             return Term.mkBottom();
         }
 
-        return Term.mkEq(tuple.getTerm(0), makeKodkodCompatibleDiv(
-                recursivelyTranslate(expr.left, context),
-                recursivelyTranslate(expr.right, context)));
+        Term left = recursivelyTranslate(expr.left, context);
+        Term right = recursivelyTranslate(expr.right, context);
+        Term operation;
+        if (expr.op == ExprBinary.Op.DIV) {
+            operation = makeKodkodCompatibleDiv(left, right);
+        } else { // ExprBinary.Op.REM
+            operation = makeKodkodCompatibleRem(left, right);
+        }
+        return Term.mkEq(tuple.getTerm(0), operation);
     }
 
     private Term makeKodkodCompatibleDiv(Term num, Term denom) {
@@ -63,6 +73,14 @@ final class KodkodIntCompatibilityTranslator extends AbstractTranslator {
                                 IntegerLiteral.apply(-1),
                                 IntegerLiteral.apply(1))),
                 Term.mkDiv(num, denom));
+    }
+
+    private Term makeKodkodCompatibleRem(Term num, Term denom) {
+        // Kodkod remainder-by-zero semantics, as determined empirically: x % 0 = x
+        // Fortress might produce different results, so explicitly implement this again.
+        // Again, this is inefficient but provides compatibility.
+        return Term.mkIfThenElse(
+                Term.mkEq(denom, IntegerLiteral.apply(0)), num, Term.mkMod(num, denom));
     }
 
     @Override
