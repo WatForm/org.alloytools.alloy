@@ -1,5 +1,6 @@
 package ca.uwaterloo.watform.portus.fuzz;
 
+import ca.uwaterloo.watform.portus.ErrorNoPortusSupport;
 import ca.uwaterloo.watform.portus.SortPolicy;
 import ca.uwaterloo.watform.portus.SortResolvant;
 import ca.uwaterloo.watform.portus.UnivSortPolicy;
@@ -177,9 +178,11 @@ public final class ASTFuzzTarget {
         if (result.kind != CorrectnessChecker.Result.Kind.OK) {
             if (result.kind == CorrectnessChecker.Result.Kind.EXCEPTION
                 && (result.exception instanceof ParserException
-                    || result.exception.getCause() instanceof ParserException)) {
-                // hack: sometimes Z3 does this, but it doesn't seem to occur outside of tests,
+                    || result.exception.getCause() instanceof ParserException
+                    || result.exception instanceof ErrorNoPortusSupport)) {
+                // hack: sometimes Z3 throws ParserException, but it doesn't seem to occur outside of tests,
                 // so just get the fuzz tester to continue
+                // also ignore errors due to lack of Portus support (not correctness issues)
                 return;
             }
             throw new RuntimeException("Oh no! Result: " + result);
