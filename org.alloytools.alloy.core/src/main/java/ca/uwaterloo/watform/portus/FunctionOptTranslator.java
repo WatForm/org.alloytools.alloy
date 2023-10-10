@@ -201,7 +201,7 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
                 return left.any_arrow_some(right);
             case EXACTLYOF:
                 // EXACTLYOF should only appear here if the meta feature is used, which we don't support
-                throw new ErrorFatal("Portus doesn't support Alloy's 'meta' feature");
+                throw new ErrorNoPortusSupport("Portus doesn't support Alloy's 'meta' feature");
             default:
                 // we don't support anything else
                 throw new ErrorFatal("Unsupported multiplicity: " + mult);
@@ -336,7 +336,7 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
         // Just cast it to a scalar - we implement the necesary casting.
         Pair<AnnotatedTerm, Term> scalarResult = rootScalarCaster.castToScalar(joinExpr, context);
         if (scalarResult == null) {
-            throw new ErrorFatal(
+            throw new ErrorNoPortusSupport(
                 "Using join as an integer expression requires a bound variable or a one sig on the LHS and unary "
                 + "function fields in all other positions");
         }
@@ -344,7 +344,7 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
         Term guard = scalarResult.b;
 
         if (!Objects.equals(scalar.getSort(), Sort.Int())) {
-            throw new ErrorFatal("A join used as an expression must be of the integer type");
+            throw new ErrorNoPortusSupport("A join used as an expression must be of the integer type");
         }
 
         return Term.mkIfThenElse(guard, scalar.getTerm(), IntegerLiteral.apply(0));

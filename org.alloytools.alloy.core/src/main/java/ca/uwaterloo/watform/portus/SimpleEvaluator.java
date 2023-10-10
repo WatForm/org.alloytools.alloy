@@ -85,7 +85,7 @@ final class SimpleEvaluator implements Evaluator {
             case EMPTYNESS:
                 // Don't deal with none at the moment because it breaks TupleSet's assumption that every set has
                 // exactly one arity. We probably don't have to deal with it since A4SolutionWriter won't give us nones?
-                throw new ErrorFatal("Portus cannot evaluate none currently!");
+                throw new ErrorNoPortusSupport("Portus cannot evaluate none currently!");
         }
         return null;
     }

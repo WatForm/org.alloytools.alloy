@@ -2417,7 +2417,7 @@ public class DefaultTranslatorTest {
         Expr e = sig.product(ExprConstant.makeNUMBER(2));
         Var x = Term.mkVar("x"), y = Term.mkVar("y");
         assertThrows("Should fail because e: univ->Int and we don't support closure over mixing univ/Int",
-                ErrorFatal.class,
+                ErrorNoPortusSupport.class,
                 () -> translator.translate(
                         ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(Sort.Int())), e.closure()), context));
     }
@@ -2430,7 +2430,7 @@ public class DefaultTranslatorTest {
         Expr e = sig.product(ExprConstant.makeNUMBER(2));
         Var x = Term.mkVar("x"), y = Term.mkVar("y");
         assertThrows("Should fail because e: univ->Int and we don't support closure over mixing univ/Int",
-                ErrorFatal.class,
+                ErrorNoPortusSupport.class,
                 () -> translator.translate(ExprElementOf.make(
                         TermTuple.fromVars(x.of(univ), y.of(Sort.Int())), e.reflexiveClosure()), context));
     }

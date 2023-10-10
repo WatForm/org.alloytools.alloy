@@ -62,7 +62,8 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
                 throw new ErrorFatal("Ordered signatures must have an exact scope.");
             }
             if (sig.builtin) {
-                throw new ErrorFatal("Portus doesn't support ordering builtin signatures: " + sig.label);
+                throw new ErrorNoPortusSupport(
+                        "Portus doesn't support ordering builtin signatures: " + sig.label);
             }
             if (!(sig instanceof Sig.PrimSig)) {
                 // This should be caught by typechecking anyways
@@ -77,10 +78,11 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
             }
 
             if (!PortusUtil.stripPortusNoops(first.decl().expr).isSame(sig.setOf())) {
-                throw new ErrorFatal("The First field in pred/totalOrder must be have the type of the ordered sig");
+                throw new ErrorNoPortusSupport(
+                        "The First field in pred/totalOrder must be have the type of the ordered sig");
             }
             if (!PortusUtil.stripPortusNoops(next.decl().expr).isSame(sig.product(sig))) {
-                throw new ErrorFatal(
+                throw new ErrorNoPortusSupport(
                         "The Next field in pred/totalOrder must have type S->S, where S is the ordered sig");
             }
         }
@@ -239,13 +241,14 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
         // where OrderedSig is the sig being ordered, First is the first-element field, and Next is the next relation.
         // Make sure it's used correctly, then save First and Next.
         if (expr.args.size() != 3) {
-            throw new ErrorFatal("pred/totalOrder must have 3 arguments: pred/totalOrder[Sig, First, Next]");
+            throw new ErrorNoPortusSupport(
+                    "pred/totalOrder must have 3 arguments: pred/totalOrder[Sig, First, Next]");
         }
 
         Expr orderedExpr = expr.args.get(0).deNOP();
         if (!(orderedExpr instanceof Sig.PrimSig)) {
             // TODO: should we support subset sigs? arbitrary expressions (Kodkod apparently does)?
-            throw new ErrorFatal("Portus only supports ordering primitive signatures");
+            throw new ErrorNoPortusSupport("Portus only supports ordering primitive signatures");
         }
         Sig.PrimSig orderedSig = (Sig.PrimSig) orderedExpr;
 
@@ -260,7 +263,8 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
         expr = PortusUtil.stripPortusNoops(expr);
         if (!(expr instanceof ExprBinary) || ((ExprBinary) expr).op != ExprBinary.Op.JOIN) {
             if (shouldError) {
-                throw new ErrorFatal("Expected join expression for second/third parameters of pred/totalOrder");
+                throw new ErrorNoPortusSupport(
+                        "Expected join expression for second/third parameters of pred/totalOrder");
             }
             return null;
         }
@@ -268,7 +272,8 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
         if (!PortusUtil.stripPortusNoops(join.left).isSame(ordSig)
                 || !(PortusUtil.stripPortusNoops(join.right) instanceof Sig.Field)) {
             if (shouldError) {
-                throw new ErrorFatal("Expected Ord.first / Ord.next for second/third parameters of pred/totalOrder");
+                throw new ErrorNoPortusSupport(
+                        "Expected Ord.first / Ord.next for second/third parameters of pred/totalOrder");
             }
             return null;
         }
