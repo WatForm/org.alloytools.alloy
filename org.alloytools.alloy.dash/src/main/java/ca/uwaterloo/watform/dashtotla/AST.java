@@ -9,7 +9,7 @@ public class AST
     public String node;
     public AST left;
     public AST right;   
-    public static String singleton(String set) // the constraints that sets the cardinality of this set to 1
+    public static String singleton(String set) // the constraint that sets the cardinality of this set to 1
     {
         return TLA.parenthesis(TLA.FOR_ALL+" x,y "+TLA.IN+" "+set+" "+TLA.PREDICATE_SCOPE+" x=y ");
     }
