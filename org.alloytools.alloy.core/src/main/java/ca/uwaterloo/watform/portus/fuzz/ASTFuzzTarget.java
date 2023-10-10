@@ -10,6 +10,7 @@ import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.alloy4.Pos;
+import edu.mit.csail.sdg.alloy4.Util;
 import edu.mit.csail.sdg.ast.Command;
 import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
@@ -151,11 +152,13 @@ public final class ASTFuzzTarget {
 
         // Generate the command
         Expr formula = makeFormula(data, context);
+        int bitwidth = data.consumeInt(-1, 8);
+        int maxseq = (bitwidth == -1) ? -1 : data.consumeInt(-1, Math.min(8, Util.max(bitwidth)));
         Command command = new Command(
                 data.consumeBoolean(), // is it a check or a run?
                 data.consumeInt(-1, 12), // overall scope; -1 = not specified
-                data.consumeInt(-1, 8), // bitwidth; -1 = not specified
-                data.consumeInt(-1, 8), // maxseq; -1 = not specified
+                bitwidth, // bitwidth; -1 = not specified
+                maxseq, // maxseq; -1 = not specified
                 ExprVar.make(null, "check"), // command keyword?
                 formula);
         A4Options options = new A4Options();
