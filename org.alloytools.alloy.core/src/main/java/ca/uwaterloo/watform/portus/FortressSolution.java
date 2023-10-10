@@ -105,7 +105,14 @@ public class FortressSolution implements AlloySolution {
                     fortressToAlloyAtoms.put(atom, alloyAtom);
                 }
             }
-            this.universe = new Universe(sanitizeLiteralsForKodkod(fortressAtoms));
+            List<Object> sanitizedLiterals = sanitizeLiteralsForKodkod(fortressAtoms);
+
+            // Kodkod can't handle an empty universe, so A4Solution adds a "<empty>" literal: mimic this
+            if (sanitizedLiterals.isEmpty()) {
+                sanitizedLiterals.add("<empty>");
+            }
+
+            this.universe = new Universe(sanitizedLiterals);
         } else {
             this.universe = null;
         }
