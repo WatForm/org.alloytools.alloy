@@ -1,0 +1,8 @@
+state Root {
+	conc S1 {
+		trans t1 {
+			goto S2
+		}
+	}
+	conc S2 {}
+}
