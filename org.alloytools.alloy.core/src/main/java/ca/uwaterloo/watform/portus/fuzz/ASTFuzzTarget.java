@@ -9,6 +9,7 @@ import ca.uwaterloo.watform.portus.cli.CorrectnessChecker;
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
+import edu.mit.csail.sdg.alloy4.ErrorType;
 import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.alloy4.Pos;
 import edu.mit.csail.sdg.alloy4.Util;
@@ -54,7 +55,7 @@ public final class ASTFuzzTarget {
         FuzzContext context = new FuzzContext();
 
         // Generate all sigs
-        int numSigs = data.consumeInt(0, 10);
+        int numSigs = data.consumeInt(0, 6);
         List<Sig.PrimSig> primSigs = new ArrayList<>();
         for (int i = 0; i < numSigs; i++) {
             String sigName = "S_" + makeName(data) + "_" + i; // make them unique
@@ -91,7 +92,7 @@ public final class ASTFuzzTarget {
             int numFields = data.consumeInt(0, 5);
             for (int i = 0; i < numFields; i++) {
                 String fieldName = "f_" + makeName(data) + "_" + i; // make them unique within a sig
-                int arity = data.consumeInt(1, 4);
+                int arity = data.consumeInt(1, 3);
 
                 // TODO: field expr bounds use some special AST nodes, like SOMEOF
                 Expr bound = makeExpr(data, arity, context);
@@ -182,10 +183,15 @@ public final class ASTFuzzTarget {
             if (result.kind == CorrectnessChecker.Result.Kind.EXCEPTION
                 && (result.exception instanceof ParserException
                     || result.exception.getCause() instanceof ParserException
-                    || result.exception instanceof ErrorNoPortusSupport)) {
+                    || result.exception instanceof ErrorNoPortusSupport
+                    || (result.exception instanceof ErrorType
+                        && result.exception.getMessage().startsWith("Translation capacity exceeded."))
+                    || (result.exception.getCause() instanceof ErrorType
+                        && result.exception.getCause().getMessage().startsWith("Translation capacity exceeded.")))) {
                 // hack: sometimes Z3 throws ParserException, but it doesn't seem to occur outside of tests,
                 // so just get the fuzz tester to continue
                 // also ignore errors due to lack of Portus support (not correctness issues)
+                // and ignore errors due to relations of too-large arity
                 return;
             }
             throw new RuntimeException("Oh no! Result: " + result);
