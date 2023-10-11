@@ -178,16 +178,19 @@ public final class ASTFuzzTarget {
 
         // Check correctness and throw if bad
         CorrectnessChecker checker = new CorrectnessChecker();
-        CorrectnessChecker.Result result = checker.checkCorrectness(allSigs, command, options);
+        CorrectnessChecker.Result result;
+        try {
+            result =checker.checkCorrectness(allSigs, command, options);
+        } catch (ErrorType errorType) {
+            // This isn't thrown by Portus but sometimes Kodkod throws type errors.
+            // Just ignore them - usually due to too-large arity.
+            return;
+        }
         if (result.kind != CorrectnessChecker.Result.Kind.OK) {
             if (result.kind == CorrectnessChecker.Result.Kind.EXCEPTION
                 && (result.exception instanceof ParserException
                     || result.exception.getCause() instanceof ParserException
-                    || result.exception instanceof ErrorNoPortusSupport
-                    || (result.exception instanceof ErrorType
-                        && result.exception.getMessage().startsWith("Translation capacity exceeded."))
-                    || (result.exception.getCause() instanceof ErrorType
-                        && result.exception.getCause().getMessage().startsWith("Translation capacity exceeded.")))) {
+                    || result.exception instanceof ErrorNoPortusSupport)) {
                 // hack: sometimes Z3 throws ParserException, but it doesn't seem to occur outside of tests,
                 // so just get the fuzz tester to continue
                 // also ignore errors due to lack of Portus support (not correctness issues)
