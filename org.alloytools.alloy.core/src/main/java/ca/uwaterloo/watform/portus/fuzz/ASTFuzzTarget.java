@@ -8,6 +8,7 @@ import ca.uwaterloo.watform.portus.VarMappingContext;
 import ca.uwaterloo.watform.portus.cli.CorrectnessChecker;
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import edu.mit.csail.sdg.alloy4.A4Reporter;
+import edu.mit.csail.sdg.alloy4.Env;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.alloy4.ErrorType;
 import edu.mit.csail.sdg.alloy4.Pair;
@@ -44,11 +45,23 @@ import java.util.stream.IntStream;
 public final class ASTFuzzTarget {
 
     private static class FuzzContext {
-        List<Sig> sigs = new ArrayList<>();
-        List<ExprVar> formulaVars = new ArrayList<>();
-        List<Pair<Expr, Integer>> exprVars = new ArrayList<>(); // (var, arity)
-        List<ExprVar> intVars = new ArrayList<>();
-        List<Func> funcs = new ArrayList<>();
+        public List<Sig> sigs = new ArrayList<>();
+        public List<Func> funcs = new ArrayList<>();
+        public Env<String, ContextEntry> vars = new Env<>();
+    }
+
+    private static class ContextEntry {
+        enum Type { FORMULA, EXPR, INT }
+
+        public final Expr expr;
+        public final int arity;
+        public final Type type;
+
+        private ContextEntry(Expr expr, int arity, Type type) {
+            this.expr = expr;
+            this.arity = arity;
+            this.type = type;
+        }
     }
 
     public static void fuzzerTestOneInput(FuzzedDataProvider data) {
@@ -105,7 +118,7 @@ public final class ASTFuzzTarget {
                 }
 
                 Sig.Field field = sig.addField(fieldName, bound);
-                context.exprVars.add(new Pair<>(field, arity));
+                context.vars.put(fieldName, new ContextEntry(field, arity, ContextEntry.Type.EXPR));
             }
         }
 
@@ -116,7 +129,7 @@ public final class ASTFuzzTarget {
 
             int numDecls = data.consumeInt(0, 5);
             List<Decl> decls = new ArrayList<>();
-            List<Pair<Expr, Integer>> addedVars = new ArrayList<>();
+            List<String> addedVars = new ArrayList<>();
             for (int j = 0; j < numDecls; j++) {
                 int arity = data.consumeInt(1, 3);
                 // Use univ to avoid typechecking issues
@@ -125,9 +138,8 @@ public final class ASTFuzzTarget {
                 List<ExprVar> vars = new ArrayList<>();
                 for (int k = 0; k < numVars; k++) {
                     ExprVar newVar = ExprVar.make(null, makeName(data));
-                    Pair<Expr, Integer> varAndArity = new Pair<>(newVar, arity);
-                    addedVars.add(varAndArity);
-                    context.exprVars.add(varAndArity);
+                    addedVars.add(newVar.label);
+                    context.vars.put(newVar.label, new ContextEntry(newVar, arity, ContextEntry.Type.EXPR));
                     vars.add(newVar);
                 }
                 decls.add(new Decl(null, null, null, null, vars, bound));
@@ -146,9 +158,9 @@ public final class ASTFuzzTarget {
             }
             context.funcs.add(func);
 
-            // Remove all the vars we added for the func
-            for (Pair<Expr, Integer> varAndArity : addedVars) {
-                context.exprVars.remove(varAndArity);
+            // Remove all the vars we added for the func (in reverse of the order they were added)
+            for (int j = addedVars.size() - 1; j >= 0; j--) {
+                context.vars.remove(addedVars.get(j));
             }
         }
 
@@ -224,10 +236,15 @@ public final class ASTFuzzTarget {
         switch (data.consumeInt(1, 15)) {
             case 1: {
                 // variable
-                if (context.formulaVars.isEmpty()) {
+                List<Expr> formulas = context.vars.keySet().stream()
+                        .map(name -> context.vars.get(name))
+                        .filter(entry -> entry.type == ContextEntry.Type.FORMULA)
+                        .map(entry -> entry.expr)
+                        .collect(Collectors.toList());
+                if (formulas.isEmpty()) {
                     return ExprConstant.TRUE;
                 }
-                return pick(context.formulaVars, data);
+                return pick(formulas, data);
             }
             case 2: {
                 // ExprBinary with formula
@@ -303,7 +320,7 @@ public final class ASTFuzzTarget {
                         ExprQt.Op.LONE,
                         ExprQt.Op.ONE,
                         ExprQt.Op.NO), data);
-                List<Pair<Expr, Integer>> addedVars = new ArrayList<>();
+                List<String> addedVars = new ArrayList<>();
 
                 int numDecls = data.consumeInt(1, 2);
                 List<Decl> decls = new ArrayList<>();
@@ -314,9 +331,8 @@ public final class ASTFuzzTarget {
                     for (int j = 0; j < numDecls; j++) {
                         ExprVar newVar = ExprVar.make(null, makeName(data), expr.type());
                         declVars.add(newVar);
-                        Pair<Expr, Integer> varAndArity = new Pair<>(newVar, 1);
-                        context.exprVars.add(varAndArity);
-                        addedVars.add(varAndArity);
+                        context.vars.put(newVar.label, new ContextEntry(newVar, 1, ContextEntry.Type.EXPR));
+                        addedVars.add(newVar.label);
                     }
                     Decl decl = new Decl(null, null, null, null, declVars, expr);
                     decls.add(decl);
@@ -325,8 +341,8 @@ public final class ASTFuzzTarget {
                 Expr sub = makeFormula(data, context);
 
                 // remove the added vars to recover the context
-                for (Pair<Expr, Integer> addedVar : addedVars) {
-                    context.exprVars.remove(addedVar);
+                for (int i = addedVars.size() - 1; i >= 0; i--) {
+                    context.vars.remove(addedVars.get(i));
                 }
 
                 return op.make(null, null, decls, sub);
@@ -335,9 +351,9 @@ public final class ASTFuzzTarget {
                 // ExprLet with formula
                 Expr formula = makeFormula(data, context);
                 ExprVar newVar = ExprVar.make(null, makeName(data), formula.type());
-                context.formulaVars.add(newVar);
+                context.vars.put(newVar.label, new ContextEntry(newVar, 1, ContextEntry.Type.FORMULA));
                 Expr sub = makeFormula(data, context);
-                context.formulaVars.remove(newVar);
+                context.vars.remove(newVar.label);
                 return ExprLet.make(null, newVar, formula, sub);
             }
             case 12: {
@@ -345,19 +361,18 @@ public final class ASTFuzzTarget {
                 int arity = data.consumeInt(1, 3);
                 Expr expr = makeExpr(data, arity, context);
                 ExprVar newVar = ExprVar.make(null, makeName(data), expr.type());
-                Pair<Expr, Integer> varAndArity = new Pair<>(newVar, arity);
-                context.exprVars.add(varAndArity);
+                context.vars.put(newVar.label, new ContextEntry(newVar, arity, ContextEntry.Type.EXPR));
                 Expr sub = makeFormula(data, context);
-                context.exprVars.remove(varAndArity);
+                context.vars.remove(newVar.label);
                 return ExprLet.make(null, newVar, expr, sub);
             }
             case 13: {
                 // ExprLet with integer expression
                 Expr expr = makeIntExpr(data, context);
                 ExprVar newVar = ExprVar.make(null, makeName(data), expr.type());
-                context.intVars.add(newVar);
+                context.vars.put(newVar.label, new ContextEntry(newVar, 1, ContextEntry.Type.INT));
                 Expr sub = makeFormula(data, context);
-                context.intVars.remove(newVar);
+                context.vars.remove(newVar.label);
                 return ExprLet.make(null, newVar, expr, sub);
             }
             case 14: {
@@ -397,9 +412,11 @@ public final class ASTFuzzTarget {
         switch (data.consumeInt(1, 16)) {
             case 1: {
                 // ExprVar
-                List<Expr> withArity = context.exprVars.stream()
-                        .filter(varAndArity -> varAndArity.b == arity)
-                        .map(varAndArity -> varAndArity.a)
+                List<Expr> withArity = context.vars.keySet().stream()
+                        .map(name -> context.vars.get(name))
+                        .filter(entry -> entry.type == ContextEntry.Type.EXPR)
+                        .filter(entry -> entry.arity == arity)
+                        .map(entry -> entry.expr)
                         .collect(Collectors.toList());
                 if (withArity.isEmpty()) {
                     return makeNoneWithArity(arity);
@@ -480,7 +497,7 @@ public final class ASTFuzzTarget {
             }
             case 11: {
                 // Comprehension
-                List<Pair<Expr, Integer>> addedVars = new ArrayList<>();
+                List<String> addedVars = new ArrayList<>();
 
                 int numVars = 0;
                 List<Decl> decls = new ArrayList<>();
@@ -491,9 +508,8 @@ public final class ASTFuzzTarget {
                     for (int j = 0; j < varsThisTime; j++) {
                         ExprVar newVar = ExprVar.make(null, makeName(data), expr.type());
                         declVars.add(newVar);
-                        Pair<Expr, Integer> varAndArity = new Pair<>(newVar, 1);
-                        context.exprVars.add(varAndArity);
-                        addedVars.add(varAndArity);
+                        context.vars.put(newVar.label, new ContextEntry(newVar, 1, ContextEntry.Type.EXPR));
+                        addedVars.add(newVar.label);
                     }
                     Decl decl = new Decl(null, null, null, null, declVars, expr);
                     decls.add(decl);
@@ -503,8 +519,8 @@ public final class ASTFuzzTarget {
                 Expr sub = makeFormula(data, context);
 
                 // remove the added vars to recover the context
-                for (Pair<Expr, Integer> addedVar : addedVars) {
-                    context.exprVars.remove(addedVar);
+                for (int i = addedVars.size() - 1; i >= 0; i--) {
+                    context.vars.remove(addedVars.get(i));
                 }
 
                 return ExprQt.Op.COMPREHENSION.make(null, null, decls, sub);
@@ -520,9 +536,9 @@ public final class ASTFuzzTarget {
                 // ExprLet with formula
                 Expr formula = makeFormula(data, context);
                 ExprVar newVar = ExprVar.make(null, makeName(data), formula.type());
-                context.formulaVars.add(newVar);
+                context.vars.put(newVar.label, new ContextEntry(newVar, 1, ContextEntry.Type.FORMULA));
                 Expr sub = makeExpr(data, arity, context);
-                context.formulaVars.remove(newVar);
+                context.vars.remove(newVar.label);
                 return ExprLet.make(null, newVar, formula, sub);
             }
             case 14: {
@@ -530,18 +546,18 @@ public final class ASTFuzzTarget {
                 Expr expr = makeExpr(data, varArity, context);
                 ExprVar newVar = ExprVar.make(null, makeName(data), expr.type());
                 Pair<Expr, Integer> varAndArity = new Pair<>(newVar, varArity);
-                context.exprVars.add(varAndArity);
+                context.vars.put(newVar.label, new ContextEntry(newVar, varArity, ContextEntry.Type.EXPR));
                 Expr sub = makeExpr(data, arity, context);
-                context.exprVars.remove(varAndArity);
+                context.vars.remove(newVar.label);
                 return ExprLet.make(null, newVar, expr, sub);
             }
             case 15: {
                 // ExprLet with integer expression
                 Expr expr = makeIntExpr(data, context);
                 ExprVar newVar = ExprVar.make(null, makeName(data), expr.type());
-                context.intVars.add(newVar);
+                context.vars.put(newVar.label, new ContextEntry(newVar, 1, ContextEntry.Type.INT));
                 Expr sub = makeExpr(data, arity, context);
-                context.intVars.remove(newVar);
+                context.vars.remove(newVar.label);
                 return ExprLet.make(null, newVar, expr, sub);
             }
             case 16: {
@@ -586,10 +602,15 @@ public final class ASTFuzzTarget {
         switch (data.consumeInt(1, 10)) {
             case 1: {
                 // ExprVar
-                if (context.intVars.isEmpty()) {
+                List<Expr> intVars = context.vars.keySet().stream()
+                        .map(name -> context.vars.get(name))
+                        .filter(entry -> entry.type == ContextEntry.Type.INT)
+                        .map(entry -> entry.expr)
+                        .collect(Collectors.toList());
+                if (intVars.isEmpty()) {
                     return ExprConstant.makeNUMBER(0);
                 }
-                return pick(context.intVars, data);
+                return pick(intVars, data);
             }
             case 2: {
                 // ExprConstant
@@ -631,9 +652,9 @@ public final class ASTFuzzTarget {
                 // ExprLet with formula
                 Expr formula = makeFormula(data, context);
                 ExprVar newVar = ExprVar.make(null, makeName(data), formula.type());
-                context.formulaVars.add(newVar);
+                context.vars.put(newVar.label, new ContextEntry(newVar, 1, ContextEntry.Type.FORMULA));
                 Expr sub = makeIntExpr(data, context);
-                context.formulaVars.remove(newVar);
+                context.vars.remove(newVar.label);
                 return ExprLet.make(null, newVar, formula, sub);
             }
             case 8: {
@@ -642,18 +663,18 @@ public final class ASTFuzzTarget {
                 Expr expr = makeExpr(data, arity, context);
                 ExprVar newVar = ExprVar.make(null, makeName(data), expr.type());
                 Pair<Expr, Integer> varAndArity = new Pair<>(newVar, arity);
-                context.exprVars.add(varAndArity);
+                context.vars.put(newVar.label, new ContextEntry(newVar, arity, ContextEntry.Type.EXPR));
                 Expr sub = makeIntExpr(data, context);
-                context.exprVars.remove(varAndArity);
+                context.vars.remove(newVar.label);
                 return ExprLet.make(null, newVar, expr, sub);
             }
             case 9: {
                 // ExprLet with integer expression
                 Expr expr = makeIntExpr(data, context);
                 ExprVar newVar = ExprVar.make(null, makeName(data), expr.type());
-                context.intVars.add(newVar);
+                context.vars.put(newVar.label, new ContextEntry(newVar, 1, ContextEntry.Type.INT));
                 Expr sub = makeIntExpr(data, context);
-                context.intVars.remove(newVar);
+                context.vars.remove(newVar.label);
                 return ExprLet.make(null, newVar, expr, sub);
             }
             case 10: {
