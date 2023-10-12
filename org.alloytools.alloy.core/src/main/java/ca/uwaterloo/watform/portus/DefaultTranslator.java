@@ -1087,9 +1087,9 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
         }
 
         // Translate all the decls into Fortress
-        Pair<Map<String, AnnotatedVar>, Term> varsAndCond = translateDeclList(expr.decls, context);
-        Map<String, AnnotatedVar> namesToVars = varsAndCond.a;
-        List<AnnotatedVar> vars = new ArrayList<>(namesToVars.values());
+        Pair<Pair<List<String>, List<AnnotatedVar>>, Term> varsAndCond = translateDeclList(expr.decls, context);
+        List<String> alloyVarNames = varsAndCond.a.a;
+        List<AnnotatedVar> vars = varsAndCond.a.b;
         Term condition = varsAndCond.b;
 
         // Process subformula - Fortress vars were added to the lexical scope in translateDeclList()
@@ -1098,7 +1098,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
             sub = recursivelyTranslate(expr.sub, context);
         } finally {
             // Remove the vars from the lexical scope since it's done (always, even if there's an exception)
-            for (String alloyVarName : namesToVars.keySet()) {
+            for (String alloyVarName : alloyVarNames) {
                 context.removeMapping(alloyVarName);
             }
         }
@@ -1517,16 +1517,18 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
 
     /**
      * Translate a list of decls from a quantifier.
-     * @return Pair of (map of Alloy variable names to translated vars, condition), where the
-     *   condition expresses that each variable is in the expr the decl declares it to be in.
+     * @return Pair of (pair of (list of mapped Alloy variable names, list of Fortress vars), condition),
+     *   where the condition expresses that each variable is in the expr the decl declares it to be in.
      *   The condition must be true for the variables to be used.
      * @apiNote The variable names are added to the context's var mapping and must be cleaned up after.
+     * This should be done by removing each of the list of mapped Alloy variable names from the context.
      * We assume that none of the decls' expressions resolve to "none" (i.e. their sort resolvants are empty).
      * This must be handled at a higher level.
      */
-    private Pair<Map<String, AnnotatedVar>, Term> translateDeclList(
+    private Pair<Pair<List<String>, List<AnnotatedVar>>, Term> translateDeclList(
             List<Decl> decls, TranslationContext context) {
-        Map<String, AnnotatedVar> namesToVars = new HashMap<>();
+        List<String> alloyVarNames = new ArrayList<>();
+        List<AnnotatedVar> fortressVars = new ArrayList<>();
         List<Term> conditions = new ArrayList<>();
         for (Decl decl : decls) {
             // Alloy typechecked that it has arity 1
@@ -1568,7 +1570,8 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
                 }
                 Sort varSort = exprSorts.get(0);
                 AnnotatedVar annotatedVar = var.of(varSort);
-                namesToVars.put(name.label, annotatedVar);
+                alloyVarNames.add(name.label);
+                fortressVars.add(annotatedVar);
 
                 // Add it to the lexical scope to translate the condition and subformula
                 context.addTermMapping(name.label, new AnnotatedTerm(annotatedVar));
@@ -1580,7 +1583,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
 
         // All the conditions must be true for a set of variables to be used
         Term condition = conditions.isEmpty() ? Term.mkTop() : Term.mkAnd(conditions);
-        return new Pair<>(namesToVars, condition);
+        return new Pair<>(new Pair<>(alloyVarNames, fortressVars), condition);
     }
 
     /** Generate a copy of `vars` with each variable suffixed with "_prime". */

@@ -3010,6 +3010,42 @@ public class DefaultTranslatorTest {
     }
 
     @Test
+    public void testTranslate_all_sameName() {
+        // test [[all x, x: e | f]] := forall x_0: univ, x_1: univ . [[x_0 \in e]] && [[x_1 \in e]] => [[f]]
+        Sig.PrimSig sig1 = new Sig.PrimSig("S1"), sig2 = new Sig.PrimSig("S2");
+        ExprVar e1 = makeTestVarWithType("e1", Type.make(sig1));
+        ExprVar e2 = makeTestVarWithType("e2", Type.make(sig2));
+        Decl x1 = e1.oneOf("x"), x2 = e2.oneOf("x");
+        ExprVar f = makeTestFormulaVar("f");
+        Var flagInE1 = makeFlagConstant("x1InE1"), flagInE2 = makeFlagConstant("x2InE2");
+        Var flagSub = makeFlagConstant("f");
+        Var flagX = makeFlagConstant("x");
+
+        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(flagX.of(univ), e1))), any()))
+                .thenReturn(flagInE1, flagInE2);
+
+        when(mockRoot.translate(eq(f), any())).then(ctx -> {
+            // make sure x has a mapping
+            TranslationContext context = ctx.getArgument(1);
+            assertTrue(context.hasTermMapping("x"));
+            AnnotatedTerm term1 = context.getTermMapping("x");
+            assertNotNull(term1);
+            assertTrue(term1.getTerm() instanceof Var);
+            return flagSub;
+        });
+
+        Term result = translator.translate(f.forAll(x1, x2), context);
+        Term expected = Term.mkForall(
+                Arrays.asList(Term.mkVar("x_0").of(univ), Term.mkVar("x_1").of(univ)),
+                Term.mkImp(Term.mkAnd(flagInE1, flagInE2), flagSub));
+        assertEquals(expected, result);
+
+        // make sure the mappings were removed after translation
+        assertFalse(context.hasTermMapping("x"));
+        assertContextEmpty();
+    }
+
+    @Test
     public void testTranslate_some() {
         // test [[some x: e | f]] := exists x: univ . [[x \in e]] && [[f]]
         Sig.PrimSig sig = new Sig.PrimSig("S");
