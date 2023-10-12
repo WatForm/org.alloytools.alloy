@@ -222,7 +222,7 @@ public abstract class SortPolicy {
                     return left.cartesianProduct(left.join(right));
                 case RANGE:
                     if (right.arity() != 1) {
-                        throw new ErrorFatal("Domain restriction left argument must have arity 1");
+                        throw new ErrorFatal("Range restriction right argument must have arity 1");
                     }
                     // restrict to only tuples with rightmost sort `right`, then add `right` back
                     return left.join(right).cartesianProduct(right);

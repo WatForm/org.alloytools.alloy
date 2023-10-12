@@ -105,10 +105,10 @@ public final class ASTFuzzTarget {
             int numFields = data.consumeInt(0, 5);
             for (int i = 0; i < numFields; i++) {
                 String fieldName = "f_" + makeName(data) + "_" + i; // make them unique within a sig
-                int arity = data.consumeInt(1, 3);
+                int boundArity = data.consumeInt(1, 3);
 
                 // TODO: field expr bounds use some special AST nodes, like SOMEOF
-                Expr bound = makeExpr(data, arity, context);
+                Expr bound = makeExpr(data, boundArity, context);
                 // Just ignore anything that isn't definite (according to UnivSortPolicy) for now
                 // Empty VarMappingContext is okay because this is the top level
                 SortResolvant resolvant = testSortPolicy.getMinimalExprSorts(bound, new VarMappingContext());
@@ -118,7 +118,7 @@ public final class ASTFuzzTarget {
                 }
 
                 Sig.Field field = sig.addField(fieldName, bound);
-                context.vars.put(fieldName, new ContextEntry(field, arity, ContextEntry.Type.EXPR));
+                context.vars.put(fieldName, new ContextEntry(field, boundArity + 1, ContextEntry.Type.EXPR));
             }
         }
 
@@ -209,7 +209,11 @@ public final class ASTFuzzTarget {
                 // and ignore errors due to relations of too-large arity
                 return;
             }
-            throw new RuntimeException("Oh no! Result: " + result);
+            if (result.kind == CorrectnessChecker.Result.Kind.EXCEPTION) {
+                throw new RuntimeException("Oh no! Result: " + result, result.exception);
+            } else {
+                throw new RuntimeException("Oh no! Result: " + result);
+            }
         }
     }
 
