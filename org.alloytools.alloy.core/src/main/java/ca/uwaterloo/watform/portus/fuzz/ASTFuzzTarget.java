@@ -453,7 +453,7 @@ public final class ASTFuzzTarget {
                 Expr sub = makeExpr(data, arity, context);
                 Expr restriction = makeExpr(data, 1, context);
                 if (data.consumeBoolean()) {
-                    return sub.domain(restriction);
+                    return restriction.domain(sub);
                 } else {
                     return sub.range(restriction);
                 }
