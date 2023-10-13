@@ -289,7 +289,9 @@ public abstract class SortPolicy {
         }
 
         @Override
-        public SortResolvant visitQuantifier(ExprQt x, List<SortResolvant> ignoredArgResults) throws Err {
+        public SortResolvant visitQuantifier(
+                ExprQt x, List<SortResolvant> ignoredArgResults, boolean anyArgNone) throws Err {
+            // We can ignore anyArgNone because we aren't recursing into the subexpression anyways
             // trust typechecking
             if (x.op == ExprQt.Op.SUM) {
                 return SortResolvant.definite(Sort.Int());

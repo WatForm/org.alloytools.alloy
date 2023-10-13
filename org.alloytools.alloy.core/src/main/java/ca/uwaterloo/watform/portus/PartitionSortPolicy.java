@@ -165,8 +165,13 @@ final class PartitionSortPolicy extends SortPolicy {
             }
 
             @Override
-            public Void visitQuantifier(ExprQt x, List<Void> argResults) throws Err {
-                // All the quantifier arguments (i.e. e in "all x: e | ...") were already mapped
+            public Void visitQuantifier(ExprQt x, List<Void> argResults, boolean anyArgNone) throws Err {
+                // All the quantifier arguments (i.e. e in "all x: e | ...") were already mapped.
+                // We can ignore anyArgNone here because we don't care if any ExprVars we meet in the
+                // recursion are in the context or not, so it's okay if we meet undefined ExprVars.
+                // Technically, it might be more efficient (combine less) to not recurse if anyArgNone, but
+                // that threatens correctness if any part of Portus does recurse into it.
+                // TODO: Possibility for bug due to conflict between let and none vars?
                 return visitThis(x.sub);
             }
 

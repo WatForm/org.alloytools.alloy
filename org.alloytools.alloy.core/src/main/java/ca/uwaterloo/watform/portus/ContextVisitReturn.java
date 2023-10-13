@@ -1,7 +1,6 @@
 package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.Err;
-import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.ast.Assert;
 import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
@@ -82,7 +81,7 @@ abstract class ContextVisitReturn<T> extends FortressVisitReturn<T> {
                         // This is because we always short-circuit any quantifiers with none sorts, so we do not
                         // recurse into them. This is necessary for Portus to work with e.g. "some x: none | ...".
                         // THIS MAY CAUSE BUGS! THIS IS A LIKELY SPOT FOR ODD BEHAVIOUR!
-                        return visitQuantifier(x, argResults);
+                        return visitQuantifier(x, argResults, true);
                     }
 
                     if (!resolvant.isDefinite()) {
@@ -96,7 +95,7 @@ abstract class ContextVisitReturn<T> extends FortressVisitReturn<T> {
                     varNamesAdded.add(name.label);
                 }
             }
-            return visitQuantifier(x, argResults);
+            return visitQuantifier(x, argResults, false);
         } finally {
             // remove the var mappings in reverse order
             for (int i = varNamesAdded.size() - 1; i >= 0; i--) {
@@ -106,7 +105,14 @@ abstract class ContextVisitReturn<T> extends FortressVisitReturn<T> {
         }
     }
 
-    public abstract T visitQuantifier(ExprQt x, List<T> argResults) throws Err;
+    /**
+     * Called for quantifiers after visiting the arguments..
+     * argResults is the result of visitQuantifierArg called for each quantifier argument.
+     * anyArgNone indicates whether any argument's sorts statically evaluated to none, in which case
+     * visitQuantifierArg was not called for it and subsequent arguments and those arguments were not
+     * added to the context. Implementations should short-circuit if this is set.
+     */
+    public abstract T visitQuantifier(ExprQt x, List<T> argResults, boolean anyArgNone) throws Err;
 
     /** Called for each quantified variable expression; results are passed in argResults in visitQuantifier. */
     public T visitQuantifierArg(Expr arg) throws Err {
@@ -152,7 +158,7 @@ abstract class ContextVisitReturn<T> extends FortressVisitReturn<T> {
         }
 
         @Override
-        public T visitQuantifier(ExprQt x, List<T> argResults) throws Err {
+        public T visitQuantifier(ExprQt x, List<T> argResults, boolean anyArgNone) throws Err {
             return null;
         }
 

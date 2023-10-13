@@ -98,7 +98,11 @@ final class NaturalRecursion {
             }
 
             @Override
-            public T visitQuantifier(ExprQt x, List<T> argResults) throws Err {
+            public T visitQuantifier(ExprQt x, List<T> argResults, boolean anyArgNone) throws Err {
+                // TODO: Technically, it is incorrect to ignore anyArgNone. But in the ways this function
+                //  is currently used, it *should* be fine, because ExprVars are not important.
+                //  More correct would be to completely ignore this term if anyArgNone is true, but then it's
+                //  possible some other part of Portus recurses into the term and causes incorrect behaviour.
                 return combiner.apply(combiner.apply(generator.apply(x, varMappingContext), visitThis(x.sub)),
                         argResults.stream().reduce(initial, combiner));
             }
