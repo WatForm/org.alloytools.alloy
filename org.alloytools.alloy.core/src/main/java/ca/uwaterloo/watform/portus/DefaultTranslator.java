@@ -112,9 +112,6 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
         sigMemberPredicateDecls.put(sig, decl);
         context.addFunctionDeclaration(decl);
 
-        // The sig's scope has to be exact since we're using a membership predicate.
-        context.forceSortExact(sigSort);
-
         if (sig instanceof Sig.PrimSig) {
             Sig.PrimSig primSig = (Sig.PrimSig) sig;
 
@@ -140,6 +137,12 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
                 context.addAxiom(scopeAxiomStrategy.makeNonExactScopeAxiom(
                         sig, scope, topLevelTranslator, context));
             }
+
+            // The sig's scope has to be exact since we're using a membership predicate and the scope axiom
+            // strategies require it.
+            // TODO: this is an implementation detail of cardinality and constants scope axiom strategies,
+            //   but it should be fine for now
+            context.forceSortExact(sigSort);
         } else if (sig instanceof Sig.SubsetSig) {
             Sig.SubsetSig subsetSig = (Sig.SubsetSig) sig;
 
