@@ -383,7 +383,13 @@ final class PortusUtil {
             }
 
             @Override
-            public List<AnnotatedVar> visitQuantifier(ExprQt x, List<List<AnnotatedVar>> argResults) throws Err {
+            public List<AnnotatedVar> visitQuantifier(
+                    ExprQt x, List<List<AnnotatedVar>> argResults, boolean anyArgNone) throws Err {
+                if (anyArgNone) {
+                    // don't recurse - any free variables won't be translated anyways
+                    return new ArrayList<>();
+                }
+
                 // the special bound variable represents vars that aren't free - remove it from the list
                 List<AnnotatedVar> freeVars = argResults.stream().reduce(new ArrayList<>(), this::union);
                 List<AnnotatedVar> subFreeVars = visitThis(x.sub);
@@ -496,7 +502,11 @@ final class PortusUtil {
             }
 
             @Override
-            public Expr visitQuantifier(ExprQt x, List<Expr> ignoredArgResults) throws Err {
+            public Expr visitQuantifier(ExprQt x, List<Expr> argResults, boolean anyArgNone) throws Err {
+                // It's okay for us to ignore anyArgNone because we don't care if the ExprVars we meet
+                // in recursion are in the context or not (if they aren't in let).
+                // TODO: Could we just not recurse here if anyArgNone is true?
+                // TODO: Possibility for bug due to conflict between let and none vars?
                 return x.op.make(x.pos, x.closingBracket, x.decls, visitThis(x.sub));
             }
 

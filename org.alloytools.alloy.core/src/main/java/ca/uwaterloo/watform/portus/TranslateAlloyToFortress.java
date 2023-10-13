@@ -81,8 +81,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
         } catch (TimeoutException | ErrorNoPortusSupport e) {
             // Rethrow timeout exceptions and ErrorNoPortusSupport as-is, don't wrap in ErrorFatal
             throw e;
-        } // Also rethrow ErrorNoPortusSupport as-is
-        catch (Throwable e) {
+        } catch (Throwable e) {
             // Alloy will catch it anyways, so rethrow as ErrorFatal for a more helpful debug message.
             throw new ErrorFatal(e.getMessage(), e);
         }

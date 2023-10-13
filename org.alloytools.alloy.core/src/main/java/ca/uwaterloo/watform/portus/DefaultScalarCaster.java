@@ -195,7 +195,7 @@ final class DefaultScalarCaster implements ScalarCaster {
 
             @Override
             public Pair<AnnotatedTerm, Term> visitQuantifier(
-                    ExprQt x, List<Pair<AnnotatedTerm, Term>> ignoredArgResults) {
+                    ExprQt x, List<Pair<AnnotatedTerm, Term>> argResults, boolean anyArgNone) {
                 // Sum can be cast to scalar by translating since it's an int
                 if (x.op == ExprQt.Op.SUM) {
                     return castByTranslating(x, Sort.Int());
