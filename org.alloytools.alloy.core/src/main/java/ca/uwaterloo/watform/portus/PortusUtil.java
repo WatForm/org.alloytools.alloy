@@ -393,9 +393,9 @@ final class PortusUtil {
                 // the special bound variable represents vars that aren't free - remove it from the list
                 List<AnnotatedVar> freeVars = argResults.stream().reduce(new ArrayList<>(), this::union);
                 List<AnnotatedVar> subFreeVars = visitThis(x.sub);
-                return union(freeVars, subFreeVars.stream()
+                return union(freeVars, subFreeVars).stream()
                         .filter(var -> !var.variable().equals(boundPlaceholderVar))
-                        .collect(Collectors.toList()));
+                        .collect(Collectors.toList());
             }
 
             @Override
