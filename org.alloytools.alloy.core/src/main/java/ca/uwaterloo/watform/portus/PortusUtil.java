@@ -277,7 +277,8 @@ final class PortusUtil {
 
         do {
             List<Value> tuple = IntStream.range(0, sorts.size())
-                    .mapToObj(i -> getElement(currentIdxs.get(i), sorts.get(i)))
+                    // Subtract 1 because getElement expects 0-indexed but we generate 1-indexed
+                    .mapToObj(i -> getElement(currentIdxs.get(i) - 1, sorts.get(i)))
                     .collect(Collectors.toList());
             callback.accept(tuple);
         } while (nextCombination(currentIdxs, sortScopes));
@@ -302,7 +303,8 @@ final class PortusUtil {
         } else if (sort.isBuiltin()) {
             throw new ErrorFatal("Cannot get element of builtin non-Int sort: " + sort);
         }
-        return Term.mkDomainElement(idx, sort);
+        // Convert to 1-indexed from 0-indexed
+        return Term.mkDomainElement(idx + 1, sort);
     }
 
     /**
