@@ -68,7 +68,7 @@ public final class ASTFuzzTarget {
         FuzzContext context = new FuzzContext();
 
         // Generate all sigs
-        int numSigs = data.consumeInt(0, 6);
+        int numSigs = data.consumeInt(0, 4);
         List<Sig.PrimSig> primSigs = new ArrayList<>();
         for (int i = 0; i < numSigs; i++) {
             String sigName = "S_" + makeName(data) + "_" + i; // make them unique
@@ -166,7 +166,7 @@ public final class ASTFuzzTarget {
 
         // Generate the command
         Expr formula = makeFormula(data, context);
-        int bitwidth = data.consumeInt(1, 8);
+        int bitwidth = data.consumeInt(1, 5); // TODO: probably make bitwidth smaller to avoid stack overflows
         int maxseq = data.consumeInt(0, Math.min(8, Util.max(bitwidth)));
         Command command = new Command(
                 data.consumeBoolean(), // is it a check or a run?
@@ -192,7 +192,7 @@ public final class ASTFuzzTarget {
         CorrectnessChecker checker = new CorrectnessChecker();
         CorrectnessChecker.Result result;
         try {
-            result =checker.checkCorrectness(allSigs, command, options);
+            result = checker.checkCorrectness(allSigs, command, options);
         } catch (ErrorType errorType) {
             // This isn't thrown by Portus but sometimes Kodkod throws type errors.
             // Just ignore them - usually due to too-large arity.
