@@ -361,6 +361,14 @@ public class PortusUtilTest {
     }
 
     @Test
+    public void testGetElement_nonInt_zeroIndexed() {
+        // test getElement(0, Sort) = @1Sort
+        Sort sort = Sort.mkSortConst("A");
+        Value actual = PortusUtil.getElement(0, sort);
+        assertEquals(Term.mkDomainElement(1, sort), actual);
+    }
+
+    @Test
     public void testExpandLets_simple() {
         // test that if x is mapped to y in the var mapping context, x expands to y
         ExprVar x = makeTestVar("x");
