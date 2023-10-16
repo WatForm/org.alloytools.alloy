@@ -320,9 +320,9 @@ public final class ASTFuzzTarget {
                 e1.get().equal(e2.get()).or(lt.call(e1.get(), e2.get())));
         Func gte = new Func(null, null, prefix + "gte", Arrays.asList(e1, e2), null,
                 e1.get().equal(e2.get()).or(gt.call(e1.get(), e2.get())));
-        Func larger = new Func(null, null, prefix + "larger", Arrays.asList(e1, e2), null,
+        Func larger = new Func(null, null, prefix + "larger", Arrays.asList(e1, e2), sig.oneOf(),
                 lt.call(e1.get(), e2.get()).ite(e2.get(), e1.get()));
-        Func smaller = new Func(null, null, prefix + "smaller", Arrays.asList(e1, e2), null,
+        Func smaller = new Func(null, null, prefix + "smaller", Arrays.asList(e1, e2), sig.oneOf(),
                 lt.call(e1.get(), e2.get()).ite(e1.get(), e2.get()));
         Func max = new Func(null, null, prefix + "max", Collections.singletonList(es), sig.loneOf(),
                 es.get().minus(es.get().join(ordSig.join(nextField).transpose().closure())));
