@@ -87,15 +87,15 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
         if (options.enableSimpleScalarOptimization) {
             translators.add(new SimpleScalarOptTranslator(this, this));
         }
+        if (options.enableOrderingModuleOptimization) {
+            translators.add(orderingModuleOpt);
+        }
         if (options.enableOneSigOptimization) {
             translators.add(oneSigOpt);
         }
         translators.add(functionOpt);
         if (options.enableJoinOptimization) {
             translators.add(new JoinOptTranslator(this, this));
-        }
-        if (options.enableOrderingModuleOptimization) {
-            translators.add(orderingModuleOpt);
         }
         if (options.enableMembershipPredicateOptimization) {
             translators.add(membershipPredOpt);
@@ -105,13 +105,13 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
         }
         translators.add(defaultTranslator);
 
+        if (options.enableOrderingModuleOptimization) {
+            scalarCasters.add(orderingModuleOpt);
+        }
         if (options.enableOneSigOptimization) {
             scalarCasters.add(oneSigOpt);
         }
         scalarCasters.add(functionOpt);
-        if (options.enableOrderingModuleOptimization) {
-            scalarCasters.add(orderingModuleOpt);
-        }
         scalarCasters.add(new DefaultScalarCaster(this, this, sortPolicy));
         if (options.enableElementOfScalarOptimization) {
             scalarCasters.add(new ElementOfScalarCaster(this, sortPolicy, statistics));

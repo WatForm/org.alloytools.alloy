@@ -273,7 +273,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
                 || !(PortusUtil.stripPortusNoops(join.right) instanceof Sig.Field)) {
             if (shouldError) {
                 throw new ErrorNoPortusSupport(
-                        "Expected Ord.first / Ord.next for second/third parameters of pred/totalOrder");
+                        "Expected Ord.First / Ord.Next for second/third parameters of pred/totalOrder");
             }
             return null;
         }
