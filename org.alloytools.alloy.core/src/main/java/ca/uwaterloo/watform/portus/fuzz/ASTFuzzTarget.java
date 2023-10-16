@@ -16,6 +16,7 @@ import edu.mit.csail.sdg.alloy4.Pos;
 import edu.mit.csail.sdg.alloy4.Util;
 import edu.mit.csail.sdg.ast.Attr;
 import edu.mit.csail.sdg.ast.Command;
+import edu.mit.csail.sdg.ast.CommandScope;
 import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprBinary;
@@ -53,6 +54,7 @@ public final class ASTFuzzTarget {
 
         // These sigs shouldn't be used in generation (like they're private from other modules)
         public List<Sig> privateSigs = new ArrayList<>();
+        public List<Sig> forcedExactSigs = new ArrayList<>();
     }
 
     private static class ContextEntry {
@@ -95,13 +97,6 @@ public final class ASTFuzzTarget {
                 List<Sig> parents = pickSubset(context.sigs, numParents, data);
                 Sig.SubsetSig sig = new Sig.SubsetSig(null, sigName, null, parents);
                 context.sigs.add(sig);
-            }
-        }
-
-        // Apply the ordering module
-        for (Sig.PrimSig sig : primSigs) {
-            if (data.consumeBoolean()) {
-                applyOrderingModule(sig, context);
             }
         }
 
@@ -177,17 +172,36 @@ public final class ASTFuzzTarget {
             }
         }
 
+        // Apply the ordering module
+        for (Sig.PrimSig sig : primSigs) {
+            if (data.consumeBoolean()) {
+                applyOrderingModule(sig, context);
+            }
+        }
+
+        List<CommandScope> scopes = new ArrayList<>();
+        for (Sig.PrimSig sig : primSigs) {
+            boolean exact = context.forcedExactSigs.contains(sig) || data.consumeBoolean();
+            int scope = 4;
+            if (sig.isOne != null || sig.isLone != null) {
+                scope = 1;
+            }
+            scopes.add(new CommandScope(sig, exact, scope));
+        }
+
         // Generate the command
         Expr formula = makeFormula(data, context);
         int bitwidth = data.consumeInt(1, 5); // TODO: probably make bitwidth smaller to avoid stack overflows
         int maxseq = data.consumeInt(0, Math.min(8, Util.max(bitwidth)));
-        Command command = new Command(
+        Command command = new Command(null, null, "",
                 data.consumeBoolean(), // is it a check or a run?
                 data.consumeInt(-1, 12), // overall scope; -1 = not specified
                 bitwidth, // bitwidth; -1 = not specified
                 maxseq, // maxseq; -1 = not specified
+                -1, -1, -1,
+                scopes, null,
                 ExprVar.make(null, "check"), // command keyword?
-                formula);
+                formula, null);
         A4Options options = new A4Options();
 
         // Use Kodkod-compatible integer semantics for correctness testing
@@ -279,6 +293,7 @@ public final class ASTFuzzTarget {
         ordSig.addFact(ExprList.makeTOTALORDER(null, null, Arrays.asList(
                 sig, ordSig.join(firstField), ordSig.join(nextField))));
         context.privateSigs.add(ordSig);
+        context.forcedExactSigs.add(sig);
 
         // simulate everything from the ordering module
         Decl e = sig.oneOf("e");
