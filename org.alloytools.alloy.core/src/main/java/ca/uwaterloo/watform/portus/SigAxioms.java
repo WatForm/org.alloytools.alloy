@@ -29,7 +29,7 @@ class SigAxioms {
      * Generate all the axioms needed to completely specify the relations between a PrimSig
      * and its children.
      */
-    public final void addPrimSigChildrenAxioms(Sig.PrimSig sig, TranslationContext context) {
+    public void addPrimSigChildrenAxioms(Sig.PrimSig sig, TranslationContext context) {
         // Add axioms for membership
         for (Sig.PrimSig child : sig.children()) {
             context.addAxiom(makeSubsetAxiom(Collections.singletonList(sig), child, context));
