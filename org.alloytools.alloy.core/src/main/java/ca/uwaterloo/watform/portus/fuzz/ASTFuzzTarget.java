@@ -275,8 +275,9 @@ public final class ASTFuzzTarget {
         String prefix = sig.label + "_ord/";
         Sig.PrimSig ordSig = new Sig.PrimSig(prefix + "Ord", Attr.ONE, Attr.PRIVATE);
         Sig.Field firstField = ordSig.addField("First", sig.setOf());
-        Sig.Field nextField = ordSig.addField("Next", sig.product(sig).oneOf());
-        ordSig.addFact(ExprList.makeTOTALORDER(null, null, Arrays.asList(sig, firstField, nextField)));
+        Sig.Field nextField = ordSig.addField("Next", sig.product(sig));
+        ordSig.addFact(ExprList.makeTOTALORDER(null, null, Arrays.asList(
+                sig, ordSig.join(firstField), ordSig.join(nextField))));
         context.privateSigs.add(ordSig);
 
         // simulate everything from the ordering module
@@ -286,11 +287,11 @@ public final class ASTFuzzTarget {
         Decl es = sig.setOf("es");
         Func first = new Func(null, null, prefix + "first", Collections.emptyList(), sig.oneOf(),
                 ordSig.join(firstField));
-        Func next = new Func(null, null, prefix + "next", Collections.emptyList(), sig.product(sig).oneOf(),
+        Func next = new Func(null, null, prefix + "next", Collections.emptyList(), sig.product(sig),
                 ordSig.join(nextField));
         Func last = new Func(null, null, prefix + "last", Collections.emptyList(), sig.oneOf(),
                 sig.minus(next.call().join(sig)));
-        Func prev = new Func(null, null, prefix + "prev", Collections.emptyList(), sig.product(sig).oneOf(),
+        Func prev = new Func(null, null, prefix + "prev", Collections.emptyList(), sig.product(sig),
                 ordSig.join(nextField).transpose());
         Func nexts = new Func(null, null, prefix + "nexts", Collections.singletonList(e), sig.setOf(),
                 e.get().join(ordSig.join(nextField).closure()));
