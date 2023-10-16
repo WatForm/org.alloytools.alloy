@@ -1570,11 +1570,11 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
                 AnnotatedVar annotatedVar = var.of(varSort);
                 namesToVars.put(name.label, annotatedVar);
 
-                // Add it to the lexical scope to translate the condition and subformula
-                context.addTermMapping(name.label, new AnnotatedTerm(annotatedVar));
-
                 // Add the condition "var \in declExpr" to restrict the domain of var
                 conditions.add(recursivelyTranslate(ExprElementOf.make(annotatedVar, declExpr), context));
+
+                // Add it to the lexical scope to translate the subformula
+                context.addTermMapping(name.label, new AnnotatedTerm(annotatedVar));
             }
         }
 
