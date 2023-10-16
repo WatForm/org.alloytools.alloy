@@ -16,10 +16,12 @@ import fortress.msfol.Term;
 class OneSigOptTranslator extends AbstractTranslator implements ScalarCaster, Evaluator {
 
     private final SortPolicy sortPolicy;
+    private final SigAxioms sigAxioms;
 
-    public OneSigOptTranslator(Translator topLevel, SortPolicy sortPolicy) {
+    public OneSigOptTranslator(Translator topLevel, SortPolicy sortPolicy, SigAxioms sigAxioms) {
         super(topLevel);
         this.sortPolicy = sortPolicy;
+        this.sigAxioms = sigAxioms;
     }
 
     @Override
@@ -32,9 +34,18 @@ class OneSigOptTranslator extends AbstractTranslator implements ScalarCaster, Ev
     public Term translate(Sig sig, TranslationContext context) {
         // Don't bother trying to deal with one subset sigs, they aren't common
         if (sig.isOne == null || !(sig instanceof Sig.PrimSig)) return null;
+        Sig.PrimSig primSig = (Sig.PrimSig) sig;
 
         // Don't add all the axioms or create a predicate, just use the range axiom
         context.rangeAssigner.addRangeAxiom(sig, topLevelTranslator, context);
+
+        // Translate all the children (yes, one sigs can have children)
+        // But don't bother trying to optimize the sig axioms, because this isn't common
+        for (Sig.PrimSig child : primSig.children()) {
+            recursivelyTranslate(child, context);
+        }
+        sigAxioms.addPrimSigChildrenAxioms(primSig, context);
+
         return Term.mkTop();
     }
 

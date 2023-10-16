@@ -1,6 +1,7 @@
 package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.Pair;
+import edu.mit.csail.sdg.alloy4.Pos;
 import edu.mit.csail.sdg.ast.Attr;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.ScopeComputer;
@@ -23,10 +24,11 @@ import static org.mockito.Mockito.when;
 public class OneSigOptTranslatorTest {
 
     private final Sort testSort = Sort.mkSortConst("Sort");
-    private final Sig testOneSig = new Sig.PrimSig("Sig", Attr.ONE);
+    private final Sig.PrimSig testOneSig = new Sig.PrimSig("Sig", Attr.ONE);
 
     private Translator mockTranslator;
     private SortPolicy mockSortPolicy;
+    private SigAxioms mockSigAxioms;
     private RangeAssigner mockRangeAssigner;
     private TranslationContext context;
 
@@ -34,6 +36,7 @@ public class OneSigOptTranslatorTest {
     public void setUp() {
         mockTranslator = mock(Translator.class);
         mockSortPolicy = mock(SortPolicy.class);
+        mockSigAxioms = mock(SigAxioms.class);
         mockRangeAssigner = mock(RangeAssigner.class);
         ScopeComputer mockScopeComputer = mock(ScopeComputer.class);
         when(mockSortPolicy.addSortsToTheory(any())).thenReturn(Theory.empty().withSort(testSort));
@@ -49,16 +52,28 @@ public class OneSigOptTranslatorTest {
     @Test
     public void testTranslate() {
         // test translating a one sig adds the range axiom
-        OneSigOptTranslator opt = new OneSigOptTranslator(mockTranslator, mockSortPolicy);
+        OneSigOptTranslator opt = new OneSigOptTranslator(mockTranslator, mockSortPolicy, mockSigAxioms);
         Term result = opt.translate(testOneSig, context);
         assertNotNull(result);
         verify(mockRangeAssigner, atLeastOnce()).addRangeAxiom(eq(testOneSig), any(), any());
     }
 
     @Test
+    public void testTranslate_withChild() {
+        // test that a child of a one sig is supported
+        OneSigOptTranslator opt = new OneSigOptTranslator(mockTranslator, mockSortPolicy, mockSigAxioms);
+        Sig child = new Sig.PrimSig(null, "child", new Pos("foo.als", 1, 2), testOneSig);
+        Term result = opt.translate(testOneSig, context);
+        assertNotNull(result);
+        verify(mockRangeAssigner, atLeastOnce()).addRangeAxiom(eq(testOneSig), any(), any());
+        verify(mockSigAxioms, atLeastOnce()).addPrimSigChildrenAxioms(eq(testOneSig), any());
+        verify(mockTranslator, atLeastOnce()).translate(eq(child), any());
+    }
+
+    @Test
     public void testCastToScalar() {
         // test castToScalar(A) = (@1: sortA, Top) when A is a one sig and @1 is its one domain element
-        OneSigOptTranslator opt = new OneSigOptTranslator(mockTranslator, mockSortPolicy);
+        OneSigOptTranslator opt = new OneSigOptTranslator(mockTranslator, mockSortPolicy, mockSigAxioms);
 
         Term flagRangeAxiom = Term.mkVar("rangeAxiom");
         when(mockTranslator.translate(any(), any())).thenReturn(flagRangeAxiom);
