@@ -14,6 +14,7 @@ import edu.mit.csail.sdg.alloy4.ErrorType;
 import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.alloy4.Pos;
 import edu.mit.csail.sdg.alloy4.Util;
+import edu.mit.csail.sdg.ast.Attr;
 import edu.mit.csail.sdg.ast.Command;
 import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
@@ -34,6 +35,7 @@ import fortress.inputs.ParserException;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -48,6 +50,9 @@ public final class ASTFuzzTarget {
         public List<Sig> sigs = new ArrayList<>();
         public List<Func> funcs = new ArrayList<>();
         public Env<String, ContextEntry> vars = new Env<>();
+
+        // These sigs shouldn't be used in generation (like they're private from other modules)
+        public List<Sig> privateSigs = new ArrayList<>();
     }
 
     private static class ContextEntry {
@@ -76,11 +81,12 @@ public final class ASTFuzzTarget {
             if (usePrimSig) {
                 Sig.PrimSig sig;
                 boolean useParent = !primSigs.isEmpty() && data.consumeBoolean();
+                Attr[] attrs = pickAttrs(data);
                 if (useParent) {
                     Sig.PrimSig parent = pick(primSigs, data);
-                    sig = new Sig.PrimSig(null, sigName, new Pos("x", 1, 1), parent);
+                    sig = new Sig.PrimSig(null, sigName, new Pos("x", 1, 1), parent, attrs);
                 } else {
-                    sig = new Sig.PrimSig(sigName);
+                    sig = new Sig.PrimSig(sigName, attrs);
                 }
                 primSigs.add(sig);
                 context.sigs.add(sig);
@@ -89,6 +95,13 @@ public final class ASTFuzzTarget {
                 List<Sig> parents = pickSubset(context.sigs, numParents, data);
                 Sig.SubsetSig sig = new Sig.SubsetSig(null, sigName, null, parents);
                 context.sigs.add(sig);
+            }
+        }
+
+        // Apply the ordering module
+        for (Sig.PrimSig sig : primSigs) {
+            if (data.consumeBoolean()) {
+                applyOrderingModule(sig, context);
             }
         }
 
@@ -183,6 +196,7 @@ public final class ASTFuzzTarget {
         // Add int, univ only here to avoid returning them when generating expressions
         // to avoid errors about mixing sorts or quantifying over univ
         List<Sig> allSigs = new ArrayList<>(context.sigs);
+        allSigs.addAll(context.privateSigs);
         allSigs.add(Sig.UNIV);
         allSigs.add(Sig.SIGINT);
         allSigs.add(Sig.SEQIDX);
@@ -234,6 +248,72 @@ public final class ASTFuzzTarget {
             copy.remove(idx);
         }
         return subset;
+    }
+
+    private static Attr[] pickAttrs(FuzzedDataProvider data) {
+        List<Attr> attrs = new ArrayList<>();
+        if (data.consumeBoolean()) {
+            switch (data.consumeInt(1, 4)) {
+                case 1:
+                    attrs.add(Attr.ONE);
+                    break;
+                case 2:
+                    attrs.add(Attr.LONE);
+                    break;
+                case 3:
+                    attrs.add(Attr.SOME);
+                    break;
+                case 4:
+                    attrs.add(Attr.ABSTRACT);
+                    break;
+            }
+        }
+        return attrs.toArray(new Attr[0]);
+    }
+
+    private static void applyOrderingModule(Sig.PrimSig sig, FuzzContext context) {
+        String prefix = sig.label + "_ord/";
+        Sig.PrimSig ordSig = new Sig.PrimSig(prefix + "Ord", Attr.ONE, Attr.PRIVATE);
+        Sig.Field firstField = ordSig.addField("First", sig.setOf());
+        Sig.Field nextField = ordSig.addField("Next", sig.product(sig).oneOf());
+        ordSig.addFact(ExprList.makeTOTALORDER(null, null, Arrays.asList(sig, firstField, nextField)));
+        context.privateSigs.add(ordSig);
+
+        // simulate everything from the ordering module
+        Decl e = sig.oneOf("e");
+        Decl e1 = sig.oneOf("e1");
+        Decl e2 = sig.oneOf("e2");
+        Decl es = sig.setOf("es");
+        Func first = new Func(null, null, prefix + "first", Collections.emptyList(), sig.oneOf(),
+                ordSig.join(firstField));
+        Func next = new Func(null, null, prefix + "next", Collections.emptyList(), sig.product(sig).oneOf(),
+                ordSig.join(nextField));
+        Func last = new Func(null, null, prefix + "last", Collections.emptyList(), sig.oneOf(),
+                sig.minus(next.call().join(sig)));
+        Func prev = new Func(null, null, prefix + "prev", Collections.emptyList(), sig.product(sig).oneOf(),
+                ordSig.join(nextField).transpose());
+        Func nexts = new Func(null, null, prefix + "nexts", Collections.singletonList(e), sig.setOf(),
+                e.get().join(ordSig.join(nextField).closure()));
+        Func prevs = new Func(null, null, prefix + "prevs", Collections.singletonList(e), sig.setOf(),
+                e.get().join(ordSig.join(nextField).transpose().closure()));
+        Func lt = new Func(null, null, prefix + "lt", Arrays.asList(e1, e2), null,
+                e1.get().in(prevs.call(e2.get())));
+        Func gt = new Func(null, null, prefix + "gt", Arrays.asList(e1, e2), null,
+                e1.get().in(nexts.call(e2.get())));
+        Func lte = new Func(null, null, prefix + "lte", Arrays.asList(e1, e2), null,
+                e1.get().equal(e2.get()).or(lt.call(e1.get(), e2.get())));
+        Func gte = new Func(null, null, prefix + "gte", Arrays.asList(e1, e2), null,
+                e1.get().equal(e2.get()).or(gt.call(e1.get(), e2.get())));
+        Func larger = new Func(null, null, prefix + "larger", Arrays.asList(e1, e2), null,
+                lt.call(e1.get(), e2.get()).ite(e2.get(), e1.get()));
+        Func smaller = new Func(null, null, prefix + "smaller", Arrays.asList(e1, e2), null,
+                lt.call(e1.get(), e2.get()).ite(e1.get(), e2.get()));
+        Func max = new Func(null, null, prefix + "max", Collections.singletonList(es), sig.loneOf(),
+                es.get().minus(es.get().join(ordSig.join(nextField).transpose().closure())));
+        Func min = new Func(null, null, prefix + "min", Collections.singletonList(es), sig.loneOf(),
+                es.get().minus(es.get().join(ordSig.join(nextField).closure())));
+        context.funcs.addAll(Arrays.asList(first, next, last, prev, nexts, prevs,
+                lt, gt, lte, gte, larger, smaller, max, min));
     }
 
     private static Expr makeFormula(FuzzedDataProvider data, FuzzContext context) {
