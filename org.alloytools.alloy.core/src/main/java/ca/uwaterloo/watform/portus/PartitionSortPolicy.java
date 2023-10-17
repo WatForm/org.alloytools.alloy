@@ -130,7 +130,7 @@ final class PartitionSortPolicy extends SortPolicy {
                     if (subSorts.arity() != 2) {
                         throw new ErrorFatal("Argument of ^ or * must have arity 2!");
                     }
-                    subSorts.stream().forEach(sorts -> mergeSorts(sorts, varMappingContext));
+                    subSorts.stream().forEach(sorts -> mergeSorts(new HashSet<>(sorts), varMappingContext));
                 }
                 return visitThis(x.sub);
             }
@@ -251,7 +251,12 @@ final class PartitionSortPolicy extends SortPolicy {
         }
     }
 
-    private void mergeSorts(Iterable<Sort> sorts, VarMappingContext varMappingContext) {
+    private void mergeSorts(Set<Sort> sorts, VarMappingContext varMappingContext) {
+        if (sorts.size() == 1) {
+            // nothing to merge
+            return;
+        }
+
         Sig.PrimSig first = null;
         for (Sort sort : sorts) {
             // We can't merge built-in sorts
