@@ -1533,7 +1533,12 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
         List<String> alloyVarNames = new ArrayList<>();
         List<AnnotatedVar> fortressVars = new ArrayList<>();
         List<Term> conditions = new ArrayList<>();
+
         for (Decl decl : decls) {
+            // Kodkod evaluates the decl expression once. To emulate this, only add the
+            // variables to the context after evaluating the whole decl.
+            List<Pair<String, AnnotatedTerm>> termMappingsToAdd = new ArrayList<>();
+
             // Alloy typechecked that it has arity 1
             for (ExprHasName name : decl.names) {
                 // Ensure decl.expr is ONEOF: we don't support other multiplicities in quantifiers (yet)
@@ -1580,7 +1585,12 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
                 conditions.add(recursivelyTranslate(ExprElementOf.make(annotatedVar, declExpr), context));
 
                 // Add it to the lexical scope to translate the subformula
-                context.addTermMapping(name.label, new AnnotatedTerm(annotatedVar));
+                termMappingsToAdd.add(new Pair<>(name.label, new AnnotatedTerm(annotatedVar)));
+            }
+
+            // Add the term mappings now, in order, after having translated the decl expression
+            for (Pair<String, AnnotatedTerm> mapping : termMappingsToAdd) {
+                context.addTermMapping(mapping.a, mapping.b);
             }
         }
 
