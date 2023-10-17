@@ -181,12 +181,15 @@ public final class ASTFuzzTarget {
 
         List<CommandScope> scopes = new ArrayList<>();
         for (Sig.PrimSig sig : primSigs) {
-            boolean exact = context.forcedExactSigs.contains(sig) || data.consumeBoolean();
-            int scope = 4;
-            if (sig.isOne != null || sig.isLone != null) {
-                scope = 1;
+            // Only do top-level sigs for now - eventually track parent sigs
+            if (sig.isTopLevel()) {
+                boolean exact = context.forcedExactSigs.contains(sig) || data.consumeBoolean();
+                int scope = 4;
+                if (sig.isOne != null || sig.isLone != null) {
+                    scope = 1;
+                }
+                scopes.add(new CommandScope(sig, exact, scope));
             }
-            scopes.add(new CommandScope(sig, exact, scope));
         }
 
         // Generate the command
