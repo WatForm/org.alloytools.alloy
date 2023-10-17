@@ -155,6 +155,18 @@ public class DefaultTranslatorTest {
         };
     }
 
+    private Answer<Term> useTestFunctionWithElementOf(String funcName) {
+        return ctx -> {
+            // should be an ExprElementOf
+            Expr expr = ctx.getArgument(0);
+            assertTrue(expr instanceof ExprElementOf);
+            ExprElementOf elementOf = (ExprElementOf) expr;
+
+            // use the LHS as arguments to the function
+            return Term.mkApp(funcName, elementOf.tuple.getTerms());
+        };
+    }
+
     // Delegate to the real translator for any translation.
     // This should go before other when() calls so it can be overriden for specific arguments.
     // Also, you must use doReturn(...).when(...) for overrides: https://stackoverflow.com/a/34172381.
@@ -3103,7 +3115,7 @@ public class DefaultTranslatorTest {
         // translate [[x \in e]] with a function inE(x)
         when(mockRoot.translate(argThat(isAlphaEquivalent(
                 ExprElementOf.make(Term.mkVar("x").of(univ), e))), any()))
-                .then(useTestFunction("inE", "x"));
+                .then(useTestFunctionWithElementOf("inE"));
 
         // translate [[f]] with a function f(x)
         when(mockRoot.translate(eq(f), any())).then(useTestFunction("f", "x"));
@@ -3142,7 +3154,7 @@ public class DefaultTranslatorTest {
         // translate [[x \in e]] with a function inE(x)
         when(mockRoot.translate(argThat(isAlphaEquivalent(
                 ExprElementOf.make(Term.mkVar("x").of(univ), e))), any()))
-                .then(useTestFunction("inE", "x"));
+                .then(useTestFunctionWithElementOf("inE"));
 
         // translate [[f]] with a function f(x)
         when(mockRoot.translate(eq(f), any())).then(useTestFunction("f", "x"));
@@ -3225,7 +3237,7 @@ public class DefaultTranslatorTest {
         // translate [[x \in e]] with a function inE(x)
         when(mockRoot.translate(argThat(isAlphaEquivalent(
                 ExprElementOf.make(Term.mkVar("x").of(univ), e))), any()))
-                .then(useTestFunction("inE", "x"));
+                .then(useTestFunctionWithElementOf("inE"));
 
         // translate [[f]] with a function f(x)
         when(mockRoot.translate(eq(f), any())).then(useTestFunction("f", "x"));
@@ -3255,7 +3267,7 @@ public class DefaultTranslatorTest {
         // translate [[x \in e]] with a function inE(x)
         when(mockRoot.translate(argThat(isAlphaEquivalent(
                 ExprElementOf.make(Term.mkVar("x").of(univ), e))), any()))
-                .then(useTestFunction("inE", "x"));
+                .then(useTestFunctionWithElementOf("inE"));
 
         // translate [[f]] with a function f(x)
         when(mockRoot.translate(eq(f), any())).then(useTestFunction("f", "x"));
@@ -3292,9 +3304,9 @@ public class DefaultTranslatorTest {
 
         // translate [[x \in e1]] with a function inE1(x) and similar for [[y \in e2]] and inE2(y)
         when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(Term.mkVar("x_0").of(univ), e1))), any()))
-                .then(useTestFunction("inE1", "x"));
+                .then(useTestFunctionWithElementOf("inE1"));
         when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(Term.mkVar("y_0").of(univ), e2))), any()))
-                .then(useTestFunction("inE2", "y"));
+                .then(useTestFunctionWithElementOf("inE2"));
 
         // translate [[f]] with a function f(x,y)
         when(mockRoot.translate(eq(f), any())).then(useTestFunction("f", "x", "y"));
@@ -3331,9 +3343,9 @@ public class DefaultTranslatorTest {
 
         // translate [[x \in e1]] with a function inE1(x) and similar for [[y \in e2]] and inE2(y)
         when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(Term.mkVar("x_0").of(univ), e1))), any()))
-                .then(useTestFunction("inE1", "x"));
+                .then(useTestFunctionWithElementOf("inE1"));
         when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(Term.mkVar("y_0").of(univ), e2))), any()))
-                .then(useTestFunction("inE2", "y"));
+                .then(useTestFunctionWithElementOf("inE2"));
 
         // translate [[f]] with a function f(x,y)
         when(mockRoot.translate(eq(f), any())).then(useTestFunction("f", "x", "y"));
@@ -3380,7 +3392,7 @@ public class DefaultTranslatorTest {
         // translate [[x \in e]] with a function inE(x)
         when(mockRoot.translate(argThat(isAlphaEquivalent(
                 ExprElementOf.make(Term.mkVar("x").of(Sort.Int()), e))), any()))
-                .then(useTestFunction("inE", "x"));
+                .then(useTestFunctionWithElementOf("inE"));
 
         // translate [[f]] with a function f(x)
         when(mockRoot.translate(eq(f), any())).then(useTestFunction("f", "x"));
@@ -3413,9 +3425,9 @@ public class DefaultTranslatorTest {
 
         // translate [[x \in e1]] with a function inE1(x) and similar for [[y \in e2]] and inE2(y)
         when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(Term.mkVar("x_0").of(univ), e1))), any()))
-                .then(useTestFunction("inE1", "x"));
+                .then(useTestFunctionWithElementOf("inE1"));
         when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(Term.mkVar("y_0").of(Sort.Int()), e2))), any()))
-                .then(useTestFunction("inE2", "y"));
+                .then(useTestFunctionWithElementOf("inE2"));
 
         // translate [[f]] with a function f(x,y)
         when(mockRoot.translate(eq(f), any())).then(useTestFunction("f", "x", "y"));
