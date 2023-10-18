@@ -3,7 +3,10 @@ package ca.uwaterloo.watform.portus;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.ast.Command;
 import edu.mit.csail.sdg.ast.Decl;
+import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprHasName;
+import edu.mit.csail.sdg.ast.ExprLet;
+import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.msfol.Sort;
@@ -36,6 +39,9 @@ final class TranslationPass implements Pass {
         // We have to do fields after sigs because a field can refer to sigs that come after it.
         translateSigs(sigs, context);
         translateFields(sigs, context);
+
+        // Translate all the facts now, since they could refer to sigs or fields.
+        translateSigFacts(sigs, context);
 
         // Add extra axioms: the top level sigs are disjoint.
         addDisjointnessAxioms(sigs, context);
@@ -103,6 +109,23 @@ final class TranslationPass implements Pass {
                     Sig.Field field = (Sig.Field) name;
                     translator.translate(field, context);
                 }
+            }
+        }
+    }
+
+    private void translateSigFacts(Iterable<Sig> sigs, TranslationContext context) {
+        // Translate all the facts from each sig.
+        for (Sig sig : sigs) {
+            for (Expr fact : sig.getFacts()) {
+                Expr quantifiedFact;
+                if (sig.isOne == null) {
+                    // non-one sigs: equivalent to "all this: Sig | fact"
+                    quantifiedFact = fact.forAll(sig.decl);
+                } else {
+                    // one sigs: optimize to "let this=Sig | fact"
+                    quantifiedFact = ExprLet.make(null, (ExprVar) sig.decl.get(), sig, fact);
+                }
+                context.addAxiom(translator.translate(quantifiedFact, context));
             }
         }
     }
