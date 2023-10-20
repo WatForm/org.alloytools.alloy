@@ -12,6 +12,11 @@ import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.parser.CompUtil;
 import edu.mit.csail.sdg.translator.A4Options;
 import edu.mit.csail.sdg.translator.ScopeComputer;
+import fortress.compiler.ConstantsMethodCompiler;
+import fortress.compiler.DatatypeMethodNoRangeCompiler;
+import fortress.compiler.DatatypeMethodNoRangeEUFCompiler;
+import fortress.compiler.DatatypeMethodWithRangeCompiler;
+import fortress.compiler.DatatypeMethodWithRangeEUFCompiler;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -27,7 +32,7 @@ import java.util.regex.Pattern;
  */
 public final class PortusCLI {
 
-    private static final String PROGRAM_NAME = "PortusCLI";
+    private static final String PROGRAM_NAME = "portus";
 
     /**
      * Return a new command with bitwidth adjusted high enough to be able to represent the scope of every sort,
@@ -75,6 +80,34 @@ public final class PortusCLI {
         options.enableCaching = cliOptions.enableCaching.active();
 
         options.enableKodkodIntCompatibility = cliOptions.enableKodkodIntCompatibility.active();
+    }
+
+    private static void setFortressCompiler(PortusOptions options, PortusCLIOptions cliOptions) {
+        if (!cliOptions.fortressCompiler.validate()) {
+            System.err.println("Error: Unknown Fortress compiler: " + cliOptions.fortressCompiler.chosen());
+            cliOptions.printHelp(PROGRAM_NAME);
+            System.exit(-1);
+        }
+        switch (cliOptions.fortressCompiler.chosen()) {
+            case "constants":
+                options.fortressCompiler = new ConstantsMethodCompiler() {};
+                break;
+            case "datatype-no-range":
+                options.fortressCompiler = new DatatypeMethodNoRangeCompiler() {};
+                break;
+            case "datatype-with-range":
+                options.fortressCompiler = new DatatypeMethodWithRangeCompiler() {};
+                break;
+            case "datatype-no-range-euf":
+                options.fortressCompiler = new DatatypeMethodNoRangeEUFCompiler() {};
+                break;
+            case "datatype-with-range-euf":
+                options.fortressCompiler = new DatatypeMethodWithRangeEUFCompiler() {};
+                break;
+            default:
+                throw new IllegalArgumentException(
+                        "Bug: mismatch between PortusCLI and PortusCLIOptions on Fortress compiler options");
+        }
     }
 
     /** Process a single command in an Alloy file with each of the chosen processors. Return whether all successful. */
@@ -148,6 +181,7 @@ public final class PortusCLI {
             A4Options alloyOptions = new A4Options();
             alloyOptions.originalFilename = alloyFilename;
             applyOptionFlags(alloyOptions.portusOptions, options);
+            setFortressCompiler(alloyOptions.portusOptions, options);
 
             if (options.noTimeout.active()) {
                 // Set the timeout to something silly like 20 days

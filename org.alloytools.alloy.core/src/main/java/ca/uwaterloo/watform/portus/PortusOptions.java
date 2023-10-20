@@ -5,6 +5,8 @@ import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.A4Options.SatSolver;
 import edu.mit.csail.sdg.translator.CommandRunner;
 import edu.mit.csail.sdg.translator.ScopeComputer;
+import fortress.compiler.DatatypeMethodWithRangeCompiler;
+import fortress.compiler.LogicCompiler;
 
 import java.io.File;
 import java.io.Serializable;
@@ -62,6 +64,9 @@ public final class PortusOptions implements Serializable {
     // The name to be used for output files, without the file extension.
     // By default, a random filename.
     public String outputName = "tmp" + Math.abs(new Random().nextLong());
+
+    // The Fortress compiler to use.
+    public LogicCompiler fortressCompiler = new DatatypeMethodWithRangeCompiler() {};
 
     // Enable or disable each optimization individually.
     // Don't allow disabling the function optimization because it can affect correctness (join as integer expression).

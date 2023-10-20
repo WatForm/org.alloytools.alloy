@@ -21,6 +21,14 @@ final class PortusCLIOptions {
     public final Option pickCommandNumber = new Option(
             "-command", 1, "Run the arg'th command (1-indexed) in each file if no specific command is specified.");
 
+    public final EnumOption fortressCompiler = new EnumOption("-compiler", Arrays.asList(
+            "constants",
+            "datatype-no-range",
+            "datatype-with-range",
+            "datatype-no-range-euf",
+            "datatype-with-range-euf"
+    ), "datatype-with-range", "The Fortress compiler to use.");
+
     public final Option useRunPortusProcessor = new Option("-r", "Run Portus on each command.");
     public final Option useRunKodkodProcessor = new Option("-rk", "Run Kodkod (Sat4j) on each command.");
     public final Option useCorrectnessProcessor = new Option("-c", "Check Portus correctness on each command.");
@@ -58,7 +66,7 @@ final class PortusCLIOptions {
             "-kodkod-int-compat", "Force compatibility with Kodkod integer semantics (slow).");
 
     public final Option[] allOptions = new Option[] {
-            help, adjustBitwidth, noTimeout, pickCommandNumber,
+            help, adjustBitwidth, noTimeout, pickCommandNumber, fortressCompiler,
             useRunPortusProcessor, useRunKodkodProcessor,
             useCorrectnessProcessor, useDeltaDebugProcessor,
             useOutputPreSmtlibProcessor, useOutputPostSmtlibProcessor,
@@ -146,7 +154,7 @@ final class PortusCLIOptions {
         }
     }
 
-    public final class Option {
+    public class Option {
 
         private final String name;
         private final int arity;
@@ -202,6 +210,46 @@ final class PortusCLIOptions {
             return Objects.hash(name, arity);
         }
 
+    }
+
+    public class EnumOption extends Option {
+
+        private final List<String> alternatives;
+        private final String defaultAlternative;
+
+        public EnumOption(String name, List<String> alternatives, String defaultAlterative, String help) {
+            super(name, 1, help + " " + makeExtraEnumHelp(alternatives, defaultAlterative));
+            if (!alternatives.contains(defaultAlterative)) {
+                throw new IllegalArgumentException("Default must be an alternative!");
+            }
+            this.alternatives = alternatives;
+            this.defaultAlternative = defaultAlterative;
+        }
+
+        public String chosen() {
+            return active() ? arguments().get(0) : defaultAlternative;
+        }
+
+        public boolean validate() {
+            return alternatives.contains(chosen());
+        }
+
+    }
+
+    private static String makeExtraEnumHelp(List<String> alternatives, String defaultAlternative) {
+        StringBuilder extra = new StringBuilder("Options: ");
+        for (int idx = 0; idx < alternatives.size(); idx++) {
+            if (idx > 0) {
+                extra.append(", ");
+            }
+            String alternative = alternatives.get(idx);
+            extra.append(alternative);
+            if (alternative.equals(defaultAlternative)) {
+                extra.append(" (default)");
+            }
+        }
+        extra.append(".");
+        return extra.toString();
     }
 
 }
