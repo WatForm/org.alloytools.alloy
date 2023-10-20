@@ -13,10 +13,10 @@ import java.util.Objects;
 final class PortusCLIOptions {
 
     // The Portus options available.
-    public final Option help = new Option("-h", "Print this help");
+    public final Option help = new Option("-h", "Print this help.");
     public final Option adjustBitwidth = new Option(
-            "-b", "Adjust bitwidths to be large enough for the cardinality scope axiom strategy");
-    public final Option noTimeout = new Option("-nt", "Disable the 20-minute SMT solver timeout");
+            "-b", "Adjust bitwidths to be large enough for the cardinality scope axiom strategy.");
+    public final Option noTimeout = new Option("-nt", "Disable the 20-minute SMT solver timeout.");
 
     public final Option pickCommandNumber = new Option(
             "-command", 1, "Run the arg'th command (1-indexed) in each file if no specific command is specified.");
@@ -28,6 +28,12 @@ final class PortusCLIOptions {
             "datatype-no-range-euf",
             "datatype-with-range-euf"
     ), "datatype-with-range", "The Fortress compiler to use.");
+
+    public final Option setAllScopes = new Option(
+            "-all-scopes", 1, "Set the scope of all non-one, non-lone top-level sigs to this scope, non-exact.");
+    public final Option setSigScope = new Option(
+            "-scope", 2, "Set the scope of the arg1'th (1-indexed) non-one, non-lone top-level sig to arg2, non-exact. "
+                    + "Overrides -all-scopes.");
 
     public final Option useRunPortusProcessor = new Option("-r", "Run Portus on each command.");
     public final Option useRunKodkodProcessor = new Option("-rk", "Run Kodkod (Sat4j) on each command.");
@@ -55,7 +61,7 @@ final class PortusCLIOptions {
             "-use-card-sap", "Use the cardinality-based instead of constants-based scope axiom strategy.");
     public final Option disableAllOpts = new Option(
             "-disable-all-opts", "Shortcut: Disable all optimizations and the partition sort policy, " +
-            "use the cardinality scope axiom strategy");
+            "use the cardinality scope axiom strategy.");
 
     public final Option enableElementOfScalarOpt = new Option(
             "-enable-element-scalar-opt", "Enable element-of scalar caster optimization (experimental).");
@@ -67,6 +73,7 @@ final class PortusCLIOptions {
 
     public final Option[] allOptions = new Option[] {
             help, adjustBitwidth, noTimeout, pickCommandNumber, fortressCompiler,
+            setAllScopes, setSigScope,
             useRunPortusProcessor, useRunKodkodProcessor,
             useCorrectnessProcessor, useDeltaDebugProcessor,
             useOutputPreSmtlibProcessor, useOutputPostSmtlibProcessor,
@@ -196,7 +203,11 @@ final class PortusCLIOptions {
         public String displayName() {
             StringBuilder builder = new StringBuilder(name);
             for (int i = 0; i < arity; i++) {
-                builder.append(" <arg>");
+                builder.append(" <arg");
+                if (arity > 1) {
+                    builder.append(i + 1);
+                }
+                builder.append(">");
             }
             return builder.toString();
         }

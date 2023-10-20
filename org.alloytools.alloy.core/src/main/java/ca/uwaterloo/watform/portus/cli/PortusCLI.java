@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * A CLI for testing Portus.
@@ -62,6 +63,17 @@ public final class PortusCLI {
                 command.minprefix, command.maxprefix, command.expects, command.scope, command.additionalExactScopes,
                 command.commandKeyword, command.formula, command.parent);
         return new Pair<>(scoper.getBitwidth(), newCommand);
+    }
+
+    private static int parseInt(String str, String error, PortusCLIOptions options) {
+        try {
+            return Integer.parseInt(str);
+        } catch (NumberFormatException e) {
+            System.err.println(error);
+            options.printHelp(PROGRAM_NAME);
+            System.exit(-1);
+            return -1;
+        }
     }
 
     private static void applyOptionFlags(PortusOptions options, PortusCLIOptions cliOptions) {
@@ -115,6 +127,56 @@ public final class PortusCLI {
         }
     }
 
+    private static boolean canOverrideSig(Sig sig) {
+        return sig.isTopLevel() && sig.isOne == null && sig.isLone == null && sig.isEnum == null;
+    }
+
+    private static void validateScope(int scope, PortusCLIOptions options) {
+        if (scope < 0) {
+            System.err.println("Error: scope cannot be negative");
+            options.printHelp(PROGRAM_NAME);
+            System.exit(-1);
+        }
+    }
+
+    // Implement the setAllScopes and setSigScope options
+    private static Command performScopeOverrides(Module world, Command command, PortusCLIOptions options) {
+        List<Sig> overridableSigs = world.getAllReachableUserDefinedSigs().stream()
+                .filter(PortusCLI::canOverrideSig)
+                .collect(Collectors.toList());
+
+        if (options.setAllScopes.active()) {
+            int scope = parseInt(options.setAllScopes.arguments().get(0),
+                    "Error: " + options.setAllScopes.name() + " argument must be an integer", options);
+            validateScope(scope, options);
+            System.out.println("Setting all scopes to " + scope);
+            for (Sig sig : overridableSigs) {
+                command = command.change(sig, false, scope);
+            }
+        }
+
+        if (options.setSigScope.active()) {
+            String error = "Error: " + options.setSigScope.name() + "arguments must be integers";
+            int whichSig = parseInt(options.setSigScope.arguments().get(0), error, options);
+            int scope = parseInt(options.setSigScope.arguments().get(1), error, options);
+
+            if (whichSig < 1 || whichSig > overridableSigs.size()) {
+                System.err.println("Error: invalid sig number '" + whichSig + "' (1-indexed) for "
+                        + options.setSigScope.name() + ": there are only " + overridableSigs.size()
+                        + " non-one, non-lone top-level sigs");
+                options.printHelp(PROGRAM_NAME);
+                System.exit(-1);
+            }
+            validateScope(scope, options);
+
+            Sig sig = overridableSigs.get(whichSig - 1); // convert to 0-indexed
+            System.out.println("Setting scope of " + sig.label + " to " + scope);
+            command = command.change(sig, false, scope);
+        }
+
+        return command;
+    }
+
     /** Process a single command in an Alloy file with each of the chosen processors. Return whether all successful. */
     private static boolean processCommand(Module world, Command command, A4Options alloyOptions,
                                           PortusCLIOptions options, List<CommandProcessor> processors) {
@@ -132,6 +194,8 @@ public final class PortusCLI {
                 command = newCommand;
             }
         }
+
+        command = performScopeOverrides(world, command, options);
 
         boolean allSuccessful = true;
         for (CommandProcessor processor : processors) {
@@ -222,15 +286,7 @@ public final class PortusCLI {
         }
 
         String argument = options.pickCommandNumber.arguments().get(0);
-        int passedNumber;
-        try {
-            passedNumber = Integer.parseInt(argument);
-        } catch (NumberFormatException e) {
-            System.err.println("Error: invalid command number: " + argument);
-            options.printHelp(PROGRAM_NAME);
-            System.exit(-1);
-            return -1;
-        }
+        int passedNumber = parseInt(argument, "Error: invalid command number: " + argument, options);
 
         // User passes 1-indexed command number, convert to 0-indexed
         int commandNumber = passedNumber - 1;
