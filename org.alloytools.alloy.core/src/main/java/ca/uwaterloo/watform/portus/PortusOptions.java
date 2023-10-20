@@ -73,7 +73,6 @@ public final class PortusOptions implements Serializable {
     public boolean enableSimpleScalarOptimization = true;
     public boolean enableOneSigOptimization = true;
     public boolean enableJoinOptimization = true;
-    public boolean enableOrderingModuleOptimization = true;
     public boolean enableMembershipPredicateOptimization = true;
 
     public boolean enablePartitionSortPolicy = true;

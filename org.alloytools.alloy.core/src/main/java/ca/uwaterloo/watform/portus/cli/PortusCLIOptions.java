@@ -46,7 +46,7 @@ final class PortusCLIOptions {
     public final Option disableJoinOpt = new Option(
             "-disable-join-opt", "Disable join optimization.");
     public final Option disableOrderingModuleOpt = new Option(
-            "-disable-ordering-opt", "Disable ordering module optimization.");
+            "-disable-ordering-opt", "DEPRECATED: no-op. The ordering module optimization cannot be disabled.");
     public final Option disableMembershipPredicateOpt = new Option(
             "-disable-mem-pred-opt", "Disable membership predicate optimization.");
     public final Option disablePartitionSortPolicy = new Option(
@@ -126,7 +126,7 @@ final class PortusCLIOptions {
     }
 
     public void printHelp(String programName) {
-        System.err.println("Usage: " + programName + " [flags] <Alloy filenames/specifiers>");
+        System.err.println("Usage: " + programName + " [options] <Alloy filenames/specifiers>");
         System.err.println("A specifier consists of an Alloy filename, optionally followed by a colon and a");
         System.err.println("comma-separated list of command names to run. For example:");
         System.err.println("  test.als:command1,command2,command3");
@@ -173,6 +173,10 @@ final class PortusCLIOptions {
         // Default to 0-ary
         public Option(String name, String help) {
             this(name, 0, help);
+        }
+
+        public String name() {
+            return name;
         }
 
         // Is the option enabled?

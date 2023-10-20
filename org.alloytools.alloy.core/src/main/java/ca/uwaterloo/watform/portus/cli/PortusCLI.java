@@ -65,11 +65,16 @@ public final class PortusCLI {
     }
 
     private static void applyOptionFlags(PortusOptions options, PortusCLIOptions cliOptions) {
+        if (cliOptions.disableOrderingModuleOpt.active()) {
+            System.err.println("Warning: " + cliOptions.disableOrderingModuleOpt.name()
+                    + " is a no-op because the ordering module optimization cannot be"
+                    + " disabled for correctness reasons.");
+        }
+
         boolean disableAllOpts = cliOptions.disableAllOpts.active();
         options.enableSimpleScalarOptimization = !disableAllOpts && !cliOptions.disableSimpleScalarOpt.active();
         options.enableOneSigOptimization = !disableAllOpts && !cliOptions.disableOneSigOpt.active();
         options.enableJoinOptimization = !disableAllOpts && !cliOptions.disableJoinOpt.active();
-        options.enableOrderingModuleOptimization = !disableAllOpts && !cliOptions.disableOrderingModuleOpt.active();
         options.enableMembershipPredicateOptimization = !disableAllOpts
                 && !cliOptions.disableMembershipPredicateOpt.active();
         options.enablePartitionSortPolicy = !disableAllOpts && !cliOptions.disablePartitionSortPolicy.active();
