@@ -21,8 +21,8 @@ final class CorrectnessCommandProcessor implements CommandProcessor {
                 statistics, world.getAllReachableSigs(), command, options);
 
         if (result.kind == CorrectnessChecker.Result.Kind.EXCEPTION) {
-            System.err.println("ERROR: Exception!");
             assert result.exception != null;
+            System.err.println("ERROR: Exception! " + result.exception.getMessage().replace('\n', ' '));
             result.exception.printStackTrace();
             return false;
         }
