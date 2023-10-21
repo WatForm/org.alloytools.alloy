@@ -125,7 +125,13 @@ public final class ASTFuzzTarget {
                     continue;
                 }
 
-                Sig.Field field = sig.addField(fieldName, bound);
+                Sig.Field field;
+                try {
+                    field = sig.addField(fieldName, bound);
+                } catch (ErrorType e) {
+                    // probably it's statically empty but not determined by the univ sort policy - just skip this field
+                    continue;
+                }
                 context.vars.put(fieldName, new ContextEntry(field, boundArity + 1, ContextEntry.Type.EXPR));
             }
         }
