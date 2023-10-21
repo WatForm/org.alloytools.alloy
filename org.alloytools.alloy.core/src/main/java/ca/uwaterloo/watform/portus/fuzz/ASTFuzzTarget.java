@@ -258,7 +258,7 @@ public final class ASTFuzzTarget {
         for (Sig sig : context.sigs) {
             if (data.consumeBoolean()) {
                 // Add a variable "this: sig" usable inside the fact
-                context.vars.put("this", new ContextEntry(sig.decl.expr, 1, ContextEntry.Type.EXPR));
+                context.vars.put("this", new ContextEntry(sig.decl.names.get(0), 1, ContextEntry.Type.EXPR));
                 sig.addFact(makeFormula(data, context));
                 context.vars.remove("this");
             }
