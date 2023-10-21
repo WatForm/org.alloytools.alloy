@@ -11,6 +11,8 @@
 	org.alloytools.fortress.core;version=latest,\
 	org.eclipse.jdt.annotation,\
 	aQute.libg,\
+    slf4j.api, \
+    org.sat4j.core, \
 	org.alloytools.api,\
 	slf4j.api
 
