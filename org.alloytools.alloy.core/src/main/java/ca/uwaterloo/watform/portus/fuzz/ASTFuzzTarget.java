@@ -38,6 +38,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Stack;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -115,8 +116,10 @@ public final class ASTFuzzTarget {
                 Sig.PrimSig sig;
                 boolean useParent = !primSigs.isEmpty() && data.consumeBoolean();
                 Attr[] attrs = pickAttrs(data);
-                if (useParent) {
-                    Sig.PrimSig parent = pick(primSigs, data);
+                Sig.PrimSig parent = primSigs.isEmpty() ? null : pick(primSigs, data);
+                if (useParent
+                        && Objects.requireNonNull(parent).isOne == null
+                        && Objects.requireNonNull(parent).isLone == null) {
                     sig = new Sig.PrimSig(null, sigName, new Pos("x", 1, 1), parent, attrs);
                 } else {
                     sig = new Sig.PrimSig(sigName, attrs);
@@ -440,7 +443,7 @@ public final class ASTFuzzTarget {
                 Expr left = makeExpr(data, arity, context);
                 context.arrowMultiplicitiesAllowed.pop();
                 // allow "declaration formulas" like "e in A->one B"
-                context.arrowMultiplicitiesAllowed.push(op == ExprBinary.Op.IN || op == ExprBinary.Op.NOT_IN);
+                context.arrowMultiplicitiesAllowed.push(op == ExprBinary.Op.IN);
                 Expr right = makeExpr(data, arity, context);
                 context.arrowMultiplicitiesAllowed.pop();
                 return op.make(null, null, left, right);
