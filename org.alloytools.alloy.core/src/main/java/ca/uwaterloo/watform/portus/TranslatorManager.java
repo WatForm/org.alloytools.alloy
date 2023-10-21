@@ -87,9 +87,7 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
         if (options.enableSimpleScalarOptimization) {
             translators.add(new SimpleScalarOptTranslator(this, this));
         }
-        if (options.enableOrderingModuleOptimization) {
-            translators.add(orderingModuleOpt);
-        }
+        translators.add(orderingModuleOpt);
         if (options.enableOneSigOptimization) {
             translators.add(oneSigOpt);
         }
@@ -105,9 +103,7 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
         }
         translators.add(defaultTranslator);
 
-        if (options.enableOrderingModuleOptimization) {
-            scalarCasters.add(orderingModuleOpt);
-        }
+        scalarCasters.add(orderingModuleOpt);
         if (options.enableOneSigOptimization) {
             scalarCasters.add(oneSigOpt);
         }

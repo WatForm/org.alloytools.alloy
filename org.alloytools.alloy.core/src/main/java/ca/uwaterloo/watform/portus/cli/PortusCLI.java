@@ -12,6 +12,11 @@ import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.parser.CompUtil;
 import edu.mit.csail.sdg.translator.A4Options;
 import edu.mit.csail.sdg.translator.ScopeComputer;
+import fortress.compiler.ConstantsMethodCompiler;
+import fortress.compiler.DatatypeMethodNoRangeCompiler;
+import fortress.compiler.DatatypeMethodNoRangeEUFCompiler;
+import fortress.compiler.DatatypeMethodWithRangeCompiler;
+import fortress.compiler.DatatypeMethodWithRangeEUFCompiler;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -20,6 +25,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * A CLI for testing Portus.
@@ -27,7 +33,7 @@ import java.util.regex.Pattern;
  */
 public final class PortusCLI {
 
-    private static final String PROGRAM_NAME = "PortusCLI";
+    private static final String PROGRAM_NAME = "portus";
 
     /**
      * Return a new command with bitwidth adjusted high enough to be able to represent the scope of every sort,
@@ -59,12 +65,28 @@ public final class PortusCLI {
         return new Pair<>(scoper.getBitwidth(), newCommand);
     }
 
+    private static int parseInt(String str, String error, PortusCLIOptions options) {
+        try {
+            return Integer.parseInt(str);
+        } catch (NumberFormatException e) {
+            System.err.println(error);
+            options.printHelp(PROGRAM_NAME);
+            System.exit(-1);
+            return -1;
+        }
+    }
+
     private static void applyOptionFlags(PortusOptions options, PortusCLIOptions cliOptions) {
+        if (cliOptions.disableOrderingModuleOpt.active()) {
+            System.err.println("Warning: " + cliOptions.disableOrderingModuleOpt.name()
+                    + " is a no-op because the ordering module optimization cannot be"
+                    + " disabled for correctness reasons.");
+        }
+
         boolean disableAllOpts = cliOptions.disableAllOpts.active();
         options.enableSimpleScalarOptimization = !disableAllOpts && !cliOptions.disableSimpleScalarOpt.active();
         options.enableOneSigOptimization = !disableAllOpts && !cliOptions.disableOneSigOpt.active();
         options.enableJoinOptimization = !disableAllOpts && !cliOptions.disableJoinOpt.active();
-        options.enableOrderingModuleOptimization = !disableAllOpts && !cliOptions.disableOrderingModuleOpt.active();
         options.enableMembershipPredicateOptimization = !disableAllOpts
                 && !cliOptions.disableMembershipPredicateOpt.active();
         options.enablePartitionSortPolicy = !disableAllOpts && !cliOptions.disablePartitionSortPolicy.active();
@@ -75,6 +97,84 @@ public final class PortusCLI {
         options.enableCaching = cliOptions.enableCaching.active();
 
         options.enableKodkodIntCompatibility = cliOptions.enableKodkodIntCompatibility.active();
+    }
+
+    private static void setFortressCompiler(PortusOptions options, PortusCLIOptions cliOptions) {
+        if (!cliOptions.fortressCompiler.validate()) {
+            System.err.println("Error: Unknown Fortress compiler: " + cliOptions.fortressCompiler.chosen());
+            cliOptions.printHelp(PROGRAM_NAME);
+            System.exit(-1);
+        }
+        switch (cliOptions.fortressCompiler.chosen()) {
+            case "constants":
+                options.fortressCompiler = new ConstantsMethodCompiler() {};
+                break;
+            case "datatype-no-range":
+                options.fortressCompiler = new DatatypeMethodNoRangeCompiler() {};
+                break;
+            case "datatype-with-range":
+                options.fortressCompiler = new DatatypeMethodWithRangeCompiler() {};
+                break;
+            case "datatype-no-range-euf":
+                options.fortressCompiler = new DatatypeMethodNoRangeEUFCompiler() {};
+                break;
+            case "datatype-with-range-euf":
+                options.fortressCompiler = new DatatypeMethodWithRangeEUFCompiler() {};
+                break;
+            default:
+                throw new IllegalArgumentException(
+                        "Bug: mismatch between PortusCLI and PortusCLIOptions on Fortress compiler options");
+        }
+    }
+
+    private static boolean canOverrideSig(Sig sig) {
+        return sig.isTopLevel() && sig.isOne == null && sig.isLone == null && sig.isEnum == null;
+    }
+
+    private static void validateScope(int scope, PortusCLIOptions options) {
+        if (scope < 0) {
+            System.err.println("Error: scope cannot be negative");
+            options.printHelp(PROGRAM_NAME);
+            System.exit(-1);
+        }
+    }
+
+    // Implement the setAllScopes and setSigScope options
+    private static Command performScopeOverrides(Module world, Command command, PortusCLIOptions options) {
+        List<Sig> overridableSigs = world.getAllReachableUserDefinedSigs().stream()
+                .filter(PortusCLI::canOverrideSig)
+                .collect(Collectors.toList());
+
+        if (options.setAllScopes.active()) {
+            int scope = parseInt(options.setAllScopes.arguments().get(0),
+                    "Error: " + options.setAllScopes.name() + " argument must be an integer", options);
+            validateScope(scope, options);
+            System.out.println("Setting all scopes to " + scope);
+            for (Sig sig : overridableSigs) {
+                command = command.change(sig, false, scope);
+            }
+        }
+
+        if (options.setSigScope.active()) {
+            String error = "Error: " + options.setSigScope.name() + "arguments must be integers";
+            int whichSig = parseInt(options.setSigScope.arguments().get(0), error, options);
+            int scope = parseInt(options.setSigScope.arguments().get(1), error, options);
+
+            if (whichSig < 1 || whichSig > overridableSigs.size()) {
+                System.err.println("Error: invalid sig number '" + whichSig + "' (1-indexed) for "
+                        + options.setSigScope.name() + ": there are only " + overridableSigs.size()
+                        + " non-one, non-lone top-level sigs");
+                options.printHelp(PROGRAM_NAME);
+                System.exit(-1);
+            }
+            validateScope(scope, options);
+
+            Sig sig = overridableSigs.get(whichSig - 1); // convert to 0-indexed
+            System.out.println("Setting scope of " + sig.label + " to " + scope);
+            command = command.change(sig, false, scope);
+        }
+
+        return command;
     }
 
     /** Process a single command in an Alloy file with each of the chosen processors. Return whether all successful. */
@@ -94,6 +194,8 @@ public final class PortusCLI {
                 command = newCommand;
             }
         }
+
+        command = performScopeOverrides(world, command, options);
 
         boolean allSuccessful = true;
         for (CommandProcessor processor : processors) {
@@ -148,6 +250,7 @@ public final class PortusCLI {
             A4Options alloyOptions = new A4Options();
             alloyOptions.originalFilename = alloyFilename;
             applyOptionFlags(alloyOptions.portusOptions, options);
+            setFortressCompiler(alloyOptions.portusOptions, options);
 
             if (options.noTimeout.active()) {
                 // Set the timeout to something silly like 20 days
@@ -183,15 +286,7 @@ public final class PortusCLI {
         }
 
         String argument = options.pickCommandNumber.arguments().get(0);
-        int passedNumber;
-        try {
-            passedNumber = Integer.parseInt(argument);
-        } catch (NumberFormatException e) {
-            System.err.println("Error: invalid command number: " + argument);
-            options.printHelp(PROGRAM_NAME);
-            System.exit(-1);
-            return -1;
-        }
+        int passedNumber = parseInt(argument, "Error: invalid command number: " + argument, options);
 
         // User passes 1-indexed command number, convert to 0-indexed
         int commandNumber = passedNumber - 1;

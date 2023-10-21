@@ -13,13 +13,27 @@ import java.util.Objects;
 final class PortusCLIOptions {
 
     // The Portus options available.
-    public final Option help = new Option("-h", "Print this help");
+    public final Option help = new Option("-h", "Print this help.");
     public final Option adjustBitwidth = new Option(
-            "-b", "Adjust bitwidths to be large enough for the cardinality scope axiom strategy");
-    public final Option noTimeout = new Option("-nt", "Disable the 20-minute SMT solver timeout");
+            "-b", "Adjust bitwidths to be large enough for the cardinality scope axiom strategy.");
+    public final Option noTimeout = new Option("-nt", "Disable the 20-minute SMT solver timeout.");
 
     public final Option pickCommandNumber = new Option(
             "-command", 1, "Run the arg'th command (1-indexed) in each file if no specific command is specified.");
+
+    public final EnumOption fortressCompiler = new EnumOption("-compiler", Arrays.asList(
+            "constants",
+            "datatype-no-range",
+            "datatype-with-range",
+            "datatype-no-range-euf",
+            "datatype-with-range-euf"
+    ), "datatype-with-range", "The Fortress compiler to use.");
+
+    public final Option setAllScopes = new Option(
+            "-all-scopes", 1, "Set the scope of all non-one, non-lone top-level sigs to this scope, non-exact.");
+    public final Option setSigScope = new Option(
+            "-scope", 2, "Set the scope of the arg1'th (1-indexed) non-one, non-lone top-level sig to arg2, non-exact. "
+                    + "Overrides -all-scopes.");
 
     public final Option useRunPortusProcessor = new Option("-r", "Run Portus on each command.");
     public final Option useRunKodkodProcessor = new Option("-rk", "Run Kodkod (Sat4j) on each command.");
@@ -38,7 +52,7 @@ final class PortusCLIOptions {
     public final Option disableJoinOpt = new Option(
             "-disable-join-opt", "Disable join optimization.");
     public final Option disableOrderingModuleOpt = new Option(
-            "-disable-ordering-opt", "Disable ordering module optimization.");
+            "-disable-ordering-opt", "DEPRECATED: no-op. The ordering module optimization cannot be disabled.");
     public final Option disableMembershipPredicateOpt = new Option(
             "-disable-mem-pred-opt", "Disable membership predicate optimization.");
     public final Option disablePartitionSortPolicy = new Option(
@@ -47,7 +61,7 @@ final class PortusCLIOptions {
             "-use-card-sap", "Use the cardinality-based instead of constants-based scope axiom strategy.");
     public final Option disableAllOpts = new Option(
             "-disable-all-opts", "Shortcut: Disable all optimizations and the partition sort policy, " +
-            "use the cardinality scope axiom strategy");
+            "use the cardinality scope axiom strategy.");
 
     public final Option enableElementOfScalarOpt = new Option(
             "-enable-element-scalar-opt", "Enable element-of scalar caster optimization (experimental).");
@@ -58,7 +72,8 @@ final class PortusCLIOptions {
             "-kodkod-int-compat", "Force compatibility with Kodkod integer semantics (slow).");
 
     public final Option[] allOptions = new Option[] {
-            help, adjustBitwidth, noTimeout, pickCommandNumber,
+            help, adjustBitwidth, noTimeout, pickCommandNumber, fortressCompiler,
+            setAllScopes, setSigScope,
             useRunPortusProcessor, useRunKodkodProcessor,
             useCorrectnessProcessor, useDeltaDebugProcessor,
             useOutputPreSmtlibProcessor, useOutputPostSmtlibProcessor,
@@ -118,7 +133,7 @@ final class PortusCLIOptions {
     }
 
     public void printHelp(String programName) {
-        System.err.println("Usage: " + programName + " [flags] <Alloy filenames/specifiers>");
+        System.err.println("Usage: " + programName + " [options] <Alloy filenames/specifiers>");
         System.err.println("A specifier consists of an Alloy filename, optionally followed by a colon and a");
         System.err.println("comma-separated list of command names to run. For example:");
         System.err.println("  test.als:command1,command2,command3");
@@ -146,7 +161,7 @@ final class PortusCLIOptions {
         }
     }
 
-    public final class Option {
+    public class Option {
 
         private final String name;
         private final int arity;
@@ -167,6 +182,10 @@ final class PortusCLIOptions {
             this(name, 0, help);
         }
 
+        public String name() {
+            return name;
+        }
+
         // Is the option enabled?
         public boolean active() {
             return activeOptionsToArgs.containsKey(this);
@@ -184,7 +203,11 @@ final class PortusCLIOptions {
         public String displayName() {
             StringBuilder builder = new StringBuilder(name);
             for (int i = 0; i < arity; i++) {
-                builder.append(" <arg>");
+                builder.append(" <arg");
+                if (arity > 1) {
+                    builder.append(i + 1);
+                }
+                builder.append(">");
             }
             return builder.toString();
         }
@@ -202,6 +225,46 @@ final class PortusCLIOptions {
             return Objects.hash(name, arity);
         }
 
+    }
+
+    public class EnumOption extends Option {
+
+        private final List<String> alternatives;
+        private final String defaultAlternative;
+
+        public EnumOption(String name, List<String> alternatives, String defaultAlterative, String help) {
+            super(name, 1, help + " " + makeExtraEnumHelp(alternatives, defaultAlterative));
+            if (!alternatives.contains(defaultAlterative)) {
+                throw new IllegalArgumentException("Default must be an alternative!");
+            }
+            this.alternatives = alternatives;
+            this.defaultAlternative = defaultAlterative;
+        }
+
+        public String chosen() {
+            return active() ? arguments().get(0) : defaultAlternative;
+        }
+
+        public boolean validate() {
+            return alternatives.contains(chosen());
+        }
+
+    }
+
+    private static String makeExtraEnumHelp(List<String> alternatives, String defaultAlternative) {
+        StringBuilder extra = new StringBuilder("Options: ");
+        for (int idx = 0; idx < alternatives.size(); idx++) {
+            if (idx > 0) {
+                extra.append(", ");
+            }
+            String alternative = alternatives.get(idx);
+            extra.append(alternative);
+            if (alternative.equals(defaultAlternative)) {
+                extra.append(" (default)");
+            }
+        }
+        extra.append(".");
+        return extra.toString();
     }
 
 }

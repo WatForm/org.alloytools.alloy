@@ -9,7 +9,6 @@ import edu.mit.csail.sdg.translator.AlloySolution;
 import edu.mit.csail.sdg.translator.CommandRunner;
 import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.compiler.ConfigurableCompiler;
-import fortress.compiler.DatatypeMethodWithRangeCompiler;
 import fortress.compiler.LogicCompiler;
 import fortress.interpretation.Interpretation;
 import fortress.modelfind.CompilationModelFinder;
@@ -116,7 +115,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
         }
 
         // TODO: choose a solver based on options
-        try (ModelFinder finder = createModelFinder(Z3CliInterface$.MODULE$)) {
+        try (ModelFinder finder = createModelFinder(Z3CliInterface$.MODULE$, options.portusOptions)) {
             context.configureModelFinder(finder, sortPolicy);
             finder.setTimeout(Milliseconds.apply(options.portusOptions.timeoutMillis));
             finder.addLogger(logger);
@@ -139,14 +138,11 @@ public final class TranslateAlloyToFortress implements CommandRunner {
         }
     }
 
-    // TODO: configure the model finder based on the FortressOptions
-    private ModelFinder createModelFinder(SolverInterface solverInterface) {
-        // For now we use this compiler as a good default.
+    private ModelFinder createModelFinder(SolverInterface solverInterface, PortusOptions options) {
         return new CompilationModelFinder(solverInterface) {
             @Override
             public LogicCompiler createCompiler() {
-                // This is abstract (accidentally?) so we just make an anonymous inner class.
-                return new DatatypeMethodWithRangeCompiler() {};
+                return options.fortressCompiler;
             }
         };
     }
@@ -211,7 +207,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
             ModelFinder finder;
             if (options.solver.id().equals(A4Options.SatSolver.POST_FORTRESS_SMTLIB.id())) {
                 // Use all the standard transformers
-                finder = createModelFinder(solverInterface);
+                finder = createModelFinder(solverInterface, options.portusOptions);
             } else { // PRE_FORTRESS_SMTLIB
                 // Use only the typechecking transformer
                 finder = new CompilationModelFinder(solverInterface) {
