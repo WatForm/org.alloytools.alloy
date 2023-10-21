@@ -38,6 +38,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Stack;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -47,6 +48,33 @@ import java.util.stream.IntStream;
 @SuppressWarnings("unused")
 public final class ASTFuzzTarget {
 
+    private static class ContextValue<T> {
+        private final Stack<T> stack = new Stack<>();
+        private final T defaultValue;
+
+        public ContextValue(T defaultValue) {
+            this.defaultValue = defaultValue;
+        }
+
+        public T get() {
+            if (stack.isEmpty()) {
+                return defaultValue;
+            }
+            return stack.peek();
+        }
+
+        public void push(T value) {
+            stack.push(value);
+        }
+
+        public void pop() {
+            if (stack.isEmpty()) {
+                throw new IllegalStateException("Mismatched push/pop!");
+            }
+            stack.pop();
+        }
+    }
+
     private static class FuzzContext {
         public List<Sig> sigs = new ArrayList<>();
         public List<Func> funcs = new ArrayList<>();
@@ -55,6 +83,9 @@ public final class ASTFuzzTarget {
         // These sigs shouldn't be used in generation (like they're private from other modules)
         public List<Sig> privateSigs = new ArrayList<>();
         public List<Sig> forcedExactSigs = new ArrayList<>();
+
+        // Are we allowed to generate multiplicity-arrow expressions like ?->? in the current context?
+        public ContextValue<Boolean> arrowMultiplicitiesAllowed = new ContextValue<>(false);
     }
 
     private static class ContextEntry {
@@ -115,14 +146,38 @@ public final class ASTFuzzTarget {
                 String fieldName = "f_" + makeName(data) + "_" + i; // make them unique within a sig
                 int boundArity = data.consumeInt(1, 3);
 
-                // TODO: field expr bounds use some special AST nodes, like SOMEOF
+                context.arrowMultiplicitiesAllowed.push(true); // allow ?->? here
                 Expr bound = makeExpr(data, boundArity, context);
+                context.arrowMultiplicitiesAllowed.pop();
+
                 // Just ignore anything that isn't definite (according to UnivSortPolicy) for now
                 // Empty VarMappingContext is okay because this is the top level
                 SortResolvant resolvant = testSortPolicy.getMinimalExprSorts(bound, new VarMappingContext());
                 if (!resolvant.isDefinite()) {
                     // just skip this field
                     continue;
+                }
+
+                // We're allowed to wrap unary field bounds with multiplicity expressions
+                if (boundArity == 1) {
+                    // Note: EXACTLYOF isn't generated at the moment
+                    switch (data.consumeInt(1, 5)) {
+                        case 1:
+                            bound = bound.oneOf();
+                            break;
+                        case 2:
+                            bound = bound.someOf();
+                            break;
+                        case 3:
+                            bound = bound.loneOf();
+                            break;
+                        case 4:
+                            bound = bound.setOf();
+                            break;
+                        case 5:
+                            // no-op: don't wrap with anything
+                            break;
+                    }
                 }
 
                 Sig.Field field;
@@ -185,6 +240,7 @@ public final class ASTFuzzTarget {
             }
         }
 
+        // Set scopes
         List<CommandScope> scopes = new ArrayList<>();
         for (Sig.PrimSig sig : primSigs) {
             // Only do top-level sigs for now - eventually track parent sigs
@@ -195,6 +251,16 @@ public final class ASTFuzzTarget {
                     scope = 1;
                 }
                 scopes.add(new CommandScope(sig, exact, scope));
+            }
+        }
+
+        // Generate facts for each sig, perhaps
+        for (Sig sig : context.sigs) {
+            if (data.consumeBoolean()) {
+                // Add a variable "this: sig" usable inside the fact
+                context.vars.put("this", new ContextEntry(sig.decl.expr, 1, ContextEntry.Type.EXPR));
+                sig.addFact(makeFormula(data, context));
+                context.vars.remove("this");
             }
         }
 
@@ -370,7 +436,14 @@ public final class ASTFuzzTarget {
                         ExprBinary.Op.NOT_EQUALS,
                         ExprBinary.Op.IN,
                         ExprBinary.Op.NOT_IN), data);
-                return op.make(null, null, makeExpr(data, arity, context), makeExpr(data, arity, context));
+                context.arrowMultiplicitiesAllowed.push(false);
+                Expr left = makeExpr(data, arity, context);
+                context.arrowMultiplicitiesAllowed.pop();
+                // allow "declaration formulas" like "e in A->one B"
+                context.arrowMultiplicitiesAllowed.push(op == ExprBinary.Op.IN || op == ExprBinary.Op.NOT_IN);
+                Expr right = makeExpr(data, arity, context);
+                context.arrowMultiplicitiesAllowed.pop();
+                return op.make(null, null, left, right);
             }
             case 4: {
                 // ExprBinary with expr, int-specific
@@ -400,7 +473,10 @@ public final class ASTFuzzTarget {
                         ExprUnary.Op.ONE,
                         ExprUnary.Op.NO,
                         ExprUnary.Op.SOME), data);
-                return op.make(null, makeExpr(data, arity, context));
+                context.arrowMultiplicitiesAllowed.push(false);
+                Expr sub = makeExpr(data, arity, context);
+                context.arrowMultiplicitiesAllowed.pop();
+                return op.make(null, sub);
             }
             case 7: {
                 // ExprConstant
@@ -468,7 +544,9 @@ public final class ASTFuzzTarget {
             case 12: {
                 // ExprLet with expression
                 int arity = data.consumeInt(1, 3);
+                context.arrowMultiplicitiesAllowed.push(false);
                 Expr expr = makeExpr(data, arity, context);
+                context.arrowMultiplicitiesAllowed.pop();
                 ExprVar newVar = ExprVar.make(null, makeName(data), expr.type());
                 context.vars.put(newVar.label, new ContextEntry(newVar, arity, ContextEntry.Type.EXPR));
                 Expr sub = makeFormula(data, context);
@@ -501,7 +579,9 @@ public final class ASTFuzzTarget {
                     // *ignoring* the decl expr except for its arity
                     int arity = decl.expr.type().arity();
                     for (ExprHasName name : decl.names) {
+                        context.arrowMultiplicitiesAllowed.push(false);
                         args.add(makeExpr(data, arity, context));
+                        context.arrowMultiplicitiesAllowed.pop();
                     }
                 }
                 return ExprCall.make(null, null, pred, args, 0L);
@@ -539,35 +619,70 @@ public final class ASTFuzzTarget {
                         ExprBinary.Op.MINUS,
                         ExprBinary.Op.INTERSECT,
                         ExprBinary.Op.PLUSPLUS), data);
-                return op.make(null, null, makeExpr(data, arity, context), makeExpr(data, arity, context));
+                context.arrowMultiplicitiesAllowed.push(false);
+                Expr result = op.make(null, null, makeExpr(data, arity, context), makeExpr(data, arity, context));
+                context.arrowMultiplicitiesAllowed.pop();
+                return result;
             }
             case 3: {
                 // Arrow
-                // TODO: what to do about the multiplicities (need to be in for field decls)?
                 if (arity == 1) {
                     return makeNoneWithArity(arity);
                 }
                 int leftArity = data.consumeInt(1, arity - 1);
                 int rightArity = arity - leftArity;
-                return makeExpr(data, leftArity, context).product(makeExpr(data, rightArity, context));
+
+                // keep the arrow-multiplicities-allowed state
+                Expr left = makeExpr(data, leftArity, context);
+                Expr right = makeExpr(data, rightArity, context);
+
+                List<ExprBinary.Op> ops;
+                if (context.arrowMultiplicitiesAllowed.get()) {
+                    // Note: don't generate ISSEQ_ARROW_LONE
+                    ops = Arrays.asList(
+                            ExprBinary.Op.ARROW,
+                            ExprBinary.Op.ANY_ARROW_LONE,
+                            ExprBinary.Op.ANY_ARROW_ONE,
+                            ExprBinary.Op.ANY_ARROW_SOME,
+                            ExprBinary.Op.LONE_ARROW_ANY,
+                            ExprBinary.Op.LONE_ARROW_LONE,
+                            ExprBinary.Op.LONE_ARROW_ONE,
+                            ExprBinary.Op.LONE_ARROW_SOME,
+                            ExprBinary.Op.ONE_ARROW_ANY,
+                            ExprBinary.Op.ONE_ARROW_LONE,
+                            ExprBinary.Op.ONE_ARROW_ONE,
+                            ExprBinary.Op.ONE_ARROW_SOME,
+                            ExprBinary.Op.SOME_ARROW_ANY,
+                            ExprBinary.Op.SOME_ARROW_LONE,
+                            ExprBinary.Op.SOME_ARROW_ONE,
+                            ExprBinary.Op.SOME_ARROW_SOME);
+                } else {
+                    ops = Collections.singletonList(ExprBinary.Op.ARROW);
+                }
+                ExprBinary.Op op = pick(ops, data);
+                return op.make(null, null, left, right);
             }
             case 4: {
                 // Join
                 int leftArity = data.consumeInt(1, arity + 1);
                 int rightArity = arity + 2 - leftArity;
-                return makeExpr(data, leftArity, context).join(makeExpr(data, rightArity, context));
+                context.arrowMultiplicitiesAllowed.push(false);
+                Expr result = makeExpr(data, leftArity, context).join(makeExpr(data, rightArity, context));
+                context.arrowMultiplicitiesAllowed.pop();
+                return result;
             }
             case 5: {
                 // Domain, range
+                context.arrowMultiplicitiesAllowed.push(false);
                 Expr sub = makeExpr(data, arity, context);
                 Expr restriction = makeExpr(data, 1, context);
+                context.arrowMultiplicitiesAllowed.pop();
                 if (data.consumeBoolean()) {
                     return restriction.domain(sub);
                 } else {
                     return sub.range(restriction);
                 }
             }
-            // TODO: SOMEOF, etc (for field decls)
             case 6: {
                 // NOOP
                 return ExprUnary.Op.NOOP.make(null, makeExpr(data, arity, context));
@@ -577,14 +692,19 @@ public final class ASTFuzzTarget {
                 if (arity != 2) {
                     return makeNoneWithArity(arity);
                 }
-                return makeExpr(data, arity, context).transpose();
+                context.arrowMultiplicitiesAllowed.push(false);
+                Expr result = makeExpr(data, arity, context).transpose();
+                context.arrowMultiplicitiesAllowed.pop();
+                return result;
             }
             case 8: {
                 // Closure
                 if (arity != 2) {
                     return makeNoneWithArity(arity);
                 }
+                context.arrowMultiplicitiesAllowed.push(false);
                 Expr sub = makeExpr(data, arity, context);
+                context.arrowMultiplicitiesAllowed.pop();
                 if (data.consumeBoolean()) {
                     return sub.closure();
                 } else {
@@ -601,8 +721,11 @@ public final class ASTFuzzTarget {
             }
             case 10: {
                 // ExprITE
-                return makeFormula(data, context).ite(
+                context.arrowMultiplicitiesAllowed.push(false);
+                Expr result = makeFormula(data, context).ite(
                         makeExpr(data, arity, context), makeExpr(data, arity, context));
+                context.arrowMultiplicitiesAllowed.pop();
+                return result;
             }
             case 11: {
                 // Comprehension
@@ -625,7 +748,9 @@ public final class ASTFuzzTarget {
                     numVars += varsThisTime;
                 }
 
+                context.arrowMultiplicitiesAllowed.push(false);
                 Expr sub = makeFormula(data, context);
+                context.arrowMultiplicitiesAllowed.pop();
 
                 // remove the added vars to recover the context
                 for (int i = addedVars.size() - 1; i >= 0; i--) {
@@ -646,17 +771,24 @@ public final class ASTFuzzTarget {
                 Expr formula = makeFormula(data, context);
                 ExprVar newVar = ExprVar.make(null, makeName(data), formula.type());
                 context.vars.put(newVar.label, new ContextEntry(newVar, 1, ContextEntry.Type.FORMULA));
+                context.arrowMultiplicitiesAllowed.push(false);
                 Expr sub = makeExpr(data, arity, context);
+                context.arrowMultiplicitiesAllowed.pop();
                 context.vars.remove(newVar.label);
                 return ExprLet.make(null, newVar, formula, sub);
             }
             case 14: {
+                // ExprLet with expression
                 int varArity = data.consumeInt(1, 3);
+                context.arrowMultiplicitiesAllowed.push(false);
                 Expr expr = makeExpr(data, varArity, context);
+                context.arrowMultiplicitiesAllowed.pop();
                 ExprVar newVar = ExprVar.make(null, makeName(data), expr.type());
                 Pair<Expr, Integer> varAndArity = new Pair<>(newVar, varArity);
                 context.vars.put(newVar.label, new ContextEntry(newVar, varArity, ContextEntry.Type.EXPR));
+                context.arrowMultiplicitiesAllowed.push(false);
                 Expr sub = makeExpr(data, arity, context);
+                context.arrowMultiplicitiesAllowed.pop();
                 context.vars.remove(newVar.label);
                 return ExprLet.make(null, newVar, expr, sub);
             }
@@ -665,7 +797,9 @@ public final class ASTFuzzTarget {
                 Expr expr = makeIntExpr(data, context);
                 ExprVar newVar = ExprVar.make(null, makeName(data), expr.type());
                 context.vars.put(newVar.label, new ContextEntry(newVar, 1, ContextEntry.Type.INT));
+                context.arrowMultiplicitiesAllowed.push(false);
                 Expr sub = makeExpr(data, arity, context);
+                context.arrowMultiplicitiesAllowed.pop();
                 context.vars.remove(newVar.label);
                 return ExprLet.make(null, newVar, expr, sub);
             }
@@ -684,7 +818,9 @@ public final class ASTFuzzTarget {
                     // *ignoring* the decl expr except for its arity
                     int declArity = decl.expr.type().arity();
                     for (ExprHasName name : decl.names) {
+                        context.arrowMultiplicitiesAllowed.push(false);
                         args.add(makeExpr(data, declArity, context));
+                        context.arrowMultiplicitiesAllowed.pop();
                     }
                 }
                 return ExprCall.make(null, null, func, args, 0L);
@@ -751,7 +887,10 @@ public final class ASTFuzzTarget {
             case 5: {
                 // Cardinality
                 int arity = data.consumeInt(1, 3);
-                return makeExpr(data, arity, context).cardinality();
+                context.arrowMultiplicitiesAllowed.push(false);
+                Expr result = makeExpr(data, arity, context).cardinality();
+                context.arrowMultiplicitiesAllowed.pop();
+                return result;
             }
             case 6: {
                 // ExprITE
@@ -769,7 +908,9 @@ public final class ASTFuzzTarget {
             case 8: {
                 // ExprLet with expression
                 int arity = data.consumeInt(1, 3);
+                context.arrowMultiplicitiesAllowed.push(false);
                 Expr expr = makeExpr(data, arity, context);
+                context.arrowMultiplicitiesAllowed.pop();
                 ExprVar newVar = ExprVar.make(null, makeName(data), expr.type());
                 Pair<Expr, Integer> varAndArity = new Pair<>(newVar, arity);
                 context.vars.put(newVar.label, new ContextEntry(newVar, arity, ContextEntry.Type.EXPR));
@@ -801,7 +942,9 @@ public final class ASTFuzzTarget {
                     // *ignoring* the decl expr except for its arity
                     int declArity = decl.expr.type().arity();
                     for (ExprHasName name : decl.names) {
+                        context.arrowMultiplicitiesAllowed.push(false);
                         args.add(makeExpr(data, declArity, context));
+                        context.arrowMultiplicitiesAllowed.pop();
                     }
                 }
                 return ExprCall.make(null, null, func, args, 0L);
