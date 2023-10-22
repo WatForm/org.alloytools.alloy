@@ -247,7 +247,7 @@ public final class ASTFuzzTarget {
         List<CommandScope> scopes = new ArrayList<>();
         for (Sig.PrimSig sig : primSigs) {
             // Only do top-level sigs for now - eventually track parent sigs
-            if (sig.isTopLevel()) {
+            if (sig.isTopLevel() || context.forcedExactSigs.contains(sig)) {
                 boolean exact = context.forcedExactSigs.contains(sig) || data.consumeBoolean();
                 int scope = 4;
                 if (sig.isOne != null || sig.isLone != null) {
