@@ -12,11 +12,6 @@ import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.parser.CompUtil;
 import edu.mit.csail.sdg.translator.A4Options;
 import edu.mit.csail.sdg.translator.ScopeComputer;
-import fortress.compiler.ConstantsMethodCompiler;
-import fortress.compiler.DatatypeMethodNoRangeCompiler;
-import fortress.compiler.DatatypeMethodNoRangeEUFCompiler;
-import fortress.compiler.DatatypeMethodWithRangeCompiler;
-import fortress.compiler.DatatypeMethodWithRangeEUFCompiler;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -107,19 +102,19 @@ public final class PortusCLI {
         }
         switch (cliOptions.fortressCompiler.chosen()) {
             case "constants":
-                options.fortressCompiler = new ConstantsMethodCompiler() {};
+                options.fortressCompiler = PortusOptions.FortressCompiler.CONSTANTS_METHOD;
                 break;
             case "datatype-no-range":
-                options.fortressCompiler = new DatatypeMethodNoRangeCompiler() {};
+                options.fortressCompiler = PortusOptions.FortressCompiler.DATATYPE_METHOD_NO_RANGE;
                 break;
             case "datatype-with-range":
-                options.fortressCompiler = new DatatypeMethodWithRangeCompiler() {};
+                options.fortressCompiler = PortusOptions.FortressCompiler.DATATYPE_METHOD_WITH_RANGE;
                 break;
             case "datatype-no-range-euf":
-                options.fortressCompiler = new DatatypeMethodNoRangeEUFCompiler() {};
+                options.fortressCompiler = PortusOptions.FortressCompiler.DATATYPE_METHOD_NO_RANGE_EUF;
                 break;
             case "datatype-with-range-euf":
-                options.fortressCompiler = new DatatypeMethodWithRangeEUFCompiler() {};
+                options.fortressCompiler = PortusOptions.FortressCompiler.DATATYPE_METHOD_WITH_RANGE_EUF;
                 break;
             default:
                 throw new IllegalArgumentException(

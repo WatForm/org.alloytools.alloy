@@ -142,7 +142,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
         return new CompilationModelFinder(solverInterface) {
             @Override
             public LogicCompiler createCompiler() {
-                return options.fortressCompiler;
+                return options.makeFortressCompiler();
             }
         };
     }
