@@ -5,7 +5,11 @@ import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.A4Options.SatSolver;
 import edu.mit.csail.sdg.translator.CommandRunner;
 import edu.mit.csail.sdg.translator.ScopeComputer;
+import fortress.compiler.ConstantsMethodCompiler;
+import fortress.compiler.DatatypeMethodNoRangeCompiler;
+import fortress.compiler.DatatypeMethodNoRangeEUFCompiler;
 import fortress.compiler.DatatypeMethodWithRangeCompiler;
+import fortress.compiler.DatatypeMethodWithRangeEUFCompiler;
 import fortress.compiler.LogicCompiler;
 
 import java.io.File;
@@ -65,8 +69,34 @@ public final class PortusOptions implements Serializable {
     // By default, a random filename.
     public String outputName = "tmp" + Math.abs(new Random().nextLong());
 
+    public enum FortressCompiler {
+        CONSTANTS_METHOD,
+        DATATYPE_METHOD_NO_RANGE,
+        DATATYPE_METHOD_WITH_RANGE,
+        DATATYPE_METHOD_NO_RANGE_EUF,
+        DATATYPE_METHOD_WITH_RANGE_EUF,
+    }
+
+    public FortressCompiler fortressCompiler = FortressCompiler.DATATYPE_METHOD_WITH_RANGE;
+
+    public LogicCompiler makeFortressCompiler() {
+        switch (fortressCompiler) {
+            case CONSTANTS_METHOD:
+                return new ConstantsMethodCompiler() {};
+            case DATATYPE_METHOD_NO_RANGE:
+                return new DatatypeMethodNoRangeCompiler() {};
+            case DATATYPE_METHOD_WITH_RANGE:
+            default:
+                return new DatatypeMethodWithRangeCompiler() {};
+            case DATATYPE_METHOD_NO_RANGE_EUF:
+                return new DatatypeMethodNoRangeEUFCompiler() {};
+            case DATATYPE_METHOD_WITH_RANGE_EUF:
+                return new DatatypeMethodWithRangeEUFCompiler() {};
+        }
+    }
+
     // The Fortress compiler to use.
-    public LogicCompiler fortressCompiler = new DatatypeMethodWithRangeCompiler() {};
+//    public LogicCompiler fortressCompiler = new DatatypeMethodWithRangeCompiler() {};
 
     // Enable or disable each optimization individually.
     // Don't allow disabling the function optimization because it can affect correctness (join as integer expression).
