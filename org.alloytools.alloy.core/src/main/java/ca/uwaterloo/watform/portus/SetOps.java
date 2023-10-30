@@ -111,4 +111,28 @@ final class SetOps {
         return result;
     }
 
+    public static <T> List<T> reverse(List<T> list) {
+        List<T> reversed = new ArrayList<>(list.size());
+        for (int idx = list.size() - 1; idx >= 0; idx--) {
+            reversed.add(list.get(idx));
+        }
+        return reversed;
+    }
+
+    public static <T> boolean startsWith(List<T> list, List<T> prefix) {
+        if (prefix.size() > list.size()) {
+            return false;
+        }
+        for (int idx = 0; idx < prefix.size(); idx++) {
+            if (!prefix.get(idx).equals(list.get(idx))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public static <T> boolean endsWith(List<T> list, List<T> suffix) {
+        return startsWith(reverse(list), reverse(suffix));
+    }
+
 }

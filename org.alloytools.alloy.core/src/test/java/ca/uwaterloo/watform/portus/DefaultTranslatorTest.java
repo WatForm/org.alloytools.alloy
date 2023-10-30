@@ -1289,13 +1289,43 @@ public class DefaultTranslatorTest {
 
     @Test
     public void testTranslate_join_differentSortsShortCircuits() {
-        // test [[x \in e1 . e2]] := false when e1 and e2 have disjoint sorts in the overlapping coordinate
+        // test [[(x,y) \in e1 . e2]] := false when e1 and e2 have disjoint sorts in the overlapping coordinate
         Sig.PrimSig sig = new Sig.PrimSig("S");
         ExprVar e1 = makeTestVarWithType("e1", Type.make(sig).product(Type.make(sig)));
         ExprVar e2 = makeTestVarWithType("e2", Type.make(Sig.SIGINT).product(Type.make(sig)));
-        Var x = Term.mkVar("x");
+        Var x = Term.mkVar("x"), y = Term.mkVar("y");
 
-        Term result = translator.translate(ExprElementOf.make(x.of(univ), e1.join(e2)), context);
+        Term result = translator.translate(
+                ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(univ)), e1.join(e2)), context);
+        assertEquals(Term.mkBottom(), result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_join_incompatibleTupleSortsShortCircuits() {
+        // test [[(x,y) \in e1 . e2]] := false when the tuple sorts have nothing to do with e1 and e2's sorts
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e1 = makeTestVarWithType("e1", Type.make(sig).product(Type.make(sig)));
+        ExprVar e2 = makeTestVarWithType("e2", Type.make(sig).product(Type.make(sig)));
+        AnnotatedVar x = Term.mkVar("x").of(Sort.Int()), y = Term.mkVar("y").of(Sort.Int());
+
+        Term result = translator.translate(ExprElementOf.make(TermTuple.fromVars(x, y), e1.join(e2)), context);
+        assertEquals(Term.mkBottom(), result);
+        assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_join_incompatibleTupleSortsShortCircuitsTrickier() {
+        // test [[(x,y) \in e1 . e2]] := false when the tuple sorts appear on the LHS and RHS in e1 . e2 but don't
+        // appear in any join combination
+        Sig.PrimSig sig = new Sig.PrimSig("S");
+        ExprVar e1 = makeTestVarWithType("e1", ExprConstant.IDEN.type()); // int->int, sig->sig
+        ExprVar e2 = makeTestVarWithType("e2", ExprConstant.IDEN.type()); // int->int, sig->sig
+
+        // both sorts appear individually on their sides, but nowhere in the join
+        AnnotatedVar x = Term.mkVar("x").of(univ), y = Term.mkVar("y").of(Sort.Int());
+
+        Term result = translator.translate(ExprElementOf.make(TermTuple.fromVars(x, y), e1.join(e2)), context);
         assertEquals(Term.mkBottom(), result);
         assertContextEmpty();
     }

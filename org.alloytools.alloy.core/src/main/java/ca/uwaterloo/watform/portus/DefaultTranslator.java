@@ -351,6 +351,19 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
         SortResolvant leftSort = sortPolicy.getMinimalExprSorts(left, context);
         SortResolvant rightSort = sortPolicy.getMinimalExprSorts(right, context);
 
+        // The arity of the tuple must match that of the joined exprs.
+        if (tuple.size() != leftSort.arity() + rightSort.arity() - 2) {
+            throw new ErrorFatal("Tuple's arity does not match join arity!");
+        }
+
+        // Some sort tuple possibilities on the left and right cannot possibly be used because they do not match the
+        // tuple. Therefore, we can eliminate them from the sort resolvants (effectively short-circuiting them out).
+        // This expands the number of cases we are able to handle (e.g. (*f).(*g)).
+        List<Sort> leftTupleSorts = tuple.slice(0, leftSort.arity() - 1).getSorts();
+        List<Sort> rightTupleSorts = tuple.slice(leftSort.arity() - 1, tuple.size()).getSorts();
+        leftSort = leftSort.filter(sortsOption -> SetOps.startsWith(sortsOption, leftTupleSorts));
+        rightSort = rightSort.filter(sortsOption -> SetOps.endsWith(sortsOption, rightTupleSorts));
+
         // If either sort statically resolves to none, then everything is none because none.x = x.none = none.
         // So we can short-circuit to false. Similarly, if the join statically resolves to none, there's no overlap,
         // so we can short-circuit again to false.

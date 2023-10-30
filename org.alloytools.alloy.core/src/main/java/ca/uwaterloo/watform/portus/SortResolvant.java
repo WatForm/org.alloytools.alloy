@@ -7,6 +7,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -77,6 +78,10 @@ final class SortResolvant {
 
     public Stream<List<Sort>> stream() {
         return sortTuples.stream();
+    }
+
+    public SortResolvant filter(Predicate<List<Sort>> predicate) {
+        return new SortResolvant(stream().filter(predicate).collect(TupleSet.collect(arity())));
     }
 
     public boolean isNone() {
