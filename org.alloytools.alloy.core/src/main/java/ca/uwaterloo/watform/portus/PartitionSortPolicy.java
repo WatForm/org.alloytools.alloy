@@ -61,6 +61,8 @@ final class PartitionSortPolicy extends SortPolicy {
         sortPartition = new DisjointSets<>(topLevelSigs);
 
         // Merge together all sigs' sorts that need to be merged.
+        // TODO: We need to pass down the sorts of the ExprElementOf LHS tuple because the logic in DefaultTranslator's
+        //   join that determines the sort uses the LHS to short-circuit. This requires major refactoring.
         VisitReturn<Void> merger = new ContextVisitReturn<Void>(new VarMappingContext(), this) {
             @Override
             public Void visit(ExprBinary x) throws Err {
