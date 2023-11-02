@@ -17,13 +17,16 @@ import fortress.msfol.Var;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.stubbing.Answer;
+import scala.jdk.javaapi.CollectionConverters;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Set;
 
 import static ca.uwaterloo.watform.portus.FortressASTMatcher.isAlphaEquivalentTerm;
 import static ca.uwaterloo.watform.portus.IsSameMatcher.isSameAs;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
@@ -150,15 +153,28 @@ public class FunctionOptTranslatorTest {
         Translator translator = new FunctionOptTranslator(
                 mockRoot, mockScalarCaster, mockEvaluator, mockSortPolicy, true);
         when(mockRoot.translate(any(), any()))
+                .then(useTestFunction("inA", sigA))
                 .then(useTestFunction("inB", sigB));
 
         Term result = translator.translate(field, context);
         assertNotNull(result); // opt applied
 
-        // should have two functions and one axiom
+        /*
+        // it added the following axiom to constrain the domain predicate:
+        // forall x: sortA . inDomain(x) => [[x \in A]]
+        String domainPredName = "inDomain_0";
+        Var x = Term.mkVar("x0_0");
+        Term expectedAxiom = Term.mkForall(x.of(sortA), Term.mkImp(
+                Term.mkApp(domainPredName, x),
+                Term.mkApp("inA", x)));
+        assertEquals(1, context.getTheory().axioms().size());
+        assertEquals(expectedAxiom, context.getTheory().axioms().head());
+         */
+
+        // should have two functions and two axioms
         Theory theory = context.getTheory();
         assertEquals(2, theory.functionDeclarations().size());
-        assertEquals(1, theory.axioms().size());
+        assertEquals(2, theory.axioms().size());
 
         FuncDecl func = theory.functionDeclarations().head();
         assertEquals(1, func.arity());
@@ -170,11 +186,20 @@ public class FunctionOptTranslatorTest {
         assertEquals(sortA, domainPred.argSorts().head());
         assertEquals(Sort.Bool(), domainPred.resultSort());
 
-        Var x = Term.mkVar("x0_0");
-        Term expectedAxiom = Term.mkForall(x.of(sortA), Term.mkImp(
-                Term.mkApp("inDomain_0", x),
-                Term.mkApp("inB", Term.mkApp(func.name(), x))));
-        assertThat(theory.axioms().head(), isAlphaEquivalentTerm(expectedAxiom));
+        Var x0 = Term.mkVar("x0_0");
+        Var x1 = Term.mkVar("x0_1");
+        Term domainPredAxiom = Term.mkForall(x0.of(sortA), Term.mkImp(
+                Term.mkApp("inDomain_0", x0),
+                Term.mkApp("inA", x0)));
+        Term functionAxiom = Term.mkForall(x1.of(sortA), Term.mkImp(
+                Term.mkApp("inDomain_0", x1),
+                Term.mkApp("inB", Term.mkApp(func.name(), x1))));
+
+        //noinspection unchecked
+        Set<Term> axioms = CollectionConverters.<Term>asJava(context.getTheory().axioms());
+        assertThat(axioms, containsInAnyOrder(
+                isAlphaEquivalentTerm(domainPredAxiom),
+                isAlphaEquivalentTerm(functionAxiom)));
     }
 
     @Test
@@ -339,6 +364,7 @@ public class FunctionOptTranslatorTest {
         FunctionOptTranslator translator = new FunctionOptTranslator(
                 mockRoot, mockScalarCaster, mockEvaluator, mockSortPolicy, true);
         when(mockRoot.translate(any(), any()))
+                .then(useTestFunction("inA", sigA))
                 .then(useTestFunction("inB", sigB));
 
         Term result = translator.translate(field, context);
