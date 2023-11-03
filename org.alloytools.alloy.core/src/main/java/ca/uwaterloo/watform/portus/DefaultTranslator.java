@@ -150,6 +150,9 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
             throw new ErrorFatal("Unsupported sig type!");
         }
 
+        // Handle one, lone, some sigs
+        sigAxioms.addSigMultiplicityAxiom(sig, context);
+
         // return Top because the returned Term doesn't matter for a Sig
         return Term.mkTop();
     }

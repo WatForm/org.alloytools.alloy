@@ -514,6 +514,141 @@ public class DefaultTranslatorTest {
     }
 
     @Test
+    public void testTranslate_oneSig() {
+        // one sig gets extra axiom
+        Sig.PrimSig sig = new Sig.PrimSig("TestSig", Attr.ONE);
+        when(mockScoper.sig2scope(sig)).thenReturn(2);
+        when(mockScoper.isExact(sig)).thenReturn(true);
+
+        // mock out [[y \in sig]] from the exact scope axiom
+        Var y = Term.mkVar("y");
+        Term inSigFlag = makeFlagConstant("inSig");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(y.of(univ), sig))), any()))
+                .thenReturn(inSigFlag);
+
+        // mock out the expected one sig axiom
+        Term multAxiomFlag = makeFlagConstant("multiplicity");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(sig.one())), any())).thenReturn(multAxiomFlag);
+
+        Term result = translator.translate(sig, context);
+        assertThat(result, is(notNullValue())); // sig just returns something
+
+        // create the expected exact scope axiom
+        // "exists x1, x2: univ . forall y: univ . !(x1 = x2) && ([[y \in S]] <=> y = x1 || y = x2)"
+        Var x1 = Term.mkVar("x1");
+        Var x2 = Term.mkVar("x2");
+        Term exactScopeAxiom = Term.mkExists(Arrays.asList(x1.of(univ), x2.of(univ)),
+                Term.mkForall(y.of(univ), Term.mkAnd(
+                        Term.mkNot(Term.mkEq(x1, x2)),
+                        Term.mkIff(inSigFlag, Term.mkOr(
+                                Term.mkEq(y, x1),
+                                Term.mkEq(y, x2))))));
+
+        //noinspection unchecked
+        Set<Term> axioms = CollectionConverters.<Term>asJava(context.getTheory().axioms());
+        assertThat(axioms, containsInAnyOrder(
+                isAlphaEquivalentTerm(exactScopeAxiom),
+                is(multAxiomFlag)));
+
+        // should have no constants, one function for the membership predicate
+        assertThat(context.getTheory().constantDeclarations().size(), is(0));
+        assertThat(context.getTheory().enumConstants().size(), is(0));
+        assertThat(context.getTheory().functionDeclarations().size(), is(1));
+        FuncDecl func = context.getTheory().functionDeclarations().head();
+        assertIsMembershipPredicate(func, "inTestSig");
+    }
+
+    @Test
+    public void testTranslate_loneSig() {
+        // lone sig gets extra axiom
+        Sig.PrimSig sig = new Sig.PrimSig("TestSig", Attr.LONE);
+        when(mockScoper.sig2scope(sig)).thenReturn(2);
+        when(mockScoper.isExact(sig)).thenReturn(true);
+
+        // mock out [[y \in sig]] from the exact scope axiom
+        Var y = Term.mkVar("y");
+        Term inSigFlag = makeFlagConstant("inSig");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(y.of(univ), sig))), any()))
+                .thenReturn(inSigFlag);
+
+        // mock out the expected lone sig axiom
+        Term multAxiomFlag = makeFlagConstant("multiplicity");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(sig.lone())), any())).thenReturn(multAxiomFlag);
+
+        Term result = translator.translate(sig, context);
+        assertThat(result, is(notNullValue())); // sig just returns something
+
+        // create the expected exact scope axiom
+        // "exists x1, x2: univ . forall y: univ . !(x1 = x2) && ([[y \in S]] <=> y = x1 || y = x2)"
+        Var x1 = Term.mkVar("x1");
+        Var x2 = Term.mkVar("x2");
+        Term exactScopeAxiom = Term.mkExists(Arrays.asList(x1.of(univ), x2.of(univ)),
+                Term.mkForall(y.of(univ), Term.mkAnd(
+                        Term.mkNot(Term.mkEq(x1, x2)),
+                        Term.mkIff(inSigFlag, Term.mkOr(
+                                Term.mkEq(y, x1),
+                                Term.mkEq(y, x2))))));
+
+        //noinspection unchecked
+        Set<Term> axioms = CollectionConverters.<Term>asJava(context.getTheory().axioms());
+        assertThat(axioms, containsInAnyOrder(
+                isAlphaEquivalentTerm(exactScopeAxiom),
+                is(multAxiomFlag)));
+
+        // should have no constants, one function for the membership predicate
+        assertThat(context.getTheory().constantDeclarations().size(), is(0));
+        assertThat(context.getTheory().enumConstants().size(), is(0));
+        assertThat(context.getTheory().functionDeclarations().size(), is(1));
+        FuncDecl func = context.getTheory().functionDeclarations().head();
+        assertIsMembershipPredicate(func, "inTestSig");
+    }
+
+    @Test
+    public void testTranslate_someSig() {
+        // lone sig gets extra axiom
+        Sig.PrimSig sig = new Sig.PrimSig("TestSig", Attr.SOME);
+        when(mockScoper.sig2scope(sig)).thenReturn(2);
+        when(mockScoper.isExact(sig)).thenReturn(true);
+
+        // mock out [[y \in sig]] from the exact scope axiom
+        Var y = Term.mkVar("y");
+        Term inSigFlag = makeFlagConstant("inSig");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(y.of(univ), sig))), any()))
+                .thenReturn(inSigFlag);
+
+        // mock out the expected some sig axiom
+        Term multAxiomFlag = makeFlagConstant("multiplicity");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(sig.some())), any())).thenReturn(multAxiomFlag);
+
+        Term result = translator.translate(sig, context);
+        assertThat(result, is(notNullValue())); // sig just returns something
+
+        // create the expected exact scope axiom
+        // "exists x1, x2: univ . forall y: univ . !(x1 = x2) && ([[y \in S]] <=> y = x1 || y = x2)"
+        Var x1 = Term.mkVar("x1");
+        Var x2 = Term.mkVar("x2");
+        Term exactScopeAxiom = Term.mkExists(Arrays.asList(x1.of(univ), x2.of(univ)),
+                Term.mkForall(y.of(univ), Term.mkAnd(
+                        Term.mkNot(Term.mkEq(x1, x2)),
+                        Term.mkIff(inSigFlag, Term.mkOr(
+                                Term.mkEq(y, x1),
+                                Term.mkEq(y, x2))))));
+
+        //noinspection unchecked
+        Set<Term> axioms = CollectionConverters.<Term>asJava(context.getTheory().axioms());
+        assertThat(axioms, containsInAnyOrder(
+                isAlphaEquivalentTerm(exactScopeAxiom),
+                is(multAxiomFlag)));
+
+        // should have no constants, one function for the membership predicate
+        assertThat(context.getTheory().constantDeclarations().size(), is(0));
+        assertThat(context.getTheory().enumConstants().size(), is(0));
+        assertThat(context.getTheory().functionDeclarations().size(), is(1));
+        FuncDecl func = context.getTheory().functionDeclarations().head();
+        assertIsMembershipPredicate(func, "inTestSig");
+    }
+
+    @Test
     public void testTranslate_subsetSig_oneParentExactScope() {
         // subset signature "sig B in A {}" where A is a top-level primitive signature
         Sig.PrimSig parent = new Sig.PrimSig("Parent");

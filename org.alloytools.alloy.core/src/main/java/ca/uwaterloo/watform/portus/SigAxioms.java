@@ -26,6 +26,23 @@ class SigAxioms {
     }
 
     /**
+     * Generate the axioms needed to naively handle one, lone, and some sigs.
+     */
+    public void addSigMultiplicityAxiom(Sig sig, TranslationContext context) {
+        Expr axiom;
+        if (sig.isOne != null) {
+            axiom = sig.one();
+        } else if (sig.isLone != null) {
+            axiom = sig.lone();
+        } else if (sig.isSome != null) {
+            axiom = sig.some();
+        } else {
+            return;
+        }
+        context.addAxiom(rootTranslator.translate(axiom, context));
+    }
+
+    /**
      * Generate all the axioms needed to completely specify the relations between a PrimSig
      * and its children.
      */

@@ -118,6 +118,9 @@ final class MembershipPredicateOptTranslator extends AbstractTranslator implemen
         // No scope axiom - we'll use the Fortress scopes.
         sigAxioms.addPrimSigChildrenAxioms(primSig, context);
 
+        // Also handle one, lone, some sigs
+        sigAxioms.addSigMultiplicityAxiom(sig, context);
+
         return Term.mkTop();
     }
 
