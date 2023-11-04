@@ -104,6 +104,20 @@ final class SortResolvant {
         return new SortResolvant(sortTuples.join(other.sortTuples));
     }
 
+    public SortResolvant domainRestrict(SortResolvant other) {
+        if (other.arity() != 1) {
+            throw new ErrorFatal("Domain-restriction argument must have arity 1!");
+        }
+        return new SortResolvant(sortTuples.domainRestrict(other.sortTuples));
+    }
+
+    public SortResolvant rangeRestrict(SortResolvant other) {
+        if (other.arity() != 1) {
+            throw new ErrorFatal("Range-restriction argument must have arity 1!");
+        }
+        return new SortResolvant(sortTuples.rangeRestrict(other.sortTuples));
+    }
+
     public SortResolvant transpose() {
         return new SortResolvant(sortTuples.transpose());
     }
