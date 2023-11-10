@@ -45,10 +45,6 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
             validate(context);
 
             this.ordDE = PortusUtil.getOneSigDomainElement((Sig.PrimSig) ordSig, sortPolicy, context);
-
-            // Add the predicate immediately instead of lazily - if we do it lazily and don't end up adding it,
-            // then when we go to evaluate ordering/Ord.Next, we get errors since the predicate doesn't exist.
-            addNextPredicate(context);
         }
 
         private String generateNextFuncName() {
@@ -177,7 +173,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
             return new Pair<>(new AnnotatedTerm(scalar, sort, Collections.emptyList()), guard);
         }
 
-        private void addNextPredicate(TranslationContext context) {
+        public void addNextPredicate(TranslationContext context) {
             if (context.hasFunctionWithName(nextFuncName)) {
                 return; // already exists
             }
@@ -217,6 +213,26 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
         return "Ordering Module Optimization";
     }
 
+    /**
+     * This pass should run before the main translation pass.
+     * It marks all sigs that are ever ordered in the context so that other translators know which
+     * sigs will be ordered.
+     */
+    public Pass getMarkOrderedSigsPass() {
+        return (sigs, command, scoper, context) -> {
+            // Mark all sigs that are ever ordered by any Ord sig.
+            for (Sig sig : sigs) {
+                for (Expr fact : sig.getFacts()) {
+                    fact = fact.deNOP();
+                    if (isTotalOrderFact(fact)) {
+                        OrderInfo orderInfo = parseTotalOrder(sig, (ExprList) fact, context);
+                        context.setSigOrdered(orderInfo.sig);
+                    }
+                }
+            }
+        };
+    }
+
     @Override
     public Term translate(Sig sig, TranslationContext context) {
         // Parse a "totalOrder" ExprList making up a fact.
@@ -224,15 +240,24 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
         // ordering module uses before parsing the rest of the AST.
         for (Expr fact : sig.getFacts()) {
             fact = fact.deNOP(); // just in case
-            if (fact instanceof ExprList && ((ExprList) fact).op == ExprList.Op.TOTALORDER) {
-                parseTotalOrder(sig, (ExprList) fact, context);
+            if (isTotalOrderFact(fact)) {
+                OrderInfo orderInfo = parseTotalOrder(sig, (ExprList) fact, context);
+                orders.add(orderInfo);
+
+                // Add the predicate immediately instead of lazily - if we do it lazily and don't end up adding it,
+                // then when we go to evaluate ordering/Ord.Next, we get errors since the predicate doesn't exist.
+                orderInfo.addNextPredicate(context);
             }
         }
 
         return null; // parse the actual sig by another translator
     }
 
-    private void parseTotalOrder(Sig ordSig, ExprList expr, TranslationContext context) {
+    private boolean isTotalOrderFact(Expr fact) {
+        return fact instanceof ExprList && ((ExprList) fact).op == ExprList.Op.TOTALORDER;
+    }
+
+    private OrderInfo parseTotalOrder(Sig ordSig, ExprList expr, TranslationContext context) {
         // NOTE: we treat pred/totalOrder as an assertion that a sig is totally ordered.
         // Technically, since the Alloy AST isn't in NNF, this isn't necessarily true.
         // We ignore this for now since pred/totalOrder is probably only ever really used in ordering.als.
@@ -256,7 +281,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
         Sig.Field first = extractDottedField(ordSig, expr.args.get(1).deNOP(), true);
         Sig.Field next = extractDottedField(ordSig, expr.args.get(2).deNOP(), true);
 
-        orders.add(new OrderInfo(ordSig, orderedSig, first, next, context));
+        return new OrderInfo(ordSig, orderedSig, first, next, context);
     }
 
     private static Sig.Field extractDottedField(Sig ordSig, Expr expr, boolean shouldError) {

@@ -82,6 +82,7 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
         if (options.enableMembershipPredicateOptimization) {
             passes.add(membershipPredOpt.getApplicabilityDeterminingPass(scopeExpansionMarkers));
         }
+        passes.add(orderingModuleOpt.getMarkOrderedSigsPass());
         passes.add(new TranslationPass(this, sortPolicy, sigAxioms));
 
         if (options.enableSimpleScalarOptimization) {
