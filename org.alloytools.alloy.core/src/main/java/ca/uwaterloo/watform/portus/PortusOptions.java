@@ -77,16 +77,16 @@ public final class PortusOptions implements Serializable {
         DATATYPE_METHOD_WITH_RANGE_EUF,
     }
 
-    public FortressCompiler fortressCompiler = FortressCompiler.DATATYPE_METHOD_WITH_RANGE;
+    public FortressCompiler fortressCompiler = FortressCompiler.CONSTANTS_METHOD;
 
     public LogicCompiler makeFortressCompiler() {
         switch (fortressCompiler) {
             case CONSTANTS_METHOD:
+            default:
                 return new ConstantsMethodCompiler() {};
             case DATATYPE_METHOD_NO_RANGE:
                 return new DatatypeMethodNoRangeCompiler() {};
             case DATATYPE_METHOD_WITH_RANGE:
-            default:
                 return new DatatypeMethodWithRangeCompiler() {};
             case DATATYPE_METHOD_NO_RANGE_EUF:
                 return new DatatypeMethodNoRangeEUFCompiler() {};
@@ -94,9 +94,6 @@ public final class PortusOptions implements Serializable {
                 return new DatatypeMethodWithRangeEUFCompiler() {};
         }
     }
-
-    // The Fortress compiler to use.
-//    public LogicCompiler fortressCompiler = new DatatypeMethodWithRangeCompiler() {};
 
     // Enable or disable each optimization individually.
     // Don't allow disabling the function optimization because it can affect correctness (join as integer expression).
