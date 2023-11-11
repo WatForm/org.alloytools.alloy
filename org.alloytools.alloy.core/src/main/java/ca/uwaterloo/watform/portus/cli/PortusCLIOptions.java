@@ -27,7 +27,7 @@ final class PortusCLIOptions {
             "datatype-with-range",
             "datatype-no-range-euf",
             "datatype-with-range-euf"
-    ), "datatype-with-range", "The Fortress compiler to use.");
+    ), "constants", "The Fortress compiler to use.");
 
     public final Option setAllScopes = new Option(
             "-all-scopes", 1, "Set the scope of all non-one, non-lone top-level sigs to this scope, non-exact.");
