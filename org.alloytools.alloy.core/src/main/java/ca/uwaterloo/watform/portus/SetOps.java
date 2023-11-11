@@ -122,7 +122,7 @@ final class SetOps {
 
     // Technically these are list operations and not set operations, but oh well
 
-    public static <T> List<T> concatenate(List<T> a, List<T> b) {
+    public static <T> List<T> concatenate(List<? extends T> a, List<? extends T> b) {
         List<T> result = new ArrayList<>(a);
         result.addAll(b);
         return result;

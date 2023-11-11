@@ -9,6 +9,7 @@ import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprBinary;
 import edu.mit.csail.sdg.ast.ExprCall;
 import edu.mit.csail.sdg.ast.ExprConstant;
+import edu.mit.csail.sdg.ast.ExprHasName;
 import edu.mit.csail.sdg.ast.ExprITE;
 import edu.mit.csail.sdg.ast.ExprLet;
 import edu.mit.csail.sdg.ast.ExprList;
@@ -50,9 +51,11 @@ import fortress.operations.Substituter;
 import scala.jdk.javaapi.CollectionConverters;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -199,6 +202,91 @@ final class PortusUtil {
                     "Internal Portus error: one sig " + sig + " has non-one range " + deRange.a + "," + deRange.b);
         }
         return Term.mkDomainElement(deRange.a, sort);
+    }
+
+    /**
+     * Translate a list of decls from a quantifier.
+     * @return Pair of (pair of (list of mapped Alloy variable names, list of Fortress vars), (condition, )),
+     *   where the condition expresses that each variable is in the expr the decl declares it to be in.
+     *   The condition must be true for the variables to be used.
+     * @apiNote The variable names are added to the context's var mapping and must be cleaned up after.
+     * This should be done by removing each of the list of mapped Alloy variable names from the context.
+     * We assume that none of the decls' expressions resolve to "none" (i.e. their sort resolvants are empty).
+     * This must be handled at a higher level.
+     */
+    public static Pair<Pair<List<String>, List<AnnotatedVar>>, AnnotatedTerm> translateDeclList(
+            List<Decl> decls, TranslationContext context, SortPolicy sortPolicy, Translator rootTranslator) {
+        List<String> alloyVarNames = new ArrayList<>();
+        List<AnnotatedVar> fortressVars = new ArrayList<>();
+        List<Term> conditions = new ArrayList<>();
+        Set<AnnotatedVar> conditionFreeVars = new HashSet<>();
+
+        for (Decl decl : decls) {
+            // Kodkod evaluates the decl expression once. To emulate this, only add the
+            // variables to the context after evaluating the whole decl.
+            List<Pair<String, AnnotatedTerm>> termMappingsToAdd = new ArrayList<>();
+
+            // Alloy typechecked that it has arity 1
+            for (ExprHasName name : decl.names) {
+                // Ensure decl.expr is ONEOF: we don't support other multiplicities in quantifiers (yet)
+                // TODO: try to skolemize it like Kodkod does?
+                ExprUnary.Op mult = decl.expr.mult();
+                if (mult != ExprUnary.Op.ONEOF) {
+                    // Treat "no multiplicity" as ONEOF because Alloy sometimes generates those internally.
+                    // mult() generates SETOF for no multiplicity, so check that either the expr isn't actually
+                    // an ExprUnary or it's an ExprUnary with a different op.
+                    boolean noMultiplicity = mult == ExprUnary.Op.SETOF
+                            && (!(decl.expr.deNOP() instanceof ExprUnary)
+                            || ((ExprUnary) decl.expr.deNOP()).op != ExprUnary.Op.SETOF);
+                    if (!noMultiplicity) {
+                        throw new ErrorNoPortusSupport("Unsupported quantifier multiplicity for Fortress: "
+                                + decl.expr.mult());
+                    }
+                }
+
+                // Unwrap the expression from its multiplicity (and any NOOPs)
+                Expr declExpr = decl.expr.deNOP();
+                if (declExpr instanceof ExprUnary) {
+                    ExprUnary wrappedDeclExpr = (ExprUnary) decl.expr.deNOP();
+                    if (wrappedDeclExpr.op == ExprUnary.Op.ONEOF) {
+                        declExpr = wrappedDeclExpr.sub.deNOP();
+                    }
+                }
+
+                Var var = Term.mkVar(context.nameGenerator.freshName(name.label));
+                // Note that the decl expr has to be unary since typechecking should have caught anything else
+                String definiteSortsError = "Translating a quantification requires the variable declarations " +
+                        "to have definite and well-defined Portus sorts!";
+                List<Sort> exprSorts = sortPolicy.getMinimalExprDefiniteSorts(declExpr, definiteSortsError, context);
+                if (exprSorts.size() != 1) {
+                    // Could happen for cases Kodkod skolemizes, like e.g. "some s: one A->B | ..."
+                    // Also occurs e.g. with "pred foo[s: A->B] {...}; run foo" since that runs "some s: A->B | foo[s]"
+                    throw new ErrorNoPortusSupport("Portus doesn't support quantifying over tuples!");
+                }
+                Sort varSort = exprSorts.get(0);
+                AnnotatedVar annotatedVar = var.of(varSort);
+                alloyVarNames.add(name.label);
+                fortressVars.add(annotatedVar);
+
+                // Add the condition "var \in declExpr" to restrict the domain of var
+                Expr domainExpr = ExprElementOf.make(annotatedVar, declExpr);
+                conditions.add(rootTranslator.translate(domainExpr, context));
+                conditionFreeVars.addAll(computeFreeVariables(domainExpr, context, sortPolicy));
+
+                // Add it to the lexical scope to translate the subformula
+                termMappingsToAdd.add(new Pair<>(name.label, new AnnotatedTerm(annotatedVar)));
+            }
+
+            // Add the term mappings now, in order, after having translated the decl expression
+            for (Pair<String, AnnotatedTerm> mapping : termMappingsToAdd) {
+                context.addTermMapping(mapping.a, mapping.b);
+            }
+        }
+
+        // All the conditions must be true for a set of variables to be used
+        Term condition = conditions.isEmpty() ? Term.mkTop() : Term.mkAnd(conditions);
+        AnnotatedTerm conditionAnnotated = new AnnotatedTerm(condition, Sort.Bool(), conditionFreeVars);
+        return new Pair<>(new Pair<>(alloyVarNames, fortressVars), conditionAnnotated);
     }
 
     /**

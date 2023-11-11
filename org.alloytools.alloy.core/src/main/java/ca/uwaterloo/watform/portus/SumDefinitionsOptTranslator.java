@@ -1,0 +1,150 @@
+package ca.uwaterloo.watform.portus;
+
+import edu.mit.csail.sdg.alloy4.Pair;
+import edu.mit.csail.sdg.ast.Expr;
+import edu.mit.csail.sdg.ast.ExprQt;
+import edu.mit.csail.sdg.ast.ExprUnary;
+import fortress.msfol.AnnotatedVar;
+import fortress.msfol.FunctionDefinition;
+import fortress.msfol.IntegerLiteral;
+import fortress.msfol.Sort;
+import fortress.msfol.Term;
+import fortress.msfol.Var;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+/**
+ * An optimization that extracts the sum and cardinality sub-expressions into definitions.
+ * This way when we expand over the sorts, only the definition call is repeated instead of the entire expression.
+ */
+// TODO: There's a lot of duplication between here and the relevant parts of DefaultTranslator
+// TODO: Use a heuristic to decide whether to apply the opt or not based on the size of the term
+final class SumDefinitionsOptTranslator extends AbstractTranslator {
+
+    private final SortPolicy sortPolicy;
+
+    public SumDefinitionsOptTranslator(Translator topLevel, SortPolicy sortPolicy) {
+        super(topLevel);
+        this.sortPolicy = sortPolicy;
+    }
+
+    @Override
+    public String name() {
+        return "Sum Definitions Optimization";
+    }
+
+    @Override
+    public Term translate(ExprUnary expr, TranslationContext context) {
+        if (expr.op != ExprUnary.Op.CARDINALITY) return null;
+
+        SortResolvant resolvant = sortPolicy.getMinimalExprSorts(expr.sub, context);
+        if (!resolvant.isDefinite()) {
+            return null; // let someone else handle it
+        }
+        List<Sort> sorts = resolvant.getDefiniteSorts();
+
+        List<AnnotatedVar> vars = new ArrayList<>();
+        for (int i = 0; i < expr.sub.type().arity(); i++) {
+            Var var = Term.mkVar("x" + i);
+            vars.add(var.of(sorts.get(i)));
+        }
+
+        Expr conditionExpr = ExprElementOf.make(TermTuple.fromVars(vars), expr.sub);
+        Term condition = recursivelyTranslate(conditionExpr, context);
+        List<AnnotatedVar> conditionVars = PortusUtil.computeFreeVariables(conditionExpr, context, sortPolicy);
+        AnnotatedTerm conditionAnnotated = new AnnotatedTerm(condition, Sort.Bool(), conditionVars);
+        return translateSum(new AnnotatedTerm(IntegerLiteral.apply(1), Sort.Int()), conditionAnnotated, vars, context);
+    }
+
+    @Override
+    public Term translate(ExprQt expr, TranslationContext context) {
+        if (expr.op != ExprQt.Op.SUM) return null;
+
+        // If we need to short-circuit, let someone else handle it
+        boolean isNone = expr.decls.stream()
+                .map(decl -> sortPolicy.getMinimalExprSorts(decl.expr, context))
+                .anyMatch(SortResolvant::isNone);
+        if (isNone) {
+            return null;
+        }
+
+        Pair<Pair<List<String>, List<AnnotatedVar>>, AnnotatedTerm> varsAndCond =
+                PortusUtil.translateDeclList(expr.decls, context, sortPolicy, topLevelTranslator);
+        List<String> alloyVarNames = varsAndCond.a.a;
+        List<AnnotatedVar> vars = varsAndCond.a.b;
+        AnnotatedTerm condition = varsAndCond.b;
+
+        // Process subformula - Fortress vars were added to the lexical scope in translateDeclList()
+        AnnotatedTerm sub;
+        try {
+            Term subTerm = recursivelyTranslate(expr.sub, context);
+            List<AnnotatedVar> freeVars = PortusUtil.computeFreeVariables(expr.sub, context, sortPolicy);
+            sub = new AnnotatedTerm(subTerm, Sort.Int(), freeVars);
+        } finally {
+            // Remove the vars from the lexical scope since it's done
+            for (String alloyVarName : alloyVarNames) {
+                context.removeMapping(alloyVarName);
+            }
+        }
+
+        return translateSum(sub, condition, vars, context);
+    }
+
+    private Term translateSum(
+            AnnotatedTerm sub, AnnotatedTerm condition, List<AnnotatedVar> vars, TranslationContext context) {
+        // To translate "sum x: e | f", make a definition
+        //   sumdef(y) := [[y \in e]] => [[f[y/x]]] else 0
+        // and expand over sort(e):
+        //   sumdef(_@1S) + sumdef(_@2S) + ... + sumdef(_@nS)
+        // Hopefully the definition makes it more efficient!
+
+        // We need to care about the free variables
+        // Deduplicate them all and assign an arbitrary order
+        Set<AnnotatedVar> allFreeVarsSet = new HashSet<>(sub.getFreeVars());
+        allFreeVarsSet.addAll(condition.getFreeVars());
+        vars.forEach(allFreeVarsSet::remove); // if there are any duplicates with the vars, remove them
+        List<AnnotatedVar> freeVarsAnnotated = new ArrayList<>(allFreeVarsSet);
+        List<Var> freeVars = freeVarsAnnotated.stream()
+                .map(AnnotatedVar::variable)
+                .collect(Collectors.toList());
+
+        List<AnnotatedVar> allVars = SetOps.concatenate(vars, freeVarsAnnotated);
+
+        // Add the definition
+        String defName = context.nameGenerator.freshName("sum_def");
+        Term body = Term.mkIfThenElse(condition.getTerm(), sub.getTerm(), IntegerLiteral.apply(0));
+        FunctionDefinition definition = FunctionDefinition.mkFunctionDefinition(
+                defName, allVars, Sort.Int(), body);
+        context.addFunctionDefinition(definition);
+
+        // Get all the relevant sorts
+        List<Sort> sorts = new ArrayList<>();
+        for (AnnotatedVar var : vars) {
+            Sort sort = var.sort();
+            sorts.add(sort);
+
+            if (!sort.equals(Sort.Int())) {
+                // We're expanding over the domain elements of the sort, so its scope can't be changed arbitrarily
+                // in the output - mark it unchanging
+                context.markSortUnchanging(sort);
+            }
+        }
+
+        // Use a final one-element array to get around Java limitations: only final vars can be used in lambdas.
+        final Term[] result = {null};
+        PortusUtil.expandOverSorts(sorts, sortPolicy, tuple -> {
+            Term addend = Term.mkApp(defName, SetOps.concatenate(tuple, freeVars));
+            if (result[0] == null) {
+                result[0] = addend;
+            } else {
+                result[0] = Term.mkPlus(result[0], addend);
+            }
+        });
+        return result[0];
+    }
+
+}

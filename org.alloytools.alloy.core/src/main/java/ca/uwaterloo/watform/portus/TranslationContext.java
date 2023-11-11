@@ -10,6 +10,7 @@ import fortress.data.NameGenerator;
 import fortress.modelfind.ModelFinder;
 import fortress.msfol.AnnotatedVar;
 import fortress.msfol.FuncDecl;
+import fortress.msfol.FunctionDefinition;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
 import fortress.msfol.Theory;
@@ -118,12 +119,17 @@ final class TranslationContext {
         theory = theory.withFunctionDeclaration(funcDecl);
     }
 
+    public void addFunctionDefinition(FunctionDefinition definition) {
+        theory = theory.withFunctionDefinition(definition);
+    }
+
     /**
      * Have we added a function with the given name?
      * Useful for avoiding adding duplicate functions.
      */
     public boolean hasFunctionWithName(String name) {
-        return theory.functionDeclarations().exists(func -> func.name().equals(name));
+        return theory.functionDeclarations().exists(func -> func.name().equals(name))
+                || theory.functionDefinitions().exists(def -> def.name().equals(name));
     }
 
     // The following are convenience delegates to VarMappingContext.
