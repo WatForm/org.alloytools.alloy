@@ -57,14 +57,14 @@ final class PortusCLIOptions {
             "-disable-mem-pred-opt", "Disable membership predicate optimization.");
     public final Option disablePartitionSortPolicy = new Option(
             "-disable-partition-sp", "Disable the partition sort policy, use the univ sort policy.");
+    public final Option disableSumDefinitionsOpt = new Option(
+            "-disable-sum-defn-opt", "Enable sum definitions optimization.");
     public final Option useCardinalityScopeAxiomStrategy = new Option(
             "-use-card-sap", "Use the cardinality-based instead of constants-based scope axiom strategy.");
     public final Option disableAllOpts = new Option(
             "-disable-all-opts", "Shortcut: Disable all optimizations and the partition sort policy, " +
             "use the cardinality scope axiom strategy.");
 
-    public final Option enableSumDefinitionsOpt = new Option(
-            "-enable-sum-defn-opt", "Enable sum definitions optimization (experimental).");
     public final Option enableElementOfScalarOpt = new Option(
             "-enable-element-scalar-opt", "Enable element-of scalar caster optimization (experimental).");
     public final Option enableCaching = new Option(
@@ -80,9 +80,9 @@ final class PortusCLIOptions {
             useCorrectnessProcessor, useDeltaDebugProcessor,
             useOutputPreSmtlibProcessor, useOutputPostSmtlibProcessor,
             disableSimpleScalarOpt, disableOneSigOpt, disableJoinOpt, disableOrderingModuleOpt,
-            disableMembershipPredicateOpt, disablePartitionSortPolicy, useCardinalityScopeAxiomStrategy,
-            disableAllOpts,
-            enableSumDefinitionsOpt, enableElementOfScalarOpt, enableCaching, enableKodkodIntCompatibility,
+            disableMembershipPredicateOpt, disablePartitionSortPolicy, disableSumDefinitionsOpt,
+            useCardinalityScopeAxiomStrategy, disableAllOpts,
+            enableElementOfScalarOpt, enableCaching, enableKodkodIntCompatibility,
     };
 
     // The positional arguments - a list of Alloy command specifiers.

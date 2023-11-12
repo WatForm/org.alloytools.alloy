@@ -85,10 +85,10 @@ public final class PortusCLI {
         options.enableMembershipPredicateOptimization = !disableAllOpts
                 && !cliOptions.disableMembershipPredicateOpt.active();
         options.enablePartitionSortPolicy = !disableAllOpts && !cliOptions.disablePartitionSortPolicy.active();
+        options.enableSumDefinitionsOptimization = !disableAllOpts && !cliOptions.disableSumDefinitionsOpt.active();
         options.enableConstantsScopeAxiomStrategy = !disableAllOpts
                 && !cliOptions.useCardinalityScopeAxiomStrategy.active();
 
-        options.enableSumDefinitionsOptimization = cliOptions.enableSumDefinitionsOpt.active();
         options.enableElementOfScalarOptimization = cliOptions.enableElementOfScalarOpt.active();
         options.enableCaching = cliOptions.enableCaching.active();
 
