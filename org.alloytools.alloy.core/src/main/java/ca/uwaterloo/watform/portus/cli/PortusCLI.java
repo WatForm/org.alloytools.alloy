@@ -147,7 +147,7 @@ public final class PortusCLI {
             validateScope(scope, options);
             System.out.println("Setting all scopes to " + scope);
             for (Sig sig : overridableSigs) {
-                command = command.change(sig, false, scope);
+                command = command.change(sig, true, scope);
             }
         }
 
@@ -167,7 +167,7 @@ public final class PortusCLI {
 
             Sig sig = overridableSigs.get(whichSig - 1); // convert to 0-indexed
             System.out.println("Setting scope of " + sig.label + " to " + scope);
-            command = command.change(sig, false, scope);
+            command = command.change(sig, true, scope);
         }
 
         return command;

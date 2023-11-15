@@ -30,9 +30,9 @@ final class PortusCLIOptions {
     ), "constants", "The Fortress compiler to use.");
 
     public final Option setAllScopes = new Option(
-            "-all-scopes", 1, "Set the scope of all non-one, non-lone top-level sigs to this scope, non-exact.");
+            "-all-scopes", 1, "Set the scope of all non-one, non-lone top-level sigs to this scope, exact.");
     public final Option setSigScope = new Option(
-            "-scope", 2, "Set the scope of the arg1'th (1-indexed) non-one, non-lone top-level sig to arg2, non-exact. "
+            "-scope", 2, "Set the scope of the arg1'th (1-indexed) non-one, non-lone top-level sig to arg2, exact. "
                     + "Overrides -all-scopes.");
 
     public final Option useRunPortusProcessor = new Option("-r", "Run Portus on each command.");
