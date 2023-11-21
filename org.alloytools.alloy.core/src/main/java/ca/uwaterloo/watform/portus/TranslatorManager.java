@@ -5,6 +5,7 @@ import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.ast.Command;
 import edu.mit.csail.sdg.ast.Expr;
+import edu.mit.csail.sdg.ast.Module;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.msfol.Term;
@@ -137,9 +138,9 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
     /**
      * Perform the entire translation by running through all passes.
      */
-    public void runAllPasses(Iterable<Sig> sigs, Command command, ScopeComputer scoper, TranslationContext context) {
+    public void runAllPasses(Module world, Command command, ScopeComputer scoper, TranslationContext context) {
         for (Pass pass : passes) {
-            pass.performPass(sigs, command, scoper, context);
+            pass.performPass(world, command, scoper, context);
         }
     }
 

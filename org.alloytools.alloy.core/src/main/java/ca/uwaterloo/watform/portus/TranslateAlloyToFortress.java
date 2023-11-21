@@ -3,6 +3,7 @@ package ca.uwaterloo.watform.portus;
 import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.ast.Command;
+import edu.mit.csail.sdg.ast.Module;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.A4Options;
 import edu.mit.csail.sdg.translator.AlloySolution;
@@ -63,15 +64,15 @@ public final class TranslateAlloyToFortress implements CommandRunner {
      */
     @Override
     public AlloySolution executeCommand(
-            A4Reporter reporter, Iterable<Sig> sigs, Command command, A4Options options) {
-        ScopeComputer scoper = ScopeComputer.compute(reporter, options, sigs, command).b;
+            A4Reporter reporter, Module world, Command command, A4Options options) {
+        ScopeComputer scoper = ScopeComputer.compute(reporter, options, world.getAllReachableSigs(), command).b;
         PortusLogger logger = new PortusLogger(reporter);
 
         try {
             // Actually execute the command, and time it.
             statistics.onStartPortus();
             logger.translationStarted(options.solver.id(), scoper.getBitwidth(), scoper.getMaxSeq());
-            AlloySolution solution = executeCommand(logger, sigs, command, scoper, options);
+            AlloySolution solution = executeCommand(logger, world, command, scoper, options);
             logger.outputResult(command, solution);
             statistics.onPortusFinished();
             return solution;
@@ -88,9 +89,10 @@ public final class TranslateAlloyToFortress implements CommandRunner {
 
     // Execute the command specified by command, mutating and returning solution.
     private AlloySolution executeCommand(
-            PortusLogger logger, Iterable<Sig> sigs, Command command,
+            PortusLogger logger, Module world, Command command,
             ScopeComputer scoper, A4Options options) throws IOException {
         // Decide on the sort policy with the options
+        Iterable<Sig> sigs = world.getAllReachableSigs();
         SortPolicy sortPolicy = options.portusOptions.getSortPolicy(sigs, command, scoper);
         RangeAssigner rangeAssigner = new RangeAssigner(sigs, sortPolicy, scoper);
 
@@ -98,7 +100,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
         TranslationContext context = new TranslationContext(options.portusOptions, scoper, sortPolicy, rangeAssigner);
 
         // Perform the entire translation.
-        translatorManager.runAllPasses(sigs, command, scoper, context);
+        translatorManager.runAllPasses(world, command, scoper, context);
 
         statistics.setTheoryStats(context.getTheory());
         logger.translationFinished(context.getTheory());

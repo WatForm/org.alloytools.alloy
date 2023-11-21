@@ -52,6 +52,7 @@ import edu.mit.csail.sdg.ast.ExprQt;
 import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Func;
+import edu.mit.csail.sdg.ast.Module;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.ast.Sig.Field;
 import edu.mit.csail.sdg.ast.Type;
@@ -664,8 +665,8 @@ public final class TranslateAlloyToKodkod extends VisitReturn<Object> {
      */
     public static final class Runner implements CommandRunner {
         @Override
-        public A4Solution executeCommand(A4Reporter rep, Iterable<Sig> sigs, Command cmd, A4Options opts) {
-            return execute_commandFromBook(rep, sigs, cmd, opts);
+        public A4Solution executeCommand(A4Reporter rep, Module world, Command cmd, A4Options opts) {
+            return execute_commandFromBook(rep, world.getAllReachableSigs(), cmd, opts);
         }
     }
 

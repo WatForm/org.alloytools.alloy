@@ -23,6 +23,7 @@ import edu.mit.csail.sdg.ast.ExprQt;
 import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Func;
+import edu.mit.csail.sdg.ast.Module;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.parser.Macro;
 import edu.mit.csail.sdg.translator.A4Options;
@@ -228,17 +229,17 @@ final class CorrectnessChecker {
         }.visitThis(formula);
     }
 
-    public Result checkCorrectness(Iterable<Sig> sigs, Command command, A4Options options) {
-        return checkCorrectness(new PortusStatistics(), sigs, command, options);
+    public Result checkCorrectness(Module world, Command command, A4Options options) {
+        return checkCorrectness(new PortusStatistics(), world, command, options);
     }
 
     public Result checkCorrectness(
-            PortusStatistics statistics, Iterable<Sig> sigs, Command command, A4Options options) {
+            PortusStatistics statistics, Module world, Command command, A4Options options) {
         // Run through Portus and get a solution using Fortress
         AlloySolution fortressSol;
         try {
             fortressSol = fortressSolver.commandRunnerWithStatistics(statistics).executeCommand(
-                    A4Reporter.NOP, sigs, command, options);
+                    A4Reporter.NOP, world, command, options);
         } catch (Exception exception) {
             return new Result(Result.Kind.EXCEPTION, exception);
         }
@@ -246,7 +247,7 @@ final class CorrectnessChecker {
         if (!fortressSol.satisfiable()) {
             // Make sure Kodkod also thinks it's unsat
             AlloySolution kodkodSol = kodkodSolver.commandRunner().executeCommand(
-                    A4Reporter.NOP, sigs, command, options);
+                    A4Reporter.NOP, world, command, options);
             if (kodkodSol.satisfiable()) {
                 return new Result(Result.Kind.KODKOD_SAT_FORTRESS_UNSAT, fortressSol);
             } else {

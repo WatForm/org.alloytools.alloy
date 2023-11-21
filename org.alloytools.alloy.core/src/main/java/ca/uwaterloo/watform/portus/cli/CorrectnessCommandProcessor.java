@@ -18,7 +18,7 @@ final class CorrectnessCommandProcessor implements CommandProcessor {
     public boolean process(Module world, Command command, A4Options options) {
         PortusStatistics statistics = new PortusStatistics();
         CorrectnessChecker.Result result = correctnessChecker.checkCorrectness(
-                statistics, world.getAllReachableSigs(), command, options);
+                statistics, world, command, options);
 
         if (result.kind == CorrectnessChecker.Result.Kind.EXCEPTION) {
             assert result.exception != null;

@@ -746,7 +746,7 @@ public final class SimpleReporter extends A4Reporter {
                         AlloySolution ai = null;
                         try { // [electrum] postpones error throwing, allows other commands to still be solved
                             // [portus] use the solver's CommandRunner instead of invoking TranslateAlloyToKodkod directly
-                            ai = options.solver.commandRunner().executeCommand(rep, world.getAllReachableSigs(), cmd, options);
+                            ai = options.solver.commandRunner().executeCommand(rep, world, cmd, options);
                         } catch (Exception e1) {
                             exc = e1;
                         }

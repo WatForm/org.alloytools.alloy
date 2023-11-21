@@ -7,6 +7,7 @@ import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprHasName;
 import edu.mit.csail.sdg.ast.ExprLet;
 import edu.mit.csail.sdg.ast.ExprVar;
+import edu.mit.csail.sdg.ast.Module;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.msfol.Sort;
@@ -34,7 +35,9 @@ final class TranslationPass implements Pass {
     }
 
     @Override
-    public void performPass(Iterable<Sig> sigs, Command command, ScopeComputer scoper, TranslationContext context) {
+    public void performPass(Module world, Command command, ScopeComputer scoper, TranslationContext context) {
+        Iterable<Sig> sigs = world.getAllReachableSigs();
+
         // Do sigs first, then fields, then the formula.
         // We have to do fields after sigs because a field can refer to sigs that come after it.
         translateSigs(sigs, context);
