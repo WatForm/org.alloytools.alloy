@@ -58,7 +58,7 @@ final class PortusCLIOptions {
     public final Option disablePartitionSortPolicy = new Option(
             "-disable-partition-sp", "Disable the partition sort policy, use the univ sort policy.");
     public final Option disableSumDefinitionsOpt = new Option(
-            "-disable-sum-defn-opt", "Enable sum definitions optimization.");
+            "-disable-sum-defn-opt", "Disable sum definitions optimization.");
     public final Option useCardinalityScopeAxiomStrategy = new Option(
             "-use-card-sap", "Use the cardinality-based instead of constants-based scope axiom strategy.");
     public final Option disableAllOpts = new Option(
