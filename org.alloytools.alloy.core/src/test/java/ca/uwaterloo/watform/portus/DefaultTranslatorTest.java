@@ -226,10 +226,13 @@ public class DefaultTranslatorTest {
                                 Term.mkEq(y, x1),
                                 Term.mkEq(y, x2))))));
 
-        // this should be the only axiom
+        // this should be the only axiom, aside from a degenerate "true" parent/children axiom
         //noinspection unchecked
         Set<Term> axioms = CollectionConverters.<Term>asJava(context.getTheory().axioms());
-        assertThat(axioms, contains(isAlphaEquivalentTerm(exactScopeAxiom)));
+        //noinspection unchecked
+        assertThat(axioms, containsInAnyOrder(
+                isAlphaEquivalentTerm(exactScopeAxiom),
+                is(Term.mkTop())));
 
         // should have no constants, one function for the membership predicate
         assertThat(context.getTheory().constantDeclarations().size(), is(0));
@@ -272,10 +275,13 @@ public class DefaultTranslatorTest {
                                 Term.mkEq(x0, x2),
                                 Term.mkEq(x1, x2))));
 
-        // this should be the only axiom
+        // this should be the only axiom aside from a degenerate parent/child axiom
         //noinspection unchecked
         Set<Term> axioms = CollectionConverters.<Term>asJava(context.getTheory().axioms());
-        assertThat(axioms, contains(isAlphaEquivalentTerm(nonExactScopeAxiom)));
+        //noinspection unchecked
+        assertThat(axioms, containsInAnyOrder(
+                isAlphaEquivalentTerm(nonExactScopeAxiom),
+                is(Term.mkTop())));
 
         // should have no constants, one function for the membership predicate
         assertThat(context.getTheory().constantDeclarations().size(), is(0));
@@ -318,10 +324,13 @@ public class DefaultTranslatorTest {
                                 Term.mkEq(x0, x2),
                                 Term.mkEq(x1, x2))));
 
-        // this should be the only axiom
+        // this should be the only axiom, except for a degenerate parent/child axiom
         //noinspection unchecked
         Set<Term> axioms = CollectionConverters.<Term>asJava(context.getTheory().axioms());
-        assertThat(axioms, contains(isAlphaEquivalentTerm(nonExactScopeAxiom)));
+        //noinspection unchecked
+        assertThat(axioms, containsInAnyOrder(
+                isAlphaEquivalentTerm(nonExactScopeAxiom),
+                is(Term.mkTop())));
 
         // should have no constants, one function for the membership predicate
         assertThat(context.getTheory().constantDeclarations().size(), is(0));
@@ -383,14 +392,15 @@ public class DefaultTranslatorTest {
                 Term.mkForall(y.of(univ), Term.mkIff(
                         inChildFlag, Term.mkEq(y, x1))));
 
-        // should have two axioms: subset and exact scope
+        // should have two axioms: subset and exact scope, plus the degenerate parent/child axiom
         //noinspection unchecked
         Set<Term> axioms = CollectionConverters.<Term>asJava(context.getTheory().axioms());
         //noinspection unchecked
         assertThat(axioms, containsInAnyOrder(
                 is(subsetFlag),
                 isAlphaEquivalentTerm(exactScopeAxiom1),
-                isAlphaEquivalentTerm(exactScopeAxiom2)));
+                isAlphaEquivalentTerm(exactScopeAxiom2),
+                is(Term.mkTop())));
 
         // should have two functions, inParent: Parent -> Bool and inChild: Parent -> Bool
         assertThat(context.getTheory().functionDeclarations().size(), is(2));
@@ -417,24 +427,11 @@ public class DefaultTranslatorTest {
         when(mockScoper.isExact(child1)).thenReturn(true);
         when(mockScoper.isExact(child2)).thenReturn(false);
 
-        // mock out the subset axiom for both
-        // need to do it like this because the naive way fails due to alpha-equivalence
-        Expr subsetAxiom = child1.in(parent); // doesn't matter which child due to alpha-equivalence
-        // this generates flag constants like "subset_Child1"
-        when(mockRoot.translate(argThat(isAlphaEquivalent(subsetAxiom)), any())).then(
-                ctx -> {
-                    ExprBinary expr = ctx.getArgument(0);
-                    Expr child = expr.left;
-                    return makeFlagConstant("subset_" + child.toString());
-                });
-
-        // mock out the abstract/cover axiom
-        Decl xParent = parent.oneOf("x");
-        // all x: parent | x in child1 or x in child2
-        Expr coverAxiom = xParent.get().in(child1).or(xParent.get().in(child2)).forAll(xParent);
-        Term coverFlag = makeFlagConstant("cover");
-        when(mockRoot.translate(argThat(isAlphaEquivalent(coverAxiom)), any()))
-                .thenReturn(coverFlag);
+        // mock out the expected axiom: [[child1 + child2 = parent]]
+        Term parentChildFlag = makeFlagConstant("parentChild");
+        Expr parentChildAxiom = child1.plus(child2).equal(parent);
+        when(mockRoot.translate(argThat(isAlphaEquivalent(parentChildAxiom)), any()))
+                .thenReturn(parentChildFlag);
 
         // mock out the exact and non-exact scope axiom's [[xi \in sig]]
         Expr inChild = ExprElementOf.make(Term.mkVar("x").of(univ), child1);
@@ -485,18 +482,17 @@ public class DefaultTranslatorTest {
                                 makeFlagConstant("inFlag_x1")),
                         Term.mkEq(x0, x1)));
 
-        // should have exactly these axioms
+        // should have exactly these axioms, plus redundant parent/child axioms for the children
         //noinspection unchecked
         Set<Term> axioms = CollectionConverters.<Term>asJava(context.getTheory().axioms());
         //noinspection unchecked
         assertThat(axioms, containsInAnyOrder(
-                is(makeFlagConstant("subset_Child1")), // subset axiom, child1
-                is(makeFlagConstant("subset_Child2")), // subset axiom, child2
-                is(coverFlag), // cover/abstract axiom
+                is(parentChildFlag),
                 isAlphaEquivalentTerm(disjointnessAxiom), // disjoint axiom
                 isAlphaEquivalentTerm(exactScopeAxiom1), // exact scope axiom, parent
                 isAlphaEquivalentTerm(exactScopeAxiom2), // exact scope axiom, child1
-                isAlphaEquivalentTerm(nonExactScopeAxiom))); // non-exact scope axiom, child2
+                isAlphaEquivalentTerm(nonExactScopeAxiom), // non-exact scope axiom, child2
+                is(Term.mkTop()))); // redundant parent/child axioms for subsigs (only one because it's a set)
 
         // should have three membership predicates, one per sort
         assertThat(context.getTheory().functionDeclarations().size(), is(3));
@@ -546,9 +542,11 @@ public class DefaultTranslatorTest {
 
         //noinspection unchecked
         Set<Term> axioms = CollectionConverters.<Term>asJava(context.getTheory().axioms());
+        //noinspection unchecked
         assertThat(axioms, containsInAnyOrder(
                 isAlphaEquivalentTerm(exactScopeAxiom),
-                is(multAxiomFlag)));
+                is(multAxiomFlag),
+                is(Term.mkTop()))); // degenerate parent/child axiom
 
         // should have no constants, one function for the membership predicate
         assertThat(context.getTheory().constantDeclarations().size(), is(0));
@@ -591,9 +589,11 @@ public class DefaultTranslatorTest {
 
         //noinspection unchecked
         Set<Term> axioms = CollectionConverters.<Term>asJava(context.getTheory().axioms());
+        //noinspection unchecked
         assertThat(axioms, containsInAnyOrder(
                 isAlphaEquivalentTerm(exactScopeAxiom),
-                is(multAxiomFlag)));
+                is(multAxiomFlag),
+                is(Term.mkTop()))); // degenerate parent/child axiom
 
         // should have no constants, one function for the membership predicate
         assertThat(context.getTheory().constantDeclarations().size(), is(0));
@@ -636,9 +636,11 @@ public class DefaultTranslatorTest {
 
         //noinspection unchecked
         Set<Term> axioms = CollectionConverters.<Term>asJava(context.getTheory().axioms());
+        //noinsepection unchecked
         assertThat(axioms, containsInAnyOrder(
                 isAlphaEquivalentTerm(exactScopeAxiom),
-                is(multAxiomFlag)));
+                is(multAxiomFlag),
+                is(Term.mkTop()))); // degenerate parent/child axiom
 
         // should have no constants, one function for the membership predicate
         assertThat(context.getTheory().constantDeclarations().size(), is(0));
@@ -1453,7 +1455,6 @@ public class DefaultTranslatorTest {
     public void testTranslate_join_incompatibleTupleSortsShortCircuitsTrickier() {
         // test [[(x,y) \in e1 . e2]] := false when the tuple sorts appear on the LHS and RHS in e1 . e2 but don't
         // appear in any join combination
-        Sig.PrimSig sig = new Sig.PrimSig("S");
         ExprVar e1 = makeTestVarWithType("e1", ExprConstant.IDEN.type()); // int->int, sig->sig
         ExprVar e2 = makeTestVarWithType("e2", ExprConstant.IDEN.type()); // int->int, sig->sig
 
@@ -1914,7 +1915,7 @@ public class DefaultTranslatorTest {
         Term result = translator.translate(e1.in(e2), context);
         Term expected = Term.mkAnd(
                 Term.mkForall(Arrays.asList(x1.of(univ), x2.of(univ)),
-                    Term.mkImp(flagInE1, flagInE2)),
+                        Term.mkImp(flagInE1, flagInE2)),
                 Term.mkTop());
         assertThat(result, isAlphaEquivalentTerm(expected));
         assertContextEmpty();
@@ -3490,9 +3491,9 @@ public class DefaultTranslatorTest {
         DomainElement domElem2 = Term.mkDomainElement(2, univ);
         Term expected = Term.mkPlus(
                 Term.mkIfThenElse(
-                    Term.mkApp("inE", domElem1),
-                    Term.mkApp("f", domElem1),
-                    IntegerLiteral.apply(0)),
+                        Term.mkApp("inE", domElem1),
+                        Term.mkApp("f", domElem1),
+                        IntegerLiteral.apply(0)),
                 Term.mkIfThenElse(
                         Term.mkApp("inE", domElem2),
                         Term.mkApp("f", domElem2),
@@ -3572,19 +3573,19 @@ public class DefaultTranslatorTest {
         DomainElement domElem2 = Term.mkDomainElement(2, univ);
         Term expected = Term.mkPlus(
                 Term.mkPlus(
-                    Term.mkPlus(
+                        Term.mkPlus(
+                                Term.mkIfThenElse(
+                                        Term.mkAnd(Term.mkApp("inE1", domElem1), Term.mkApp("inE2", domElem1)),
+                                        Term.mkApp("f", domElem1, domElem1),
+                                        IntegerLiteral.apply(0)),
+                                Term.mkIfThenElse(
+                                        Term.mkAnd(Term.mkApp("inE1", domElem1), Term.mkApp("inE2", domElem2)),
+                                        Term.mkApp("f", domElem1, domElem2),
+                                        IntegerLiteral.apply(0))),
                         Term.mkIfThenElse(
-                            Term.mkAnd(Term.mkApp("inE1", domElem1), Term.mkApp("inE2", domElem1)),
-                            Term.mkApp("f", domElem1, domElem1),
-                            IntegerLiteral.apply(0)),
-                        Term.mkIfThenElse(
-                                Term.mkAnd(Term.mkApp("inE1", domElem1), Term.mkApp("inE2", domElem2)),
-                                Term.mkApp("f", domElem1, domElem2),
+                                Term.mkAnd(Term.mkApp("inE1", domElem2), Term.mkApp("inE2", domElem1)),
+                                Term.mkApp("f", domElem2, domElem1),
                                 IntegerLiteral.apply(0))),
-                    Term.mkIfThenElse(
-                            Term.mkAnd(Term.mkApp("inE1", domElem2), Term.mkApp("inE2", domElem1)),
-                            Term.mkApp("f", domElem2, domElem1),
-                            IntegerLiteral.apply(0))),
                 Term.mkIfThenElse(
                         Term.mkAnd(Term.mkApp("inE1", domElem2), Term.mkApp("inE2", domElem2)),
                         Term.mkApp("f", domElem2, domElem2),
@@ -3812,14 +3813,14 @@ public class DefaultTranslatorTest {
         Term expected = Term.mkPlus(
                 Term.mkPlus(
                         Term.mkPlus(
-                            Term.mkIfThenElse(Term.mkApp("inE", domElem1, domElem1),
-                                IntegerLiteral.apply(1), IntegerLiteral.apply(0)),
-                            Term.mkIfThenElse(Term.mkApp("inE", domElem1, domElem2),
-                                IntegerLiteral.apply(1), IntegerLiteral.apply(0))),
+                                Term.mkIfThenElse(Term.mkApp("inE", domElem1, domElem1),
+                                        IntegerLiteral.apply(1), IntegerLiteral.apply(0)),
+                                Term.mkIfThenElse(Term.mkApp("inE", domElem1, domElem2),
+                                        IntegerLiteral.apply(1), IntegerLiteral.apply(0))),
                         Term.mkIfThenElse(Term.mkApp("inE", domElem2, domElem1),
                                 IntegerLiteral.apply(1), IntegerLiteral.apply(0))),
-                    Term.mkIfThenElse(Term.mkApp("inE", domElem2, domElem2),
-                            IntegerLiteral.apply(1), IntegerLiteral.apply(0)));
+                Term.mkIfThenElse(Term.mkApp("inE", domElem2, domElem2),
+                        IntegerLiteral.apply(1), IntegerLiteral.apply(0)));
         Term result = translator.translate(e.cardinality(), context);
         assertEquals(expected, result);
         assertContextEmpty();
