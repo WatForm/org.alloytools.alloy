@@ -93,6 +93,8 @@ public final class PortusCLI {
         options.enableCaching = cliOptions.enableCaching.active();
 
         options.enableKodkodIntCompatibility = cliOptions.enableKodkodIntCompatibility.active();
+
+        options.enableFortressNonExactScopes = cliOptions.enableFortressNonExactScopes.active();
     }
 
     private static void setFortressCompiler(PortusOptions options, PortusCLIOptions cliOptions) {

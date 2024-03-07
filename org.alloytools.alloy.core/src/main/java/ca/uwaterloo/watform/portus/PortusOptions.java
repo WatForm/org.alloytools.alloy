@@ -111,6 +111,11 @@ public final class PortusOptions implements Serializable {
 
     public boolean enableKodkodIntCompatibility = false;
 
+    // Should we allow reliance on the Fortress non-exact scopes feature?
+    // If true, we might generate Fortress sorts with non-exact scopes.
+    // If false, we will always use a membership predicate instead and all Fortress sorts will have exact scopes.
+    public boolean enableFortressNonExactScopes = false;
+
     // Create a PortusOptions specifying options.
     public PortusOptions(String outputDirectory, String outputName) {
         this.outputDirectory = outputDirectory;

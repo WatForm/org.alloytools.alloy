@@ -73,6 +73,9 @@ final class PortusCLIOptions {
     public final Option enableKodkodIntCompatibility = new Option(
             "-kodkod-int-compat", "Force compatibility with Kodkod integer semantics (slow).");
 
+    public final Option enableFortressNonExactScopes = new Option(
+            "-enable-fortress-nonexact-scopes", "Enable use of the Fortress-level non-exact scopes feature.");
+
     public final Option[] allOptions = new Option[] {
             help, adjustBitwidth, noTimeout, pickCommandNumber, fortressCompiler,
             setAllScopes, setSigScope,
@@ -83,6 +86,7 @@ final class PortusCLIOptions {
             disableMembershipPredicateOpt, disablePartitionSortPolicy, disableSumDefinitionsOpt,
             useCardinalityScopeAxiomStrategy, disableAllOpts,
             enableElementOfScalarOpt, enableCaching, enableKodkodIntCompatibility,
+            enableFortressNonExactScopes,
     };
 
     // The positional arguments - a list of Alloy command specifiers.

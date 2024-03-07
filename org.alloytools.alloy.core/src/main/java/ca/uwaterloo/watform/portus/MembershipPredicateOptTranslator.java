@@ -23,10 +23,18 @@ final class MembershipPredicateOptTranslator extends AbstractTranslator implemen
 
     private final Set<Sort> inapplicableSorts = new HashSet<>();
 
-    public MembershipPredicateOptTranslator(Translator topLevel, SortPolicy sortPolicy, SigAxioms sigAxioms) {
+    /**
+     * If true, we will never rely on Fortress's non-exact scope feature by always generating a membership predicate
+     * for sigs with non-exact scopes.
+     */
+    private final boolean noFortressNonExactScopes;
+
+    public MembershipPredicateOptTranslator(Translator topLevel, SortPolicy sortPolicy, SigAxioms sigAxioms,
+                                            boolean noFortressNonExactScopes) {
         super(topLevel);
         this.sortPolicy = sortPolicy;
         this.sigAxioms = sigAxioms;
+        this.noFortressNonExactScopes = noFortressNonExactScopes;
     }
 
     @Override
@@ -75,7 +83,8 @@ final class MembershipPredicateOptTranslator extends AbstractTranslator implemen
         // So they have to use exact scope Fortress sorts and so we can't apply the membership predicate opt.
         // TODO: This is dependent on the scope axiom strategy but cardinality + constants need it so it's probably fine
         // TODO: but if we change the cardinality implementation, it might not need it...
-        if (!scoper.isExact(primSig) && !primSig.children().isEmpty()) {
+        // Also, if we explicitly disable Fortress-level non-exact scopes, don't rely on them.
+        if (!scoper.isExact(primSig) && (noFortressNonExactScopes || !primSig.children().isEmpty())) {
             inapplicableSorts.add(sort);
             return;
         }
