@@ -27,7 +27,6 @@ import fortress.solverinterface.Z3CliInterface$;
 import fortress.solverinterface.solver;
 import fortress.transformers.DomainEliminationTransformer$;
 import fortress.transformers.EnumEliminationTransformer$;
-import fortress.transformers.TheoryTransformer;
 import fortress.transformers.TypecheckSanitizeTransformer$;
 import fortress.util.Dump;
 import fortress.util.Milliseconds;
@@ -123,7 +122,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
             finder.addLogger(logger);
 
             statistics.onStartSmtSolver();
-            ModelFinderResult result = finder.checkSat();
+            ModelFinderResult result = finder.checkSat(false); // TODO verbosity
             statistics.onSmtSolverFinished();
 
             if (result instanceof ErrorResult) {
@@ -177,9 +176,9 @@ public final class TranslateAlloyToFortress implements CommandRunner {
                 @Override
                 public void setTheory(Theory theory) {
                     // In order to dump the scope info as well, we need to create a problem state from the theory
-                    // and scopes and dump that.
+                    // and scopes and dump that. TODO verbosity.
                     ProblemState problemState = ProblemState.apply(theory,
-                            PortusUtil.<Sort, Scope>toScalaMap(context.getSortToScopeMap(sortPolicy)));
+                            PortusUtil.<Sort, Scope>toScalaMap(context.getSortToScopeMap(sortPolicy)), false);
                     try {
                         writer.write(Dump.problemStateToSmtlib(problemState));
                     } catch (IOException e) {
@@ -216,8 +215,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
                     @Override
                     public LogicCompiler createCompiler() {
                         ConfigurableCompiler compiler = new ConfigurableCompiler();
-                        compiler.addTransformer(
-                                TheoryTransformer.asProblemStateTransformer(TypecheckSanitizeTransformer$.MODULE$));
+                        compiler.addTransformer(TypecheckSanitizeTransformer$.MODULE$);
                         compiler.addTransformer(EnumEliminationTransformer$.MODULE$);
                         compiler.addTransformer(DomainEliminationTransformer$.MODULE$);
                         return compiler;
@@ -226,7 +224,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
             }
 
             context.configureModelFinder(finder, sortPolicy);
-            finder.checkSat();
+            finder.checkSat(false); // TODO verbosity
             writer.flush();
         }
         logger.outputFilename(smtlibFile.getAbsolutePath());
