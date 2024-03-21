@@ -312,7 +312,8 @@ public final class PortusCLI {
             processors.add(new RunCommandProcessor(A4Options.SatSolver.SAT4J));
         }
         if (options.useCorrectnessProcessor.active()) {
-            processors.add(new CorrectnessCommandProcessor());
+            processors.add(new CorrectnessCommandProcessor(new CorrectnessChecker(
+                    options.alwaysShowKodkodTime.active())));
         }
         if (options.useDeltaDebugProcessor.active()) {
             processors.add(new DeltaDebugCommandProcessor());

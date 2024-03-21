@@ -53,6 +53,7 @@ public final class PortusStatistics {
 
     private final Stopwatch portusStopwatch = new Stopwatch();
     private final Stopwatch smtSolverStopwatch = new Stopwatch();
+    private final Stopwatch kodkodStopwatch = new Stopwatch();
 
     public void onStartPortus() {
         portusStopwatch.start();
@@ -68,6 +69,14 @@ public final class PortusStatistics {
 
     public void onSmtSolverFinished() {
         smtSolverStopwatch.stop();
+    }
+
+    public void onStartKodkod() {
+        kodkodStopwatch.start();
+    }
+
+    public void onKodkodFinished() {
+        kodkodStopwatch.stop();
     }
 
     private boolean hasTheoryStats = false;
@@ -125,6 +134,9 @@ public final class PortusStatistics {
 
         System.out.println(indent + "Portus time: " + portusStopwatch.formatDuration());
         System.out.println(indent + "SMT solver time: " + smtSolverStopwatch.formatDuration());
+        if (kodkodStopwatch.hasRun()) {
+            System.out.println(indent + "Kodkod time: " + kodkodStopwatch.formatDuration());
+        }
     }
 
 }

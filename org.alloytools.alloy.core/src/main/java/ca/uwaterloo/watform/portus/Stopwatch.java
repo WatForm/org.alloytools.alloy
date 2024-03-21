@@ -77,6 +77,10 @@ final class Stopwatch {
         return durationNs;
     }
 
+    public boolean hasRun() {
+        return state != State.NOT_STARTED;
+    }
+
     private String formatNanoseconds(long ns) {
         StringBuilder builder = new StringBuilder();
         long nsPerHour = 1000000000L * 60L * 60L;

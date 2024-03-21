@@ -12,7 +12,11 @@ import edu.mit.csail.sdg.translator.A4Options;
  */
 final class CorrectnessCommandProcessor implements CommandProcessor {
 
-    private final CorrectnessChecker correctnessChecker = new CorrectnessChecker();
+    private final CorrectnessChecker correctnessChecker;
+
+    public CorrectnessCommandProcessor(CorrectnessChecker correctnessChecker) {
+        this.correctnessChecker = correctnessChecker;
+    }
 
     @Override
     public boolean process(Module world, Command command, A4Options options) {

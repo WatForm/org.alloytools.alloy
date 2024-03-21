@@ -45,6 +45,9 @@ final class PortusCLIOptions {
     public final Option useOutputPostSmtlibProcessor = new Option(
             "-smtlib-all", "Output SMTLIB+ (post-Fortress) for each command.");
 
+    public final Option alwaysShowKodkodTime = new Option(
+            "-show-kodkod-time", "When evaluating correctness, always evaluate and show Kodkod's time (slower).");
+
     public final Option disableSimpleScalarOpt = new Option(
             "-disable-simple-scalar-opt", "Disable simple scalar optimization.");
     public final Option disableOneSigOpt = new Option(
@@ -82,6 +85,7 @@ final class PortusCLIOptions {
             useRunPortusProcessor, useRunKodkodProcessor,
             useCorrectnessProcessor, useDeltaDebugProcessor,
             useOutputPreSmtlibProcessor, useOutputPostSmtlibProcessor,
+            alwaysShowKodkodTime,
             disableSimpleScalarOpt, disableOneSigOpt, disableJoinOpt, disableOrderingModuleOpt,
             disableMembershipPredicateOpt, disablePartitionSortPolicy, disableSumDefinitionsOpt,
             useCardinalityScopeAxiomStrategy, disableAllOpts,
