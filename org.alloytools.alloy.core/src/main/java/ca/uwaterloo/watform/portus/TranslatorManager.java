@@ -93,7 +93,9 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
         if (options.enableOneSigOptimization) {
             translators.add(oneSigOpt);
         }
-        translators.add(functionOpt);
+        if (options.enableFuncOptimization) {
+            translators.add(functionOpt);
+        }
         if (options.enableJoinOptimization) {
             translators.add(new JoinOptTranslator(this, this));
         }
@@ -112,7 +114,9 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
         if (options.enableOneSigOptimization) {
             scalarCasters.add(oneSigOpt);
         }
-        scalarCasters.add(functionOpt);
+        if (options.enableFuncOptimization) {
+            scalarCasters.add(functionOpt);
+        }
         scalarCasters.add(new DefaultScalarCaster(this, this, sortPolicy));
         if (options.enableElementOfScalarOptimization) {
             scalarCasters.add(new ElementOfScalarCaster(this, sortPolicy, statistics));
@@ -121,7 +125,9 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
         if (options.enableOneSigOptimization) {
             evaluators.add(oneSigOpt);
         }
-        evaluators.add(functionOpt);
+        if (options.enableFuncOptimization) {
+            evaluators.add(functionOpt);
+        }
         if (options.enableMembershipPredicateOptimization) {
             evaluators.add(membershipPredOpt);
         }

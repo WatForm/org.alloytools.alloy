@@ -62,11 +62,13 @@ final class PortusCLIOptions {
             "-disable-partition-sp", "Disable the partition sort policy, use the univ sort policy.");
     public final Option disableSumDefinitionsOpt = new Option(
             "-disable-sum-defn-opt", "Disable sum definitions optimization.");
+    public final Option disableFuncOpt = new Option("-disable-func-opt",
+            "Disable function optimization. This reduces the number of models Portus can translate!");
     public final Option useCardinalityScopeAxiomStrategy = new Option(
             "-use-card-sap", "Use the cardinality-based instead of constants-based scope axiom strategy.");
     public final Option disableAllOpts = new Option(
-            "-disable-all-opts", "Shortcut: Disable all optimizations and the partition sort policy, " +
-            "use the cardinality scope axiom strategy.");
+            "-disable-all-opts", "Shortcut: Disable all optimizations except the function optimization and the " +
+            "partition sort policy, use the cardinality scope axiom strategy.");
 
     public final Option enableElementOfScalarOpt = new Option(
             "-enable-element-scalar-opt", "Enable element-of scalar caster optimization (experimental).");
@@ -88,7 +90,7 @@ final class PortusCLIOptions {
             alwaysShowKodkodTime,
             disableSimpleScalarOpt, disableOneSigOpt, disableJoinOpt, disableOrderingModuleOpt,
             disableMembershipPredicateOpt, disablePartitionSortPolicy, disableSumDefinitionsOpt,
-            useCardinalityScopeAxiomStrategy, disableAllOpts,
+            useCardinalityScopeAxiomStrategy, disableFuncOpt, disableAllOpts,
             enableElementOfScalarOpt, enableCaching, enableKodkodIntCompatibility,
             enableFortressNonExactScopes,
     };

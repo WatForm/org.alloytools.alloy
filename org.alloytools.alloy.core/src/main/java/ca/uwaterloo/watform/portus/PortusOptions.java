@@ -102,6 +102,7 @@ public final class PortusOptions implements Serializable {
     public boolean enableJoinOptimization = true;
     public boolean enableMembershipPredicateOptimization = true;
     public boolean enableSumDefinitionsOptimization = true;
+    public boolean enableFuncOptimization = true;
 
     public boolean enablePartitionSortPolicy = true;
     public boolean enableConstantsScopeAxiomStrategy = true; // alternative: cardinality; TODO: refactor this

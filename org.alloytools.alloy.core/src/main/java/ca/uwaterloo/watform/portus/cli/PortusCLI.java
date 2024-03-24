@@ -86,6 +86,8 @@ public final class PortusCLI {
                 && !cliOptions.disableMembershipPredicateOpt.active();
         options.enablePartitionSortPolicy = !disableAllOpts && !cliOptions.disablePartitionSortPolicy.active();
         options.enableSumDefinitionsOptimization = !disableAllOpts && !cliOptions.disableSumDefinitionsOpt.active();
+        // specifically don't include the function optimization in disableAllOpts
+        options.enableFuncOptimization = !cliOptions.disableFuncOpt.active();
         options.enableConstantsScopeAxiomStrategy = !disableAllOpts
                 && !cliOptions.useCardinalityScopeAxiomStrategy.active();
 
