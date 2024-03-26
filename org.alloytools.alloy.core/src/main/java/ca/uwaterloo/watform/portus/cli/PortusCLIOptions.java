@@ -63,7 +63,7 @@ final class PortusCLIOptions {
     public final Option disableSumDefinitionsOpt = new Option(
             "-disable-sum-defn-opt", "Disable sum definitions optimization.");
     public final Option disableFuncOpt = new Option("-disable-func-opt",
-            "Disable function optimization. This reduces the number of models Portus can translate!");
+            "Disable function optimization. WARNING: some models will fail to translate!");
     public final Option useCardinalityScopeAxiomStrategy = new Option(
             "-use-card-sap", "Use the cardinality-based instead of constants-based scope axiom strategy.");
     public final Option disableAllOpts = new Option(

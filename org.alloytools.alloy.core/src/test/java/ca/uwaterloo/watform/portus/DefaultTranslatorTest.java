@@ -1978,69 +1978,85 @@ public class DefaultTranslatorTest {
 
     @Test
     public void testTranslate_in_inOneNoneShortCircuits() {
-        // test [[e1 in one none]] := false
+        // test [[e1 in one none]] := [[no e1]] && [[one e1]]
+        // note this will be a contradiction at a later stage of course
         Sig.PrimSig sig = new Sig.PrimSig("S");
         ExprVar e1 = makeTestVarWithType("e1", Type.make(sig));
+        Term flagNoE1 = makeFlagConstant("noE1");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(e1.no())), any())).thenReturn(flagNoE1);
+        Term flagOneE1 = makeFlagConstant("oneE1");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(e1.one())), any())).thenReturn(flagOneE1);
         Term result = translator.translate(e1.in(Sig.NONE.oneOf()), context);
-        assertEquals(Term.mkBottom(), result);
+        assertEquals(Term.mkAnd(flagNoE1, flagOneE1), result);
         assertContextEmpty();
     }
 
     @Test
     public void testTranslate_in_inSomeNoneShortCircuits() {
-        // test [[e1 in some none]] := false
+        // test [[e1 in some none]] := [[no e1]] && [[some e1]]
+        // note this will be a contradiction at a later stage of course
         Sig.PrimSig sig = new Sig.PrimSig("S");
         ExprVar e1 = makeTestVarWithType("e1", Type.make(sig));
+        Term flagNoE1 = makeFlagConstant("noE1");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(e1.no())), any())).thenReturn(flagNoE1);
+        Term flagSomeE1 = makeFlagConstant("someE1");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(e1.some())), any())).thenReturn(flagSomeE1);
         Term result = translator.translate(e1.in(Sig.NONE.someOf()), context);
-        assertEquals(Term.mkBottom(), result);
+        assertEquals(Term.mkAnd(flagNoE1, flagSomeE1), result);
         assertContextEmpty();
     }
 
     @Test
     public void testTranslate_in_inLoneNoneShortCircuits() {
-        // test [[e1 in none]] := [[no e1]]
+        // test [[e1 in lone none]] := [[no e1]] && [[lone e1]]
+        // (hopefully this simplifies out later)
         Sig.PrimSig sig = new Sig.PrimSig("S");
         ExprVar e1 = makeTestVarWithType("e1", Type.make(sig));
         Term flagNoE1 = makeFlagConstant("noE1");
         when(mockRoot.translate(argThat(isAlphaEquivalent(e1.no())), any())).thenReturn(flagNoE1);
+        Term flagLoneE1 = makeFlagConstant("loneE1");
+        when(mockRoot.translate(argThat(isAlphaEquivalent(e1.lone())), any())).thenReturn(flagLoneE1);
         Term result = translator.translate(e1.in(Sig.NONE.loneOf()), context);
-        assertEquals(flagNoE1, result);
+        assertEquals(Term.mkAnd(flagNoE1, flagLoneE1), result);
         assertContextEmpty();
     }
 
     @Test
     public void testTranslate_in_inNoneShortCircuits() {
-        // test [[e1 in none]] := [[no e1]]
+        // test [[e1 in none]] := [[no e1]] && true
+        // extra true is for the (trivial) multiplicity condition
         Sig.PrimSig sig = new Sig.PrimSig("S");
         ExprVar e1 = makeTestVarWithType("e1", Type.make(sig));
         Term flagNoE1 = makeFlagConstant("noE1");
         when(mockRoot.translate(argThat(isAlphaEquivalent(e1.no())), any())).thenReturn(flagNoE1);
         Term result = translator.translate(e1.in(Sig.NONE), context);
-        assertEquals(flagNoE1, result);
+        assertEquals(Term.mkAnd(flagNoE1, Term.mkTop()), result);
         assertContextEmpty();
     }
 
     @Test
     public void testTranslate_eq_eqNoneShortCircuits() {
-        // test [[e1 in none]] := [[no e1]]
+        // test [[e1 in none]] := [[no e1]] && true
+        // extra true is for the (trivial) multiplicity condition
         Sig.PrimSig sig = new Sig.PrimSig("S");
         ExprVar e1 = makeTestVarWithType("e1", Type.make(sig));
         Term flagNoE1 = makeFlagConstant("noE1");
         when(mockRoot.translate(argThat(isAlphaEquivalent(e1.no())), any())).thenReturn(flagNoE1);
         Term result = translator.translate(e1.equal(Sig.NONE), context);
-        assertEquals(flagNoE1, result);
+        assertEquals(Term.mkAnd(flagNoE1, Term.mkTop()), result);
         assertContextEmpty();
     }
 
     @Test
     public void testTranslate_eq_noneEqShortCircuits() {
-        // test [[e1 in none]] := [[no e1]]
+        // test [[e1 in none]] := [[no e1]] && true
+        // extra true is for the (trivial) multiplicity condition
         Sig.PrimSig sig = new Sig.PrimSig("S");
         ExprVar e1 = makeTestVarWithType("e1", Type.make(sig));
         Term flagNoE1 = makeFlagConstant("noE1");
         when(mockRoot.translate(argThat(isAlphaEquivalent(e1.no())), any())).thenReturn(flagNoE1);
         Term result = translator.translate(Sig.NONE.equal(e1), context);
-        assertEquals(flagNoE1, result);
+        assertEquals(Term.mkAnd(flagNoE1, Term.mkTop()), result);
         assertContextEmpty();
     }
 
@@ -2058,16 +2074,16 @@ public class DefaultTranslatorTest {
 
     @Test
     public void testTranslate_in_mixedSortsWithMult() {
-        // test [[e1 in some e2]] short circuits to [[no e1]] && [[some e2]] when e1 and e2 are of different sorts
+        // test [[e1 in some e2]] short circuits to [[no e1]] && [[some e1]] when e1 and e2 are of different sorts
         Sig.PrimSig sig = new Sig.PrimSig("S");
         ExprVar e1 = makeTestVarWithType("e1", Type.make(sig));
         ExprVar e2 = makeTestVarWithType("e2", Type.make(Sig.SIGINT));
         Term flagNoE1 = makeFlagConstant("noE1");
-        Term flagSomeE2 = makeFlagConstant("someE2");
+        Term flagSomeE1 = makeFlagConstant("someE1");
         when(mockRoot.translate(argThat(isAlphaEquivalent(e1.no())), any())).thenReturn(flagNoE1);
-        when(mockRoot.translate(argThat(isAlphaEquivalent(e2.someOf().some())), any())).thenReturn(flagSomeE2);
+        when(mockRoot.translate(argThat(isAlphaEquivalent(e1.some())), any())).thenReturn(flagSomeE1);
         Term result = translator.translate(e1.in(e2.someOf()), context);
-        assertEquals(Term.mkAnd(flagNoE1, flagSomeE2), result);
+        assertEquals(Term.mkAnd(flagNoE1, flagSomeE1), result);
         assertContextEmpty();
     }
 
@@ -2086,72 +2102,72 @@ public class DefaultTranslatorTest {
 
     @Test
     public void testTranslate_inOneOf() {
-        // test [[e1 in ONEOF(e2)]] := (forall x: univ . [[x \in ONEOF(e1)]] => [[x \in e2]]) && [[one ONEOF(e2)]]
+        // test [[e1 in ONEOF(e2)]] := (forall x: univ . [[x \in ONEOF(e1)]] => [[x \in e2]]) && [[one e1]]
         // there's some unnecessary mult wrapping, but they're treated like noops so it's fine
         Sig.PrimSig sig = new Sig.PrimSig("S");
         ExprVar e1 = makeTestVarWithType("e1", Type.make(sig));
         ExprVar e2 = makeTestVarWithType("e2", Type.make(sig));
         Var flagInE1 = makeFlagConstant("xInE1"), flagInE2 = makeFlagConstant("xInE2");
-        Var flagOneE2 = makeFlagConstant("oneE2");
+        Var flagOneE1 = makeFlagConstant("oneE1");
         Var x = Term.mkVar("x");
 
         when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(x.of(univ), e1))), any()))
                 .thenReturn(flagInE1);
         when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(x.of(univ), e2.oneOf()))), any()))
                 .thenReturn(flagInE2);
-        when(mockRoot.translate(argThat(isSameAs(e2.oneOf().one())), any()))
-                .thenReturn(flagOneE2);
+        when(mockRoot.translate(argThat(isSameAs(e1.one())), any()))
+                .thenReturn(flagOneE1);
 
         Term result = translator.translate(e1.in(e2.oneOf()), context);
-        Term expected = Term.mkAnd(Term.mkForall(x.of(univ), Term.mkImp(flagInE1, flagInE2)), flagOneE2);
+        Term expected = Term.mkAnd(Term.mkForall(x.of(univ), Term.mkImp(flagInE1, flagInE2)), flagOneE1);
         assertThat(result, isAlphaEquivalentTerm(expected));
         assertContextEmpty();
     }
 
     @Test
     public void testTranslate_inLoneOf() {
-        // test [[e1 in LONEOF(e2)]] := (forall x: univ . [[x \in LONEOF(e1)]] => [[x \in e2]]) && [[lone LONEOF(e2)]]
+        // test [[e1 in LONEOF(e2)]] := (forall x: univ . [[x \in LONEOF(e1)]] => [[x \in e2]]) && [[lone e1]]
         // there's some unnecessary mult wrapping, but they're treated like noops so it's fine
         Sig.PrimSig sig = new Sig.PrimSig("S");
         ExprVar e1 = makeTestVarWithType("e1", Type.make(sig));
         ExprVar e2 = makeTestVarWithType("e2", Type.make(sig));
         Var flagInE1 = makeFlagConstant("xInE1"), flagInE2 = makeFlagConstant("xInE2");
-        Var flagLoneE2 = makeFlagConstant("loneE2");
+        Var flagLoneE1 = makeFlagConstant("loneE1");
         Var x = Term.mkVar("x");
 
         when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(x.of(univ), e1))), any()))
                 .thenReturn(flagInE1);
         when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(x.of(univ), e2.loneOf()))), any()))
                 .thenReturn(flagInE2);
-        when(mockRoot.translate(argThat(isSameAs(e2.loneOf().lone())), any()))
-                .thenReturn(flagLoneE2);
+        when(mockRoot.translate(argThat(isSameAs(e1.lone())), any()))
+                .thenReturn(flagLoneE1);
 
         Term result = translator.translate(e1.in(e2.loneOf()), context);
-        Term expected = Term.mkAnd(Term.mkForall(x.of(univ), Term.mkImp(flagInE1, flagInE2)), flagLoneE2);
+        Term expected = Term.mkAnd(Term.mkForall(x.of(univ), Term.mkImp(flagInE1, flagInE2)), flagLoneE1);
         assertThat(result, isAlphaEquivalentTerm(expected));
         assertContextEmpty();
     }
 
     @Test
     public void testTranslate_inSomeOf() {
-        // test [[e1 in SOMEOF(e2)]] := (forall x: univ . [[x \in LONEOF(e1)]] => [[x \in e2]]) && [[some SOMEOF(e2)]]
+        // test [[e1 in SOMEOF(e2)]] := (forall x: univ . [[x \in LONEOF(e1)]] => [[x \in e2]]) && [[some e1]]
         // there's some unnecessary mult wrapping, but they're treated like noops so it's fine
         Sig.PrimSig sig = new Sig.PrimSig("S");
         ExprVar e1 = makeTestVarWithType("e1", Type.make(sig));
         ExprVar e2 = makeTestVarWithType("e2", Type.make(sig));
         Var flagInE1 = makeFlagConstant("xInE1"), flagInE2 = makeFlagConstant("xInE2");
-        Var flagSomeE2 = makeFlagConstant("someE2");
+        Var flagSomeE1 = makeFlagConstant("someE1");
         Var x = Term.mkVar("x");
 
         when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(x.of(univ), e1))), any()))
                 .thenReturn(flagInE1);
         when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(x.of(univ), e2.someOf()))), any()))
                 .thenReturn(flagInE2);
-        when(mockRoot.translate(argThat(isSameAs(e2.someOf().some())), any()))
-                .thenReturn(flagSomeE2);
+        when(mockRoot.translate(argThat(isSameAs(e1.some())), any()))
+                .thenReturn(flagSomeE1);
 
         Term result = translator.translate(e1.in(e2.someOf()), context);
-        Term expected = Term.mkAnd(Term.mkForall(x.of(univ), Term.mkImp(flagInE1, flagInE2)), flagSomeE2);
+        Term expected = Term.mkAnd(Term.mkForall(x.of(univ), Term.mkImp(flagInE1, flagInE2)), flagSomeE1);
         assertThat(result, isAlphaEquivalentTerm(expected));
         assertContextEmpty();
     }

@@ -601,6 +601,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
         //   [[(x1, ..., xn) \in e1]] <=> [[(x1, ..., xn) \in e2]]
         // We also handle multiplicities on e2 in the case of "e1 in M e2", because Alloy supports formulas
         // like "a in ONEOF(b)" and these come up in translating field declarations.
+        // The meaning is [[e1 in M e2]] := [[M e1]] && [[e1 in e2]].
 
         SortResolvant e1Sorts = sortPolicy.getMinimalExprSorts(e1, context);
         SortResolvant e2Sorts = sortPolicy.getMinimalExprSorts(e2, context);
@@ -611,38 +612,34 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
         // "exactly" is used in the meta feature and means to treat "in exactly" like "=" as a hack
         boolean isEquals = (op == ExprBinary.Op.EQUALS || e2.mult() == ExprUnary.Op.EXACTLYOF);
 
+        // Additional condition [[M e1]] for [[e1 in M e2]]
+        Term multCond = isEquals ? Term.mkTop() : getMultCondition(e1, e2, context);
+
         // Short-circuit if either expression statically resolves to none.
-        // If any sort is an expression resolves to none, then the whole expression is none,
-        // because A->none->B = none->none->none (Cartesian product with none gives none).
         if (e1Sorts.isNone() && e2Sorts.isNone()) {
-            // If both are none, then the expression is "none = none", which is true.
-            return Term.mkTop();
+            // If both are none, then the expression is "M none and none =/in none", which short-circuits to "M none".
+            return multCond;
         } else if (e1Sorts.isNone() || e2Sorts.isNone()) {
             // If one is none, then apply the following simplifications:
-            //   [[none in M e]] := [[M e]]  (true if no M specified = setof)
-            //   [[e in one none]] = [[e in some none]] = false
-            //   [[e in none]] = [[e in lone none]] = [[e = none]] = [[none = e]] := [[no e]]
+            //     [[none in e]] := true
+            //     [[e in none]] = [[e = none]] = [[none = e]] := [[no e]]
             if (!isEquals && e1Sorts.isNone()) {
-                return getMultCondition(e2, context);
-            } else if (!isEquals && (e2.mult() == ExprUnary.Op.ONEOF || e2.mult() == ExprUnary.Op.SOMEOF)) {
-                return Term.mkBottom();
+                return multCond;
             } else {
                 Expr nonNoneExpr = e1Sorts.isNone() ? e2 : e1;
-                return recursivelyTranslate(nonNoneExpr.no(), context);
+                return Term.mkAnd(recursivelyTranslate(nonNoneExpr.no(), context), multCond);
             }
         }
 
         // If the sets of sort tuples are disjoint, there's no possible overlap between e1 and e2. Then:
         // - for "e1 = e2", both e1 and e2 must be empty
-        // - for "e1 in M e2", e1 must be empty and [[M e2]] must be true
+        // - for "e1 in M e2", e1 must be empty and the multiplicity condition must be true
         SortResolvant intersection = e1Sorts.intersection(e2Sorts);
         if (intersection.isNone()) {
             if (isEquals) {
                 return recursivelyTranslate(e1.no().and(e2.no()), context);
             } else {
-                return Term.mkAnd(
-                        recursivelyTranslate(e1.no(), context),
-                        getMultCondition(e2, context));
+                return Term.mkAnd(recursivelyTranslate(e1.no(), context), multCond);
             }
         }
 
@@ -679,19 +676,19 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
             return Term.mkAnd(
                     Term.mkForall(vars, Term.mkImp(inE1, inE2)),
                     // Add the additional condition for "e1 in M e2"
-                    getMultCondition(e2, context));
+                    multCond);
         }
     }
 
-    /** Get the multiplicity condition that must be true for an "e1 in M e2" condition to hold, given e2. */
-    private Term getMultCondition(Expr expr, TranslationContext context) {
-        switch (expr.mult()) {
+    /** Get the multiplicity condition that must be true for an "e1 in M e2" condition to hold. */
+    private Term getMultCondition(Expr e1, Expr e2, TranslationContext context) {
+        switch (e2.mult()) {
             case ONEOF:
-                return recursivelyTranslate(expr.one(), context);
+                return recursivelyTranslate(e1.one(), context);
             case LONEOF:
-                return recursivelyTranslate(expr.lone(), context);
+                return recursivelyTranslate(e1.lone(), context);
             case SOMEOF:
-                return recursivelyTranslate(expr.some(), context);
+                return recursivelyTranslate(e1.some(), context);
             default:
                 return Term.mkTop();
         }
