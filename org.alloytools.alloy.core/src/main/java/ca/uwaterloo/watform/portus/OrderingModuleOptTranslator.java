@@ -28,7 +28,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
 
     private final class OrderInfo {
         private final Sig ordSig;
-        private final Sig sig;
+        private final Sig.PrimSig sig;
         private final Sig.Field first;
         private final Sig.Field next;
         private final String nextFuncName;
@@ -36,7 +36,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
         // The domain element corresponding to the one sig's only atom.
         private final DomainElement ordDE;
 
-        public OrderInfo(Sig ordSig, Sig sig, Sig.Field first, Sig.Field next, TranslationContext context) {
+        public OrderInfo(Sig ordSig, Sig.PrimSig sig, Sig.Field first, Sig.Field next, TranslationContext context) {
             this.ordSig = ordSig;
             this.sig = sig;
             this.first = first;
@@ -60,10 +60,6 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
             if (sig.builtin) {
                 throw new ErrorNoPortusSupport(
                         "Portus doesn't support ordering builtin signatures: " + sig.label);
-            }
-            if (!(sig instanceof Sig.PrimSig)) {
-                // This should be caught by typechecking anyways
-                throw new ErrorFatal("Only primitive signatures can be ordered.");
             }
             if (sortPolicy.getSort(sig) == null) {
                 throw new ErrorFatal("Sig " + sig.label + " can't be ordered because Portus can't determine a sort");
@@ -233,6 +229,18 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
         };
     }
 
+    private boolean isAnyParentOrdered(Sig.PrimSig sig) {
+        return !sig.isTopLevel() && (orders.stream().anyMatch(order -> order.sig.equals(sig.parent))
+                || isAnyParentOrdered(sig.parent));
+    }
+
+    private boolean violatesNoMultiLevelOrdering(Sig.PrimSig sig) {
+        // sig violates the rule against no multi-level orderings iff sig has an ordered ancestor or sig is an
+        // ancestor of any other ordered sig
+        return isAnyParentOrdered(sig) || orders.stream().anyMatch(
+                order -> PortusUtil.isAncestorSig(sig, order.sig));
+    }
+
     @Override
     public Term translate(Sig sig, TranslationContext context) {
         // Parse a "totalOrder" ExprList making up a fact.
@@ -242,6 +250,13 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
             fact = fact.deNOP(); // just in case
             if (isTotalOrderFact(fact)) {
                 OrderInfo orderInfo = parseTotalOrder(sig, (ExprList) fact, context);
+
+                // We don't support ordering both a signature and its ancestor because that would fix a relationship
+                // between the orderings, resulting in a loss of generality.
+                if (violatesNoMultiLevelOrdering(orderInfo.sig)) {
+                    throw new ErrorNoPortusSupport(
+                            "Multiple levels of the signature hierarchy cannot be simultaneously ordered.");
+                }
                 orders.add(orderInfo);
 
                 // Add the predicate immediately instead of lazily - if we do it lazily and don't end up adding it,

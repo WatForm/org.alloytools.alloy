@@ -1,6 +1,7 @@
 package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.Pair;
+import edu.mit.csail.sdg.alloy4.Pos;
 import edu.mit.csail.sdg.ast.Attr;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprList;
@@ -24,6 +25,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
@@ -49,6 +51,8 @@ public class OrderingModuleOptTranslatorTest {
     private Sig.PrimSig orderedSig; // the sig being ordered
     private Sort orderedSigSort; // its sort
 
+    private SortPolicy policy;
+
     @Before
     public void setUp() {
         orderedSig = new Sig.PrimSig("Ordered");
@@ -58,7 +62,7 @@ public class OrderingModuleOptTranslatorTest {
         firstField = ordSig.addField("First", orderedSig.setOf());
         nextField = ordSig.addField("Next", orderedSig.product(orderedSig));
 
-        SortPolicy policy = mock(SortPolicy.class);
+        policy = mock(SortPolicy.class);
         rangeAssigner = mock(RangeAssigner.class, withSettings()
                 .useConstructor(Arrays.asList(ordSig, orderedSig), policy, scoper));
         scoper = mock(ScopeComputer.class);
@@ -352,6 +356,93 @@ public class OrderingModuleOptTranslatorTest {
                 Term.mkApp("inOrderedSig", x),
                 Term.mkNot(Term.mkEq(x, Term.mkDomainElement(3, orderedSigSort)))));
         assertEquals(expectedGuard, scalar.b);
+    }
+
+    @Test
+    public void testNoOrderingBothParentAndChild_translateParentFirst() {
+        // test an error is thrown if you try to order both a parent sig and its child subsig, because that would
+        // fix a relationship between the orderings in our implementation
+        Sig.PrimSig parent = new Sig.PrimSig("Parent");
+        Sig.PrimSig child = new Sig.PrimSig(null, "Child", new Pos("", 0, 0), parent);
+        Sort orderedSigSort = Sort.mkSortConst("OrderedSort");
+        Sig.PrimSig ord1 = new Sig.PrimSig("Ord1", Attr.ONE);
+        Sort ordSigSort1 = Sort.mkSortConst("OrdSort1");
+        Sig.PrimSig ord2 = new Sig.PrimSig("Ord2", Attr.ONE);
+        Sort ordSigSort2 = Sort.mkSortConst("OrdSort2");
+        Sig.Field firstField1 = ord1.addField("First", parent.setOf());
+        Sig.Field nextField1 = ord1.addField("Next", parent.product(parent));
+        Sig.Field firstField2 = ord2.addField("First", child.setOf());
+        Sig.Field nextField2 = ord2.addField("Next", child.product(child));
+
+        when(scoper.isExact(parent)).thenReturn(true);
+        when(scoper.isExact(child)).thenReturn(true);
+        when(policy.getSort(parent)).thenReturn(orderedSigSort);
+        when(policy.getSort(child)).thenReturn(orderedSigSort);
+        when(policy.addSortsToTheory(any())).thenReturn(Theory.empty()
+                .withSort(orderedSigSort)
+                .withSort(ordSigSort1)
+                .withSort(ordSigSort2));
+        when(policy.getSort(ord1)).thenReturn(ordSigSort1);
+        when(policy.getSort(ord2)).thenReturn(ordSigSort2);
+        when(rangeAssigner.getDomainElementRange(eq(ord1))).thenReturn(new Pair<>(1, 1));
+        when(rangeAssigner.getDomainElementRange(eq(ord2))).thenReturn(new Pair<>(1, 1));
+        when(rangeAssigner.getDomainElementRange(eq(parent))).thenReturn(new Pair<>(1, 2));
+        when(rangeAssigner.getDomainElementRange(eq(child))).thenReturn(new Pair<>(1, 1));
+        ord1.addFact(ExprList.makeTOTALORDER(null, null, Arrays.asList(
+                parent, ord1.join(firstField1), ord1.join(nextField1))));
+        ord2.addFact(ExprList.makeTOTALORDER(null, null, Arrays.asList(
+                child, ord2.join(firstField2), ord2.join(nextField2))));
+
+        context = new TranslationContext(new PortusOptions(), scoper, policy, rangeAssigner);
+
+        when(scoper.sig2scope(parent)).thenReturn(2);
+        when(scoper.sig2scope(child)).thenReturn(1);
+
+        translator.translate(ord1, context);
+        assertThrows(ErrorNoPortusSupport.class, () -> translator.translate(ord2, context));
+    }
+
+    @Test
+    public void testNoOrderingBothParentAndChild_translateChildFirst() {
+        // same, but call translate on the child first
+        Sig.PrimSig parent = new Sig.PrimSig("Parent");
+        Sig.PrimSig child = new Sig.PrimSig(null, "Child", new Pos("", 0, 0), parent);
+        Sort orderedSigSort = Sort.mkSortConst("OrderedSort");
+        Sig.PrimSig ord1 = new Sig.PrimSig("Ord1", Attr.ONE);
+        Sort ordSigSort1 = Sort.mkSortConst("OrdSort1");
+        Sig.PrimSig ord2 = new Sig.PrimSig("Ord2", Attr.ONE);
+        Sort ordSigSort2 = Sort.mkSortConst("OrdSort2");
+        Sig.Field firstField1 = ord1.addField("First", parent.setOf());
+        Sig.Field nextField1 = ord1.addField("Next", parent.product(parent));
+        Sig.Field firstField2 = ord2.addField("First", child.setOf());
+        Sig.Field nextField2 = ord2.addField("Next", child.product(child));
+
+        when(scoper.isExact(parent)).thenReturn(true);
+        when(scoper.isExact(child)).thenReturn(true);
+        when(policy.getSort(parent)).thenReturn(orderedSigSort);
+        when(policy.getSort(child)).thenReturn(orderedSigSort);
+        when(policy.addSortsToTheory(any())).thenReturn(Theory.empty()
+                .withSort(orderedSigSort)
+                .withSort(ordSigSort1)
+                .withSort(ordSigSort2));
+        when(policy.getSort(ord1)).thenReturn(ordSigSort1);
+        when(policy.getSort(ord2)).thenReturn(ordSigSort2);
+        when(rangeAssigner.getDomainElementRange(eq(ord1))).thenReturn(new Pair<>(1, 1));
+        when(rangeAssigner.getDomainElementRange(eq(ord2))).thenReturn(new Pair<>(1, 1));
+        when(rangeAssigner.getDomainElementRange(eq(parent))).thenReturn(new Pair<>(1, 2));
+        when(rangeAssigner.getDomainElementRange(eq(child))).thenReturn(new Pair<>(1, 1));
+        ord1.addFact(ExprList.makeTOTALORDER(null, null, Arrays.asList(
+                parent, ord1.join(firstField1), ord1.join(nextField1))));
+        ord2.addFact(ExprList.makeTOTALORDER(null, null, Arrays.asList(
+                child, ord2.join(firstField2), ord2.join(nextField2))));
+
+        context = new TranslationContext(new PortusOptions(), scoper, policy, rangeAssigner);
+
+        when(scoper.sig2scope(parent)).thenReturn(2);
+        when(scoper.sig2scope(child)).thenReturn(1);
+
+        translator.translate(ord2, context);
+        assertThrows(ErrorNoPortusSupport.class, () -> translator.translate(ord1, context));
     }
 
 }

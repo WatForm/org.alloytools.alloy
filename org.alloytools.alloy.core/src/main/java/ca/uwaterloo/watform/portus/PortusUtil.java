@@ -182,6 +182,13 @@ final class PortusUtil {
     }
 
     /**
+     * Is `ancestor` an ancestor of `sig` in the signature hierarchy?
+     */
+    public static boolean isAncestorSig(Sig.PrimSig ancestor, Sig.PrimSig sig) {
+        return sig.equals(ancestor) || (!sig.isTopLevel() && isAncestorSig(sig.parent, ancestor));
+    }
+
+    /**
      * Given a one sig, return the domain element corresponding to its single atom. The context is used
      * to assign the domain element, which is the first/only one in its domain element range.
      * {@link RangeAssigner#addRangeAxiom(Sig, Translator, TranslationContext)} must still be used to ensure
