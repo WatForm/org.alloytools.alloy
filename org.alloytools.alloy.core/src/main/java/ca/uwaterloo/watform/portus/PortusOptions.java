@@ -6,6 +6,7 @@ import edu.mit.csail.sdg.translator.A4Options.SatSolver;
 import edu.mit.csail.sdg.translator.CommandRunner;
 import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.compiler.ConstantsMethodCompiler;
+import fortress.compiler.ConstantsClaessenCompiler;
 import fortress.compiler.DatatypeMethodNoRangeCompiler;
 import fortress.compiler.DatatypeMethodNoRangeEUFCompiler;
 import fortress.compiler.DatatypeMethodWithRangeCompiler;
@@ -71,6 +72,7 @@ public final class PortusOptions implements Serializable {
 
     public enum FortressCompiler {
         CONSTANTS_METHOD,
+        CONSTANTS_METHOD_CLAESSEN,
         DATATYPE_METHOD_NO_RANGE,
         DATATYPE_METHOD_WITH_RANGE,
         DATATYPE_METHOD_NO_RANGE_EUF,
@@ -84,6 +86,8 @@ public final class PortusOptions implements Serializable {
             case CONSTANTS_METHOD:
             default:
                 return new ConstantsMethodCompiler() {};
+            case CONSTANTS_METHOD_CLAESSEN:
+                return new ConstantsClaessenCompiler() {};
             case DATATYPE_METHOD_NO_RANGE:
                 return new DatatypeMethodNoRangeCompiler() {};
             case DATATYPE_METHOD_WITH_RANGE:

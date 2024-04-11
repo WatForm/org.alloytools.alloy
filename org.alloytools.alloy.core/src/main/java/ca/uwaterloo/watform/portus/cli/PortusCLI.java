@@ -109,6 +109,9 @@ public final class PortusCLI {
             case "constants":
                 options.fortressCompiler = PortusOptions.FortressCompiler.CONSTANTS_METHOD;
                 break;
+            case "constants-claessen":
+                options.fortressCompiler = PortusOptions.FortressCompiler.CONSTANTS_METHOD_CLAESSEN;
+                break;
             case "datatype-no-range":
                 options.fortressCompiler = PortusOptions.FortressCompiler.DATATYPE_METHOD_NO_RANGE;
                 break;

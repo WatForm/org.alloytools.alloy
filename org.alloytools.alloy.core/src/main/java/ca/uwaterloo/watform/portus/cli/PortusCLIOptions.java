@@ -23,6 +23,7 @@ final class PortusCLIOptions {
 
     public final EnumOption fortressCompiler = new EnumOption("-compiler", Arrays.asList(
             "constants",
+            "constants-claessen",
             "datatype-no-range",
             "datatype-with-range",
             "datatype-no-range-euf",
