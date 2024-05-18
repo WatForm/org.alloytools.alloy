@@ -248,6 +248,7 @@ public class DefaultTranslatorTest {
         Sig.PrimSig sig = new Sig.PrimSig("TestSig");
         when(mockScoper.sig2scope(sig)).thenReturn(2);
         when(mockScoper.isExact(sig)).thenReturn(false);
+        when(mockSortPolicy.getSortScope(univ)).thenReturn(3); // larger than sig => scope axiom
 
         // mock out the non-exact scope axiom's [[xi \in sig]]
         Expr inSig = ExprElementOf.make(Term.mkVar("x").of(univ), sig);
@@ -292,11 +293,41 @@ public class DefaultTranslatorTest {
     }
 
     @Test
+    public void testTranslate_primSig_singleNonExactScopeSameSizeAsSort() {
+        // single signature, same size as sort so no scope axiom
+        Sig.PrimSig sig = new Sig.PrimSig("TestSig");
+        when(mockScoper.sig2scope(sig)).thenReturn(2);
+        when(mockScoper.isExact(sig)).thenReturn(false);
+        when(mockSortPolicy.getSortScope(univ)).thenReturn(2);
+
+        // mock out the non-exact scope axiom's [[xi \in sig]]
+        Expr inSig = ExprElementOf.make(Term.mkVar("x").of(univ), sig);
+        when(mockRoot.translate(argThat(isAlphaEquivalent(inSig)), any())).then(
+                ctx -> makeFlagConstant("inFlag_" + ctx.<ExprElementOf>getArgument(0).tuple.getTerm(0)));
+
+        Term result = translator.translate(sig, context);
+        assertThat(result, is(notNullValue())); // sig just returns something
+
+        // this should be the only axiom aside from a degenerate parent/child axiom
+        //noinspection unchecked
+        Set<Term> axioms = CollectionConverters.<Term>asJava(context.getTheory().axioms());
+        assertThat(axioms, contains(is(Term.mkTop())));
+
+        // should have no constants, one function for the membership predicate
+        assertThat(context.getTheory().constantDeclarations().size(), is(0));
+        assertThat(context.getTheory().enumConstants().size(), is(0));
+        assertThat(context.getTheory().functionDeclarations().size(), is(1));
+        FuncDecl func = context.getTheory().functionDeclarations().head();
+        assertIsMembershipPredicate(func, "inTestSig");
+    }
+
+    @Test
     public void testTranslate_primSig_singleNonExactScope_abstractWithNoChildren() {
         // An abstract signature with no children is not treated as abstract
         Sig.PrimSig sig = new Sig.PrimSig("TestSig", Attr.ABSTRACT);
         when(mockScoper.sig2scope(sig)).thenReturn(2);
         when(mockScoper.isExact(sig)).thenReturn(false);
+        when(mockSortPolicy.getSortScope(univ)).thenReturn(3); // larger than sig => scope axiom
 
         // mock out the non-exact scope axiom's [[xi \in sig]]
         Expr inSig = ExprElementOf.make(Term.mkVar("x").of(univ), sig);
@@ -426,6 +457,7 @@ public class DefaultTranslatorTest {
         when(mockScoper.sig2scope(child2)).thenReturn(1);
         when(mockScoper.isExact(child1)).thenReturn(true);
         when(mockScoper.isExact(child2)).thenReturn(false);
+        when(mockSortPolicy.getSortScope(univ)).thenReturn(3); // larger than sig => scope axiom
 
         // mock out the expected axiom: [[child1 + child2 = parent]]
         Term parentChildFlag = makeFlagConstant("parentChild");

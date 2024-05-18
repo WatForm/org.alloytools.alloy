@@ -136,7 +136,10 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
             }
             if (context.scoper.isExact(sig)) {
                 context.addAxiom(scopeAxiomStrategy.makeExactScopeAxiom(sig, scope, topLevelTranslator, context));
-            } else {
+            } else if (scope < sortPolicy.getSortScope(sigSort)) {
+                // If the sig's scope is equal to the sort's scope, then we don't need an axiom to bound the number of
+                // atoms in the sort that can be in the membership predicate, because they all could be.
+                // So no axiom is necessary.
                 context.addAxiom(scopeAxiomStrategy.makeNonExactScopeAxiom(
                         sig, scope, topLevelTranslator, context));
             }
