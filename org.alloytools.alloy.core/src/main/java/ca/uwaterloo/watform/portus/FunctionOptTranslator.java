@@ -121,6 +121,7 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
         Expr bound = productWithRightMultiplicity(field.sig, field.decl().expr);
         Pair<List<Expr>, ExprUnary.Op> funcTypeExprsAndMult = getFunctionTypeExprs(bound);
         if (funcTypeExprsAndMult == null) return null; // not a function, not applicable
+        List<Expr> boundExprs = funcTypeExprsAndMult.a;
 
         List<Sort> allSorts = sortPolicy.getMinimalExprDefiniteSorts(field,
                 "A field declaration must have definite Portus sorts!", context);
@@ -136,9 +137,10 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
             // Generate the inDomain predicate
             domainPredName = context.nameGenerator.freshName("inDomain");
             context.addFunctionDeclaration(FuncDecl.mkFuncDecl(domainPredName, argSorts, Sort.Bool()));
+            context.addAxiom(makeDomainPredicateAxiom(boundExprs, argSorts, domainPredName, context));
         }
 
-        FieldFuncInfo info = new FieldFuncInfo(funcName, argSorts, resultSort, funcTypeExprsAndMult.a, domainPredName);
+        FieldFuncInfo info = new FieldFuncInfo(funcName, argSorts, resultSort, boundExprs, domainPredName);
         context.addAxiom(makeOptimizedFunctionAxiom(info, context));
         optimizedFieldsInfo.put(field, info);
 
@@ -172,6 +174,27 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
         }
 
         return Term.mkForall(decls, Term.mkImp(domainFormula, consequent));
+    }
+
+    private Term makeDomainPredicateAxiom(
+            List<Expr> boundExprs, List<Sort> argSorts, String domainPredName, TranslationContext context) {
+        // Force the domain to be a subset of the bound exprs
+        // forall x1: sort(e1), ..., x{n-1}: sort(e{n-1}) . inDomain(x1,...,x{n-1}) => [[x1 \in e1]] && ...
+        //   && [[x{n-1} \in e{n-1}]]
+        List<Var> vars = new ArrayList<>();
+        List<AnnotatedVar> decls = new ArrayList<>();
+        List<AnnotatedTerm> terms = new ArrayList<>();
+        for (int i = 0; i < argSorts.size(); i++) {
+            Var var = Term.mkVar(context.nameGenerator.freshName("x" + i));
+            AnnotatedVar decl = var.of(argSorts.get(i));
+            vars.add(var);
+            decls.add(decl);
+            terms.add(new AnnotatedTerm(decl));
+        }
+
+        TermTuple tuple = new TermTuple(terms);
+        Term domainFormula = makeBoundExprDomainFormula(tuple, boundExprs, context);
+        return Term.mkForall(decls, Term.mkImp(Term.mkApp(domainPredName, vars), domainFormula));
     }
 
     /** Create the proper (right-) arrow. */
@@ -430,7 +453,11 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
             // use the domain predicate instead (supports lone)
             return Term.mkApp(info.domainPredName, vars.getTerms());
         }
+        return makeBoundExprDomainFormula(vars, info.boundExprs, context);
+    }
 
+    /** Implementation for the above. Actually create the expression without defaulting to the domain predicate. */
+    private Term makeBoundExprDomainFormula(TermTuple vars, List<Expr> boundExprs, TranslationContext context) {
         // Map "this" to the first var in the tuple, because it's the one bounded by the enclosing signature.
         context.addTermMapping("this", vars.getAnnotatedTerm(0));
         try {
@@ -438,7 +465,7 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
             int varIdx = 0;
 
             // Ignore the last bound expr, it's for the result
-            for (Expr expr : info.boundExprs.subList(0, info.boundExprs.size() - 1)) {
+            for (Expr expr : boundExprs.subList(0, boundExprs.size() - 1)) {
                 int arity = expr.type().arity();
                 if (varIdx + arity > vars.size()) {
                     // out of variables - arities are mismatched

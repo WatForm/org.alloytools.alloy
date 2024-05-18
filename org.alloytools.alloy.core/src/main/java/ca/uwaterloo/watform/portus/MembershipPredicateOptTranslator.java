@@ -23,10 +23,18 @@ final class MembershipPredicateOptTranslator extends AbstractTranslator implemen
 
     private final Set<Sort> inapplicableSorts = new HashSet<>();
 
-    public MembershipPredicateOptTranslator(Translator topLevel, SortPolicy sortPolicy, SigAxioms sigAxioms) {
+    /**
+     * If true, we will never rely on Fortress's non-exact scope feature by always generating a membership predicate
+     * for sigs with non-exact scopes.
+     */
+    private final boolean noFortressNonExactScopes;
+
+    public MembershipPredicateOptTranslator(Translator topLevel, SortPolicy sortPolicy, SigAxioms sigAxioms,
+                                            boolean noFortressNonExactScopes) {
         super(topLevel);
         this.sortPolicy = sortPolicy;
         this.sigAxioms = sigAxioms;
+        this.noFortressNonExactScopes = noFortressNonExactScopes;
     }
 
     @Override
@@ -40,8 +48,8 @@ final class MembershipPredicateOptTranslator extends AbstractTranslator implemen
      * expression in the AST to determine which sorts' scopes are expanded over in that expression.
      */
     public Pass getApplicabilityDeterminingPass(List<ScopeExpansionMarker> scopeExpansionMarkers) {
-        return (sigs, command, scoper, context) -> {
-            for (Sig sig : sigs) {
+        return (world, command, scoper, context) -> {
+            for (Sig sig : world.getAllReachableSigs()) {
                 determineApplicabilityFromSig(sig, scoper);
             }
 
@@ -75,7 +83,8 @@ final class MembershipPredicateOptTranslator extends AbstractTranslator implemen
         // So they have to use exact scope Fortress sorts and so we can't apply the membership predicate opt.
         // TODO: This is dependent on the scope axiom strategy but cardinality + constants need it so it's probably fine
         // TODO: but if we change the cardinality implementation, it might not need it...
-        if (!scoper.isExact(primSig) && !primSig.children().isEmpty()) {
+        // Also, if we explicitly disable Fortress-level non-exact scopes, don't rely on them.
+        if (!scoper.isExact(primSig) && (noFortressNonExactScopes || !primSig.children().isEmpty())) {
             inapplicableSorts.add(sort);
             return;
         }
@@ -117,6 +126,9 @@ final class MembershipPredicateOptTranslator extends AbstractTranslator implemen
         // Add only the axioms specifying the relations between the sig and its children.
         // No scope axiom - we'll use the Fortress scopes.
         sigAxioms.addPrimSigChildrenAxioms(primSig, context);
+
+        // Also handle one, lone, some sigs
+        sigAxioms.addSigMultiplicityAxiom(sig, context);
 
         return Term.mkTop();
     }

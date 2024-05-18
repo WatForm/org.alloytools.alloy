@@ -23,16 +23,17 @@ final class PortusCLIOptions {
 
     public final EnumOption fortressCompiler = new EnumOption("-compiler", Arrays.asList(
             "constants",
+            "constants-claessen",
             "datatype-no-range",
             "datatype-with-range",
             "datatype-no-range-euf",
             "datatype-with-range-euf"
-    ), "datatype-with-range", "The Fortress compiler to use.");
+    ), "constants", "The Fortress compiler to use.");
 
     public final Option setAllScopes = new Option(
-            "-all-scopes", 1, "Set the scope of all non-one, non-lone top-level sigs to this scope, non-exact.");
+            "-all-scopes", 1, "Set the scope of all non-one, non-lone top-level sigs to this scope, exact.");
     public final Option setSigScope = new Option(
-            "-scope", 2, "Set the scope of the arg1'th (1-indexed) non-one, non-lone top-level sig to arg2, non-exact. "
+            "-scope", 2, "Set the scope of the arg1'th (1-indexed) non-one, non-lone top-level sig to arg2, exact. "
                     + "Overrides -all-scopes.");
 
     public final Option useRunPortusProcessor = new Option("-r", "Run Portus on each command.");
@@ -44,6 +45,9 @@ final class PortusCLIOptions {
             "-smtlib-tc", "Output SMTLIB+ (typechecking only) for each command.");
     public final Option useOutputPostSmtlibProcessor = new Option(
             "-smtlib-all", "Output SMTLIB+ (post-Fortress) for each command.");
+
+    public final Option alwaysShowKodkodTime = new Option(
+            "-show-kodkod-time", "When evaluating correctness, always evaluate and show Kodkod's time (slower).");
 
     public final Option disableSimpleScalarOpt = new Option(
             "-disable-simple-scalar-opt", "Disable simple scalar optimization.");
@@ -57,11 +61,15 @@ final class PortusCLIOptions {
             "-disable-mem-pred-opt", "Disable membership predicate optimization.");
     public final Option disablePartitionSortPolicy = new Option(
             "-disable-partition-sp", "Disable the partition sort policy, use the univ sort policy.");
+    public final Option disableSumDefinitionsOpt = new Option(
+            "-disable-sum-defn-opt", "Disable sum definitions optimization.");
+    public final Option disableFuncOpt = new Option("-disable-func-opt",
+            "Disable function optimization. WARNING: some models will fail to translate!");
     public final Option useCardinalityScopeAxiomStrategy = new Option(
             "-use-card-sap", "Use the cardinality-based instead of constants-based scope axiom strategy.");
     public final Option disableAllOpts = new Option(
-            "-disable-all-opts", "Shortcut: Disable all optimizations and the partition sort policy, " +
-            "use the cardinality scope axiom strategy.");
+            "-disable-all-opts", "Shortcut: Disable all optimizations except the function optimization and the " +
+            "partition sort policy, use the cardinality scope axiom strategy.");
 
     public final Option enableElementOfScalarOpt = new Option(
             "-enable-element-scalar-opt", "Enable element-of scalar caster optimization (experimental).");
@@ -71,15 +79,21 @@ final class PortusCLIOptions {
     public final Option enableKodkodIntCompatibility = new Option(
             "-kodkod-int-compat", "Force compatibility with Kodkod integer semantics (slow).");
 
+    public final Option enableFortressNonExactScopes = new Option(
+            "-enable-fortress-nonexact-scopes", "Enable use of the Fortress-level non-exact scopes feature.");
+
     public final Option[] allOptions = new Option[] {
             help, adjustBitwidth, noTimeout, pickCommandNumber, fortressCompiler,
             setAllScopes, setSigScope,
             useRunPortusProcessor, useRunKodkodProcessor,
             useCorrectnessProcessor, useDeltaDebugProcessor,
             useOutputPreSmtlibProcessor, useOutputPostSmtlibProcessor,
+            alwaysShowKodkodTime,
             disableSimpleScalarOpt, disableOneSigOpt, disableJoinOpt, disableOrderingModuleOpt,
-            disableMembershipPredicateOpt, disablePartitionSortPolicy, useCardinalityScopeAxiomStrategy,
-            disableAllOpts, enableElementOfScalarOpt, enableCaching, enableKodkodIntCompatibility,
+            disableMembershipPredicateOpt, disablePartitionSortPolicy, disableSumDefinitionsOpt,
+            useCardinalityScopeAxiomStrategy, disableFuncOpt, disableAllOpts,
+            enableElementOfScalarOpt, enableCaching, enableKodkodIntCompatibility,
+            enableFortressNonExactScopes,
     };
 
     // The positional arguments - a list of Alloy command specifiers.

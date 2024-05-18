@@ -3,12 +3,14 @@ package ca.uwaterloo.watform.portus;
 import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprCall;
+import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.data.IntSuffixNameGenerator;
 import fortress.data.NameGenerator;
 import fortress.modelfind.ModelFinder;
 import fortress.msfol.AnnotatedVar;
 import fortress.msfol.FuncDecl;
+import fortress.msfol.FunctionDefinition;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
 import fortress.msfol.Theory;
@@ -56,6 +58,10 @@ final class TranslationContext {
     // top-level sig, if it has a single top-level sig making it up.
     private final Set<Sort> forcedExactScopeSorts;
 
+    // The set of sigs that are ordered with the ordering module.
+    // Some optimizations (i.e., the one sig optimization) have to be disabled for children of ordered sigs.
+    private final Set<Sig> orderedSigs;
+
     public TranslationContext(
             PortusOptions options, ScopeComputer scoper, SortPolicy sortPolicy, RangeAssigner rangeAssigner) {
         this.options = options;
@@ -67,6 +73,7 @@ final class TranslationContext {
                 (scala.collection.immutable.Set<String>) Set$.MODULE$.empty(), 0);
         this.unchangingSorts = new HashSet<>();
         this.forcedExactScopeSorts = new HashSet<>();
+        this.orderedSigs = new HashSet<>();
     }
 
     /**
@@ -83,6 +90,7 @@ final class TranslationContext {
         this.nameGenerator = context.nameGenerator;
         this.unchangingSorts = new HashSet<>(context.unchangingSorts);
         this.forcedExactScopeSorts = new HashSet<>(context.forcedExactScopeSorts);
+        this.orderedSigs = new HashSet<>(context.orderedSigs);
     }
 
     /**
@@ -111,12 +119,17 @@ final class TranslationContext {
         theory = theory.withFunctionDeclaration(funcDecl);
     }
 
+    public void addFunctionDefinition(FunctionDefinition definition) {
+        theory = theory.withFunctionDefinition(definition);
+    }
+
     /**
      * Have we added a function with the given name?
      * Useful for avoiding adding duplicate functions.
      */
     public boolean hasFunctionWithName(String name) {
-        return theory.functionDeclarations().exists(func -> func.name().equals(name));
+        return theory.functionDeclarations().exists(func -> func.name().equals(name))
+                || theory.functionDefinitions().exists(def -> def.name().equals(name));
     }
 
     // The following are convenience delegates to VarMappingContext.
@@ -223,6 +236,14 @@ final class TranslationContext {
 
     public void forceSortExact(Sort sort) {
         forcedExactScopeSorts.add(sort);
+    }
+
+    public void setSigOrdered(Sig sig) {
+        orderedSigs.add(sig);
+    }
+
+    public boolean isSigOrdered(Sig sig) {
+        return orderedSigs.contains(sig);
     }
 
     /** Given a sort policy, use its information with our unchanging sort list to get the sort to scope map. */

@@ -13,6 +13,7 @@ import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -68,6 +69,17 @@ public class OneSigOptTranslatorTest {
         verify(mockRangeAssigner, atLeastOnce()).addRangeAxiom(eq(testOneSig), any(), any());
         verify(mockSigAxioms, atLeastOnce()).addPrimSigChildrenAxioms(eq(testOneSig), any());
         verify(mockTranslator, atLeastOnce()).translate(eq(child), any());
+    }
+
+    @Test
+    public void testTranslate_childOfOrderedSig() {
+        // test that we *don't* optimize a one sig that is a child of an ordered sig
+        OneSigOptTranslator opt = new OneSigOptTranslator(mockTranslator, mockSortPolicy, mockSigAxioms);
+        Sig.PrimSig parent = new Sig.PrimSig("parent");
+        context.setSigOrdered(parent);
+        Sig child = new Sig.PrimSig(null, "child", new Pos("foo.als", 1, 2), parent, Attr.ONE);
+        Term result = opt.translate(child, context);
+        assertNull(result);
     }
 
     @Test

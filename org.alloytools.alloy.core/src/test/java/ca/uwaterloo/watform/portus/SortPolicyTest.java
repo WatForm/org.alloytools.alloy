@@ -327,6 +327,28 @@ public class SortPolicyTest {
     }
 
     @Test
+    public void testGetMinimalExprSorts_domainRestriction() {
+        Sig sig1 = new Sig.PrimSig("S1");
+        Sort sort1 = Sort.mkSortConst("sort1");
+        Sort sort2 = Sort.mkSortConst("sort2");
+        when(policy.getSort(sig1)).thenReturn(sort1);
+        when(policy.getAllSorts()).thenReturn(Arrays.asList(sort1, sort2));
+        assertEquals(SortResolvant.definite(sort1, sort1),
+                policy.getMinimalExprSorts(sig1.domain(ExprConstant.IDEN), context));
+    }
+
+    @Test
+    public void testGetMinimalExprSorts_rangeRestriction() {
+        Sig sig1 = new Sig.PrimSig("S1");
+        Sort sort1 = Sort.mkSortConst("sort1");
+        Sort sort2 = Sort.mkSortConst("sort2");
+        when(policy.getSort(sig1)).thenReturn(sort1);
+        when(policy.getAllSorts()).thenReturn(Arrays.asList(sort1, sort2));
+        assertEquals(SortResolvant.definite(sort1, sort1),
+                policy.getMinimalExprSorts(ExprConstant.IDEN.range(sig1), context));
+    }
+
+    @Test
     public void testGetMinimalExprSorts_join() {
         // the middle isn't checked
         Sig sig1 = new Sig.PrimSig("S1");

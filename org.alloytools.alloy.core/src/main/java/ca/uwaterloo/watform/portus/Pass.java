@@ -1,7 +1,7 @@
 package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.ast.Command;
-import edu.mit.csail.sdg.ast.Sig;
+import edu.mit.csail.sdg.ast.Module;
 import edu.mit.csail.sdg.translator.ScopeComputer;
 
 /**
@@ -10,6 +10,6 @@ import edu.mit.csail.sdg.translator.ScopeComputer;
 @FunctionalInterface
 interface Pass {
 
-    void performPass(Iterable<Sig> sigs, Command command, ScopeComputer scoper, TranslationContext context);
+    void performPass(Module world, Command command, ScopeComputer scoper, TranslationContext context);
 
 }

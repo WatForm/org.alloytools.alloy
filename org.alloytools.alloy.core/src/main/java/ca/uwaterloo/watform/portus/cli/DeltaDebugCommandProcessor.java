@@ -10,8 +10,6 @@ import edu.mit.csail.sdg.translator.A4Options;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.io.UncheckedIOException;
 import java.io.Writer;
@@ -28,14 +26,13 @@ final class DeltaDebugCommandProcessor implements CommandProcessor {
     public boolean process(Module world, Command command, A4Options options) {
         AlloyInput initialInput = new AlloyInput(world, command, options);
         System.out.println("Running for initial result: " + initialInput);
-        CorrectnessChecker.Result initialResult = correctnessChecker.checkCorrectness(
-                world.getAllReachableSigs(), command, options);
+        CorrectnessChecker.Result initialResult = correctnessChecker.checkCorrectness(world, command, options);
         System.out.println("Initial result: " + initialResult);
 
         Indicator indicator = input -> {
             System.out.println("Running mutation: " + input);
             CorrectnessChecker.Result result = correctnessChecker.checkCorrectness(
-                    input.world.getAllReachableSigs(), input.command, input.options);
+                    input.world, input.command, input.options);
             System.out.println("Result: " + result + " (expected: " + initialResult + ")");
             if (result.kind == CorrectnessChecker.Result.Kind.EXCEPTION) {
                 assert result.exception != null;

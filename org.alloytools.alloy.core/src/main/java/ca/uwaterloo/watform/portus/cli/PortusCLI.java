@@ -85,6 +85,9 @@ public final class PortusCLI {
         options.enableMembershipPredicateOptimization = !disableAllOpts
                 && !cliOptions.disableMembershipPredicateOpt.active();
         options.enablePartitionSortPolicy = !disableAllOpts && !cliOptions.disablePartitionSortPolicy.active();
+        options.enableSumDefinitionsOptimization = !disableAllOpts && !cliOptions.disableSumDefinitionsOpt.active();
+        // specifically don't include the function optimization in disableAllOpts
+        options.enableFuncOptimization = !cliOptions.disableFuncOpt.active();
         options.enableConstantsScopeAxiomStrategy = !disableAllOpts
                 && !cliOptions.useCardinalityScopeAxiomStrategy.active();
 
@@ -92,6 +95,8 @@ public final class PortusCLI {
         options.enableCaching = cliOptions.enableCaching.active();
 
         options.enableKodkodIntCompatibility = cliOptions.enableKodkodIntCompatibility.active();
+
+        options.enableFortressNonExactScopes = cliOptions.enableFortressNonExactScopes.active();
     }
 
     private static void setFortressCompiler(PortusOptions options, PortusCLIOptions cliOptions) {
@@ -103,6 +108,9 @@ public final class PortusCLI {
         switch (cliOptions.fortressCompiler.chosen()) {
             case "constants":
                 options.fortressCompiler = PortusOptions.FortressCompiler.CONSTANTS_METHOD;
+                break;
+            case "constants-claessen":
+                options.fortressCompiler = PortusOptions.FortressCompiler.CONSTANTS_METHOD_CLAESSEN;
                 break;
             case "datatype-no-range":
                 options.fortressCompiler = PortusOptions.FortressCompiler.DATATYPE_METHOD_NO_RANGE;
@@ -146,7 +154,7 @@ public final class PortusCLI {
             validateScope(scope, options);
             System.out.println("Setting all scopes to " + scope);
             for (Sig sig : overridableSigs) {
-                command = command.change(sig, false, scope);
+                command = command.change(sig, true, scope);
             }
         }
 
@@ -166,7 +174,7 @@ public final class PortusCLI {
 
             Sig sig = overridableSigs.get(whichSig - 1); // convert to 0-indexed
             System.out.println("Setting scope of " + sig.label + " to " + scope);
-            command = command.change(sig, false, scope);
+            command = command.change(sig, true, scope);
         }
 
         return command;
@@ -309,7 +317,8 @@ public final class PortusCLI {
             processors.add(new RunCommandProcessor(A4Options.SatSolver.SAT4J));
         }
         if (options.useCorrectnessProcessor.active()) {
-            processors.add(new CorrectnessCommandProcessor());
+            processors.add(new CorrectnessCommandProcessor(new CorrectnessChecker(
+                    options.alwaysShowKodkodTime.active())));
         }
         if (options.useDeltaDebugProcessor.active()) {
             processors.add(new DeltaDebugCommandProcessor());

@@ -42,6 +42,9 @@ final class PartitionSortPolicy extends SortPolicy {
 
     private final DisjointSets<Sig.PrimSig> sortPartition;
 
+    // Map merged sorts to their merged sorts for converting old sort references to new ones
+    private final Map<Sort, Sort> mergedSortMap = new HashMap<>();
+
     // Cache so we don't generate multiple sorts with the same name
     private final Map<String, Sort> sortNameCache = new HashMap<>();
 
@@ -61,6 +64,8 @@ final class PartitionSortPolicy extends SortPolicy {
         sortPartition = new DisjointSets<>(topLevelSigs);
 
         // Merge together all sigs' sorts that need to be merged.
+        // TODO: We need to pass down the sorts of the ExprElementOf LHS tuple because the logic in DefaultTranslator's
+        //   join that determines the sort uses the LHS to short-circuit. This requires major refactoring.
         VisitReturn<Void> merger = new ContextVisitReturn<Void>(new VarMappingContext(), this) {
             @Override
             public Void visit(ExprBinary x) throws Err {
@@ -229,6 +234,14 @@ final class PartitionSortPolicy extends SortPolicy {
         return sig;
     }
 
+    private Sort getCombinedSort(Sort sort) {
+        // the top-level sort is either not in the map or points to itself
+        while (mergedSortMap.containsKey(sort) && !mergedSortMap.get(sort).equals(sort)) {
+            sort = mergedSortMap.get(sort);
+        }
+        return sort;
+    }
+
     // Merge sorts until we're able to resolve sorts for expr (or its sorts are none).
     private void mergeSorts(Expr expr, VarMappingContext varMappingContext) {
         mergeSorts(() -> getMinimalExprSorts(expr, varMappingContext), varMappingContext);
@@ -266,7 +279,9 @@ final class PartitionSortPolicy extends SortPolicy {
                         "Incompatible sorts: cannot merge Int or other built-in sorts!");
             }
 
-            Sig.PrimSig sig = getAnySigFromSort(sort);
+            // Find the sort this was merged into to allow merging old references to sorts
+            Sort combinedSort = getCombinedSort(sort);
+            Sig.PrimSig sig = getAnySigFromSort(combinedSort);
             if (sig == null) {
                 throw new ErrorFatal("Unknown sort: " + sort);
             }
@@ -283,6 +298,7 @@ final class PartitionSortPolicy extends SortPolicy {
             Sort combinedSort = getSort(first);
             for (Sort sort : sorts) {
                 varMappingContext.replaceSort(sort, combinedSort);
+                mergedSortMap.put(sort, combinedSort);
             }
         }
     }

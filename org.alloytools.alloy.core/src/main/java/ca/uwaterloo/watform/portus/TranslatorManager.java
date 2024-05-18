@@ -5,6 +5,7 @@ import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.ast.Command;
 import edu.mit.csail.sdg.ast.Expr;
+import edu.mit.csail.sdg.ast.Module;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.msfol.Term;
@@ -73,7 +74,7 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
         FunctionOptTranslator functionOpt = new FunctionOptTranslator(this, this, this, sortPolicy, true);
         OrderingModuleOptTranslator orderingModuleOpt = new OrderingModuleOptTranslator(this, this, sortPolicy);
         MembershipPredicateOptTranslator membershipPredOpt = new MembershipPredicateOptTranslator(
-                this, sortPolicy, sigAxioms);
+                this, sortPolicy, sigAxioms, !options.enableFortressNonExactScopes);
         DefaultTranslator defaultTranslator = new DefaultTranslator(this, scopeAxiomStrategy, sigAxioms, sortPolicy);
 
         List<ScopeExpansionMarker> scopeExpansionMarkers = new ArrayList<>();
@@ -82,6 +83,7 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
         if (options.enableMembershipPredicateOptimization) {
             passes.add(membershipPredOpt.getApplicabilityDeterminingPass(scopeExpansionMarkers));
         }
+        passes.add(orderingModuleOpt.getMarkOrderedSigsPass());
         passes.add(new TranslationPass(this, sortPolicy, sigAxioms));
 
         if (options.enableSimpleScalarOptimization) {
@@ -91,7 +93,9 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
         if (options.enableOneSigOptimization) {
             translators.add(oneSigOpt);
         }
-        translators.add(functionOpt);
+        if (options.enableFuncOptimization) {
+            translators.add(functionOpt);
+        }
         if (options.enableJoinOptimization) {
             translators.add(new JoinOptTranslator(this, this));
         }
@@ -101,13 +105,18 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
         if (options.enableKodkodIntCompatibility) {
             translators.add(new KodkodIntCompatibilityTranslator(this, sortPolicy));
         }
+        if (options.enableSumDefinitionsOptimization) {
+            translators.add(new SumDefinitionsOptTranslator(this, sortPolicy));
+        }
         translators.add(defaultTranslator);
 
         scalarCasters.add(orderingModuleOpt);
         if (options.enableOneSigOptimization) {
             scalarCasters.add(oneSigOpt);
         }
-        scalarCasters.add(functionOpt);
+        if (options.enableFuncOptimization) {
+            scalarCasters.add(functionOpt);
+        }
         scalarCasters.add(new DefaultScalarCaster(this, this, sortPolicy));
         if (options.enableElementOfScalarOptimization) {
             scalarCasters.add(new ElementOfScalarCaster(this, sortPolicy, statistics));
@@ -116,7 +125,9 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
         if (options.enableOneSigOptimization) {
             evaluators.add(oneSigOpt);
         }
-        evaluators.add(functionOpt);
+        if (options.enableFuncOptimization) {
+            evaluators.add(functionOpt);
+        }
         if (options.enableMembershipPredicateOptimization) {
             evaluators.add(membershipPredOpt);
         }
@@ -133,9 +144,9 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
     /**
      * Perform the entire translation by running through all passes.
      */
-    public void runAllPasses(Iterable<Sig> sigs, Command command, ScopeComputer scoper, TranslationContext context) {
+    public void runAllPasses(Module world, Command command, ScopeComputer scoper, TranslationContext context) {
         for (Pass pass : passes) {
-            pass.performPass(sigs, command, scoper, context);
+            pass.performPass(world, command, scoper, context);
         }
     }
 

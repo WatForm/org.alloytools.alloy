@@ -6,6 +6,7 @@ import edu.mit.csail.sdg.translator.A4Options.SatSolver;
 import edu.mit.csail.sdg.translator.CommandRunner;
 import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.compiler.ConstantsMethodCompiler;
+import fortress.compiler.ConstantsClaessenCompiler;
 import fortress.compiler.DatatypeMethodNoRangeCompiler;
 import fortress.compiler.DatatypeMethodNoRangeEUFCompiler;
 import fortress.compiler.DatatypeMethodWithRangeCompiler;
@@ -71,22 +72,25 @@ public final class PortusOptions implements Serializable {
 
     public enum FortressCompiler {
         CONSTANTS_METHOD,
+        CONSTANTS_METHOD_CLAESSEN,
         DATATYPE_METHOD_NO_RANGE,
         DATATYPE_METHOD_WITH_RANGE,
         DATATYPE_METHOD_NO_RANGE_EUF,
         DATATYPE_METHOD_WITH_RANGE_EUF,
     }
 
-    public FortressCompiler fortressCompiler = FortressCompiler.DATATYPE_METHOD_WITH_RANGE;
+    public FortressCompiler fortressCompiler = FortressCompiler.CONSTANTS_METHOD;
 
     public LogicCompiler makeFortressCompiler() {
         switch (fortressCompiler) {
             case CONSTANTS_METHOD:
+            default:
                 return new ConstantsMethodCompiler() {};
+            case CONSTANTS_METHOD_CLAESSEN:
+                return new ConstantsClaessenCompiler() {};
             case DATATYPE_METHOD_NO_RANGE:
                 return new DatatypeMethodNoRangeCompiler() {};
             case DATATYPE_METHOD_WITH_RANGE:
-            default:
                 return new DatatypeMethodWithRangeCompiler() {};
             case DATATYPE_METHOD_NO_RANGE_EUF:
                 return new DatatypeMethodNoRangeEUFCompiler() {};
@@ -95,15 +99,14 @@ public final class PortusOptions implements Serializable {
         }
     }
 
-    // The Fortress compiler to use.
-//    public LogicCompiler fortressCompiler = new DatatypeMethodWithRangeCompiler() {};
-
     // Enable or disable each optimization individually.
     // Don't allow disabling the function optimization because it can affect correctness (join as integer expression).
     public boolean enableSimpleScalarOptimization = true;
     public boolean enableOneSigOptimization = true;
     public boolean enableJoinOptimization = true;
     public boolean enableMembershipPredicateOptimization = true;
+    public boolean enableSumDefinitionsOptimization = true;
+    public boolean enableFuncOptimization = true;
 
     public boolean enablePartitionSortPolicy = true;
     public boolean enableConstantsScopeAxiomStrategy = true; // alternative: cardinality; TODO: refactor this
@@ -112,6 +115,11 @@ public final class PortusOptions implements Serializable {
     public boolean enableCaching = false;
 
     public boolean enableKodkodIntCompatibility = false;
+
+    // Should we allow reliance on the Fortress non-exact scopes feature?
+    // If true, we might generate Fortress sorts with non-exact scopes.
+    // If false, we will always use a membership predicate instead and all Fortress sorts will have exact scopes.
+    public boolean enableFortressNonExactScopes = false;
 
     // Create a PortusOptions specifying options.
     public PortusOptions(String outputDirectory, String outputName) {

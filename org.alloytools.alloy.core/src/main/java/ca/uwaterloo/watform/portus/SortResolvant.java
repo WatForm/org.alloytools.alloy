@@ -7,6 +7,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -79,6 +80,10 @@ public final class SortResolvant {
         return sortTuples.stream();
     }
 
+    public SortResolvant filter(Predicate<List<Sort>> predicate) {
+        return new SortResolvant(stream().filter(predicate).collect(TupleSet.collect(arity())));
+    }
+
     public boolean isNone() {
         return sortTuples.isEmpty();
     }
@@ -97,6 +102,20 @@ public final class SortResolvant {
 
     public SortResolvant join(SortResolvant other) {
         return new SortResolvant(sortTuples.join(other.sortTuples));
+    }
+
+    public SortResolvant domainRestrict(SortResolvant other) {
+        if (other.arity() != 1) {
+            throw new ErrorFatal("Domain-restriction argument must have arity 1!");
+        }
+        return new SortResolvant(sortTuples.domainRestrict(other.sortTuples));
+    }
+
+    public SortResolvant rangeRestrict(SortResolvant other) {
+        if (other.arity() != 1) {
+            throw new ErrorFatal("Range-restriction argument must have arity 1!");
+        }
+        return new SortResolvant(sortTuples.rangeRestrict(other.sortTuples));
     }
 
     public SortResolvant transpose() {

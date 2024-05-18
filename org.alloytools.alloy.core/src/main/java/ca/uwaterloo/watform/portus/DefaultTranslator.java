@@ -133,7 +133,10 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
             }
             if (context.scoper.isExact(sig)) {
                 context.addAxiom(scopeAxiomStrategy.makeExactScopeAxiom(sig, scope, topLevelTranslator, context));
-            } else {
+            } else if (scope < sortPolicy.getSortScope(sigSort)) {
+                // If the sig's scope is equal to the sort's scope, then we don't need an axiom to bound the number of
+                // atoms in the sort that can be in the membership predicate, because they all could be.
+                // So no axiom is necessary.
                 context.addAxiom(scopeAxiomStrategy.makeNonExactScopeAxiom(
                         sig, scope, topLevelTranslator, context));
             }
@@ -152,6 +155,9 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
         } else {
             throw new ErrorFatal("Unsupported sig type!");
         }
+
+        // Handle one, lone, some sigs
+        sigAxioms.addSigMultiplicityAxiom(sig, context);
 
         // return Top because the returned Term doesn't matter for a Sig
         return Term.mkTop();
@@ -353,6 +359,19 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
         int partitionIdx = left.type().arity() - 1; // so that adding y gives the arity
         SortResolvant leftSort = sortPolicy.getMinimalExprSorts(left, context);
         SortResolvant rightSort = sortPolicy.getMinimalExprSorts(right, context);
+
+        // The arity of the tuple must match that of the joined exprs.
+        if (tuple.size() != leftSort.arity() + rightSort.arity() - 2) {
+            throw new ErrorFatal("Tuple's arity does not match join arity!");
+        }
+
+        // Some sort tuple possibilities on the left and right cannot possibly be used because they do not match the
+        // tuple. Therefore, we can eliminate them from the sort resolvants (effectively short-circuiting them out).
+        // This expands the number of cases we are able to handle (e.g. (*f).(*g)).
+        List<Sort> leftTupleSorts = tuple.slice(0, leftSort.arity() - 1).getSorts();
+        List<Sort> rightTupleSorts = tuple.slice(leftSort.arity() - 1, tuple.size()).getSorts();
+        leftSort = leftSort.filter(sortsOption -> SetOps.startsWith(sortsOption, leftTupleSorts));
+        rightSort = rightSort.filter(sortsOption -> SetOps.endsWith(sortsOption, rightTupleSorts));
 
         // If either sort statically resolves to none, then everything is none because none.x = x.none = none.
         // So we can short-circuit to false. Similarly, if the join statically resolves to none, there's no overlap,
@@ -588,6 +607,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
         //   [[(x1, ..., xn) \in e1]] <=> [[(x1, ..., xn) \in e2]]
         // We also handle multiplicities on e2 in the case of "e1 in M e2", because Alloy supports formulas
         // like "a in ONEOF(b)" and these come up in translating field declarations.
+        // The meaning is [[e1 in M e2]] := [[M e1]] && [[e1 in e2]].
 
         SortResolvant e1Sorts = sortPolicy.getMinimalExprSorts(e1, context);
         SortResolvant e2Sorts = sortPolicy.getMinimalExprSorts(e2, context);
@@ -598,38 +618,34 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
         // "exactly" is used in the meta feature and means to treat "in exactly" like "=" as a hack
         boolean isEquals = (op == ExprBinary.Op.EQUALS || e2.mult() == ExprUnary.Op.EXACTLYOF);
 
+        // Additional condition [[M e1]] for [[e1 in M e2]]
+        Term multCond = isEquals ? Term.mkTop() : getMultCondition(e1, e2, context);
+
         // Short-circuit if either expression statically resolves to none.
-        // If any sort is an expression resolves to none, then the whole expression is none,
-        // because A->none->B = none->none->none (Cartesian product with none gives none).
         if (e1Sorts.isNone() && e2Sorts.isNone()) {
-            // If both are none, then the expression is "none = none", which is true.
-            return Term.mkTop();
+            // If both are none, then the expression is "M none and none =/in none", which short-circuits to "M none".
+            return multCond;
         } else if (e1Sorts.isNone() || e2Sorts.isNone()) {
             // If one is none, then apply the following simplifications:
-            //   [[none in M e]] := [[M e]]  (true if no M specified = setof)
-            //   [[e in one none]] = [[e in some none]] = false
-            //   [[e in none]] = [[e in lone none]] = [[e = none]] = [[none = e]] := [[no e]]
+            //     [[none in e]] := true
+            //     [[e in none]] = [[e = none]] = [[none = e]] := [[no e]]
             if (!isEquals && e1Sorts.isNone()) {
-                return getMultCondition(e2, context);
-            } else if (!isEquals && (e2.mult() == ExprUnary.Op.ONEOF || e2.mult() == ExprUnary.Op.SOMEOF)) {
-                return Term.mkBottom();
+                return multCond;
             } else {
                 Expr nonNoneExpr = e1Sorts.isNone() ? e2 : e1;
-                return recursivelyTranslate(nonNoneExpr.no(), context);
+                return Term.mkAnd(recursivelyTranslate(nonNoneExpr.no(), context), multCond);
             }
         }
 
         // If the sets of sort tuples are disjoint, there's no possible overlap between e1 and e2. Then:
         // - for "e1 = e2", both e1 and e2 must be empty
-        // - for "e1 in M e2", e1 must be empty and [[M e2]] must be true
+        // - for "e1 in M e2", e1 must be empty and the multiplicity condition must be true
         SortResolvant intersection = e1Sorts.intersection(e2Sorts);
         if (intersection.isNone()) {
             if (isEquals) {
                 return recursivelyTranslate(e1.no().and(e2.no()), context);
             } else {
-                return Term.mkAnd(
-                        recursivelyTranslate(e1.no(), context),
-                        getMultCondition(e2, context));
+                return Term.mkAnd(recursivelyTranslate(e1.no(), context), multCond);
             }
         }
 
@@ -666,19 +682,19 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
             return Term.mkAnd(
                     Term.mkForall(vars, Term.mkImp(inE1, inE2)),
                     // Add the additional condition for "e1 in M e2"
-                    getMultCondition(e2, context));
+                    multCond);
         }
     }
 
-    /** Get the multiplicity condition that must be true for an "e1 in M e2" condition to hold, given e2. */
-    private Term getMultCondition(Expr expr, TranslationContext context) {
-        switch (expr.mult()) {
+    /** Get the multiplicity condition that must be true for an "e1 in M e2" condition to hold. */
+    private Term getMultCondition(Expr e1, Expr e2, TranslationContext context) {
+        switch (e2.mult()) {
             case ONEOF:
-                return recursivelyTranslate(expr.one(), context);
+                return recursivelyTranslate(e1.one(), context);
             case LONEOF:
-                return recursivelyTranslate(expr.lone(), context);
+                return recursivelyTranslate(e1.lone(), context);
             case SOMEOF:
-                return recursivelyTranslate(expr.some(), context);
+                return recursivelyTranslate(e1.some(), context);
             default:
                 return Term.mkTop();
         }
@@ -1090,10 +1106,11 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
         }
 
         // Translate all the decls into Fortress
-        Pair<Pair<List<String>, List<AnnotatedVar>>, Term> varsAndCond = translateDeclList(expr.decls, context);
+        Pair<Pair<List<String>, List<AnnotatedVar>>, AnnotatedTerm> varsAndCond =
+                PortusUtil.translateDeclList(expr.decls, context, sortPolicy, topLevelTranslator);
         List<String> alloyVarNames = varsAndCond.a.a;
         List<AnnotatedVar> vars = varsAndCond.a.b;
-        Term condition = varsAndCond.b;
+        Term condition = varsAndCond.b.getTerm();
 
         // Process subformula - Fortress vars were added to the lexical scope in translateDeclList()
         Term sub;
@@ -1516,87 +1533,6 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
             throw new ErrorSyntax("Unknown variable name " + label);
         }
         return context.getTermMapping(label);
-    }
-
-    /**
-     * Translate a list of decls from a quantifier.
-     * @return Pair of (pair of (list of mapped Alloy variable names, list of Fortress vars), condition),
-     *   where the condition expresses that each variable is in the expr the decl declares it to be in.
-     *   The condition must be true for the variables to be used.
-     * @apiNote The variable names are added to the context's var mapping and must be cleaned up after.
-     * This should be done by removing each of the list of mapped Alloy variable names from the context.
-     * We assume that none of the decls' expressions resolve to "none" (i.e. their sort resolvants are empty).
-     * This must be handled at a higher level.
-     */
-    private Pair<Pair<List<String>, List<AnnotatedVar>>, Term> translateDeclList(
-            List<Decl> decls, TranslationContext context) {
-        List<String> alloyVarNames = new ArrayList<>();
-        List<AnnotatedVar> fortressVars = new ArrayList<>();
-        List<Term> conditions = new ArrayList<>();
-
-        for (Decl decl : decls) {
-            // Kodkod evaluates the decl expression once. To emulate this, only add the
-            // variables to the context after evaluating the whole decl.
-            List<Pair<String, AnnotatedTerm>> termMappingsToAdd = new ArrayList<>();
-
-            // Alloy typechecked that it has arity 1
-            for (ExprHasName name : decl.names) {
-                // Ensure decl.expr is ONEOF: we don't support other multiplicities in quantifiers (yet)
-                // TODO: try to skolemize it like Kodkod does?
-                ExprUnary.Op mult = decl.expr.mult();
-                if (mult != ExprUnary.Op.ONEOF) {
-                    // Treat "no multiplicity" as ONEOF because Alloy sometimes generates those internally.
-                    // mult() generates SETOF for no multiplicity, so check that either the expr isn't actually
-                    // an ExprUnary or it's an ExprUnary with a different op.
-                    boolean noMultiplicity = mult == ExprUnary.Op.SETOF
-                            && (!(decl.expr.deNOP() instanceof ExprUnary)
-                                || ((ExprUnary) decl.expr.deNOP()).op != ExprUnary.Op.SETOF);
-                    if (!noMultiplicity) {
-                        throw new ErrorNoPortusSupport("Unsupported quantifier multiplicity for Fortress: "
-                                + decl.expr.mult());
-                    }
-                }
-
-                // Unwrap the expression from its multiplicity (and any NOOPs)
-                Expr declExpr = decl.expr.deNOP();
-                if (declExpr instanceof ExprUnary) {
-                    ExprUnary wrappedDeclExpr = (ExprUnary) decl.expr.deNOP();
-                    if (wrappedDeclExpr.op == ExprUnary.Op.ONEOF) {
-                        declExpr = wrappedDeclExpr.sub.deNOP();
-                    }
-                }
-
-                Var var = Term.mkVar(context.nameGenerator.freshName(name.label));
-                // Note that the decl expr has to be unary since typechecking should have caught anything else
-                String definiteSortsError = "Translating a quantification requires the variable declarations " +
-                        "to have definite and well-defined Portus sorts!";
-                List<Sort> exprSorts = sortPolicy.getMinimalExprDefiniteSorts(declExpr, definiteSortsError, context);
-                if (exprSorts.size() != 1) {
-                    // Could happen for cases Kodkod skolemizes, like e.g. "some s: one A->B | ..."
-                    // Also occurs e.g. with "pred foo[s: A->B] {...}; run foo" since that runs "some s: A->B | foo[s]"
-                    throw new ErrorNoPortusSupport("Portus doesn't support quantifying over tuples!");
-                }
-                Sort varSort = exprSorts.get(0);
-                AnnotatedVar annotatedVar = var.of(varSort);
-                alloyVarNames.add(name.label);
-                fortressVars.add(annotatedVar);
-
-                // Add the condition "var \in declExpr" to restrict the domain of var
-                conditions.add(recursivelyTranslate(ExprElementOf.make(annotatedVar, declExpr), context));
-
-                // Add it to the lexical scope to translate the subformula
-                termMappingsToAdd.add(new Pair<>(name.label, new AnnotatedTerm(annotatedVar)));
-            }
-
-            // Add the term mappings now, in order, after having translated the decl expression
-            for (Pair<String, AnnotatedTerm> mapping : termMappingsToAdd) {
-                context.addTermMapping(mapping.a, mapping.b);
-            }
-        }
-
-        // All the conditions must be true for a set of variables to be used
-        Term condition = conditions.isEmpty() ? Term.mkTop() : Term.mkAnd(conditions);
-        return new Pair<>(new Pair<>(alloyVarNames, fortressVars), condition);
     }
 
     /** Generate a copy of `vars` with each variable suffixed with "_prime". */

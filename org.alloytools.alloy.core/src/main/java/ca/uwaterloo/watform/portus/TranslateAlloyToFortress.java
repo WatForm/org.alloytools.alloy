@@ -3,6 +3,7 @@ package ca.uwaterloo.watform.portus;
 import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.ast.Command;
+import edu.mit.csail.sdg.ast.Module;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.A4Options;
 import edu.mit.csail.sdg.translator.AlloySolution;
@@ -26,7 +27,6 @@ import fortress.solverinterface.Z3CliInterface$;
 import fortress.solverinterface.solver;
 import fortress.transformers.DomainEliminationTransformer$;
 import fortress.transformers.EnumEliminationTransformer$;
-import fortress.transformers.TheoryTransformer;
 import fortress.transformers.TypecheckSanitizeTransformer$;
 import fortress.util.Dump;
 import fortress.util.Milliseconds;
@@ -63,15 +63,15 @@ public final class TranslateAlloyToFortress implements CommandRunner {
      */
     @Override
     public AlloySolution executeCommand(
-            A4Reporter reporter, Iterable<Sig> sigs, Command command, A4Options options) {
-        ScopeComputer scoper = ScopeComputer.compute(reporter, options, sigs, command).b;
+            A4Reporter reporter, Module world, Command command, A4Options options) {
+        ScopeComputer scoper = ScopeComputer.compute(reporter, options, world.getAllReachableSigs(), command).b;
         PortusLogger logger = new PortusLogger(reporter);
 
         try {
             // Actually execute the command, and time it.
             statistics.onStartPortus();
             logger.translationStarted(options.solver.id(), scoper.getBitwidth(), scoper.getMaxSeq());
-            AlloySolution solution = executeCommand(logger, sigs, command, scoper, options);
+            AlloySolution solution = executeCommand(logger, world, command, scoper, options);
             logger.outputResult(command, solution);
             statistics.onPortusFinished();
             return solution;
@@ -88,9 +88,10 @@ public final class TranslateAlloyToFortress implements CommandRunner {
 
     // Execute the command specified by command, mutating and returning solution.
     private AlloySolution executeCommand(
-            PortusLogger logger, Iterable<Sig> sigs, Command command,
+            PortusLogger logger, Module world, Command command,
             ScopeComputer scoper, A4Options options) throws IOException {
         // Decide on the sort policy with the options
+        Iterable<Sig> sigs = world.getAllReachableSigs();
         SortPolicy sortPolicy = options.portusOptions.getSortPolicy(sigs, command, scoper);
         RangeAssigner rangeAssigner = new RangeAssigner(sigs, sortPolicy, scoper);
 
@@ -98,7 +99,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
         TranslationContext context = new TranslationContext(options.portusOptions, scoper, sortPolicy, rangeAssigner);
 
         // Perform the entire translation.
-        translatorManager.runAllPasses(sigs, command, scoper, context);
+        translatorManager.runAllPasses(world, command, scoper, context);
 
         statistics.setTheoryStats(context.getTheory());
         logger.translationFinished(context.getTheory());
@@ -121,7 +122,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
             finder.addLogger(logger);
 
             statistics.onStartSmtSolver();
-            ModelFinderResult result = finder.checkSat();
+            ModelFinderResult result = finder.checkSat(false); // TODO verbosity
             statistics.onSmtSolverFinished();
 
             if (result instanceof ErrorResult) {
@@ -175,9 +176,9 @@ public final class TranslateAlloyToFortress implements CommandRunner {
                 @Override
                 public void setTheory(Theory theory) {
                     // In order to dump the scope info as well, we need to create a problem state from the theory
-                    // and scopes and dump that.
+                    // and scopes and dump that. TODO verbosity.
                     ProblemState problemState = ProblemState.apply(theory,
-                            PortusUtil.<Sort, Scope>toScalaMap(context.getSortToScopeMap(sortPolicy)));
+                            PortusUtil.<Sort, Scope>toScalaMap(context.getSortToScopeMap(sortPolicy)), false);
                     try {
                         writer.write(Dump.problemStateToSmtlib(problemState));
                     } catch (IOException e) {
@@ -214,8 +215,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
                     @Override
                     public LogicCompiler createCompiler() {
                         ConfigurableCompiler compiler = new ConfigurableCompiler();
-                        compiler.addTransformer(
-                                TheoryTransformer.asProblemStateTransformer(TypecheckSanitizeTransformer$.MODULE$));
+                        compiler.addTransformer(TypecheckSanitizeTransformer$.MODULE$);
                         compiler.addTransformer(EnumEliminationTransformer$.MODULE$);
                         compiler.addTransformer(DomainEliminationTransformer$.MODULE$);
                         return compiler;
@@ -224,7 +224,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
             }
 
             context.configureModelFinder(finder, sortPolicy);
-            finder.checkSat();
+            finder.checkSat(false); // TODO verbosity
             writer.flush();
         }
         logger.outputFilename(smtlibFile.getAbsolutePath());

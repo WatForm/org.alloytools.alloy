@@ -69,6 +69,29 @@ final class SetOps {
         return result;
     }
 
+    public static <T> Set<List<T>> domainRestrict(Set<T> values, Set<List<T>> tuples) {
+        return tuples.stream()
+                .filter(tuple -> values.contains(tuple.get(0)))
+                .collect(Collectors.toSet());
+    }
+
+    public static <T> Set<List<T>> rangeRestrict(Set<T> values, Set<List<T>> tuples) {
+        return tuples.stream()
+                .filter(tuple -> values.contains(tuple.get(tuple.size() - 1)))
+                .collect(Collectors.toSet());
+    }
+
+    public static <T> Set<T> getUnaryValues(Set<List<T>> tuples) {
+        return tuples.stream()
+                .map(tuple -> {
+                    if (tuple.size() != 1) {
+                        throw new IllegalArgumentException("getUnaryValues requires all tuples to be unary");
+                    }
+                    return tuple.get(0);
+                })
+                .collect(Collectors.toSet());
+    }
+
     public static <T> Set<List<T>> override(Set<List<T>> a, Set<List<T>> b) {
         Set<List<T>> result = new HashSet<>(b);
 
@@ -99,7 +122,7 @@ final class SetOps {
 
     // Technically these are list operations and not set operations, but oh well
 
-    public static <T> List<T> concatenate(List<T> a, List<T> b) {
+    public static <T> List<T> concatenate(List<? extends T> a, List<? extends T> b) {
         List<T> result = new ArrayList<>(a);
         result.addAll(b);
         return result;
@@ -109,6 +132,30 @@ final class SetOps {
         List<T> result = new ArrayList<>(list);
         result.add(value);
         return result;
+    }
+
+    public static <T> List<T> reverse(List<T> list) {
+        List<T> reversed = new ArrayList<>(list.size());
+        for (int idx = list.size() - 1; idx >= 0; idx--) {
+            reversed.add(list.get(idx));
+        }
+        return reversed;
+    }
+
+    public static <T> boolean startsWith(List<T> list, List<T> prefix) {
+        if (prefix.size() > list.size()) {
+            return false;
+        }
+        for (int idx = 0; idx < prefix.size(); idx++) {
+            if (!prefix.get(idx).equals(list.get(idx))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public static <T> boolean endsWith(List<T> list, List<T> suffix) {
+        return startsWith(reverse(list), reverse(suffix));
     }
 
 }

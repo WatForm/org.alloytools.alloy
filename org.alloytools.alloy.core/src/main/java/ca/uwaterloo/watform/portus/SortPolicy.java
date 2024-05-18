@@ -218,14 +218,12 @@ public abstract class SortPolicy {
                     if (left.arity() != 1) {
                         throw new ErrorFatal("Domain restriction left argument must have arity 1");
                     }
-                    // restrict to only tuples with leftmost sort `left`, then add `left` back
-                    return left.cartesianProduct(left.join(right));
+                    return right.domainRestrict(left);
                 case RANGE:
                     if (right.arity() != 1) {
                         throw new ErrorFatal("Range restriction right argument must have arity 1");
                     }
-                    // restrict to only tuples with rightmost sort `right`, then add `right` back
-                    return left.join(right).cartesianProduct(right);
+                    return left.rangeRestrict(right);
                 case PLUS:
                 case PLUSPLUS: // override
                     return left.union(right);

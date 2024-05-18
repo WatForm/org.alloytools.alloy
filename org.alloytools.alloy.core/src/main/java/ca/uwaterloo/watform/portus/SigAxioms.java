@@ -1,15 +1,12 @@
 package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
-import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
-import edu.mit.csail.sdg.ast.ExprConstant;
 import edu.mit.csail.sdg.ast.Sig;
 import fortress.msfol.AnnotatedVar;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
 
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -26,24 +23,58 @@ class SigAxioms {
     }
 
     /**
+     * Generate the axioms needed to naively handle one, lone, and some sigs.
+     */
+    public void addSigMultiplicityAxiom(Sig sig, TranslationContext context) {
+        Expr axiom;
+        if (sig.isOne != null) {
+            axiom = sig.one();
+        } else if (sig.isLone != null) {
+            axiom = sig.lone();
+        } else if (sig.isSome != null) {
+            axiom = sig.some();
+        } else {
+            return;
+        }
+        context.addAxiom(rootTranslator.translate(axiom, context));
+    }
+
+    /**
      * Generate all the axioms needed to completely specify the relations between a PrimSig
      * and its children.
      */
     public void addPrimSigChildrenAxioms(Sig.PrimSig sig, TranslationContext context) {
-        // Add axioms for membership
-        for (Sig.PrimSig child : sig.children()) {
-            context.addAxiom(makeSubsetAxiom(Collections.singletonList(sig), child, context));
-        }
+        // Add the axiom for the relationship between parents and children.
+        context.addAxiom(makeParentChildAxiom(sig, context));
 
         // Add axioms for disjointness between each pair of subsigs
         assertSigsPairwiseDisjoint(sig.children().makeConstList(), context);
+    }
 
-        // Abstract sigs: add axiom that children cover sig
-        // Note: abstracts sig without children aren't treated as abstract
+    /**
+     * Create the axiom governing the relationship between parent and its children.
+     * If parent is not abstract, the axiom states the children are a subset of the parent.
+     * If parent is abstract, the axiom states the union of the children equal the parent.
+     */
+    public Term makeParentChildAxiom(Sig.PrimSig parent, TranslationContext context) {
+        // Alloy: "child1 + child2 + ... + childN in parent" if non-abstract,
+        // "child1 + child2 + ... + childN = parent" if abstract.
+
+        // Note that even abstract sigs without children aren't treated as abstract
         // (see, for example, Kodkod's output given "abstract sig A {}; run {}")
-        if (sig.isAbstract != null && !sig.children().isEmpty()) {
-            context.addAxiom(makeCoverAxiom(sig, context));
+        // so we can completely ignore this axiom if there are no children
+        // (rather than generating "none in parent" / "none = parent" like if the union was followed strictly).
+        if (parent.children().isEmpty()) {
+            return Term.mkTop();
         }
+
+        //noinspection OptionalGetWithoutIsPresent
+        Expr union = parent.children().makeConstList().stream()
+                .map(sig -> (Expr) sig)
+                .reduce(Expr::plus)
+                .get();
+        Expr axiom = (parent.isAbstract != null) ? union.equal(parent) : union.in(parent);
+        return rootTranslator.translate(axiom, context);
     }
 
     /** Create an axiom that child is a subset of the union of parents. If exact, declare it equal instead. */
@@ -58,11 +89,6 @@ class SigAxioms {
                 .orElseThrow(() -> new ErrorFatal("Internal Portus error: subset axiom with no parents!"));
         Expr subsetAxiom = exact ? child.equal(union) : child.in(union);
         return rootTranslator.translate(subsetAxiom, context);
-    }
-
-    /** Default for convenience: not exact. */
-    public final Term makeSubsetAxiom(List<Sig> parents, Expr child, TranslationContext context) {
-        return makeSubsetAxiom(parents, child, false, context);
     }
 
     /** Add axioms to context that assert that all the sigs are pairwise disjoint. */
@@ -87,21 +113,6 @@ class SigAxioms {
         Term inSig1 = rootTranslator.translate(ExprElementOf.make(x, sig1), context);
         Term inSig2 = rootTranslator.translate(ExprElementOf.make(x, sig2), context);
         return Term.mkForall(x, Term.mkNot(Term.mkAnd(inSig1, inSig2)));
-    }
-
-    /** Create an axiom that parent's children cover all elements in the parent. */
-    public Term makeCoverAxiom(Sig.PrimSig parent, TranslationContext context) {
-        // Alloy: "all x: sig | x in child1 or x in child2 or ... or x in childN" (KT 4.2)
-        Decl x = parent.oneOf("x");
-        Expr disjunction = null;
-        for (Sig.PrimSig child : parent.children()) {
-            disjunction = x.get().in(child).or(disjunction);
-        }
-        if (disjunction == null) {
-            disjunction = ExprConstant.FALSE;
-        }
-        Expr completenessAxiom = disjunction.forAll(x);
-        return rootTranslator.translate(completenessAxiom, context);
     }
 
 }

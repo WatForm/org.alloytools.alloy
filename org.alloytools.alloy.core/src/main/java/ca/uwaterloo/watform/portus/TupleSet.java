@@ -97,6 +97,28 @@ final class TupleSet<T> {
         return new TupleSet<>(SetOps.join(tuples, other.tuples), arity + other.arity - 2);
     }
 
+    public TupleSet<T> domainRestrict(TupleSet<T> other) {
+        Objects.requireNonNull(other);
+        if (arity == 0) {
+            throw new ErrorFatal("Cannot domain-restrict a tuple with arity 0!");
+        }
+        if (other.arity != 1) {
+            throw new ErrorFatal("Domain-restriction argument must have arity 1!");
+        }
+        return new TupleSet<>(SetOps.domainRestrict(SetOps.getUnaryValues(other.tuples), tuples), arity);
+    }
+
+    public TupleSet<T> rangeRestrict(TupleSet<T> other) {
+        Objects.requireNonNull(other);
+        if (arity == 0) {
+            throw new ErrorFatal("Cannot range-restrict a tuple with arity 0!");
+        }
+        if (other.arity != 1) {
+            throw new ErrorFatal("Range-restriction argument must have arity 1!");
+        }
+        return new TupleSet<>(SetOps.rangeRestrict(SetOps.getUnaryValues(other.tuples), tuples), arity);
+    }
+
     public TupleSet<T> override(TupleSet<T> other) {
         assertCompatible(other);
         if (arity == 0) {

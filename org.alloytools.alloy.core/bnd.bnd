@@ -39,7 +39,8 @@ Export-Package: \
 	edu.mit.csail.sdg.translator,\
 	org.alloytools.util.table,\
 	org.alloytools.alloy.core, \
-	org.alloytools.alloy.core.util
+	org.alloytools.alloy.core.util, \
+	ca.uwaterloo.watform.portus, \
 	
 Private-Package: \
 	java_cup.runtime

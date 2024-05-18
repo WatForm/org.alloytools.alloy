@@ -29,11 +29,24 @@ class OneSigOptTranslator extends AbstractTranslator implements ScalarCaster, Ev
         return "One Sig Optimization";
     }
 
+    private boolean isChildOfOrderedSig(Sig.PrimSig sig, TranslationContext context) {
+        return context.isSigOrdered(sig) || (!sig.isTopLevel() && isChildOfOrderedSig(sig.parent, context));
+    }
+
+    private boolean isInapplicable(Sig sig, TranslationContext context) {
+        // Don't bother trying to deal with one subset sigs, they aren't common.
+        // Also, we can't optimize children of ordered sigs because the assignment of one sigs to
+        // particular domain elements might conflict with the hardcoded order that the ordering
+        // module imposes. So just disable it in that case.
+        return sig.isOne == null
+                || !(sig instanceof Sig.PrimSig)
+                || isChildOfOrderedSig((Sig.PrimSig) sig, context);
+    }
+
     /** Process one sigs and add axioms. */
     @Override
     public Term translate(Sig sig, TranslationContext context) {
-        // Don't bother trying to deal with one subset sigs, they aren't common
-        if (sig.isOne == null || !(sig instanceof Sig.PrimSig)) return null;
+        if (isInapplicable(sig, context)) return null;
         Sig.PrimSig primSig = (Sig.PrimSig) sig;
 
         // Don't add all the axioms or create a predicate, just use the range axiom
@@ -71,7 +84,7 @@ class OneSigOptTranslator extends AbstractTranslator implements ScalarCaster, Ev
     private DomainElement castToDomainElement(Expr expr, TranslationContext context) {
         if (!(expr instanceof Sig)) return null;
         Sig sig = (Sig) expr;
-        if (sig.isOne == null || !(sig instanceof Sig.PrimSig)) return null;
+        if (isInapplicable(sig, context)) return null;
 
         return PortusUtil.getOneSigDomainElement((Sig.PrimSig) sig, sortPolicy, context);
     }

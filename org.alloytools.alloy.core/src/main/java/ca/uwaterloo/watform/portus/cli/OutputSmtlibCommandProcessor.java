@@ -30,7 +30,7 @@ final class OutputSmtlibCommandProcessor implements CommandProcessor {
         options.portusOptions.outputName = getOutputName(alloyFilePath.getFileName().toString(), command.label);
         options.solver = solver;
 
-        options.solver.commandRunner().executeCommand(A4Reporter.NOP, world.getAllReachableSigs(), command, options);
+        options.solver.commandRunner().executeCommand(A4Reporter.NOP, world, command, options);
         System.out.println("  Done. Output to " + options.portusOptions.outputDirectory
                 + FileSystems.getDefault().getSeparator()
                 + options.portusOptions.outputName

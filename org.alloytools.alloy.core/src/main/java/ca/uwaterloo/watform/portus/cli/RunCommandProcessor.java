@@ -33,7 +33,7 @@ final class RunCommandProcessor implements CommandProcessor {
 
         try {
             AlloySolution solution = runner.executeCommand(
-                    A4Reporter.NOP, world.getAllReachableSigs(), command, options);
+                    A4Reporter.NOP, world, command, options);
             System.out.println("Result: " + (solution.satisfiable() ? "SAT" : "UNSAT"));
             if (solution.satisfiable()) {
                 System.out.println("Interpretation:");
