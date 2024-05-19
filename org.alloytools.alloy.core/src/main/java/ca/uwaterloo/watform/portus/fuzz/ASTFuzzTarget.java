@@ -29,6 +29,7 @@ import edu.mit.csail.sdg.ast.ExprQt;
 import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Func;
+import edu.mit.csail.sdg.ast.Module;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.A4Options;
 import edu.mit.csail.sdg.translator.ScopeComputer;
@@ -87,6 +88,13 @@ public final class ASTFuzzTarget {
 
         // Are we allowed to generate multiplicity-arrow expressions like ?->? in the current context?
         public ContextValue<Boolean> arrowMultiplicitiesAllowed = new ContextValue<>(false);
+
+        /** Retrieve the generated module that's been built up. */
+        public GeneratedModule generateModule(Command command) {
+            List<Sig> allSigs = new ArrayList<>(sigs);
+            allSigs.addAll(privateSigs);
+            return new GeneratedModule(allSigs, funcs, command);
+        }
     }
 
     private static class ContextEntry {
@@ -285,20 +293,13 @@ public final class ASTFuzzTarget {
         // Use Kodkod-compatible integer semantics for correctness testing
         options.portusOptions.enableKodkodIntCompatibility = true;
 
-        // Add int, univ only here to avoid returning them when generating expressions
-        // to avoid errors about mixing sorts or quantifying over univ
-        List<Sig> allSigs = new ArrayList<>(context.sigs);
-        allSigs.addAll(context.privateSigs);
-        allSigs.add(Sig.UNIV);
-        allSigs.add(Sig.SIGINT);
-        allSigs.add(Sig.SEQIDX);
-        allSigs.add(Sig.STRING);
+        Module generatedModule = context.generateModule(command);
 
         // Check correctness and throw if bad
         CorrectnessChecker checker = new CorrectnessChecker();
         CorrectnessChecker.Result result;
         try {
-            result = checker.checkCorrectness(allSigs, command, options);
+            result = checker.checkCorrectness(generatedModule, command, options);
         } catch (ErrorType errorType) {
             // This isn't thrown by Portus but sometimes Kodkod throws type errors.
             // Just ignore them - usually due to too-large arity.
