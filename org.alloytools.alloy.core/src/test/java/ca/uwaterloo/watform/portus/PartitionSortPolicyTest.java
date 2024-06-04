@@ -9,12 +9,10 @@ import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.ast.Type;
 import edu.mit.csail.sdg.translator.ScopeComputer;
-import fortress.data.IntSuffixNameGenerator;
 import fortress.data.NameGenerator;
 import fortress.msfol.Sort;
 import org.junit.Before;
 import org.junit.Test;
-import scala.collection.Set$;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -51,9 +49,7 @@ public class PartitionSortPolicyTest {
     @Before
     public void setUp() {
         mockScoper = mock(ScopeComputer.class);
-        //noinspection unchecked
-        nameGenerator = new IntSuffixNameGenerator(
-                (scala.collection.immutable.Set<String>) Set$.MODULE$.empty(), 0);
+        nameGenerator = new SanitizingNameGenerator();
     }
 
     @Test

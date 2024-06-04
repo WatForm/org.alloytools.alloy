@@ -19,7 +19,6 @@ import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Func;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.parser.Macro;
-import fortress.data.IntSuffixNameGenerator;
 import fortress.data.NameGenerator;
 import fortress.msfol.AndList;
 import fortress.msfol.AnnotatedVar;
@@ -315,8 +314,7 @@ final class PortusUtil {
         }
 
         // TODO: can we use FastSubstituter in some cases?
-        //noinspection unchecked
-        NameGenerator nameGen = new IntSuffixNameGenerator(new scala.collection.immutable.HashSet<String>(), 0);
+        NameGenerator nameGen = new SanitizingNameGenerator();
         for (int i = 0; i < a.size(); i++) {
             Var from = a.get(i).variable();
             Term to = b.get(i);

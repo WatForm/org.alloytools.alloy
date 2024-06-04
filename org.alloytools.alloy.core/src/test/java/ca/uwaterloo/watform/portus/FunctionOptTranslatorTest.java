@@ -7,7 +7,6 @@ import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.ast.Type;
 import edu.mit.csail.sdg.translator.ScopeComputer;
-import fortress.data.IntSuffixNameGenerator;
 import fortress.data.NameGenerator;
 import fortress.msfol.FuncDecl;
 import fortress.msfol.IntegerLiteral;
@@ -78,9 +77,7 @@ public class FunctionOptTranslatorTest {
         ScopeComputer mockScoper = mock(ScopeComputer.class);
         RangeAssigner mockRangeAssigner = mock(RangeAssigner.class,
                 withSettings().useConstructor(new ArrayList<>(), mockSortPolicy, mockScoper));
-        //noinspection unchecked
-        nameGenerator = new IntSuffixNameGenerator(
-                (scala.collection.immutable.Set<String>) Set$.MODULE$.empty(), 0);
+        nameGenerator = new SanitizingNameGenerator();
         context = new TranslationContext(new PortusOptions(), mockScoper, mockSortPolicy, mockRangeAssigner);
     }
 

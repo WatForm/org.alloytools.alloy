@@ -4,7 +4,6 @@ import edu.mit.csail.sdg.ast.ExprConstant;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.A4TupleSet;
 import edu.mit.csail.sdg.translator.ScopeComputer;
-import fortress.data.IntSuffixNameGenerator;
 import fortress.data.NameGenerator;
 import fortress.interpretation.BasicInterpretation;
 import fortress.interpretation.Interpretation;
@@ -72,9 +71,7 @@ public class FortressSolutionTest {
                 PortusUtil.<FuncDecl, scala.collection.immutable.Map<Seq<Value>, Value>>toScalaMap(functions),
                 Set$.MODULE$.<FunctionDefinition>empty());
 
-        //noinspection unchecked
-        NameGenerator nameGenerator = new IntSuffixNameGenerator(
-                (scala.collection.immutable.Set<String>) scala.collection.Set$.MODULE$.empty(), 0);
+        NameGenerator nameGenerator = new SanitizingNameGenerator();
         TranslatorManager manager = new TranslatorManager(
                 context.options, new PortusStatistics(), sortPolicy, nameGenerator);
         solution = new FortressSolution(

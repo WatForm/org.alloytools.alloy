@@ -4,7 +4,6 @@ import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.ScopeComputer;
-import fortress.data.IntSuffixNameGenerator;
 import fortress.data.NameGenerator;
 import fortress.msfol.AnnotatedVar;
 import fortress.msfol.Sort;
@@ -13,7 +12,6 @@ import fortress.msfol.Theory;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.stubbing.Answer;
-import scala.collection.Set$;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -68,9 +66,7 @@ public class ConstantsScopeAxiomStrategyTest {
         RangeAssigner mockRangeAssigner = mock(RangeAssigner.class);
         context = new TranslationContext(new PortusOptions(), mockScoper, mockSortPolicy, mockRangeAssigner);
 
-        //noinspection unchecked
-        NameGenerator nameGenerator = new IntSuffixNameGenerator(
-                (scala.collection.immutable.Set<String>) Set$.MODULE$.empty(), 0);
+        NameGenerator nameGenerator = new SanitizingNameGenerator();
         strategy = new ConstantsScopeAxiomStrategy(mockSortPolicy, nameGenerator);
     }
 

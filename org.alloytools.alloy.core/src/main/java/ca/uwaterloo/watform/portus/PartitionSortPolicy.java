@@ -327,7 +327,6 @@ final class PartitionSortPolicy extends SortPolicy {
         if (sortNameCache.containsKey(name)) {
             return sortNameCache.get(name);
         }
-        // TODO: divorce nameGenerator from TranslationContext
         Sort sort = Sort.mkSortConst(nameGenerator.freshName(name));
         sortNameCache.put(name, sort);
         return sort;

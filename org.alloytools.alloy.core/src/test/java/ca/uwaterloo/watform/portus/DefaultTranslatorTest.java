@@ -18,7 +18,6 @@ import edu.mit.csail.sdg.ast.Func;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.ast.Type;
 import edu.mit.csail.sdg.translator.ScopeComputer;
-import fortress.data.IntSuffixNameGenerator;
 import fortress.data.NameGenerator;
 import fortress.msfol.AnnotatedVar;
 import fortress.msfol.App;
@@ -34,7 +33,6 @@ import fortress.msfol.Var;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.stubbing.Answer;
-import scala.collection.Set$;
 import scala.jdk.javaapi.CollectionConverters;
 
 import java.util.ArrayList;
@@ -88,9 +86,7 @@ public class DefaultTranslatorTest {
         mockScoper = mock(ScopeComputer.class);
         mockSortPolicy = mock(SortPolicy.class, delegatesTo(
                 new UnivSortPolicy(univ, Collections.emptyList(), mockScoper)));
-        //noinspection unchecked
-        NameGenerator nameGenerator = new IntSuffixNameGenerator(
-                (scala.collection.immutable.Set<String>) Set$.MODULE$.empty(), 0);
+        NameGenerator nameGenerator = new SanitizingNameGenerator();
         translator = new DefaultTranslator(mockRoot, new QuantifierScopeAxiomStrategy(mockSortPolicy, nameGenerator),
                 new SigAxioms(mockRoot, mockSortPolicy, nameGenerator), mockSortPolicy, nameGenerator);
         // Use the constructor so RangeAssigner's list of sigs isn't null (causes issues with copy constructor)
