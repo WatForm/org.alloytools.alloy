@@ -6,8 +6,8 @@ import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.ast.Command;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.Module;
-import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.ScopeComputer;
+import fortress.data.NameGenerator;
 import fortress.msfol.Term;
 
 import java.util.ArrayList;
@@ -53,7 +53,8 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
      *                This usually means enabling/disabling optimizations based
      *                on the options selected by the user.
      */
-    public TranslatorManager(PortusOptions options, PortusStatistics statistics, SortPolicy sortPolicy) {
+    public TranslatorManager(
+            PortusOptions options, PortusStatistics statistics, SortPolicy sortPolicy, NameGenerator nameGenerator) {
         this.statistics = statistics;
 
         this.useCaching = options.enableCaching;
@@ -63,19 +64,21 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
         // Use the options to come up with a list of translators
         ScopeAxiomStrategy scopeAxiomStrategy;
         if (options.enableConstantsScopeAxiomStrategy) {
-            scopeAxiomStrategy = new ConstantsScopeAxiomStrategy(sortPolicy);
+            scopeAxiomStrategy = new ConstantsScopeAxiomStrategy(sortPolicy, nameGenerator);
         } else {
             scopeAxiomStrategy = new CardinalityScopeAxiomStrategy(sortPolicy);
         }
-        SigAxioms sigAxioms = new SigAxioms(this, sortPolicy);
+        SigAxioms sigAxioms = new SigAxioms(this, sortPolicy, nameGenerator);
 
         // There *shouldn't* be side effects in the constructors, so it should be ok to always construct these
         OneSigOptTranslator oneSigOpt = new OneSigOptTranslator(this, sortPolicy, sigAxioms);
-        FunctionOptTranslator functionOpt = new FunctionOptTranslator(this, this, this, sortPolicy, true);
+        FunctionOptTranslator functionOpt = new FunctionOptTranslator(
+                this, this, this, sortPolicy, nameGenerator, true);
         OrderingModuleOptTranslator orderingModuleOpt = new OrderingModuleOptTranslator(this, this, sortPolicy);
         MembershipPredicateOptTranslator membershipPredOpt = new MembershipPredicateOptTranslator(
                 this, sortPolicy, sigAxioms, !options.enableFortressNonExactScopes);
-        DefaultTranslator defaultTranslator = new DefaultTranslator(this, scopeAxiomStrategy, sigAxioms, sortPolicy);
+        DefaultTranslator defaultTranslator = new DefaultTranslator(
+                this, scopeAxiomStrategy, sigAxioms, sortPolicy, nameGenerator);
 
         List<ScopeExpansionMarker> scopeExpansionMarkers = new ArrayList<>();
         scopeExpansionMarkers.add(defaultTranslator);
@@ -106,7 +109,7 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
             translators.add(new KodkodIntCompatibilityTranslator(this, sortPolicy));
         }
         if (options.enableSumDefinitionsOptimization) {
-            translators.add(new SumDefinitionsOptTranslator(this, sortPolicy));
+            translators.add(new SumDefinitionsOptTranslator(this, sortPolicy, nameGenerator));
         }
         translators.add(defaultTranslator);
 
@@ -119,7 +122,7 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
         }
         scalarCasters.add(new DefaultScalarCaster(this, this, sortPolicy));
         if (options.enableElementOfScalarOptimization) {
-            scalarCasters.add(new ElementOfScalarCaster(this, sortPolicy, statistics));
+            scalarCasters.add(new ElementOfScalarCaster(this, sortPolicy, nameGenerator, statistics));
         }
 
         if (options.enableOneSigOptimization) {
@@ -133,7 +136,7 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
         }
         evaluators.add(defaultTranslator);
         evaluators.add(new SimpleEvaluator(this));
-        evaluators.add(new BruteForceEvaluator(this, sortPolicy));
+        evaluators.add(new BruteForceEvaluator(this, sortPolicy, nameGenerator));
     }
 
     @Override

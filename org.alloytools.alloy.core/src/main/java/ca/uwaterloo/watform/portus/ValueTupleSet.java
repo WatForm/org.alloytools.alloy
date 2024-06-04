@@ -61,7 +61,7 @@ final class ValueTupleSet {
     }
 
     public static ValueTupleSet from(Set<List<Value>> tuples) {
-        if (tuples.size() == 0) {
+        if (tuples.isEmpty()) {
             throw new IllegalArgumentException("Cannot infer arity from empty list of tuples!");
         }
         int arity = tuples.iterator().next().size(); // just pick any

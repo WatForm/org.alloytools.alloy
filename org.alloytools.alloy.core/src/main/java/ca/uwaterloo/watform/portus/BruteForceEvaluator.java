@@ -2,6 +2,7 @@ package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.Sig;
+import fortress.data.NameGenerator;
 import fortress.msfol.AnnotatedVar;
 import fortress.msfol.Term;
 import fortress.msfol.Value;
@@ -19,10 +20,12 @@ final class BruteForceEvaluator implements Evaluator {
 
     private final Translator translator;
     private final SortPolicy sortPolicy;
+    private final NameGenerator nameGenerator;
 
-    public BruteForceEvaluator(Translator translator, SortPolicy sortPolicy) {
+    public BruteForceEvaluator(Translator translator, SortPolicy sortPolicy, NameGenerator nameGenerator) {
         this.translator = translator;
         this.sortPolicy = sortPolicy;
+        this.nameGenerator = nameGenerator;
     }
 
     @Override
@@ -60,7 +63,7 @@ final class BruteForceEvaluator implements Evaluator {
             // for (v1,...,vn) \in expr, make vars x1,...,xn and translate [[(x1,...,xn) \in expr]]
             // and then substitute xi->vi for i=1..n.
             List<AnnotatedVar> vars = sortCombo.stream()
-                    .map(sort -> Term.mkVar(context.nameGenerator.freshName("var_" + sort)).of(sort))
+                    .map(sort -> Term.mkVar(nameGenerator.freshName("var_" + sort)).of(sort))
                     .collect(Collectors.toList());
 
             TranslationContext contextCopy = new TranslationContext(context);
@@ -75,7 +78,7 @@ final class BruteForceEvaluator implements Evaluator {
                 Term substitutedFormula = formula;
                 for (int i = 0; i < tuple.size(); i++) {
                     substitutedFormula = Substituter.apply(
-                            vars.get(i).variable(), tuple.get(i), substitutedFormula, contextCopy.nameGenerator);
+                            vars.get(i).variable(), tuple.get(i), substitutedFormula, nameGenerator);
                 }
 
                 boolean inSet = solution.evaluateFormula(substitutedFormula);
@@ -90,7 +93,7 @@ final class BruteForceEvaluator implements Evaluator {
 
     // Compute the Cartesian product of the lists recursively and lazily
     private <T> Stream<? extends List<T>> cartesianProduct(List<List<T>> lists) {
-        if (lists.size() == 0) {
+        if (lists.isEmpty()) {
             // Singleton list with just ()
             return Stream.of(new ArrayList<>());
         } else {

@@ -12,6 +12,7 @@ import fortress.compiler.DatatypeMethodNoRangeEUFCompiler;
 import fortress.compiler.DatatypeMethodWithRangeCompiler;
 import fortress.compiler.DatatypeMethodWithRangeEUFCompiler;
 import fortress.compiler.LogicCompiler;
+import fortress.data.NameGenerator;
 
 import java.io.File;
 import java.io.Serializable;
@@ -136,10 +137,11 @@ public final class PortusOptions implements Serializable {
     }
 
     /** Which sort policy should we use to translate? */
-    public SortPolicy getSortPolicy(Iterable<Sig> sigs, Command command, ScopeComputer scoper) {
+    public SortPolicy getSortPolicy(
+            Iterable<Sig> sigs, Command command, ScopeComputer scoper, NameGenerator nameGenerator) {
         // For now, always use the partition sort policy
         if (enablePartitionSortPolicy) {
-            return new PartitionSortPolicy(sigs, command, scoper);
+            return new PartitionSortPolicy(sigs, command, scoper, nameGenerator);
         } else {
             return new UnivSortPolicy(sigs, scoper);
         }

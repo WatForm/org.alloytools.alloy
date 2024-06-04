@@ -12,6 +12,9 @@ import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.parser.CompUtil;
 import edu.mit.csail.sdg.translator.A4Options;
 import edu.mit.csail.sdg.translator.ScopeComputer;
+import fortress.data.IntSuffixNameGenerator;
+import fortress.data.NameGenerator;
+import scala.collection.Set$;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -39,7 +42,10 @@ public final class PortusCLI {
             Module world, Command command, A4Options options) {
         Iterable<Sig> sigs = world.getAllReachableSigs();
         ScopeComputer scoper = ScopeComputer.compute(A4Reporter.NOP, options, sigs, command).b;
-        SortPolicy sortPolicy = options.portusOptions.getSortPolicy(sigs, command, scoper);
+        //noinspection unchecked
+        NameGenerator nameGenerator = new IntSuffixNameGenerator(
+                (scala.collection.immutable.Set<String>) Set$.MODULE$.empty(), 0);
+        SortPolicy sortPolicy = options.portusOptions.getSortPolicy(sigs, command, scoper, nameGenerator);
 
         // find the smallest bitwidth >= the command's bitwidth such that the max int representable is >= the size
         // of all sorts created by the sort policy
@@ -355,7 +361,7 @@ public final class PortusCLI {
         }
 
         List<CommandProcessor> processors = getCommandProcessors(options);
-        if (processors.size() == 0) {
+        if (processors.isEmpty()) {
             System.err.println("Error: no command processing options specified.");
             options.printHelp(PROGRAM_NAME);
             System.exit(-1);

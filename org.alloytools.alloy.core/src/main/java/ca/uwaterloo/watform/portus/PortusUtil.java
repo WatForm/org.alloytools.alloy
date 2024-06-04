@@ -222,7 +222,8 @@ final class PortusUtil {
      * This must be handled at a higher level.
      */
     public static Pair<Pair<List<String>, List<AnnotatedVar>>, AnnotatedTerm> translateDeclList(
-            List<Decl> decls, TranslationContext context, SortPolicy sortPolicy, Translator rootTranslator) {
+            List<Decl> decls, TranslationContext context, SortPolicy sortPolicy, Translator rootTranslator,
+            NameGenerator nameGenerator) {
         List<String> alloyVarNames = new ArrayList<>();
         List<AnnotatedVar> fortressVars = new ArrayList<>();
         List<Term> conditions = new ArrayList<>();
@@ -260,7 +261,7 @@ final class PortusUtil {
                     }
                 }
 
-                Var var = Term.mkVar(context.nameGenerator.freshName(name.label));
+                Var var = Term.mkVar(nameGenerator.freshName(name.label));
                 // Note that the decl expr has to be unary since typechecking should have caught anything else
                 String definiteSortsError = "Translating a quantification requires the variable declarations " +
                         "to have definite and well-defined Portus sorts!";

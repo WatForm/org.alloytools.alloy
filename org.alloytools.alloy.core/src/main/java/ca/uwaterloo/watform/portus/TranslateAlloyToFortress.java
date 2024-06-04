@@ -11,6 +11,8 @@ import edu.mit.csail.sdg.translator.CommandRunner;
 import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.compiler.ConfigurableCompiler;
 import fortress.compiler.LogicCompiler;
+import fortress.data.IntSuffixNameGenerator;
+import fortress.data.NameGenerator;
 import fortress.interpretation.Interpretation;
 import fortress.modelfind.CompilationModelFinder;
 import fortress.modelfind.ErrorResult;
@@ -30,6 +32,7 @@ import fortress.transformers.EnumEliminationTransformer$;
 import fortress.transformers.TypecheckSanitizeTransformer$;
 import fortress.util.Dump;
 import fortress.util.Milliseconds;
+import scala.collection.Set$;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -92,10 +95,14 @@ public final class TranslateAlloyToFortress implements CommandRunner {
             ScopeComputer scoper, A4Options options) throws IOException {
         // Decide on the sort policy with the options
         Iterable<Sig> sigs = world.getAllReachableSigs();
-        SortPolicy sortPolicy = options.portusOptions.getSortPolicy(sigs, command, scoper);
+        //noinspection unchecked
+        NameGenerator nameGenerator = new IntSuffixNameGenerator(
+                (scala.collection.immutable.Set<String>) Set$.MODULE$.empty(), 0);
+        SortPolicy sortPolicy = options.portusOptions.getSortPolicy(sigs, command, scoper, nameGenerator);
         RangeAssigner rangeAssigner = new RangeAssigner(sigs, sortPolicy, scoper);
 
-        TranslatorManager translatorManager = new TranslatorManager(options.portusOptions, statistics, sortPolicy);
+        TranslatorManager translatorManager = new TranslatorManager(
+                options.portusOptions, statistics, sortPolicy, nameGenerator);
         TranslationContext context = new TranslationContext(options.portusOptions, scoper, sortPolicy, rangeAssigner);
 
         // Perform the entire translation.

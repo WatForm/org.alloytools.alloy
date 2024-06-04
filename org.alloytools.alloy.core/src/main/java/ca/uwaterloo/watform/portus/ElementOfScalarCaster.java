@@ -2,6 +2,7 @@ package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.ast.Expr;
+import fortress.data.NameGenerator;
 import fortress.msfol.AndList;
 import fortress.msfol.AnnotatedVar;
 import fortress.msfol.Eq;
@@ -30,6 +31,7 @@ final class ElementOfScalarCaster implements ScalarCaster {
 
     private final Translator rootTranslator;
     private final SortPolicy sortPolicy;
+    private final NameGenerator nameGenerator;
     private final PortusStatistics statistics;
 
     // Unfortunately we have to keep state to avoid stack overflows: we shouldn't invoke this scalar caster
@@ -37,9 +39,11 @@ final class ElementOfScalarCaster implements ScalarCaster {
     // This means that this scalar caster is not threadsafe (but all of Portus likely isn't).
     private boolean currentlyRunning = false;
 
-    public ElementOfScalarCaster(Translator rootTranslator, SortPolicy sortPolicy, PortusStatistics statistics) {
+    public ElementOfScalarCaster(
+            Translator rootTranslator, SortPolicy sortPolicy, NameGenerator nameGenerator, PortusStatistics statistics) {
         this.rootTranslator = rootTranslator;
         this.sortPolicy = sortPolicy;
+        this.nameGenerator = nameGenerator;
         this.statistics = statistics;
     }
 
@@ -80,7 +84,7 @@ final class ElementOfScalarCaster implements ScalarCaster {
             // otherwise called on, because non-formula nodes tend to be close to the leaves of the AST.
             return null;
         }
-        AnnotatedVar x = Term.mkVar(context.nameGenerator.freshName("x")).of(sort);
+        AnnotatedVar x = Term.mkVar(nameGenerator.freshName("x")).of(sort);
 
         // Translate [[x \in expr]] and see what we get.
         // Use a copy of the context to ignore side effects because this translation isn't being used.

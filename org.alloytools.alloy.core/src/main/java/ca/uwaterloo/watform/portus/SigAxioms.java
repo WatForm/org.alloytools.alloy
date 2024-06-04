@@ -3,6 +3,7 @@ package ca.uwaterloo.watform.portus;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.Sig;
+import fortress.data.NameGenerator;
 import fortress.msfol.AnnotatedVar;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
@@ -16,10 +17,12 @@ class SigAxioms {
 
     private final Translator rootTranslator;
     private final SortPolicy sortPolicy;
+    private final NameGenerator nameGenerator;
 
-    public SigAxioms(Translator rootTranslator, SortPolicy sortPolicy) {
+    public SigAxioms(Translator rootTranslator, SortPolicy sortPolicy, NameGenerator nameGenerator) {
         this.rootTranslator = rootTranslator;
         this.sortPolicy = sortPolicy;
+        this.nameGenerator = nameGenerator;
     }
 
     /**
@@ -109,7 +112,7 @@ class SigAxioms {
             return Term.mkTop();
         }
 
-        AnnotatedVar x = Term.mkVar(context.nameGenerator.freshName("x")).of(sort);
+        AnnotatedVar x = Term.mkVar(nameGenerator.freshName("x")).of(sort);
         Term inSig1 = rootTranslator.translate(ExprElementOf.make(x, sig1), context);
         Term inSig2 = rootTranslator.translate(ExprElementOf.make(x, sig2), context);
         return Term.mkForall(x, Term.mkNot(Term.mkAnd(inSig1, inSig2)));
