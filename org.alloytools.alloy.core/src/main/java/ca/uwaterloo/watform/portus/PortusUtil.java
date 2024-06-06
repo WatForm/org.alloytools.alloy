@@ -184,7 +184,7 @@ final class PortusUtil {
      * Is `ancestor` an ancestor of `sig` in the signature hierarchy?
      */
     public static boolean isAncestorSig(Sig.PrimSig ancestor, Sig.PrimSig sig) {
-        return sig.equals(ancestor) || (!sig.isTopLevel() && isAncestorSig(sig.parent, ancestor));
+        return sig.equals(ancestor) || (!sig.isTopLevel() && isAncestorSig(ancestor, sig.parent));
     }
 
     /**
