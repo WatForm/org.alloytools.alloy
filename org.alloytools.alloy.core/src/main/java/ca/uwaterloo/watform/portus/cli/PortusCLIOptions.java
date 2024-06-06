@@ -46,6 +46,9 @@ final class PortusCLIOptions {
     public final Option useOutputPostSmtlibProcessor = new Option(
             "-smtlib-all", "Output SMTLIB+ (post-Fortress) for each command.");
 
+    public final Option useCountCommandsProcessor = new Option(
+            "-cmd-count", "Output a count of the commands in each file.");
+
     public final Option alwaysShowKodkodTime = new Option(
             "-show-kodkod-time", "When evaluating correctness, always evaluate and show Kodkod's time (slower).");
 
@@ -88,6 +91,7 @@ final class PortusCLIOptions {
             useRunPortusProcessor, useRunKodkodProcessor,
             useCorrectnessProcessor, useDeltaDebugProcessor,
             useOutputPreSmtlibProcessor, useOutputPostSmtlibProcessor,
+            useCountCommandsProcessor,
             alwaysShowKodkodTime,
             disableSimpleScalarOpt, disableOneSigOpt, disableJoinOpt, disableOrderingModuleOpt,
             disableMembershipPredicateOpt, disablePartitionSortPolicy, disableSumDefinitionsOpt,

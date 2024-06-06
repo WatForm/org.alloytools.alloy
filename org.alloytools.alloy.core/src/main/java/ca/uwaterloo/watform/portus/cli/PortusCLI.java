@@ -1,6 +1,7 @@
 package ca.uwaterloo.watform.portus.cli;
 
 import ca.uwaterloo.watform.portus.PortusOptions;
+import ca.uwaterloo.watform.portus.SanitizingNameGenerator;
 import ca.uwaterloo.watform.portus.SortPolicy;
 import ca.uwaterloo.watform.portus.TimeoutException;
 import edu.mit.csail.sdg.alloy4.A4Reporter;
@@ -12,6 +13,7 @@ import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.parser.CompUtil;
 import edu.mit.csail.sdg.translator.A4Options;
 import edu.mit.csail.sdg.translator.ScopeComputer;
+import fortress.data.NameGenerator;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -39,7 +41,8 @@ public final class PortusCLI {
             Module world, Command command, A4Options options) {
         Iterable<Sig> sigs = world.getAllReachableSigs();
         ScopeComputer scoper = ScopeComputer.compute(A4Reporter.NOP, options, sigs, command).b;
-        SortPolicy sortPolicy = options.portusOptions.getSortPolicy(sigs, command, scoper);
+        NameGenerator nameGenerator = new SanitizingNameGenerator();
+        SortPolicy sortPolicy = options.portusOptions.getSortPolicy(sigs, command, scoper, nameGenerator);
 
         // find the smallest bitwidth >= the command's bitwidth such that the max int representable is >= the size
         // of all sorts created by the sort policy
@@ -328,6 +331,9 @@ public final class PortusCLI {
         } else if (options.useOutputPostSmtlibProcessor.active()) { // don't do both - confusing
             processors.add(new OutputSmtlibCommandProcessor(A4Options.SatSolver.POST_FORTRESS_SMTLIB));
         }
+        if (options.useCountCommandsProcessor.active()) {
+            processors.add(new CountCommandsCommandProcessor());
+        }
         return processors;
     }
 
@@ -352,7 +358,7 @@ public final class PortusCLI {
         }
 
         List<CommandProcessor> processors = getCommandProcessors(options);
-        if (processors.size() == 0) {
+        if (processors.isEmpty()) {
             System.err.println("Error: no command processing options specified.");
             options.printHelp(PROGRAM_NAME);
             System.exit(-1);

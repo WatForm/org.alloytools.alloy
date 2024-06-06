@@ -19,6 +19,7 @@ import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.ast.VisitReturn;
 import edu.mit.csail.sdg.parser.Macro;
 import edu.mit.csail.sdg.translator.ScopeComputer;
+import fortress.data.NameGenerator;
 import fortress.msfol.Sort;
 import fortress.msfol.Theory;
 
@@ -40,6 +41,9 @@ import java.util.stream.StreamSupport;
  */
 final class PartitionSortPolicy extends SortPolicy {
 
+    // For generating unique names.
+    private final NameGenerator nameGenerator;
+
     private final DisjointSets<Sig.PrimSig> sortPartition;
 
     // Map merged sorts to their merged sorts for converting old sort references to new ones
@@ -52,9 +56,11 @@ final class PartitionSortPolicy extends SortPolicy {
 
     private final ScopeComputer scoper;
 
-    public PartitionSortPolicy(Iterable<Sig> allSigs, Command command, ScopeComputer scoper) {
+    public PartitionSortPolicy(
+            Iterable<Sig> allSigs, Command command, ScopeComputer scoper, NameGenerator nameGenerator) {
         super(allSigs);
         this.scoper = scoper;
+        this.nameGenerator = nameGenerator;
 
         topLevelSigs = StreamSupport.stream(allSigs.spliterator(), false)
                 .filter(sig -> !sig.builtin) // only handle custom top-level sigs
@@ -321,7 +327,7 @@ final class PartitionSortPolicy extends SortPolicy {
         if (sortNameCache.containsKey(name)) {
             return sortNameCache.get(name);
         }
-        Sort sort = Sort.mkSortConst(name);
+        Sort sort = Sort.mkSortConst(nameGenerator.freshName(name));
         sortNameCache.put(name, sort);
         return sort;
     }

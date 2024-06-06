@@ -4,6 +4,7 @@ import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprQt;
 import edu.mit.csail.sdg.ast.ExprUnary;
+import fortress.data.NameGenerator;
 import fortress.msfol.AnnotatedVar;
 import fortress.msfol.FunctionDefinition;
 import fortress.msfol.IntegerLiteral;
@@ -26,10 +27,12 @@ import java.util.stream.Collectors;
 final class SumDefinitionsOptTranslator extends AbstractTranslator {
 
     private final SortPolicy sortPolicy;
+    private final NameGenerator nameGenerator;
 
-    public SumDefinitionsOptTranslator(Translator topLevel, SortPolicy sortPolicy) {
+    public SumDefinitionsOptTranslator(Translator topLevel, SortPolicy sortPolicy, NameGenerator nameGenerator) {
         super(topLevel);
         this.sortPolicy = sortPolicy;
+        this.nameGenerator = nameGenerator;
     }
 
     @Override
@@ -49,7 +52,7 @@ final class SumDefinitionsOptTranslator extends AbstractTranslator {
 
         List<AnnotatedVar> vars = new ArrayList<>();
         for (int i = 0; i < expr.sub.type().arity(); i++) {
-            Var var = Term.mkVar("x" + i);
+            Var var = Term.mkVar(nameGenerator.freshName("x" + i));
             vars.add(var.of(sorts.get(i)));
         }
 
@@ -73,7 +76,7 @@ final class SumDefinitionsOptTranslator extends AbstractTranslator {
         }
 
         Pair<Pair<List<String>, List<AnnotatedVar>>, AnnotatedTerm> varsAndCond =
-                PortusUtil.translateDeclList(expr.decls, context, sortPolicy, topLevelTranslator);
+                PortusUtil.translateDeclList(expr.decls, context, sortPolicy, topLevelTranslator, nameGenerator);
         List<String> alloyVarNames = varsAndCond.a.a;
         List<AnnotatedVar> vars = varsAndCond.a.b;
         AnnotatedTerm condition = varsAndCond.b;
@@ -115,7 +118,7 @@ final class SumDefinitionsOptTranslator extends AbstractTranslator {
         List<AnnotatedVar> allVars = SetOps.concatenate(vars, freeVarsAnnotated);
 
         // Add the definition
-        String defName = context.nameGenerator.freshName("sum_def");
+        String defName = nameGenerator.freshName("sum_def");
         Term body = Term.mkIfThenElse(condition.getTerm(), sub.getTerm(), IntegerLiteral.apply(0));
         FunctionDefinition definition = FunctionDefinition.mkFunctionDefinition(
                 defName, allVars, Sort.Int(), body);

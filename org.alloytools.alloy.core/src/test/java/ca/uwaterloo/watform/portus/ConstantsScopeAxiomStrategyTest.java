@@ -4,6 +4,7 @@ import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.ScopeComputer;
+import fortress.data.NameGenerator;
 import fortress.msfol.AnnotatedVar;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
@@ -65,7 +66,8 @@ public class ConstantsScopeAxiomStrategyTest {
         RangeAssigner mockRangeAssigner = mock(RangeAssigner.class);
         context = new TranslationContext(new PortusOptions(), mockScoper, mockSortPolicy, mockRangeAssigner);
 
-        strategy = new ConstantsScopeAxiomStrategy(mockSortPolicy);
+        NameGenerator nameGenerator = new SanitizingNameGenerator();
+        strategy = new ConstantsScopeAxiomStrategy(mockSortPolicy, nameGenerator);
     }
 
     @Test

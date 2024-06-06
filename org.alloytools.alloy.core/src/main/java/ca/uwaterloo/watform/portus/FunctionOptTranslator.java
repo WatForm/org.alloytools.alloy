@@ -7,6 +7,7 @@ import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprBinary;
 import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.Sig;
+import fortress.data.NameGenerator;
 import fortress.msfol.AnnotatedVar;
 import fortress.msfol.FuncDecl;
 import fortress.msfol.IntegerLiteral;
@@ -95,6 +96,8 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
 
     private final SortPolicy sortPolicy;
 
+    private final NameGenerator nameGenerator;
+
     // Should we optimize "A->lone B" as well as "A->one B"?
     private final boolean optimizeLone;
 
@@ -102,11 +105,12 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
 
     public FunctionOptTranslator(
             Translator topLevel, ScalarCaster rootScalarCaster, Evaluator rootEvaluator,
-            SortPolicy sortPolicy, boolean optimizeLone) {
+            SortPolicy sortPolicy, NameGenerator nameGenerator, boolean optimizeLone) {
         super(topLevel);
         this.rootScalarCaster = rootScalarCaster;
         this.rootEvaluator = rootEvaluator;
         this.sortPolicy = sortPolicy;
+        this.nameGenerator = nameGenerator;
         this.optimizeLone = optimizeLone;
     }
 
@@ -128,14 +132,14 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
         List<Sort> argSorts = allSorts.subList(0, allSorts.size() - 1);
         Sort resultSort = allSorts.get(allSorts.size() - 1);
 
-        String funcName = context.nameGenerator.freshName(field.label);
+        String funcName = nameGenerator.freshName(field.label);
         // The optimized type is S1 x ... x S{n-1} -> Sn, where n is the field arity
         context.addFunctionDeclaration(FuncDecl.mkFuncDecl(funcName, argSorts, resultSort));
 
         String domainPredName = null;
         if (optimizeLone && funcTypeExprsAndMult.b == ExprUnary.Op.LONE) {
             // Generate the inDomain predicate
-            domainPredName = context.nameGenerator.freshName("inDomain");
+            domainPredName = nameGenerator.freshName("inDomain");
             context.addFunctionDeclaration(FuncDecl.mkFuncDecl(domainPredName, argSorts, Sort.Bool()));
             context.addAxiom(makeDomainPredicateAxiom(boundExprs, argSorts, domainPredName, context));
         }
@@ -154,7 +158,7 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
         List<Var> vars = new ArrayList<>();
         List<AnnotatedVar> decls = new ArrayList<>();
         for (int i = 0; i < info.argSorts.size(); i++) {
-            Var var = Term.mkVar(context.nameGenerator.freshName("x" + i));
+            Var var = Term.mkVar(nameGenerator.freshName("x" + i));
             AnnotatedVar decl = var.of(info.argSorts.get(i));
             vars.add(var);
             decls.add(decl);
@@ -185,7 +189,7 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
         List<AnnotatedVar> decls = new ArrayList<>();
         List<AnnotatedTerm> terms = new ArrayList<>();
         for (int i = 0; i < argSorts.size(); i++) {
-            Var var = Term.mkVar(context.nameGenerator.freshName("x" + i));
+            Var var = Term.mkVar(nameGenerator.freshName("x" + i));
             AnnotatedVar decl = var.of(argSorts.get(i));
             vars.add(var);
             decls.add(decl);
@@ -302,7 +306,7 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
         //   [[(x1,...,x{n-1},f(x1,...,x{n-1})) \in e2]] where f is e1's function
         FieldFuncInfo leftInfo = optimizedFieldsInfo.get(left);
 
-        List<AnnotatedVar> vars = makeArgVars(leftInfo, context);
+        List<AnnotatedVar> vars = makeArgVars(leftInfo);
         TermTuple termTuple = TermTuple.fromVars(vars);
         Term domainFormula = makeDomainFormula(termTuple, leftInfo, context);
 
@@ -327,7 +331,7 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
             return null;
         }
 
-        List<AnnotatedVar> vars = makeArgVars(leftInfo, context);
+        List<AnnotatedVar> vars = makeArgVars(leftInfo);
         TermTuple termTuple = TermTuple.fromVars(vars);
 
         // TODO: if rightDomainFormula is cheaper than leftDomainFormula, swap them for a slight optimization
@@ -350,7 +354,6 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
         // x: Int one->Y (among other exotic combinations), but this is less common.
         // Then we map x.y to "x in y's domain => y(x) else 0". Defaulting to 0 is consistent with Kodkod's behaviour
         // (because an empty set sums to 0).
-        // Similarly, x.y.z will be mapped to "x in y's domain and y(x) in z's domain => z(y(x)) else 0"
         // TODO: might also have to support fun/next (ExprConstant.NEXT) here
         // Note: this case is not supported by the default translator, so this 'optimization' must be activated
         // for expressions of this form to be successfully translated.
@@ -435,10 +438,10 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
                 .collect(ValueTupleSet.collect(info.arity));
     }
 
-    private List<AnnotatedVar> makeArgVars(FieldFuncInfo info, TranslationContext context) {
+    private List<AnnotatedVar> makeArgVars(FieldFuncInfo info) {
         List<AnnotatedVar> varList = new ArrayList<>();
         for (int i = 0; i < info.argSorts.size(); i++) {
-            varList.add(Term.mkVar(context.nameGenerator.freshName("x" + i)).of(info.argSorts.get(i)));
+            varList.add(Term.mkVar(nameGenerator.freshName("x" + i)).of(info.argSorts.get(i)));
         }
         return varList;
     }

@@ -17,6 +17,7 @@ import edu.mit.csail.sdg.ast.ExprQt;
 import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Sig;
+import fortress.data.NameGenerator;
 import fortress.msfol.AnnotatedVar;
 import fortress.msfol.FuncDecl;
 import fortress.msfol.IntegerLiteral;
@@ -49,6 +50,9 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
     // For determining sorts.
     private final SortPolicy sortPolicy;
 
+    // For generating unique names for things.
+    private final NameGenerator nameGenerator;
+
     // Membership predicates for each signature (see KT 4.2).
     // Represent it by a Java function taking "x" to "inA(x)".
     // (For some arguments the function might not just return inA(x) - it could return Top or Bottom as opts.)
@@ -73,11 +77,12 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
 
     public DefaultTranslator(
             Translator topLevelTranslator, ScopeAxiomStrategy scopeAxiomStrategy, SigAxioms sigAxioms,
-            SortPolicy sortPolicy) {
+            SortPolicy sortPolicy, NameGenerator nameGenerator) {
         super(topLevelTranslator);
         this.scopeAxiomStrategy = scopeAxiomStrategy;
         this.sigAxioms = sigAxioms;
         this.sortPolicy = sortPolicy;
+        this.nameGenerator = nameGenerator;
     }
 
     @Override
@@ -97,7 +102,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
         if (sigSort == null) {
             throw new ErrorFatal("Internal Portus error: signature " + sig + " cannot be assigned a sort");
         }
-        String memPredName = context.nameGenerator.freshName("in" + sig.label);
+        String memPredName = nameGenerator.freshName("in" + sig.label);
         sigMemberPredicates.put(sig, term -> {
             if (!term.getSort().equals(sigSort)) {
                 // Any other sort is not in the signature!
@@ -212,7 +217,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
                 "A field declaration must have definite Portus sorts!", context);
 
         // Make a new predicate for the field relation (function optimization is elsewhere).
-        String relName = context.nameGenerator.freshName(field.label);
+        String relName = nameGenerator.freshName(field.label);
         relationPredicates.put(field, terms -> {
             if (terms.size() != field.type().arity()) {
                 throw new ErrorFatal("Field predicate arity mismatch: expected arity " + field.type().arity()
@@ -250,7 +255,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
         Term rangeAxiom = recursivelyTranslate(rangeAxiomAlloy, context);
 
         List<AnnotatedVar> vars = argSorts.stream()
-                .map(sort -> Term.mkVar(context.nameGenerator.freshName("x")).of(sort))
+                .map(sort -> Term.mkVar(nameGenerator.freshName("x")).of(sort))
                 .collect(Collectors.toList());
         Term domainAxiom = Term.mkForall(vars, Term.mkImp(
                 recursivelyTranslate(ExprElementOf.make(TermTuple.fromVars(vars), field), context),
@@ -353,7 +358,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
         // Naive join implementation without optimizations (see KT figure 4.11).
         // [[(x1,...,xn) \in e1 . e2]] := exists y: sort . [[(x1,...,xm,y) \in e1]] &&
         //   [[(y,x{m+1},...,xn) \in e2]] where arity(e1) = m+1 and arity(e2) = n-m+1 and m<n
-        Var yVar = Term.mkVar(context.nameGenerator.freshName("y"));
+        Var yVar = Term.mkVar(nameGenerator.freshName("y"));
 
         // Determine the sort that y should have.
         int partitionIdx = left.type().arity() - 1; // so that adding y gives the arity
@@ -472,7 +477,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
         List<AnnotatedTerm> allTerms = new ArrayList<>();
         allTerms.add(tuple.getAnnotatedTerm(0));
         for (int i = 1; i < arity; i++) {
-            Var yVar = Term.mkVar(context.nameGenerator.freshName("y" + i));
+            Var yVar = Term.mkVar(nameGenerator.freshName("y" + i));
             // TODO: how much short circuiting can we do here?
             AnnotatedVar y = yVar.of(overrideSorts.get(i));
             quantifiedVars.add(y);
@@ -670,7 +675,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
 
         // Create the variables
         List<AnnotatedVar> vars = IntStream.range(0, e1.type().arity())
-                .mapToObj(idx -> Term.mkVar(context.nameGenerator.freshName("x" + idx))
+                .mapToObj(idx -> Term.mkVar(nameGenerator.freshName("x" + idx))
                         .of(sorts.get(idx)))
                 .collect(Collectors.toList());
 
@@ -824,7 +829,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
 
         List<AnnotatedVar> vars = new ArrayList<>();
         for (int i = 0; i < expr.type().arity(); i++) {
-            Var var = Term.mkVar("x" + i);
+            Var var = Term.mkVar(nameGenerator.freshName("x" + i));
             vars.add(var.of(sorts.get(i)));
         }
 
@@ -944,15 +949,15 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
 
         // Introduce an auxiliary relation f(x,y) = [[(x,y) \in expr]] of type sort->sort
         // Also include any free variables in the term as extra arguments.
-        String auxRelationName = context.nameGenerator.freshName("closureAux_" + sort.name());
+        String auxRelationName = nameGenerator.freshName("closureAux_" + sort.name());
         auxClosureRelationNames.add(new Pair<>(new Pair<>(expandedExpr, auxRelSorts), auxRelationName));
         FuncDecl auxDecl = FuncDecl.mkFuncDecl(auxRelationName, auxRelSorts, Sort.Bool());
         context.addFunctionDeclaration(auxDecl);
 
         // Give it our desired interpretation with an axiom "forall x, y: sort . f(x,y) = [[(x, y) \in expr]]".
         // TODO: this can be done more cheaply (avoiding the forall) with a definition instead
-        Var x = Term.mkVar(context.nameGenerator.freshName("x"));
-        Var y = Term.mkVar(context.nameGenerator.freshName("y"));
+        Var x = Term.mkVar(nameGenerator.freshName("x"));
+        Var y = Term.mkVar(nameGenerator.freshName("y"));
         List<AnnotatedVar> axiomDecls = new ArrayList<>(Arrays.asList(x.of(sort), y.of(sort)));
         axiomDecls.addAll(freeVars);
         List<Var> allVars = axiomDecls.stream().map(AnnotatedVar::variable).collect(Collectors.toList());
@@ -985,9 +990,9 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
             // see KT figure 4.6, extended to any number of ops
             // note that an empty AND list is always true, and an empty OR list is always false
             case AND:
-                return translatedArgs.size() == 0 ? Term.mkTop() : Term.mkAnd(translatedArgs);
+                return translatedArgs.isEmpty() ? Term.mkTop() : Term.mkAnd(translatedArgs);
             case OR:
-                return translatedArgs.size() == 0 ? Term.mkBottom() : Term.mkOr(translatedArgs);
+                return translatedArgs.isEmpty() ? Term.mkBottom() : Term.mkOr(translatedArgs);
             default:
                 // we don't yet support DISJOINT or TOTALORDER
                 throw new ErrorNoPortusSupport("Unsupported ExprList formula: " + expr.op);
@@ -1061,7 +1066,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
         List<Sort> exprSorts = exprResolvant.getDefiniteSorts();
 
         for (int i = 0; i < arity; i++) {
-            Var var = Term.mkVar(context.nameGenerator.freshName("x" + i));
+            Var var = Term.mkVar(nameGenerator.freshName("x" + i));
             vars.add(var.of(exprSorts.get(i)));
         }
 
@@ -1107,7 +1112,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
 
         // Translate all the decls into Fortress
         Pair<Pair<List<String>, List<AnnotatedVar>>, AnnotatedTerm> varsAndCond =
-                PortusUtil.translateDeclList(expr.decls, context, sortPolicy, topLevelTranslator);
+                PortusUtil.translateDeclList(expr.decls, context, sortPolicy, topLevelTranslator, nameGenerator);
         List<String> alloyVarNames = varsAndCond.a.a;
         List<AnnotatedVar> vars = varsAndCond.a.b;
         Term condition = varsAndCond.b.getTerm();
@@ -1538,8 +1543,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
     /** Generate a copy of `vars` with each variable suffixed with "_prime". */
     private List<AnnotatedVar> prime(List<AnnotatedVar> vars, TranslationContext context) {
         return vars.stream()
-                .map(var -> Term.mkVar(context.nameGenerator.freshName(var.variable().name() + "_prime"))
-                        .of(var.sort()))
+                .map(var -> Term.mkVar(nameGenerator.freshName(var.variable().name() + "_prime")).of(var.sort()))
                 .collect(Collectors.toList());
     }
 

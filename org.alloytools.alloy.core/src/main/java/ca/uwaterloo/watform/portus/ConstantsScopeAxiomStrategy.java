@@ -2,6 +2,7 @@ package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.ast.Sig;
+import fortress.data.NameGenerator;
 import fortress.msfol.AnnotatedVar;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
@@ -19,9 +20,11 @@ import java.util.function.Function;
 final class ConstantsScopeAxiomStrategy implements ScopeAxiomStrategy {
 
     private final SortPolicy sortPolicy;
+    private final NameGenerator nameGenerator;
 
-    public ConstantsScopeAxiomStrategy(SortPolicy sortPolicy) {
+    public ConstantsScopeAxiomStrategy(SortPolicy sortPolicy, NameGenerator nameGenerator) {
         this.sortPolicy = sortPolicy;
+        this.nameGenerator = nameGenerator;
     }
 
     @Override
@@ -66,7 +69,7 @@ final class ConstantsScopeAxiomStrategy implements ScopeAxiomStrategy {
 
         // Generate all constants and their assertions
         for (int i = 0; i < numConstants; i++) {
-            String name = context.nameGenerator.freshName("scope_" + sort.name() + "_" + i);
+            String name = nameGenerator.freshName("scope_" + sort.name() + "_" + i);
             Var constant = Term.mkVar(name);
             constants.add(constant);
 

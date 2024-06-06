@@ -19,7 +19,6 @@ import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Func;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.parser.Macro;
-import fortress.data.IntSuffixNameGenerator;
 import fortress.data.NameGenerator;
 import fortress.msfol.AndList;
 import fortress.msfol.AnnotatedVar;
@@ -185,7 +184,7 @@ final class PortusUtil {
      * Is `ancestor` an ancestor of `sig` in the signature hierarchy?
      */
     public static boolean isAncestorSig(Sig.PrimSig ancestor, Sig.PrimSig sig) {
-        return sig.equals(ancestor) || (!sig.isTopLevel() && isAncestorSig(sig.parent, ancestor));
+        return sig.equals(ancestor) || (!sig.isTopLevel() && isAncestorSig(ancestor, sig.parent));
     }
 
     /**
@@ -222,7 +221,8 @@ final class PortusUtil {
      * This must be handled at a higher level.
      */
     public static Pair<Pair<List<String>, List<AnnotatedVar>>, AnnotatedTerm> translateDeclList(
-            List<Decl> decls, TranslationContext context, SortPolicy sortPolicy, Translator rootTranslator) {
+            List<Decl> decls, TranslationContext context, SortPolicy sortPolicy, Translator rootTranslator,
+            NameGenerator nameGenerator) {
         List<String> alloyVarNames = new ArrayList<>();
         List<AnnotatedVar> fortressVars = new ArrayList<>();
         List<Term> conditions = new ArrayList<>();
@@ -260,7 +260,7 @@ final class PortusUtil {
                     }
                 }
 
-                Var var = Term.mkVar(context.nameGenerator.freshName(name.label));
+                Var var = Term.mkVar(nameGenerator.freshName(name.label));
                 // Note that the decl expr has to be unary since typechecking should have caught anything else
                 String definiteSortsError = "Translating a quantification requires the variable declarations " +
                         "to have definite and well-defined Portus sorts!";
@@ -314,8 +314,7 @@ final class PortusUtil {
         }
 
         // TODO: can we use FastSubstituter in some cases?
-        //noinspection unchecked
-        NameGenerator nameGen = new IntSuffixNameGenerator(new scala.collection.immutable.HashSet<String>(), 0);
+        NameGenerator nameGen = new SanitizingNameGenerator();
         for (int i = 0; i < a.size(); i++) {
             Var from = a.get(i).variable();
             Term to = b.get(i);

@@ -142,6 +142,49 @@ public class PortusUtilTest {
     }
 
     @Test
+    public void testIsAncestorSig_unrelated() {
+        Sig.PrimSig sigA = new Sig.PrimSig("A");
+        Sig.PrimSig sigB = new Sig.PrimSig("B");
+        assertFalse(PortusUtil.isAncestorSig(sigA, sigB));
+    }
+
+    @Test
+    public void testIsAncestorSig_equal() {
+        Sig.PrimSig sigA = new Sig.PrimSig("A");
+        assertTrue(PortusUtil.isAncestorSig(sigA, sigA));
+    }
+
+    @Test
+    public void testIsAncestorSig_child() {
+        Sig.PrimSig parent = new Sig.PrimSig("Parent");
+        Sig.PrimSig child = new Sig.PrimSig(null, "Child", new Pos("", 0, 0), parent);
+        assertTrue(PortusUtil.isAncestorSig(parent, child));
+        assertFalse(PortusUtil.isAncestorSig(child, parent));
+    }
+
+    @Test
+    public void testIsAncestorSig_grandchild() {
+        Sig.PrimSig parent = new Sig.PrimSig("Parent");
+        Sig.PrimSig child = new Sig.PrimSig(null, "Child", new Pos("", 0, 0), parent);
+        Sig.PrimSig grandchild = new Sig.PrimSig(null, "Grandchild", new Pos("", 0, 0), child);
+        assertTrue(PortusUtil.isAncestorSig(parent, grandchild));
+        assertTrue(PortusUtil.isAncestorSig(parent, child));
+        assertTrue(PortusUtil.isAncestorSig(child, grandchild));
+        assertFalse(PortusUtil.isAncestorSig(grandchild, parent));
+        assertFalse(PortusUtil.isAncestorSig(grandchild, child));
+        assertFalse(PortusUtil.isAncestorSig(child, parent));
+    }
+
+    @Test
+    public void testIsAncestorSig_siblings() {
+        Sig.PrimSig parent = new Sig.PrimSig("Parent");
+        Sig.PrimSig child1 = new Sig.PrimSig(null, "Child1", new Pos("", 0, 0), parent);
+        Sig.PrimSig child2 = new Sig.PrimSig(null, "Child2", new Pos("", 0, 0), parent);
+        assertFalse(PortusUtil.isAncestorSig(child1, child2));
+        assertFalse(PortusUtil.isAncestorSig(child2, child1));
+    }
+
+    @Test
     public void testComputeFreeVariables_triviallyNone() {
         Sort sort = Sort.mkSortConst("S");
         Sig sig = new Sig.PrimSig("S");

@@ -18,6 +18,7 @@ import edu.mit.csail.sdg.ast.Func;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.ast.Type;
 import edu.mit.csail.sdg.translator.ScopeComputer;
+import fortress.data.NameGenerator;
 import fortress.msfol.AnnotatedVar;
 import fortress.msfol.App;
 import fortress.msfol.DomainElement;
@@ -85,8 +86,9 @@ public class DefaultTranslatorTest {
         mockScoper = mock(ScopeComputer.class);
         mockSortPolicy = mock(SortPolicy.class, delegatesTo(
                 new UnivSortPolicy(univ, Collections.emptyList(), mockScoper)));
-        translator = new DefaultTranslator(mockRoot, new QuantifierScopeAxiomStrategy(mockSortPolicy),
-                new SigAxioms(mockRoot, mockSortPolicy), mockSortPolicy);
+        NameGenerator nameGenerator = new SanitizingNameGenerator();
+        translator = new DefaultTranslator(mockRoot, new QuantifierScopeAxiomStrategy(mockSortPolicy, nameGenerator),
+                new SigAxioms(mockRoot, mockSortPolicy, nameGenerator), mockSortPolicy, nameGenerator);
         // Use the constructor so RangeAssigner's list of sigs isn't null (causes issues with copy constructor)
         RangeAssigner mockRangeAssigner = mock(RangeAssigner.class,
                 withSettings().useConstructor(new ArrayList<>(), mockSortPolicy, mockScoper));
@@ -268,9 +270,9 @@ public class DefaultTranslatorTest {
                 Arrays.asList(x0.of(univ), x1.of(univ), x2.of(univ)),
                 Term.mkImp(
                         Term.mkAnd(
-                                makeFlagConstant("inFlag_x0"),
-                                makeFlagConstant("inFlag_x1"),
-                                makeFlagConstant("inFlag_x2")),
+                                makeFlagConstant("inFlag_x0_0"),
+                                makeFlagConstant("inFlag_x1_0"),
+                                makeFlagConstant("inFlag_x2_0")),
                         Term.mkOr(
                                 Term.mkEq(x0, x1),
                                 Term.mkEq(x0, x2),
@@ -347,9 +349,9 @@ public class DefaultTranslatorTest {
                 Arrays.asList(x0.of(univ), x1.of(univ), x2.of(univ)),
                 Term.mkImp(
                         Term.mkAnd(
-                                makeFlagConstant("inFlag_x0"),
-                                makeFlagConstant("inFlag_x1"),
-                                makeFlagConstant("inFlag_x2")),
+                                makeFlagConstant("inFlag_x0_0"),
+                                makeFlagConstant("inFlag_x1_0"),
+                                makeFlagConstant("inFlag_x2_0")),
                         Term.mkOr(
                                 Term.mkEq(x0, x1),
                                 Term.mkEq(x0, x2),
@@ -484,7 +486,7 @@ public class DefaultTranslatorTest {
         // create the expected disjoint axiom
         Var x = Term.mkVar("x");
         Term disjointnessAxiom = Term.mkForall(x.of(univ),
-                Term.mkNot(Term.mkAnd(makeFlagConstant("inFlag_x_0"), makeFlagConstant("inFlag_x_0"))));
+                Term.mkNot(Term.mkAnd(makeFlagConstant("inFlag_x_1"), makeFlagConstant("inFlag_x_1"))));
 
         // create the expected exact scope axiom for the parent
         // "exists x1, x2: univ . forall y: univ . !(x1 = x2) && ([[y \in S]] <=> y = x1 || y = x2)"
@@ -494,15 +496,15 @@ public class DefaultTranslatorTest {
         Term exactScopeAxiom1 = Term.mkExists(Arrays.asList(x1.of(univ), x2.of(univ)),
                 Term.mkForall(y.of(univ), Term.mkAnd(
                         Term.mkNot(Term.mkEq(x1, x2)),
-                        // use 'x' since it's the variable name they use
-                        Term.mkIff(makeFlagConstant("inFlag_x"), Term.mkOr(
+                        // use 'x_2' since it's the variable name they use
+                        Term.mkIff(makeFlagConstant("inFlag_x_2"), Term.mkOr(
                                 Term.mkEq(y, x1),
                                 Term.mkEq(y, x2))))));
 
         // create the expected exact scope axiom for the child
         // "exists x1: univ . forall x: univ . [[x \in child1]] <=> x = x1"
         Term exactScopeAxiom2 = Term.mkExists(x1.of(univ), Term.mkForall(x.of(univ),
-                Term.mkIff(makeFlagConstant("inFlag_x"), Term.mkEq(x, x1))));
+                Term.mkIff(makeFlagConstant("inFlag_x_0"), Term.mkEq(x, x1))));
 
         // create the expected non-exact scope axiom for the child
         // "forall x0, x1: univ . [[x0 \in child2]] && [[x1 \in child2]] => x0 = x1"
@@ -510,8 +512,8 @@ public class DefaultTranslatorTest {
         Term nonExactScopeAxiom = Term.mkForall(Arrays.asList(x0.of(univ), x1.of(univ)),
                 Term.mkImp(
                         Term.mkAnd(
-                                makeFlagConstant("inFlag_x0"),
-                                makeFlagConstant("inFlag_x1")),
+                                makeFlagConstant("inFlag_x0_1"),
+                                makeFlagConstant("inFlag_x1_0")),
                         Term.mkEq(x0, x1)));
 
         // should have exactly these axioms, plus redundant parent/child axioms for the children

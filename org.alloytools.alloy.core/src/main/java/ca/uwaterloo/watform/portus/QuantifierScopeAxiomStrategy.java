@@ -1,6 +1,7 @@
 package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.ast.Sig;
+import fortress.data.NameGenerator;
 import fortress.msfol.AnnotatedVar;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
@@ -15,9 +16,11 @@ import java.util.stream.Collectors;
 final class QuantifierScopeAxiomStrategy implements ScopeAxiomStrategy {
 
     private final SortPolicy sortPolicy;
+    private final NameGenerator nameGenerator;
 
-    public QuantifierScopeAxiomStrategy(SortPolicy sortPolicy) {
+    public QuantifierScopeAxiomStrategy(SortPolicy sortPolicy, NameGenerator nameGenerator) {
         this.sortPolicy = sortPolicy;
+        this.nameGenerator = nameGenerator;
     }
 
     @Override
@@ -25,8 +28,8 @@ final class QuantifierScopeAxiomStrategy implements ScopeAxiomStrategy {
         // Fortress: "exists x1, ..., xn: sort . forall x: sort . !(x1 = x2) && ...
         // && !(x1 = xn) && !(x2 = x3) && ... && !(x{n-1} = xn) && ([[x \in sig]] <=> x = x1
         // || ... || x = xn)" (KT 4.3)
-        List<AnnotatedVar> vars = makeVars(scope, sig, context);
-        AnnotatedVar x = AnnotatedVar.apply(Term.mkVar("x"), sortPolicy.getSort(sig));
+        List<AnnotatedVar> vars = makeVars(scope, sig);
+        AnnotatedVar x = AnnotatedVar.apply(Term.mkVar(nameGenerator.freshName("x")), sortPolicy.getSort(sig));
 
         // construct the !(xi = xj) conjuncts
         List<Term> conjuncts = new ArrayList<>();
@@ -55,7 +58,7 @@ final class QuantifierScopeAxiomStrategy implements ScopeAxiomStrategy {
         // Fortress: "forall x1, ..., x{n+1}: sort . [[x1 \in child]] && ... && [[x{n+1} \in child]] =>
         // x1 = x2 || .. || x1 = x{n+1} || x2 = x3 || ... || xn = x{n+1}" (KT 4.3)
         int numVars = scope + 1;
-        List<AnnotatedVar> vars = makeVars(numVars, sig, context);
+        List<AnnotatedVar> vars = makeVars(numVars, sig);
 
         // construct the conjuncts
         List<Term> conjuncts = vars.stream()
@@ -76,12 +79,12 @@ final class QuantifierScopeAxiomStrategy implements ScopeAxiomStrategy {
         return Term.mkForall(vars, Term.mkImp(conjunction, disjunction));
     }
 
-    private List<AnnotatedVar> makeVars(int numVars, Sig sig, TranslationContext context) {
+    private List<AnnotatedVar> makeVars(int numVars, Sig sig) {
         List<AnnotatedVar> vars = new ArrayList<>(numVars);
         Sort sigSort = sortPolicy.getSort(sig);
         assert sigSort != null;
         for (int i = 0; i < numVars; i++) {
-            vars.add(AnnotatedVar.apply(Term.mkVar("x" + i), sigSort));
+            vars.add(AnnotatedVar.apply(Term.mkVar(nameGenerator.freshName("x" + i)), sigSort));
         }
         return vars;
     }
