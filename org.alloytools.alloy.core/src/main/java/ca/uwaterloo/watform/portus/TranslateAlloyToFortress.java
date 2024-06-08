@@ -21,8 +21,6 @@ import fortress.msfol.Sort;
 import fortress.msfol.Term;
 import fortress.msfol.Theory;
 import fortress.operations.SmtlibConverter;
-import fortress.problemstate.ProblemState;
-import fortress.problemstate.Scope;
 import fortress.solverinterface.SolverInterface;
 import fortress.solverinterface.Z3CliInterface$;
 import fortress.solverinterface.solver;
@@ -49,32 +47,38 @@ import java.util.List;
  */
 public final class TranslateAlloyToFortress implements CommandRunner {
 
-    private final PortusStatistics statistics;
-
-    public TranslateAlloyToFortress() {
-        this.statistics = new PortusStatistics();
-    }
-
-    public TranslateAlloyToFortress(PortusStatistics statistics) {
-        this.statistics = statistics;
-    }
-
     /**
      * Execute a command. Throws {@link TimeoutException} if the solver times out.
      */
     @Override
     public AlloySolution executeCommand(
             A4Reporter reporter, Module world, Command command, A4Options options) {
-        ScopeComputer scoper = ScopeComputer.compute(reporter, options, world.getAllReachableSigs(), command).b;
-        PortusLogger logger = new PortusLogger(reporter);
+        return executeCommand(reporter, new PortusStatistics(), world, command, options);
+    }
 
+    /**
+     * Execute a command. Throws {@link TimeoutException} if the solver times out.
+     */
+    public AlloySolution executeCommand(
+            A4Reporter reporter, PortusStatistics statistics, Module world, Command command, A4Options options) {
+        PortusLogger logger = new PortusLogger(reporter);
+        ScopeComputer scoper = ScopeComputer.compute(reporter, options, world.getAllReachableSigs(), command).b;
+
+        statistics.onStartPortus();
         try {
             // Actually execute the command, and time it.
-            statistics.onStartPortus();
             logger.translationStarted(options.solver.id(), scoper.getBitwidth(), scoper.getMaxSeq());
-            AlloySolution solution = executeCommand(logger, world, command, scoper, options);
+
+            TranslationResult translated = translate(statistics, world, command, scoper, options);
+
+            logger.translationFinished(translated.getTheory());
+
+            Interpretation interpretation = solve(logger, statistics, translated, options);
+            AlloySolution solution = new FortressSolution(
+                    interpretation, translated.getEvaluator(), translated.getContext(),
+                    world.getAllReachableSigs(), options.originalFilename, command.toString());
+
             logger.outputResult(command, solution);
-            statistics.onPortusFinished();
             return solution;
         } catch (IOException e) {
             throw new ErrorFatal("IOException in Fortress translation", e);
@@ -84,49 +88,73 @@ public final class TranslateAlloyToFortress implements CommandRunner {
         } catch (Throwable e) {
             // Alloy will catch it anyways, so rethrow as ErrorFatal for a more helpful debug message.
             throw new ErrorFatal(e.getMessage(), e);
+        } finally {
+            statistics.onPortusFinished();
         }
     }
 
-    // Execute the command specified by command, mutating and returning solution.
-    private AlloySolution executeCommand(
-            PortusLogger logger, Module world, Command command,
-            ScopeComputer scoper, A4Options options) throws IOException {
-        // Decide on the sort policy with the options
-        Iterable<Sig> sigs = world.getAllReachableSigs();
-        NameGenerator nameGenerator = new SanitizingNameGenerator();
-        SortPolicy sortPolicy = options.portusOptions.getSortPolicy(sigs, command, scoper, nameGenerator);
-        RangeAssigner rangeAssigner = new RangeAssigner(sigs, sortPolicy, scoper);
+    /**
+     * Translate the command to an MSFOL theory without executing it.
+     */
+    public TranslationResult translate(PortusStatistics statistics, Module world, Command command, A4Options options) {
+        ScopeComputer scoper = ScopeComputer.compute(A4Reporter.NOP, options, world.getAllReachableSigs(), command).b;
+        return translate(statistics, world, command, scoper, options);
+    }
 
-        TranslatorManager translatorManager = new TranslatorManager(
-                options.portusOptions, statistics, sortPolicy, nameGenerator);
-        TranslationContext context = new TranslationContext(options.portusOptions, scoper, sortPolicy, rangeAssigner);
+    /** Translate the model from Alloy to Fortress. */
+    private TranslationResult translate(
+            PortusStatistics statistics, Module world, Command command, ScopeComputer scoper, A4Options options) {
+        statistics.onStartTranslation();
+        try {
 
-        // Perform the entire translation.
-        translatorManager.runAllPasses(world, command, scoper, context);
+            // Decide on the sort policy with the options
+            Iterable<Sig> sigs = world.getAllReachableSigs();
+            NameGenerator nameGenerator = new SanitizingNameGenerator();
+            SortPolicy sortPolicy = options.portusOptions.getSortPolicy(sigs, command, scoper, nameGenerator);
+            RangeAssigner rangeAssigner = new RangeAssigner(sigs, sortPolicy, scoper);
 
-        statistics.setTheoryStats(context.getTheory());
-        logger.translationFinished(context.getTheory());
+            TranslatorManager translatorManager = new TranslatorManager(
+                    options.portusOptions, statistics, sortPolicy, nameGenerator);
+            TranslationContext context = new TranslationContext(
+                    options.portusOptions, scoper, sortPolicy, rangeAssigner);
 
+            // Perform the entire translation.
+            translatorManager.runAllPasses(world, command, scoper, context);
+
+            statistics.setTheoryStats(context.getTheory());
+            return new TranslationResult(translatorManager, sortPolicy, context);
+        } finally {
+            statistics.onTranslationFinished();
+        }
+    }
+
+    /** Solve the translated Fortress model. */
+    private Interpretation solve(
+            PortusLogger logger, PortusStatistics statistics, TranslationResult translated, A4Options options)
+            throws IOException {
         // Write raw MSFOL or SMTLIB+ to file if the appropriate solver is chosen
         if (options.solver.id().equals(A4Options.SatSolver.FORTRESS_MSFOL.id())) {
-            writeFortressToFile(logger, options, sortPolicy, context);
+            writeFortressToFile(logger, options, translated);
             return null;
         }
         if (options.solver.id().equals(A4Options.SatSolver.POST_FORTRESS_SMTLIB.id())
-            || options.solver.id().equals(A4Options.SatSolver.PRE_FORTRESS_SMTLIB.id())) {
-            writeSmtlibToFile(logger, options, sortPolicy, context);
+                || options.solver.id().equals(A4Options.SatSolver.PRE_FORTRESS_SMTLIB.id())) {
+            writeSmtlibToFile(logger, options, translated);
             return null;
         }
 
-        // TODO: choose a solver based on options
         try (ModelFinder finder = createModelFinder(Z3CliInterface$.MODULE$, options.portusOptions)) {
-            context.configureModelFinder(finder, sortPolicy);
+            translated.configureModelFinder(finder);
             finder.setTimeout(Milliseconds.apply(options.portusOptions.timeoutMillis));
             finder.addLogger(logger);
 
             statistics.onStartSmtSolver();
-            ModelFinderResult result = finder.checkSat(false); // TODO verbosity
-            statistics.onSmtSolverFinished();
+            ModelFinderResult result;
+            try {
+                result = finder.checkSat(false);
+            } finally {
+                statistics.onSmtSolverFinished();
+            }
 
             if (result instanceof ErrorResult) {
                 throw new ErrorFatal("Fortress error: " + ((ErrorResult) result).message());
@@ -135,10 +163,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
                 throw new TimeoutException();
             }
 
-            Interpretation interpretation = (result == ModelFinderResult.Sat()) ? finder.viewModel() : null;
-            return new FortressSolution(
-                    interpretation, translatorManager, context, sigs, options.originalFilename,
-                    command.toString());
+            return (result == ModelFinderResult.Sat()) ? finder.viewModel() : null;
         }
     }
 
@@ -151,14 +176,13 @@ public final class TranslateAlloyToFortress implements CommandRunner {
         };
     }
 
-    private void writeFortressToFile(
-            PortusLogger logger, A4Options options, SortPolicy sortPolicy, TranslationContext context)
+    private void writeFortressToFile(PortusLogger logger, A4Options options, TranslationResult translated)
             throws IOException {
         List<String> lines = new ArrayList<>();
-        lines.add(context.getTheory().toString());
-        lines.add("Bitwidth: " + context.getBitwidth());
-        for (Sort sort : context.getTheory().sortsJava()) {
-            lines.add("Scope of " + sort.name() + ": " + sortPolicy.getSortScope(sort));
+        lines.add(translated.getTheory().toString());
+        lines.add("Bitwidth: " + translated.getBitwidth());
+        for (Sort sort : translated.getTheory().sortsJava()) {
+            lines.add("Scope of " + sort.name() + ": " + translated.getSortScope(sort));
         }
 
         File fortressFile = options.portusOptions.createOutputFile(PortusOptions.MSFOL_EXTENSION);
@@ -166,8 +190,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
         logger.outputFilename(fortressFile.getAbsolutePath());
     }
 
-    private void writeSmtlibToFile(
-            PortusLogger logger, A4Options options, SortPolicy sortPolicy, TranslationContext context)
+    private void writeSmtlibToFile(PortusLogger logger, A4Options options, TranslationResult translated)
             throws IOException {
         // Output the SMT-LIB generated by Fortress to a file
         File smtlibFile = options.portusOptions.createOutputFile(PortusOptions.SMTLIBPLUS_EXTENSION);
@@ -179,11 +202,9 @@ public final class TranslateAlloyToFortress implements CommandRunner {
                 @Override
                 public void setTheory(Theory theory) {
                     // In order to dump the scope info as well, we need to create a problem state from the theory
-                    // and scopes and dump that. TODO verbosity.
-                    ProblemState problemState = ProblemState.apply(theory,
-                            PortusUtil.<Sort, Scope>toScalaMap(context.getSortToScopeMap(sortPolicy)), false);
+                    // and scopes and dump that.
                     try {
-                        writer.write(Dump.problemStateToSmtlib(problemState));
+                        writer.write(Dump.problemStateToSmtlib(translated.getProblemState()));
                     } catch (IOException e) {
                         throw new UncheckedIOException(e);
                     }
@@ -226,8 +247,8 @@ public final class TranslateAlloyToFortress implements CommandRunner {
                 };
             }
 
-            context.configureModelFinder(finder, sortPolicy);
-            finder.checkSat(false); // TODO verbosity
+            translated.configureModelFinder(finder);
+            finder.checkSat(false);
             writer.flush();
         }
         logger.outputFilename(smtlibFile.getAbsolutePath());

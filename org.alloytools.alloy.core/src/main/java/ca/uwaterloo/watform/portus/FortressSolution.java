@@ -11,6 +11,7 @@ import edu.mit.csail.sdg.alloy4.Util;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Func;
+import edu.mit.csail.sdg.ast.Module;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.A4Solution;
 import edu.mit.csail.sdg.translator.A4SolutionWriter;
@@ -48,7 +49,7 @@ public class FortressSolution implements AlloySolution {
     /** The Fortress interpretation corresponding to this solution (null if unsat). */
     private final Interpretation interpretation;
 
-    /** An evaluator which contains the state necessary to evaluate expressions in this interpretation.. */
+    /** An evaluator which contains the state necessary to evaluate expressions in this interpretation. */
     private final Evaluator evaluator;
 
     /** The context of the translation used to produce the interpretation. */

@@ -25,6 +25,10 @@ public final class PortusStatistics {
 
         @SuppressWarnings("SameParameterValue")
         private void print(String indent, Function<T, String> namer) {
+            if (usageCounts.isEmpty()) {
+                System.out.println(indent + "(none)");
+                return;
+            }
             usageCounts.entrySet().stream()
                     .sorted(Comparator.comparing(entry -> namer.apply(entry.getKey()), String::compareToIgnoreCase))
                     .forEach(entry -> {
@@ -52,6 +56,7 @@ public final class PortusStatistics {
     public final Counter castToScalarCacheHitCount = new Counter();
 
     private final Stopwatch portusStopwatch = new Stopwatch();
+    private final Stopwatch translationStopwatch = new Stopwatch();
     private final Stopwatch smtSolverStopwatch = new Stopwatch();
     private final Stopwatch kodkodStopwatch = new Stopwatch();
 
@@ -61,6 +66,14 @@ public final class PortusStatistics {
 
     public void onPortusFinished() {
         portusStopwatch.stop();
+    }
+
+    public void onStartTranslation() {
+        translationStopwatch.start();
+    }
+
+    public void onTranslationFinished() {
+        translationStopwatch.stop();
     }
 
     public void onStartSmtSolver() {
@@ -132,8 +145,15 @@ public final class PortusStatistics {
             System.out.println(indent + "Cast-to-scalar cache hits: " + castToScalarCacheHitCount.count);
         }
 
-        System.out.println(indent + "Portus time: " + portusStopwatch.formatDuration());
-        System.out.println(indent + "SMT solver time: " + smtSolverStopwatch.formatDuration());
+        if (portusStopwatch.hasRun()) {
+            System.out.println(indent + "Portus time: " + portusStopwatch.formatDuration());
+        }
+        if (translationStopwatch.hasRun()) {
+            System.out.println(indent + "Portus translation time: " + translationStopwatch.formatDuration());
+        }
+        if (smtSolverStopwatch.hasRun()) {
+            System.out.println(indent + "SMT solver time: " + smtSolverStopwatch.formatDuration());
+        }
         if (kodkodStopwatch.hasRun()) {
             System.out.println(indent + "Kodkod time: " + kodkodStopwatch.formatDuration());
         }

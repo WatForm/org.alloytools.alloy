@@ -34,13 +34,13 @@ final class CorrectnessCommandProcessor implements CommandProcessor {
 
         System.out.println("Portus result: " + (result.fortressSolution.satisfiable() ? "SAT" : "UNSAT"));
         if (result.fortressSolution.satisfiable()) {
-            System.out.println("Portus interpretation: " + result.fortressSolution.format());
+            System.out.println("Portus interpretation:");
+            System.out.println(result.fortressSolution.format());
         }
         if (result.kind.isError) {
-            System.err.println("ERROR: " + result.kind.description);
-        } else {
-            System.out.println(result.kind.description);
+            System.err.print("ERROR: ");
         }
+        System.out.println(result.kind.description);
         statistics.printSummary(options.portusOptions);
         return !result.kind.isError;
     }

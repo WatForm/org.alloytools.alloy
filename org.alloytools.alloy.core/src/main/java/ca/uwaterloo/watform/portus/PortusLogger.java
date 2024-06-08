@@ -23,6 +23,11 @@ public final class PortusLogger implements EventLogger {
         this.reporter = reporter;
     }
 
+    /** For passing to Alloy when an A4Reporter is required. */
+    public A4Reporter getReporter() {
+        return reporter;
+    }
+
     /** Called when we're just about to begin the Alloy to Fortress translation. */
     public void translationStarted(String solver, int bitwidth, int maxseq) {
         // we have to call this to get accurate timing from the default reporter (even though it says "Generating CNF")
