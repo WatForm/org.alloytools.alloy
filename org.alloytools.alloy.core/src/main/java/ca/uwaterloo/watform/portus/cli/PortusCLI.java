@@ -313,6 +313,12 @@ public final class PortusCLI {
     private static List<CommandProcessor> getCommandProcessors(PortusCLIOptions options) {
         // This could be abstracted if needed, but it's probably fine.
         List<CommandProcessor> processors = new ArrayList<>();
+        if (options.useStatisticsProcessor.active()) {
+            processors.add(new StatisticsCommandProcessor());
+        }
+        if (options.useCountCommandsProcessor.active()) {
+            processors.add(new CountCommandsCommandProcessor());
+        }
         if (options.useRunPortusProcessor.active()) {
             processors.add(new RunCommandProcessor(A4Options.SatSolver.Z3));
         }
@@ -330,9 +336,6 @@ public final class PortusCLI {
             processors.add(new OutputSmtlibCommandProcessor(A4Options.SatSolver.PRE_FORTRESS_SMTLIB));
         } else if (options.useOutputPostSmtlibProcessor.active()) { // don't do both - confusing
             processors.add(new OutputSmtlibCommandProcessor(A4Options.SatSolver.POST_FORTRESS_SMTLIB));
-        }
-        if (options.useCountCommandsProcessor.active()) {
-            processors.add(new CountCommandsCommandProcessor());
         }
         return processors;
     }

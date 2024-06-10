@@ -7,7 +7,6 @@ import edu.mit.csail.sdg.ast.Command;
 import edu.mit.csail.sdg.ast.Module;
 import edu.mit.csail.sdg.translator.A4Options;
 import edu.mit.csail.sdg.translator.AlloySolution;
-import edu.mit.csail.sdg.translator.CommandRunner;
 
 final class RunCommandProcessor implements CommandProcessor {
 
@@ -19,21 +18,19 @@ final class RunCommandProcessor implements CommandProcessor {
 
     @Override
     public boolean process(Module world, Command command, A4Options options) {
-        // Run with statistics if this solver if a Portus solver
+        // Run with statistics if this solver is a Portus solver
         // TODO: this is an ugly hack, fix it somehow
         boolean isPortus = solver instanceof PortusOptions.FortressSmtSolver;
         PortusStatistics statistics = new PortusStatistics();
 
-        CommandRunner runner;
-        if (isPortus) {
-            runner = ((PortusOptions.FortressSmtSolver) solver).commandRunnerWithStatistics(statistics);
-        } else {
-            runner = solver.commandRunner();
-        }
-
         try {
-            AlloySolution solution = runner.executeCommand(
-                    A4Reporter.NOP, world, command, options);
+            AlloySolution solution;
+            if (isPortus) {
+                solution = ((PortusOptions.FortressSmtSolver) solver).commandRunner().executeCommand(
+                        A4Reporter.NOP, statistics, world, command, options);
+            } else {
+                solution = solver.commandRunner().executeCommand(A4Reporter.NOP, world, command, options);
+            }
             System.out.println("Result: " + (solution.satisfiable() ? "SAT" : "UNSAT"));
             if (solution.satisfiable()) {
                 System.out.println("Interpretation:");

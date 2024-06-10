@@ -40,12 +40,14 @@ final class PortusCLIOptions {
     public final Option useRunKodkodProcessor = new Option("-rk", "Run Kodkod (Sat4j) on each command.");
     public final Option useCorrectnessProcessor = new Option("-c", "Check Portus correctness on each command.");
     public final Option useDeltaDebugProcessor = new Option(
-            "-dd", "Run delta debugging on each command to minimize the model.");
+            "-dd", "Run delta debugging on each command to minimize the model (experimental).");
     public final Option useOutputPreSmtlibProcessor = new Option(
             "-smtlib-tc", "Output SMTLIB+ (typechecking only) for each command.");
     public final Option useOutputPostSmtlibProcessor = new Option(
             "-smtlib-all", "Output SMTLIB+ (post-Fortress) for each command.");
 
+    public final Option useStatisticsProcessor = new Option(
+            "-stats", "Output Portus translation statistics for each command without solving.");
     public final Option useCountCommandsProcessor = new Option(
             "-cmd-count", "Output a count of the commands in each file.");
 
@@ -91,7 +93,7 @@ final class PortusCLIOptions {
             useRunPortusProcessor, useRunKodkodProcessor,
             useCorrectnessProcessor, useDeltaDebugProcessor,
             useOutputPreSmtlibProcessor, useOutputPostSmtlibProcessor,
-            useCountCommandsProcessor,
+            useStatisticsProcessor, useCountCommandsProcessor,
             alwaysShowKodkodTime,
             disableSimpleScalarOpt, disableOneSigOpt, disableJoinOpt, disableOrderingModuleOpt,
             disableMembershipPredicateOpt, disablePartitionSortPolicy, disableSumDefinitionsOpt,

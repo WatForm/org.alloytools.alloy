@@ -247,8 +247,8 @@ public final class CorrectnessChecker {
         // Run through Portus and get a solution using Fortress
         AlloySolution fortressSol;
         try {
-            fortressSol = fortressSolver.commandRunnerWithStatistics(statistics).executeCommand(
-                    A4Reporter.NOP, world, command, options);
+            fortressSol = fortressSolver.commandRunner().executeCommand(
+                    A4Reporter.NOP, statistics, world, command, options);
         } catch (Exception exception) {
             return new Result(Result.Kind.EXCEPTION, exception);
         }
