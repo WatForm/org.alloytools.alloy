@@ -204,6 +204,8 @@ public final class TranslateAlloyToFortress implements CommandRunner {
                     // In order to dump the scope info as well, we need to create a problem state from the theory
                     // and scopes and dump that.
                     try {
+                        System.out.println("Stats of final theory:");
+                        PortusStatistics.printTheoryStats(theory);
                         writer.write(Dump.problemStateToSmtlibTC(translated.getProblemState()));
                     } catch (IOException e) {
                         throw new UncheckedIOException(e);

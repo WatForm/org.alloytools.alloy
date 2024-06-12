@@ -978,7 +978,9 @@ final class PortusUtil {
     private static class CountSymbolsVisitor implements TermVisitor<Integer> {
 
         public int countAxiomSymbols(Theory theory) {
-            return sumVisits(theory.axioms());
+            return sumVisits(theory.axioms())
+                    + sumVisits(theory.functionDefinitions().map(defn -> defn.body()))
+                    + sumVisits(theory.constantDefinitions().map(defn -> defn.body()));
         }
 
         @Override
