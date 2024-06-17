@@ -206,7 +206,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
                     try {
                         System.out.println("Stats of final theory:");
                         PortusStatistics.printTheoryStats(theory);
-                        writer.write(Dump.problemStateToSmtlibTC(translated.getProblemState()));
+                        writer.write(Dump.problemStateToSmtlibTC(translated.getProblemState(theory)));
                     } catch (IOException e) {
                         throw new UncheckedIOException(e);
                     }

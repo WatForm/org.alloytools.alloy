@@ -36,10 +36,10 @@ public final class TranslationResult {
     }
 
     /**
-     * Get the theory as a Fortress ProblemState.
+     * Convert a theory to a problem state given our sort policy.
      */
-    public ProblemState getProblemState() {
-        return ProblemState.apply(getTheory(),
+    public ProblemState getProblemState(Theory theory) {
+        return ProblemState.apply(theory,
                 PortusUtil.<Sort, Scope>toScalaMap(context.getSortToScopeMap(sortPolicy)), false);
     }
 

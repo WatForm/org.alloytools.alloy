@@ -158,7 +158,7 @@ public final class PortusStatistics {
             System.out.println(indent + "Portus translation time: " + translationStopwatch.formatDuration());
         }
         if (smtSolverStopwatch.hasRun()) {
-            System.out.println(indent + "SMT solver time: " + smtSolverStopwatch.formatDuration());
+            System.out.println(indent + "Fortress + SMT solver time: " + smtSolverStopwatch.formatDuration());
         }
         if (kodkodStopwatch.hasRun()) {
             System.out.println(indent + "Kodkod time: " + kodkodStopwatch.formatDuration());
