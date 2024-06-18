@@ -20,11 +20,9 @@ import edu.mit.csail.sdg.ast.Type;
 import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.data.NameGenerator;
 import fortress.msfol.AnnotatedVar;
-import fortress.msfol.App;
 import fortress.msfol.DomainElement;
-import fortress.msfol.Forall;
 import fortress.msfol.FuncDecl;
-import fortress.msfol.Iff;
+import fortress.msfol.FunctionDefinition;
 import fortress.msfol.IntegerLiteral;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
@@ -2382,8 +2380,8 @@ public class DefaultTranslatorTest {
 
     @Test
     public void testTranslate_transitiveClosure_createRelation() {
-        // test [[(x,y) \in ^e]] := Closure(f(x,y)) where f: (univ, univ)->Bool is a new relation, with the defining
-        // axiom "forall x,y: univ . f(x,y) <=> [[(x,y) \in e]]"
+        // test [[(x,y) \in ^e]] := Closure(f(x,y)) where f: (univ, univ)->Bool is a new definition
+        // with the body [[(x,y) \in e]]
         Sig.PrimSig sig = new Sig.PrimSig("S");
         Expr e = sig.product(sig); // type: sig * sig
         Var x = Term.mkVar("x"), y = Term.mkVar("y");
@@ -2397,36 +2395,29 @@ public class DefaultTranslatorTest {
         Term result = translator.translate(
                 ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(univ)), e.closure()), context);
 
-        // ensure a relation of type (univ, univ) -> Bool was added
-        assertEquals(1, context.getTheory().functionDeclarations().size());
-        FuncDecl relation = context.getTheory().functionDeclarations().head();
-        assertEquals(2, relation.arity());
+        // no declarations or axioms should have been added
+        assertEquals(0, context.getTheory().functionDeclarations().size());
+        assertEquals(0, context.getTheory().axioms().size());
+
+        // ensure a definition of type (univ, univ) -> Bool was added
+        assertEquals(1, context.getTheory().functionDefinitions().size());
+        FunctionDefinition relation = context.getTheory().functionDefinitions().head();
+        assertEquals(2, relation.argSorts().size());
         assertEquals(univ, relation.argSorts().head());
         assertEquals(univ, relation.argSorts().last());
         assertEquals(Sort.Bool(), relation.resultSort());
 
+        // ensure it has the correct body
+        assertEquals(flagInE, relation.body());
+
         // ensure the result correctly uses that relation
         assertEquals(Term.mkClosure(relation.name(), x, y), result);
-
-        // ensure the correct axiom was added
-        assertEquals(1, context.getTheory().axioms().size());
-        Term axiom = context.getTheory().axioms().head();
-        assertThat(axiom, isAlphaEquivalentTerm(
-                Term.mkForall(Arrays.asList(x.of(univ), y.of(univ)),
-                        Term.mkIff(
-                                Term.mkApp(relation.name(), x, y),
-                                flagInE))));
-        // make *extra* sure that it used the correct relation name
-        Forall forall = (Forall) axiom;
-        Iff innerIff = (Iff) forall.body();
-        App relationApp = (App) innerIff.left();
-        assertEquals(relation.name(), relationApp.functionName());
     }
 
     @Test
     public void testTranslate_reflexiveClosure_createRelation() {
-        // test [[(x,y) \in *e]] := ReflexiveClosure(f(x,y)) where f: (univ, univ)->Bool is a new relation, with the
-        // defining axiom "forall x,y: univ . f(x,y) <=> [[(x,y) \in e]]"
+        // test [[(x,y) \in *e]] := ReflexiveClosure(f(x,y)) where f: (univ, univ)->Bool is a new definition
+        // with the body "[[(x,y) \in e]]"
         Sig.PrimSig sig = new Sig.PrimSig("S");
         Expr e = sig.product(sig); // type: sig * sig
         Var x = Term.mkVar("x"), y = Term.mkVar("y");
@@ -2440,36 +2431,29 @@ public class DefaultTranslatorTest {
         Term result = translator.translate(
                 ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(univ)), e.reflexiveClosure()), context);
 
-        // ensure a relation of type (univ, univ) -> Bool was added
-        assertEquals(1, context.getTheory().functionDeclarations().size());
-        FuncDecl relation = context.getTheory().functionDeclarations().head();
-        assertEquals(2, relation.arity());
+        // no declarations or axioms should have been added
+        assertEquals(0, context.getTheory().functionDeclarations().size());
+        assertEquals(0, context.getTheory().axioms().size());
+
+        // ensure a definition of type (univ, univ) -> Bool was added
+        assertEquals(1, context.getTheory().functionDefinitions().size());
+        FunctionDefinition relation = context.getTheory().functionDefinitions().head();
+        assertEquals(2, relation.argSorts().size());
         assertEquals(univ, relation.argSorts().head());
         assertEquals(univ, relation.argSorts().last());
         assertEquals(Sort.Bool(), relation.resultSort());
 
+        // ensure it has the correct body
+        assertEquals(flagInE, relation.body());
+
         // ensure the result correctly uses that relation
         assertEquals(Term.mkReflexiveClosure(relation.name(), x, y), result);
-
-        // ensure the correct axiom was added
-        assertEquals(1, context.getTheory().axioms().size());
-        Term axiom = context.getTheory().axioms().head();
-        assertThat(axiom, isAlphaEquivalentTerm(
-                Term.mkForall(Arrays.asList(x.of(univ), y.of(univ)),
-                        Term.mkIff(
-                                Term.mkApp(relation.name(), x, y),
-                                flagInE))));
-        // make *extra* sure that it used the correct relation name
-        Forall forall = (Forall) axiom;
-        Iff innerIff = (Iff) forall.body();
-        App relationApp = (App) innerIff.left();
-        assertEquals(relation.name(), relationApp.functionName());
     }
 
     @Test
     public void testTranslate_transitiveClosure_fieldButNoRelation() {
-        // test [[(x,y) \in ^f]] := Closure(g(x,y)) where g: (univ, univ)->Bool is a new relation, with the defining
-        // axiom "forall x,y: univ . g(x,y) <=> [[(x,y) \in f]]", where f is a field without an associated relation
+        // test [[(x,y) \in ^f]] := Closure(g(x,y)) where g: (univ, univ)->Bool is a new definition, with the body
+        // "[[(x,y) \in f]]", where f is a field without an associated relation
         // (e.g. it was optimized by the function optimization)
         Sig.PrimSig sig = new Sig.PrimSig("S");
         Sig.Field f = sig.addField("f", sig); // f is of type sig->sig
@@ -2484,36 +2468,29 @@ public class DefaultTranslatorTest {
         Term result = translator.translate(
                 ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(univ)), f.closure()), context);
 
-        // ensure a relation of type (univ, univ) -> Bool was added
-        assertEquals(1, context.getTheory().functionDeclarations().size());
-        FuncDecl relation = context.getTheory().functionDeclarations().head();
-        assertEquals(2, relation.arity());
+        // no declarations or axioms should have been added
+        assertEquals(0, context.getTheory().functionDeclarations().size());
+        assertEquals(0, context.getTheory().axioms().size());
+
+        // ensure a definition of type (univ, univ) -> Bool was added
+        assertEquals(1, context.getTheory().functionDefinitions().size());
+        FunctionDefinition relation = context.getTheory().functionDefinitions().head();
+        assertEquals(2, relation.argSorts().size());
         assertEquals(univ, relation.argSorts().head());
         assertEquals(univ, relation.argSorts().last());
         assertEquals(Sort.Bool(), relation.resultSort());
 
+        // ensure it has the correct body
+        assertEquals(flagInF, relation.body());
+
         // ensure the result correctly uses that relation
         assertEquals(Term.mkClosure(relation.name(), x, y), result);
-
-        // ensure the correct axiom was added
-        assertEquals(1, context.getTheory().axioms().size());
-        Term axiom = context.getTheory().axioms().head();
-        assertThat(axiom, isAlphaEquivalentTerm(
-                Term.mkForall(Arrays.asList(x.of(univ), y.of(univ)),
-                        Term.mkIff(
-                                Term.mkApp(relation.name(), x, y),
-                                flagInF))));
-        // make *extra* sure that it used the correct relation name
-        Forall forall = (Forall) axiom;
-        Iff innerIff = (Iff) forall.body();
-        App relationApp = (App) innerIff.left();
-        assertEquals(relation.name(), relationApp.functionName());
     }
 
     @Test
     public void testTranslate_reflexiveClosure_fieldButNoRelation() {
-        // test [[(x,y) \in *f]] := RClosure(g(x,y)) where g: (univ, univ)->Bool is a new relation, with the defining
-        // axiom "forall x,y: univ . g(x,y) <=> [[(x,y) \in f]]", where f is a field without an associated relation
+        // test [[(x,y) \in *f]] := RClosure(g(x,y)) where g: (univ, univ)->Bool is a new definition, with the body
+        // "[[(x,y) \in f]]", where f is a field without an associated relation
         // (e.g. it was optimized by the function optimization)
         Sig.PrimSig sig = new Sig.PrimSig("S");
         Sig.Field f = sig.addField("f", sig); // f is of type sig->sig
@@ -2528,36 +2505,29 @@ public class DefaultTranslatorTest {
         Term result = translator.translate(
                 ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(univ)), f.reflexiveClosure()), context);
 
-        // ensure a relation of type (univ, univ) -> Bool was added
-        assertEquals(1, context.getTheory().functionDeclarations().size());
-        FuncDecl relation = context.getTheory().functionDeclarations().head();
-        assertEquals(2, relation.arity());
+        // no declarations or axioms should have been added
+        assertEquals(0, context.getTheory().functionDeclarations().size());
+        assertEquals(0, context.getTheory().axioms().size());
+
+        // ensure a definition of type (univ, univ) -> Bool was added
+        assertEquals(1, context.getTheory().functionDefinitions().size());
+        FunctionDefinition relation = context.getTheory().functionDefinitions().head();
+        assertEquals(2, relation.argSorts().size());
         assertEquals(univ, relation.argSorts().head());
         assertEquals(univ, relation.argSorts().last());
         assertEquals(Sort.Bool(), relation.resultSort());
 
+        // ensure it has the correct body
+        assertEquals(flagInF, relation.body());
+
         // ensure the result correctly uses that relation
         assertEquals(Term.mkReflexiveClosure(relation.name(), x, y), result);
-
-        // ensure the correct axiom was added
-        assertEquals(1, context.getTheory().axioms().size());
-        Term axiom = context.getTheory().axioms().head();
-        assertThat(axiom, isAlphaEquivalentTerm(
-                Term.mkForall(Arrays.asList(x.of(univ), y.of(univ)),
-                        Term.mkIff(
-                                Term.mkApp(relation.name(), x, y),
-                                flagInF))));
-        // make *extra* sure that it used the correct relation name
-        Forall forall = (Forall) axiom;
-        Iff innerIff = (Iff) forall.body();
-        App relationApp = (App) innerIff.left();
-        assertEquals(relation.name(), relationApp.functionName());
     }
 
     @Test
     public void testTranslate_transitiveClosure_intToInt() {
-        // test [[(x,y) \in ^e]] := Closure(f(x,y)) where f: (Int,Int)->Bool is a new relation, with the defining
-        // axiom "forall x,y: Int . f(x,y) <=> [[(x,y) \in e]]"
+        // test [[(x,y) \in ^e]] := Closure(f(x,y)) where f: (Int,Int)->Bool is a new definition
+        // with body "[[(x,y) \in e]]"
         Expr e = ExprConstant.makeNUMBER(2).product(ExprConstant.makeNUMBER(2));
         Var x = Term.mkVar("x"), y = Term.mkVar("y");
 
@@ -2570,36 +2540,29 @@ public class DefaultTranslatorTest {
         Term result = translator.translate(
                 ExprElementOf.make(TermTuple.fromVars(x.of(Sort.Int()), y.of(Sort.Int())), e.closure()), context);
 
-        // ensure a relation of type (Int,Int) -> Bool was added
-        assertEquals(1, context.getTheory().functionDeclarations().size());
-        FuncDecl relation = context.getTheory().functionDeclarations().head();
-        assertEquals(2, relation.arity());
+        // no declarations or axioms should have been added
+        assertEquals(0, context.getTheory().functionDeclarations().size());
+        assertEquals(0, context.getTheory().axioms().size());
+
+        // ensure a definition of type (Int, Int) -> Bool was added
+        assertEquals(1, context.getTheory().functionDefinitions().size());
+        FunctionDefinition relation = context.getTheory().functionDefinitions().head();
+        assertEquals(2, relation.argSorts().size());
         assertEquals(Sort.Int(), relation.argSorts().head());
         assertEquals(Sort.Int(), relation.argSorts().last());
         assertEquals(Sort.Bool(), relation.resultSort());
 
+        // ensure it has the correct body
+        assertEquals(flagInE, relation.body());
+
         // ensure the result correctly uses that relation
         assertEquals(Term.mkClosure(relation.name(), x, y), result);
-
-        // ensure the correct axiom was added
-        assertEquals(1, context.getTheory().axioms().size());
-        Term axiom = context.getTheory().axioms().head();
-        assertThat(axiom, isAlphaEquivalentTerm(
-                Term.mkForall(Arrays.asList(x.of(Sort.Int()), y.of(Sort.Int())),
-                        Term.mkIff(
-                                Term.mkApp(relation.name(), x, y),
-                                flagInE))));
-        // make *extra* sure that it used the correct relation name
-        Forall forall = (Forall) axiom;
-        Iff innerIff = (Iff) forall.body();
-        App relationApp = (App) innerIff.left();
-        assertEquals(relation.name(), relationApp.functionName());
     }
 
     @Test
     public void testTranslate_reflexiveClosure_intToInt() {
-        // test [[(x,y) \in ^e]] := ReflexiveClosure(f(x,y)) where f: (Int,Int)->Bool is a new relation, with the
-        // defining axiom "forall x,y: Int . f(x,y) <=> [[(x,y) \in e]]"
+        // test [[(x,y) \in ^e]] := ReflexiveClosure(f(x,y)) where f: (Int,Int)->Bool is a new definition
+        // with body "[[(x,y) \in e]]"
         Expr e = ExprConstant.makeNUMBER(2).product(ExprConstant.makeNUMBER(2));
         Var x = Term.mkVar("x"), y = Term.mkVar("y");
 
@@ -2612,30 +2575,23 @@ public class DefaultTranslatorTest {
         Term result = translator.translate(ExprElementOf.make(
                 TermTuple.fromVars(x.of(Sort.Int()), y.of(Sort.Int())), e.reflexiveClosure()), context);
 
-        // ensure a relation of type (Int,Int) -> Bool was added
-        assertEquals(1, context.getTheory().functionDeclarations().size());
-        FuncDecl relation = context.getTheory().functionDeclarations().head();
-        assertEquals(2, relation.arity());
+        // no declarations or axioms should have been added
+        assertEquals(0, context.getTheory().functionDeclarations().size());
+        assertEquals(0, context.getTheory().axioms().size());
+
+        // ensure a definition of type (Int, Int) -> Bool was added
+        assertEquals(1, context.getTheory().functionDefinitions().size());
+        FunctionDefinition relation = context.getTheory().functionDefinitions().head();
+        assertEquals(2, relation.argSorts().size());
         assertEquals(Sort.Int(), relation.argSorts().head());
         assertEquals(Sort.Int(), relation.argSorts().last());
         assertEquals(Sort.Bool(), relation.resultSort());
 
+        // ensure it has the correct body
+        assertEquals(flagInE, relation.body());
+
         // ensure the result correctly uses that relation
         assertEquals(Term.mkReflexiveClosure(relation.name(), x, y), result);
-
-        // ensure the correct axiom was added
-        assertEquals(1, context.getTheory().axioms().size());
-        Term axiom = context.getTheory().axioms().head();
-        assertThat(axiom, isAlphaEquivalentTerm(
-                Term.mkForall(Arrays.asList(x.of(Sort.Int()), y.of(Sort.Int())),
-                        Term.mkIff(
-                                Term.mkApp(relation.name(), x, y),
-                                flagInE))));
-        // make *extra* sure that it used the correct relation name
-        Forall forall = (Forall) axiom;
-        Iff innerIff = (Iff) forall.body();
-        App relationApp = (App) innerIff.left();
-        assertEquals(relation.name(), relationApp.functionName());
     }
 
     @Test
@@ -2665,7 +2621,7 @@ public class DefaultTranslatorTest {
 
     @Test
     public void testTranslate_transitiveClosure_translateTwice_onlyOneAuxRelation() {
-        // test that when we translate [[(x,y) \in ^(e1+e2)]] twice, only one auxiliary relation is created
+        // test that when we translate [[(x,y) \in ^(e1+e2)]] twice, only one auxiliary definition is created
         // note: we use e1+e2 as they're nontrivially equivalent (i.e. isSame but not ==)
         Sig.PrimSig sig = new Sig.PrimSig("S");
         Expr e1 = sig.product(sig);
@@ -2685,35 +2641,28 @@ public class DefaultTranslatorTest {
         Term result = translator.translate(
                 ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(univ)), e1.plus(e2).closure()), context);
 
-        // ensure only one relation of type (univ, univ) -> Bool was added
-        assertEquals(1, context.getTheory().functionDeclarations().size());
-        FuncDecl relation = context.getTheory().functionDeclarations().head();
-        assertEquals(2, relation.arity());
+        // no declarations or axioms should have been added
+        assertEquals(0, context.getTheory().functionDeclarations().size());
+        assertEquals(0, context.getTheory().axioms().size());
+
+        // ensure only one definition of type (univ, univ) -> Bool was added
+        assertEquals(1, context.getTheory().functionDefinitions().size());
+        FunctionDefinition relation = context.getTheory().functionDefinitions().head();
+        assertEquals(2, relation.argSorts().size());
         assertEquals(univ, relation.argSorts().head());
         assertEquals(univ, relation.argSorts().last());
         assertEquals(Sort.Bool(), relation.resultSort());
 
+        // ensure it has the correct body (still)
+        assertEquals(flagInE, relation.body());
+
         // ensure the result of the 2nd translation correctly uses that relation
         assertEquals(Term.mkClosure(relation.name(), x, y), result);
-
-        // ensure it has the correct axiom (still)
-        assertEquals(1, context.getTheory().axioms().size());
-        Term axiom = context.getTheory().axioms().head();
-        assertThat(axiom, isAlphaEquivalentTerm(
-                Term.mkForall(Arrays.asList(x.of(univ), y.of(univ)),
-                        Term.mkIff(
-                                Term.mkApp(relation.name(), x, y),
-                                flagInE))));
-        // make *extra* sure that it used the correct relation name
-        Forall forall = (Forall) axiom;
-        Iff innerIff = (Iff) forall.body();
-        App relationApp = (App) innerIff.left();
-        assertEquals(relation.name(), relationApp.functionName());
     }
 
     @Test
     public void testTranslate_reflexiveClosure_translateTwice_onlyOneAuxRelation() {
-        // test that when we translate [[(x,y) \in *(e1+e2)]] twice, only one auxiliary relation is created
+        // test that when we translate [[(x,y) \in *(e1+e2)]] twice, only one auxiliary definition is created
         // note: we use e1+e2 as they're nontrivially equivalent (i.e. isSame but not ==)
         Sig.PrimSig sig = new Sig.PrimSig("S");
         Expr e1 = sig.product(sig);
@@ -2733,35 +2682,28 @@ public class DefaultTranslatorTest {
         Term result = translator.translate(
                 ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(univ)), e1.plus(e2).reflexiveClosure()), context);
 
-        // ensure only one relation of type (univ, univ) -> Bool was added
-        assertEquals(1, context.getTheory().functionDeclarations().size());
-        FuncDecl relation = context.getTheory().functionDeclarations().head();
-        assertEquals(2, relation.arity());
+        // no declarations or axioms should have been added
+        assertEquals(0, context.getTheory().functionDeclarations().size());
+        assertEquals(0, context.getTheory().axioms().size());
+
+        // ensure only one definition of type (univ, univ) -> Bool was added
+        assertEquals(1, context.getTheory().functionDefinitions().size());
+        FunctionDefinition relation = context.getTheory().functionDefinitions().head();
+        assertEquals(2, relation.argSorts().size());
         assertEquals(univ, relation.argSorts().head());
         assertEquals(univ, relation.argSorts().last());
         assertEquals(Sort.Bool(), relation.resultSort());
 
+        // ensure it has the correct body (still)
+        assertEquals(flagInE, relation.body());
+
         // ensure the result of the 2nd translation correctly uses that relation
         assertEquals(Term.mkReflexiveClosure(relation.name(), x, y), result);
-
-        // ensure it has the correct axiom (still)
-        assertEquals(1, context.getTheory().axioms().size());
-        Term axiom = context.getTheory().axioms().head();
-        assertThat(axiom, isAlphaEquivalentTerm(
-                Term.mkForall(Arrays.asList(x.of(univ), y.of(univ)),
-                        Term.mkIff(
-                                Term.mkApp(relation.name(), x, y),
-                                flagInE))));
-        // make *extra* sure that it used the correct relation name
-        Forall forall = (Forall) axiom;
-        Iff innerIff = (Iff) forall.body();
-        App relationApp = (App) innerIff.left();
-        assertEquals(relation.name(), relationApp.functionName());
     }
 
     @Test
     public void testTranslate_transitiveAndReflexiveClosure_translateTwice_onlyOneAuxRelation() {
-        // test that translating [[(x,y) \in ^(e1+e2)]] then [[(x,y) \in *(e1+e2)]] only creates one aux relation
+        // test that translating [[(x,y) \in ^(e1+e2)]] then [[(x,y) \in *(e1+e2)]] only creates one aux definition
         // note: we use e1+e2 as they're nontrivially equivalent (i.e. isSame but not ==)
         Sig.PrimSig sig = new Sig.PrimSig("S");
         Expr e1 = sig.product(sig);
@@ -2781,36 +2723,29 @@ public class DefaultTranslatorTest {
         Term result = translator.translate(
                 ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(univ)), e1.plus(e2).reflexiveClosure()), context);
 
-        // ensure only one relation of type (univ, univ) -> Bool was added
-        assertEquals(1, context.getTheory().functionDeclarations().size());
-        FuncDecl relation = context.getTheory().functionDeclarations().head();
-        assertEquals(2, relation.arity());
+        // no declarations or axioms should have been added
+        assertEquals(0, context.getTheory().functionDeclarations().size());
+        assertEquals(0, context.getTheory().axioms().size());
+
+        // ensure only one definition of type (univ, univ) -> Bool was added
+        assertEquals(1, context.getTheory().functionDefinitions().size());
+        FunctionDefinition relation = context.getTheory().functionDefinitions().head();
+        assertEquals(2, relation.argSorts().size());
         assertEquals(univ, relation.argSorts().head());
         assertEquals(univ, relation.argSorts().last());
         assertEquals(Sort.Bool(), relation.resultSort());
 
+        // ensure it has the correct body (still)
+        assertEquals(flagInE, relation.body());
+
         // ensure the result of the 2nd translation correctly uses that relation
         assertEquals(Term.mkReflexiveClosure(relation.name(), x, y), result);
-
-        // ensure it has the correct axiom (still)
-        assertEquals(1, context.getTheory().axioms().size());
-        Term axiom = context.getTheory().axioms().head();
-        assertThat(axiom, isAlphaEquivalentTerm(
-                Term.mkForall(Arrays.asList(x.of(univ), y.of(univ)),
-                        Term.mkIff(
-                                Term.mkApp(relation.name(), x, y),
-                                flagInE))));
-        // make *extra* sure that it used the correct relation name
-        Forall forall = (Forall) axiom;
-        Iff innerIff = (Iff) forall.body();
-        App relationApp = (App) innerIff.left();
-        assertEquals(relation.name(), relationApp.functionName());
     }
 
     @Test
     public void testTranslate_transitiveClosure_freeVariables() {
-        // test [[(x,y) \in ^(v->v)]] := Closure(f(x,y,v)) where f: (univ, univ, univ)->Bool is a new relation, with the
-        // defining axiom "forall x,y,v: univ . f(x,y) <=> [[(x,y) \in v->v]]"
+        // test [[(x,y) \in ^(v->v)]] := Closure(f(x,y,v)) where f: (univ, univ, univ)->Bool is a new definition
+        // with body "[[(x,y) \in v->v]]"
         // this tests adding in auxiliary variables on closed-over functions to preserve context
         Sig.PrimSig sig = new Sig.PrimSig("S");
         ExprVar v = makeTestVarWithType("v", Type.make(sig));
@@ -2828,37 +2763,30 @@ public class DefaultTranslatorTest {
         Term result = translator.translate(
                 ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(univ)), e.closure()), context);
 
-        // ensure a relation of type (univ, univ, univ) -> Bool was added
-        assertEquals(1, context.getTheory().functionDeclarations().size());
-        FuncDecl relation = context.getTheory().functionDeclarations().head();
-        assertEquals(3, relation.arity());
+        // no declarations or axioms should have been added
+        assertEquals(0, context.getTheory().functionDeclarations().size());
+        assertEquals(0, context.getTheory().axioms().size());
+
+        // ensure a definition of type (univ, univ, univ) -> Bool was added
+        assertEquals(1, context.getTheory().functionDefinitions().size());
+        FunctionDefinition relation = context.getTheory().functionDefinitions().head();
+        assertEquals(3, relation.argSorts().size());
         assertEquals(univ, relation.argSorts().head());
         assertEquals(univ, relation.argSorts().tail().head());
         assertEquals(univ, relation.argSorts().last());
         assertEquals(Sort.Bool(), relation.resultSort());
 
+        // ensure it has the correct body
+        assertEquals(flagInE, relation.body());
+
         // ensure the result correctly uses that relation
         assertEquals(Term.mkClosure(relation.name(), x, y, Collections.singletonList(vVar)), result);
-
-        // ensure the correct axiom was added
-        assertEquals(1, context.getTheory().axioms().size());
-        Term axiom = context.getTheory().axioms().head();
-        assertThat(axiom, isAlphaEquivalentTerm(
-                Term.mkForall(Arrays.asList(x.of(univ), y.of(univ), vVar.of(univ)),
-                        Term.mkIff(
-                                Term.mkApp(relation.name(), x, y, vVar),
-                                flagInE))));
-        // make *extra* sure that it used the correct relation name
-        Forall forall = (Forall) axiom;
-        Iff innerIff = (Iff) forall.body();
-        App relationApp = (App) innerIff.left();
-        assertEquals(relation.name(), relationApp.functionName());
     }
 
     @Test
     public void testTranslate_reflexiveClosure_freeVariables() {
-        // test [[(x,y) \in *(v->v)]] := ReflexiveClosure(f(x,y,v)) where f: (univ, univ, univ)->Bool is a new relation,
-        // with the defining axiom "forall x,y,v: univ . f(x,y) <=> [[(x,y) \in v->v]]"
+        // test [[(x,y) \in *(v->v)]] := ReflexiveClosure(f(x,y,v)) where f: (univ, univ, univ)->Bool is a new
+        // definition with body "[[(x,y) \in v->v]]"
         // this tests adding in auxiliary variables on closed-over functions to preserve context
         Sig.PrimSig sig = new Sig.PrimSig("S");
         ExprVar v = makeTestVarWithType("v", Type.make(sig));
@@ -2876,37 +2804,30 @@ public class DefaultTranslatorTest {
         Term result = translator.translate(
                 ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(univ)), e.reflexiveClosure()), context);
 
-        // ensure a relation of type (univ, univ, univ) -> Bool was added
-        assertEquals(1, context.getTheory().functionDeclarations().size());
-        FuncDecl relation = context.getTheory().functionDeclarations().head();
-        assertEquals(3, relation.arity());
+        // no declarations or axioms should have been added
+        assertEquals(0, context.getTheory().functionDeclarations().size());
+        assertEquals(0, context.getTheory().axioms().size());
+
+        // ensure a definition of type (univ, univ, univ) -> Bool was added
+        assertEquals(1, context.getTheory().functionDefinitions().size());
+        FunctionDefinition relation = context.getTheory().functionDefinitions().head();
+        assertEquals(3, relation.argSorts().size());
         assertEquals(univ, relation.argSorts().head());
         assertEquals(univ, relation.argSorts().tail().head());
         assertEquals(univ, relation.argSorts().last());
         assertEquals(Sort.Bool(), relation.resultSort());
 
+        // ensure it has the correct body
+        assertEquals(flagInE, relation.body());
+
         // ensure the result correctly uses that relation
         assertEquals(Term.mkReflexiveClosure(relation.name(), x, y, Collections.singletonList(vVar)), result);
-
-        // ensure the correct axiom was added
-        assertEquals(1, context.getTheory().axioms().size());
-        Term axiom = context.getTheory().axioms().head();
-        assertThat(axiom, isAlphaEquivalentTerm(
-                Term.mkForall(Arrays.asList(x.of(univ), y.of(univ), vVar.of(univ)),
-                        Term.mkIff(
-                                Term.mkApp(relation.name(), x, y, vVar),
-                                flagInE))));
-        // make *extra* sure that it used the correct relation name
-        Forall forall = (Forall) axiom;
-        Iff innerIff = (Iff) forall.body();
-        App relationApp = (App) innerIff.left();
-        assertEquals(relation.name(), relationApp.functionName());
     }
 
     @Test
-    public void testTranslate_transitiveClosure_freeVariablesGeneratesDifferentAuxFunction() {
+    public void testTranslate_transitiveClosure_freeVariablesGeneratesDifferentAuxDefinition() {
         // test that closing over the same function with different numbers of free variables generates
-        // different auxiliary functions
+        // different auxiliary definitions
         Sig.PrimSig sig = new Sig.PrimSig("S");
         ExprVar v = makeTestVarWithType("v", Type.make(sig));
         Expr e = v.product(v);
@@ -2931,46 +2852,37 @@ public class DefaultTranslatorTest {
         Term result2 = translator.translate(
                 ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(univ)), e.closure()), context);
 
-        // assert that two different functions were generated: univ^3 -> Bool and univ^2 -> Bool
-        assertEquals(2, context.getTheory().functionDeclarations().size());
+        // no declarations or axioms should have been added
+        assertEquals(0, context.getTheory().functionDeclarations().size());
+        assertEquals(0, context.getTheory().axioms().size());
 
-        FuncDecl oneFreeVarRel = context.getTheory().functionDeclarations().head();
-        assertEquals(3, oneFreeVarRel.arity());
+        // assert that two different definitions were generated: univ^3 -> Bool and univ^2 -> Bool
+        assertEquals(2, context.getTheory().functionDefinitions().size());
+
+        FunctionDefinition oneFreeVarRel = context.getTheory().functionDefinitions().head();
+        assertEquals(3, oneFreeVarRel.argSorts().size());
         assertEquals(univ, oneFreeVarRel.argSorts().head());
         assertEquals(univ, oneFreeVarRel.argSorts().tail().head());
         assertEquals(univ, oneFreeVarRel.argSorts().last());
         assertEquals(Sort.Bool(), oneFreeVarRel.resultSort());
+        assertEquals(flagInE, oneFreeVarRel.body());
 
-        FuncDecl noFreeVarsRel = context.getTheory().functionDeclarations().last();
-        assertEquals(2, noFreeVarsRel.arity());
+        FunctionDefinition noFreeVarsRel = context.getTheory().functionDefinitions().last();
+        assertEquals(2, noFreeVarsRel.argSorts().size());
         assertEquals(univ, noFreeVarsRel.argSorts().head());
         assertEquals(univ, noFreeVarsRel.argSorts().last());
         assertEquals(Sort.Bool(), noFreeVarsRel.resultSort());
+        assertEquals(Term.mkAnd(Term.mkTop(), Term.mkTop()), noFreeVarsRel.body()); // [[(x,y) \in univ->univ]]
 
         // ensure the results are correct
         assertEquals(Term.mkClosure(oneFreeVarRel.name(), x, y, Collections.singletonList(vVar)), result1);
         assertEquals(Term.mkClosure(noFreeVarsRel.name(), x, y), result2);
-
-        // ensure the correct axioms were added
-        assertEquals(2, context.getTheory().axioms().size());
-        Term axiom1 = context.getTheory().axioms().head();
-        Term axiom2 = context.getTheory().axioms().last();
-        assertThat(axiom1, isAlphaEquivalentTerm(
-                Term.mkForall(Arrays.asList(x.of(univ), y.of(univ), vVar.of(univ)),
-                        Term.mkIff(
-                                Term.mkApp(oneFreeVarRel.name(), x, y, vVar),
-                                flagInE))));
-        assertThat(axiom2, isAlphaEquivalentTerm(
-                Term.mkForall(Arrays.asList(x.of(univ), y.of(univ)),
-                        Term.mkIff(
-                                Term.mkApp(noFreeVarsRel.name(), x, y),
-                                Term.mkAnd(Term.mkTop(), Term.mkTop()))))); // [[(x,y) \in univ->univ]]
     }
 
     @Test
-    public void testTranslate_reflexiveClosure_freeVariablesGeneratesDifferentAuxFunction() {
+    public void testTranslate_reflexiveClosure_freeVariablesGeneratesDifferentAuxDefinition() {
         // test that closing over the same function with different numbers of free variables generates
-        // different auxiliary functions
+        // different auxiliary definitions
         Sig.PrimSig sig = new Sig.PrimSig("S");
         ExprVar v = makeTestVarWithType("v", Type.make(sig));
         Expr e = v.product(v);
@@ -2995,48 +2907,39 @@ public class DefaultTranslatorTest {
         Term result2 = translator.translate(
                 ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(univ)), e.reflexiveClosure()), context);
 
-        // assert that two different functions were generated: univ^3 -> Bool and univ^2 -> Bool
-        assertEquals(2, context.getTheory().functionDeclarations().size());
+        // no declarations or axioms should have been added
+        assertEquals(0, context.getTheory().functionDeclarations().size());
+        assertEquals(0, context.getTheory().axioms().size());
 
-        FuncDecl oneFreeVarRel = context.getTheory().functionDeclarations().head();
-        assertEquals(3, oneFreeVarRel.arity());
+        // assert that two different definitions were generated: univ^3 -> Bool and univ^2 -> Bool
+        assertEquals(2, context.getTheory().functionDefinitions().size());
+
+        FunctionDefinition oneFreeVarRel = context.getTheory().functionDefinitions().head();
+        assertEquals(3, oneFreeVarRel.argSorts().size());
         assertEquals(univ, oneFreeVarRel.argSorts().head());
         assertEquals(univ, oneFreeVarRel.argSorts().tail().head());
         assertEquals(univ, oneFreeVarRel.argSorts().last());
         assertEquals(Sort.Bool(), oneFreeVarRel.resultSort());
+        assertEquals(flagInE, oneFreeVarRel.body());
 
-        FuncDecl noFreeVarsRel = context.getTheory().functionDeclarations().last();
-        assertEquals(2, noFreeVarsRel.arity());
+        FunctionDefinition noFreeVarsRel = context.getTheory().functionDefinitions().last();
+        assertEquals(2, noFreeVarsRel.argSorts().size());
         assertEquals(univ, noFreeVarsRel.argSorts().head());
         assertEquals(univ, noFreeVarsRel.argSorts().last());
         assertEquals(Sort.Bool(), noFreeVarsRel.resultSort());
+        assertEquals(Term.mkAnd(Term.mkTop(), Term.mkTop()), noFreeVarsRel.body()); // [[(x,y) \in univ->univ]]
 
         // ensure the results are correct
         assertEquals(Term.mkReflexiveClosure(oneFreeVarRel.name(), x, y, Collections.singletonList(vVar)), result1);
         assertEquals(Term.mkReflexiveClosure(noFreeVarsRel.name(), x, y), result2);
-
-        // ensure the correct axioms were added
-        assertEquals(2, context.getTheory().axioms().size());
-        Term axiom1 = context.getTheory().axioms().head();
-        Term axiom2 = context.getTheory().axioms().last();
-        assertThat(axiom1, isAlphaEquivalentTerm(
-                Term.mkForall(Arrays.asList(x.of(univ), y.of(univ), vVar.of(univ)),
-                        Term.mkIff(
-                                Term.mkApp(oneFreeVarRel.name(), x, y, vVar),
-                                flagInE))));
-        assertThat(axiom2, isAlphaEquivalentTerm(
-                Term.mkForall(Arrays.asList(x.of(univ), y.of(univ)),
-                        Term.mkIff(
-                                Term.mkApp(noFreeVarsRel.name(), x, y),
-                                Term.mkAnd(Term.mkTop(), Term.mkTop()))))); // [[(x,y) \in univ->univ]]
     }
 
     @Test
     public void testTranslate_transitiveClosure_letsAreDisambiguated() {
-        // Test that two different auxiliary functions are generated in the following:
+        // Test that two different auxiliary definitions are generated in the following:
         //   sig A { a: set A, b: set A }
         //   pred f[x: A->A] { no ^x }
-        //   run { f[a] and f[b] } // both should get different auxiliary functions
+        //   run { f[a] and f[b] } // both should get different auxiliary definitions
         delegateToRealTranslator();
         Sig.PrimSig sig = new Sig.PrimSig("S");
         when(mockScoper.sig2scope(sig)).thenReturn(2);
@@ -3056,8 +2959,8 @@ public class DefaultTranslatorTest {
         assertNotNull(translator.translate(b, context));
         assertNotNull(translator.translate(runBody, context));
 
-        // We should have five predicates: inA, two for a and b, and two auxiliary functions
-        assertEquals(5, context.getTheory().functionDeclarations().size());
+        // We should have two auxiliary definitions
+        assertEquals(2, context.getTheory().functionDefinitions().size());
     }
 
     @Test

@@ -20,6 +20,7 @@ import edu.mit.csail.sdg.ast.Sig;
 import fortress.data.NameGenerator;
 import fortress.msfol.AnnotatedVar;
 import fortress.msfol.FuncDecl;
+import fortress.msfol.FunctionDefinition;
 import fortress.msfol.IntegerLiteral;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
@@ -944,26 +945,22 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
             throw new ErrorSyntax("We can only take the transitive/reflexive closure of binary expressions.");
         }
 
-        // Introduce an auxiliary relation f(x,y) = [[(x,y) \in expr]] of type sort->sort
+        // Define an auxiliary relation f(x,y) = [[(x,y) \in expr]] of type sort->sort
+        // Use a definition because otherwise we'd need an expensive axiom.
         // Also include any free variables in the term as extra arguments.
         String auxRelationName = nameGenerator.freshName("closureAux_" + sort.name());
         auxClosureRelationNames.add(new Pair<>(new Pair<>(expandedExpr, auxRelSorts), auxRelationName));
-        FuncDecl auxDecl = FuncDecl.mkFuncDecl(auxRelationName, auxRelSorts, Sort.Bool());
-        context.addFunctionDeclaration(auxDecl);
 
-        // Give it our desired interpretation with an axiom "forall x, y: sort . f(x,y) = [[(x, y) \in expr]]".
-        // TODO: this can be done more cheaply (avoiding the forall) with a definition instead
         Var x = Term.mkVar(nameGenerator.freshName("x"));
         Var y = Term.mkVar(nameGenerator.freshName("y"));
-        List<AnnotatedVar> axiomDecls = new ArrayList<>(Arrays.asList(x.of(sort), y.of(sort)));
-        axiomDecls.addAll(freeVars);
-        List<Var> allVars = axiomDecls.stream().map(AnnotatedVar::variable).collect(Collectors.toList());
+        List<AnnotatedVar> decls = new ArrayList<>(Arrays.asList(x.of(sort), y.of(sort)));
+        decls.addAll(freeVars);
+
         Term inExpr = recursivelyTranslate(ExprElementOf.make(
                 TermTuple.fromVars(x.of(sort), y.of(sort)), expr), context);
-        context.addAxiom(Term.mkForall(axiomDecls,
-                Term.mkIff(
-                        Term.mkApp(auxRelationName, allVars),
-                        inExpr)));
+        FunctionDefinition auxDefn = FunctionDefinition.mkFunctionDefinition(
+                auxRelationName, decls, Sort.Bool(), inExpr);
+        context.addFunctionDefinition(auxDefn);
 
         return auxRelationName;
     }
