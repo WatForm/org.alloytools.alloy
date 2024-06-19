@@ -73,6 +73,17 @@ public final class TranslateAlloyToFortress implements CommandRunner {
 
             logger.translationFinished(translated.getTheory());
 
+            // Write raw MSFOL or SMTLIB+ to file if the appropriate solver is chosen
+            if (options.solver.id().equals(A4Options.SatSolver.FORTRESS_MSFOL.id())) {
+                writeFortressToFile(logger, options, translated);
+                return null;
+            }
+            if (options.solver.id().equals(A4Options.SatSolver.POST_FORTRESS_SMTLIB.id())
+                    || options.solver.id().equals(A4Options.SatSolver.PRE_FORTRESS_SMTLIB.id())) {
+                writeSmtlibToFile(logger, options, translated);
+                return null;
+            }
+
             Interpretation interpretation = solve(logger, statistics, translated, options);
             AlloySolution solution = new FortressSolution(
                     interpretation, translated.getEvaluator(), translated.getContext(),
@@ -132,17 +143,6 @@ public final class TranslateAlloyToFortress implements CommandRunner {
     private Interpretation solve(
             PortusLogger logger, PortusStatistics statistics, TranslationResult translated, A4Options options)
             throws IOException {
-        // Write raw MSFOL or SMTLIB+ to file if the appropriate solver is chosen
-        if (options.solver.id().equals(A4Options.SatSolver.FORTRESS_MSFOL.id())) {
-            writeFortressToFile(logger, options, translated);
-            return null;
-        }
-        if (options.solver.id().equals(A4Options.SatSolver.POST_FORTRESS_SMTLIB.id())
-                || options.solver.id().equals(A4Options.SatSolver.PRE_FORTRESS_SMTLIB.id())) {
-            writeSmtlibToFile(logger, options, translated);
-            return null;
-        }
-
         try (ModelFinder finder = createModelFinder(Z3CliInterface$.MODULE$, options.portusOptions)) {
             translated.configureModelFinder(finder);
             finder.setTimeout(Milliseconds.apply(options.portusOptions.timeoutMillis));
