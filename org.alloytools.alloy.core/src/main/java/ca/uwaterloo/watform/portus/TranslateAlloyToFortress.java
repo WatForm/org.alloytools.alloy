@@ -22,8 +22,8 @@ import fortress.msfol.Term;
 import fortress.msfol.Theory;
 import fortress.operations.SmtlibConverter;
 import fortress.solverinterface.SolverInterface;
-import fortress.solverinterface.Z3CliInterface$;
-import fortress.solverinterface.solver;
+import fortress.solverinterface.Z3NonIncCliInterface$;
+import fortress.solverinterface.Solver;
 import fortress.transformers.DomainEliminationTransformer$;
 import fortress.transformers.EnumEliminationTransformer$;
 import fortress.transformers.TypecheckSanitizeTransformer$;
@@ -143,7 +143,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
     private Interpretation solve(
             PortusLogger logger, PortusStatistics statistics, TranslationResult translated, A4Options options)
             throws IOException {
-        try (ModelFinder finder = createModelFinder(Z3CliInterface$.MODULE$, options.portusOptions)) {
+        try (ModelFinder finder = createModelFinder(Z3NonIncCliInterface$.MODULE$, options.portusOptions)) {
             translated.configureModelFinder(finder);
             finder.setTimeout(Milliseconds.apply(options.portusOptions.timeoutMillis));
             finder.addLogger(logger);
@@ -198,7 +198,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
             // The trick is to replace Fortress's solver connection (SolverSession) with one that just translates
             // everything to SMT-LIB and writes to the file.
             SmtlibConverter converter = new SmtlibConverter(writer);
-            SolverInterface solverInterface = () -> new solver() {
+            SolverInterface solverInterface = () -> new Solver() {
                 @Override
                 public void setTheory(Theory theory) {
                     // In order to dump the scope info as well, we need to create a problem state from the theory
