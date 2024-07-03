@@ -9,21 +9,18 @@ import edu.mit.csail.sdg.translator.A4Options;
 import edu.mit.csail.sdg.translator.AlloySolution;
 import edu.mit.csail.sdg.translator.CommandRunner;
 import edu.mit.csail.sdg.translator.ScopeComputer;
-import fortress.compiler.ConfigurableCompiler;
-import fortress.compiler.LogicCompiler;
+import fortress.compilers.ConfigurableCompiler;
 import fortress.data.NameGenerator;
 import fortress.interpretation.Interpretation;
-import fortress.modelfind.CompilationModelFinder;
-import fortress.modelfind.ErrorResult;
-import fortress.modelfind.ModelFinder;
-import fortress.modelfind.ModelFinderResult;
+import fortress.modelfinders.ErrorResult;
+import fortress.modelfinders.ModelFinder;
+import fortress.modelfinders.ModelFinderResult;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
 import fortress.msfol.Theory;
 import fortress.operations.SmtlibConverter;
-import fortress.solverinterface.SolverInterface;
-import fortress.solverinterface.Z3NonIncCliInterface$;
-import fortress.solverinterface.Solver;
+import fortress.solvers.Solver;
+import fortress.solvers.Z3NonIncCliSolver;
 import fortress.transformers.DomainEliminationTransformer$;
 import fortress.transformers.EnumEliminationTransformer$;
 import fortress.transformers.TypecheckSanitizeTransformer$;
@@ -143,7 +140,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
     private Interpretation solve(
             PortusLogger logger, PortusStatistics statistics, TranslationResult translated, A4Options options)
             throws IOException {
-        try (ModelFinder finder = createModelFinder(Z3NonIncCliInterface$.MODULE$, options.portusOptions)) {
+        try (ModelFinder finder = createModelFinder(new Z3NonIncCliSolver(), options.portusOptions)) {
             translated.configureModelFinder(finder);
             finder.setTimeout(Milliseconds.apply(options.portusOptions.timeoutMillis));
             finder.addLogger(logger);
@@ -167,13 +164,11 @@ public final class TranslateAlloyToFortress implements CommandRunner {
         }
     }
 
-    private ModelFinder createModelFinder(SolverInterface solverInterface, PortusOptions options) {
-        return new CompilationModelFinder(solverInterface) {
-            @Override
-            public LogicCompiler createCompiler() {
-                return options.makeFortressCompiler();
-            }
-        };
+    private ModelFinder createModelFinder(Solver solver, PortusOptions options) {
+        ModelFinder modelFinder = new ModelFinder();
+        modelFinder.setCompiler(options.makeFortressCompiler());
+        modelFinder.setSolver(solver);
+        return modelFinder;
     }
 
     private void writeFortressToFile(PortusLogger logger, A4Options options, TranslationResult translated)
@@ -198,7 +193,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
             // The trick is to replace Fortress's solver connection (SolverSession) with one that just translates
             // everything to SMT-LIB and writes to the file.
             SmtlibConverter converter = new SmtlibConverter(writer);
-            SolverInterface solverInterface = () -> new Solver() {
+            Solver solver = new Solver() {
                 @Override
                 public void setTheory(Theory theory) {
                     // In order to dump the scope info as well, we need to create a problem state from the theory
@@ -234,19 +229,16 @@ public final class TranslateAlloyToFortress implements CommandRunner {
             ModelFinder finder;
             if (options.solver.id().equals(A4Options.SatSolver.POST_FORTRESS_SMTLIB.id())) {
                 // Use all the standard transformers
-                finder = createModelFinder(solverInterface, options.portusOptions);
+                finder = createModelFinder(solver, options.portusOptions);
             } else { // PRE_FORTRESS_SMTLIB
                 // Use only the typechecking transformer
-                finder = new CompilationModelFinder(solverInterface) {
-                    @Override
-                    public LogicCompiler createCompiler() {
-                        ConfigurableCompiler compiler = new ConfigurableCompiler();
-                        compiler.addTransformer(TypecheckSanitizeTransformer$.MODULE$);
-                        compiler.addTransformer(EnumEliminationTransformer$.MODULE$);
-                        compiler.addTransformer(DomainEliminationTransformer$.MODULE$);
-                        return compiler;
-                    }
-                };
+                finder = new ModelFinder();
+                ConfigurableCompiler compiler = new ConfigurableCompiler();
+                compiler.addTransformer(TypecheckSanitizeTransformer$.MODULE$);
+                compiler.addTransformer(EnumEliminationTransformer$.MODULE$);
+                compiler.addTransformer(DomainEliminationTransformer$.MODULE$);
+                finder.setCompiler(compiler);
+                finder.setSolver(solver);
             }
 
             translated.configureModelFinder(finder);

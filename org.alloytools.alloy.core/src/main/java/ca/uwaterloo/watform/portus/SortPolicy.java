@@ -20,7 +20,7 @@ import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.ast.Type;
 import edu.mit.csail.sdg.parser.Macro;
 import edu.mit.csail.sdg.translator.ScopeComputer;
-import fortress.modelfind.ModelFinder;
+import fortress.modelfinders.ModelFinder;
 import fortress.msfol.Sort;
 import fortress.msfol.Theory;
 import fortress.problemstate.ExactScope;

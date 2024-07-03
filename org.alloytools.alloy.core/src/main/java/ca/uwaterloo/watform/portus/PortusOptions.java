@@ -5,13 +5,12 @@ import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.A4Options.SatSolver;
 import edu.mit.csail.sdg.translator.CommandRunner;
 import edu.mit.csail.sdg.translator.ScopeComputer;
-import fortress.compiler.ConstantsMethodCompiler;
-import fortress.compiler.ConstantsClaessenCompiler;
-import fortress.compiler.DatatypeMethodNoRangeCompiler;
-import fortress.compiler.DatatypeMethodNoRangeEUFCompiler;
-import fortress.compiler.DatatypeMethodWithRangeCompiler;
-import fortress.compiler.DatatypeMethodWithRangeEUFCompiler;
-import fortress.compiler.LogicCompiler;
+import fortress.compilers.ClaessenCompiler;
+import fortress.compilers.Compiler;
+import fortress.compilers.DatatypeNoRangeCompiler;
+import fortress.compilers.DatatypeNoRangeEUFCompiler;
+import fortress.compilers.DatatypeWithRangeCompiler;
+import fortress.compilers.StandardCompiler;
 import fortress.data.NameGenerator;
 
 import java.io.File;
@@ -75,21 +74,22 @@ public final class PortusOptions implements Serializable {
 
     public FortressCompiler fortressCompiler = FortressCompiler.CONSTANTS_METHOD;
 
-    public LogicCompiler makeFortressCompiler() {
+    public Compiler makeFortressCompiler() {
         switch (fortressCompiler) {
             case CONSTANTS_METHOD:
             default:
-                return new ConstantsMethodCompiler() {};
+                return new StandardCompiler();
             case CONSTANTS_METHOD_CLAESSEN:
-                return new ConstantsClaessenCompiler() {};
+                return new ClaessenCompiler();
             case DATATYPE_METHOD_NO_RANGE:
-                return new DatatypeMethodNoRangeCompiler() {};
+                return new DatatypeNoRangeCompiler();
             case DATATYPE_METHOD_WITH_RANGE:
-                return new DatatypeMethodWithRangeCompiler() {};
+                return new DatatypeWithRangeCompiler();
             case DATATYPE_METHOD_NO_RANGE_EUF:
-                return new DatatypeMethodNoRangeEUFCompiler() {};
+                return new DatatypeNoRangeEUFCompiler();
             case DATATYPE_METHOD_WITH_RANGE_EUF:
-                return new DatatypeMethodWithRangeEUFCompiler() {};
+                throw new IllegalArgumentException("Datatype method with range EUF is no longer available!");
+//                return new DatatypeMethodWithRangeEUFCompiler();
         }
     }
 

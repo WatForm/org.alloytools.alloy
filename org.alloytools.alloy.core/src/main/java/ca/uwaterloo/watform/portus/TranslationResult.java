@@ -1,6 +1,6 @@
 package ca.uwaterloo.watform.portus;
 
-import fortress.modelfind.ModelFinder;
+import fortress.modelfinders.ModelFinder;
 import fortress.msfol.Sort;
 import fortress.msfol.Theory;
 import fortress.problemstate.ProblemState;
