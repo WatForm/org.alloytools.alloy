@@ -7,9 +7,10 @@ import edu.mit.csail.sdg.translator.CommandRunner;
 import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.compilers.ClaessenCompiler;
 import fortress.compilers.Compiler;
-import fortress.compilers.DatatypeNoRangeCompiler;
 import fortress.compilers.DatatypeNoRangeEUFCompiler;
-import fortress.compilers.DatatypeWithRangeCompiler;
+import fortress.compilers.DatatypeNoRangeNoEUFCompiler;
+import fortress.compilers.DatatypeWithRangeEUFCompiler;
+import fortress.compilers.DatatypeWithRangeNoEUFCompiler;
 import fortress.compilers.StandardCompiler;
 import fortress.data.NameGenerator;
 
@@ -65,6 +66,7 @@ public final class PortusOptions implements Serializable {
 
     public enum FortressCompiler {
         CONSTANTS_METHOD,
+        CONSTANTS_METHOD_SI,
         CONSTANTS_METHOD_CLAESSEN,
         DATATYPE_METHOD_NO_RANGE,
         DATATYPE_METHOD_WITH_RANGE,
@@ -82,14 +84,13 @@ public final class PortusOptions implements Serializable {
             case CONSTANTS_METHOD_CLAESSEN:
                 return new ClaessenCompiler();
             case DATATYPE_METHOD_NO_RANGE:
-                return new DatatypeNoRangeCompiler();
+                return new DatatypeNoRangeNoEUFCompiler();
             case DATATYPE_METHOD_WITH_RANGE:
-                return new DatatypeWithRangeCompiler();
+                return new DatatypeWithRangeNoEUFCompiler();
             case DATATYPE_METHOD_NO_RANGE_EUF:
                 return new DatatypeNoRangeEUFCompiler();
             case DATATYPE_METHOD_WITH_RANGE_EUF:
-                throw new IllegalArgumentException("Datatype method with range EUF is no longer available!");
-//                return new DatatypeMethodWithRangeEUFCompiler();
+                return new DatatypeWithRangeEUFCompiler();
         }
     }
 

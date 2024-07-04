@@ -15,6 +15,7 @@ import fortress.interpretation.Interpretation;
 import fortress.modelfinders.ErrorResult;
 import fortress.modelfinders.ModelFinder;
 import fortress.modelfinders.ModelFinderResult;
+import fortress.modelfinders.StandardModelFinder;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
 import fortress.msfol.Theory;
@@ -165,7 +166,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
     }
 
     private ModelFinder createModelFinder(Solver solver, PortusOptions options) {
-        ModelFinder modelFinder = new ModelFinder();
+        ModelFinder modelFinder = new StandardModelFinder();
         modelFinder.setCompiler(options.makeFortressCompiler());
         modelFinder.setSolver(solver);
         return modelFinder;
@@ -232,7 +233,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
                 finder = createModelFinder(solver, options.portusOptions);
             } else { // PRE_FORTRESS_SMTLIB
                 // Use only the typechecking transformer
-                finder = new ModelFinder();
+                finder = new StandardModelFinder();
                 ConfigurableCompiler compiler = new ConfigurableCompiler();
                 compiler.addTransformer(TypecheckSanitizeTransformer$.MODULE$);
                 compiler.addTransformer(EnumEliminationTransformer$.MODULE$);
