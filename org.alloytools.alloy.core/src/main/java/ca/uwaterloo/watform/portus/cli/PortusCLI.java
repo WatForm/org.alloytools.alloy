@@ -94,6 +94,7 @@ public final class PortusCLI {
         options.enableConstantsScopeAxiomStrategy = !disableAllOpts
                 && !cliOptions.useCardinalityScopeAxiomStrategy.active();
 
+        options.enableSumBalancing = cliOptions.enableSumBalancing.active();
         options.enableElementOfScalarOptimization = cliOptions.enableElementOfScalarOpt.active();
         options.enableCaching = cliOptions.enableCaching.active();
 

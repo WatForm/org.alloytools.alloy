@@ -29,10 +29,16 @@ final class SumDefinitionsOptTranslator extends AbstractTranslator {
     private final SortPolicy sortPolicy;
     private final NameGenerator nameGenerator;
 
-    public SumDefinitionsOptTranslator(Translator topLevel, SortPolicy sortPolicy, NameGenerator nameGenerator) {
+    // If true, balance the generated addends like ((1 + 1) + (1 + 1)) + ((1 + 1) + (1 + 1)).
+    // If false, just generate it left-associative: ((((((1 + 1) + 1) + 1) + 1) + 1) + 1) + 1
+    private final boolean useBalancing;
+
+    public SumDefinitionsOptTranslator(
+            Translator topLevel, SortPolicy sortPolicy, NameGenerator nameGenerator, boolean useBalancing) {
         super(topLevel);
         this.sortPolicy = sortPolicy;
         this.nameGenerator = nameGenerator;
+        this.useBalancing = useBalancing;
     }
 
     @Override
@@ -137,17 +143,34 @@ final class SumDefinitionsOptTranslator extends AbstractTranslator {
             }
         }
 
-        // Use a final one-element array to get around Java limitations: only final vars can be used in lambdas.
-        final Term[] result = {null};
+        // Get all the addends
+        List<Term> addends = new ArrayList<>();
         PortusUtil.expandOverSorts(sorts, sortPolicy, tuple -> {
             Term addend = Term.mkApp(defName, SetOps.concatenate(tuple, freeVars));
-            if (result[0] == null) {
-                result[0] = addend;
-            } else {
-                result[0] = Term.mkPlus(result[0], addend);
-            }
+            addends.add(addend);
         });
-        return result[0];
+
+        if (useBalancing) {
+            return combineBalanced(addends);
+        } else {
+            return combineLeftAssociative(addends);
+        }
+    }
+
+    private Term combineLeftAssociative(List<Term> addends) {
+        return addends.stream().reduce(Term::mkPlus).orElse(IntegerLiteral.apply(0));
+    }
+
+    private Term combineBalanced(List<Term> addends) {
+        if (addends.isEmpty()) return IntegerLiteral.apply(0);
+        int length = addends.size();
+        if (length == 1) return addends.get(0);
+
+        int leftSize = (length / 2) + (length % 2); // put extra on the left
+        List<Term> leftView = addends.subList(0, leftSize);
+        List<Term> rightView = addends.subList(leftSize, length);
+
+        return Term.mkPlus(combineBalanced(leftView), combineBalanced(rightView));
     }
 
 }

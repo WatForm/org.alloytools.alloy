@@ -109,7 +109,8 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
             translators.add(new KodkodIntCompatibilityTranslator(this, sortPolicy));
         }
         if (options.enableSumDefinitionsOptimization) {
-            translators.add(new SumDefinitionsOptTranslator(this, sortPolicy, nameGenerator));
+            translators.add(new SumDefinitionsOptTranslator(
+                    this, sortPolicy, nameGenerator, options.enableSumBalancing));
         }
         translators.add(defaultTranslator);
 
