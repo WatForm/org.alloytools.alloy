@@ -103,38 +103,9 @@ public final class PortusCLI {
         options.enableFortressNonExactScopes = cliOptions.enableFortressNonExactScopes.active();
     }
 
-    private static void setFortressCompiler(PortusOptions options, PortusCLIOptions cliOptions) {
-        if (!cliOptions.fortressCompiler.validate()) {
-            System.err.println("Error: Unknown Fortress compiler: " + cliOptions.fortressCompiler.chosen());
-            cliOptions.printHelp(PROGRAM_NAME);
-            System.exit(-1);
-        }
-        switch (cliOptions.fortressCompiler.chosen()) {
-            case "constants":
-                options.fortressCompiler = PortusOptions.FortressCompiler.CONSTANTS_METHOD;
-                break;
-            case "constants-si":
-                options.fortressCompiler = PortusOptions.FortressCompiler.CONSTANTS_METHOD_SI;
-                break;
-            case "constants-claessen":
-                options.fortressCompiler = PortusOptions.FortressCompiler.CONSTANTS_METHOD_CLAESSEN;
-                break;
-            case "datatype-no-range":
-                options.fortressCompiler = PortusOptions.FortressCompiler.DATATYPE_METHOD_NO_RANGE;
-                break;
-            case "datatype-with-range":
-                options.fortressCompiler = PortusOptions.FortressCompiler.DATATYPE_METHOD_WITH_RANGE;
-                break;
-            case "datatype-no-range-euf":
-                options.fortressCompiler = PortusOptions.FortressCompiler.DATATYPE_METHOD_NO_RANGE_EUF;
-                break;
-            case "datatype-with-range-euf":
-                options.fortressCompiler = PortusOptions.FortressCompiler.DATATYPE_METHOD_WITH_RANGE_EUF;
-                break;
-            default:
-                throw new IllegalArgumentException(
-                        "Bug: mismatch between PortusCLI and PortusCLIOptions on Fortress compiler options");
-        }
+    private static void setFortressOptions(PortusOptions options, PortusCLIOptions cliOptions) {
+        options.fortressCompiler = cliOptions.fortressCompiler.singleArgument();
+        options.fortressSolver = cliOptions.fortressSolver.singleArgument();
     }
 
     private static boolean canOverrideSig(Sig sig) {
@@ -260,7 +231,7 @@ public final class PortusCLI {
             A4Options alloyOptions = new A4Options();
             alloyOptions.originalFilename = alloyFilename;
             applyOptionFlags(alloyOptions.portusOptions, options);
-            setFortressCompiler(alloyOptions.portusOptions, options);
+            setFortressOptions(alloyOptions.portusOptions, options);
 
             if (options.noTimeout.active()) {
                 // Set the timeout to something silly like 20 days

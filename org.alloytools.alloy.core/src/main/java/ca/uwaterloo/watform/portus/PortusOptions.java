@@ -5,13 +5,6 @@ import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.A4Options.SatSolver;
 import edu.mit.csail.sdg.translator.CommandRunner;
 import edu.mit.csail.sdg.translator.ScopeComputer;
-import fortress.compilers.ClaessenCompiler;
-import fortress.compilers.Compiler;
-import fortress.compilers.DatatypeNoRangeEUFCompiler;
-import fortress.compilers.DatatypeNoRangeNoEUFCompiler;
-import fortress.compilers.DatatypeWithRangeEUFCompiler;
-import fortress.compilers.DatatypeWithRangeNoEUFCompiler;
-import fortress.compilers.StandardCompiler;
 import fortress.data.NameGenerator;
 
 import java.io.File;
@@ -64,35 +57,11 @@ public final class PortusOptions implements Serializable {
     // By default, a random filename.
     public String outputName = "tmp" + Math.abs(new Random().nextLong());
 
-    public enum FortressCompiler {
-        CONSTANTS_METHOD,
-        CONSTANTS_METHOD_SI,
-        CONSTANTS_METHOD_CLAESSEN,
-        DATATYPE_METHOD_NO_RANGE,
-        DATATYPE_METHOD_WITH_RANGE,
-        DATATYPE_METHOD_NO_RANGE_EUF,
-        DATATYPE_METHOD_WITH_RANGE_EUF,
-    }
+    // The name of the Fortress compiler to use according to the CompilersRegistry.
+    public String fortressCompiler = "Standard";
 
-    public FortressCompiler fortressCompiler = FortressCompiler.CONSTANTS_METHOD;
-
-    public Compiler makeFortressCompiler() {
-        switch (fortressCompiler) {
-            case CONSTANTS_METHOD:
-            default:
-                return new StandardCompiler();
-            case CONSTANTS_METHOD_CLAESSEN:
-                return new ClaessenCompiler();
-            case DATATYPE_METHOD_NO_RANGE:
-                return new DatatypeNoRangeNoEUFCompiler();
-            case DATATYPE_METHOD_WITH_RANGE:
-                return new DatatypeWithRangeNoEUFCompiler();
-            case DATATYPE_METHOD_NO_RANGE_EUF:
-                return new DatatypeNoRangeEUFCompiler();
-            case DATATYPE_METHOD_WITH_RANGE_EUF:
-                return new DatatypeWithRangeEUFCompiler();
-        }
-    }
+    // The name of the Fortress solver to use according to the SolversRegistry.
+    public String fortressSolver = "Z3NonIncCliSolver";
 
     // Enable or disable each optimization individually.
     // Don't allow disabling the function optimization because it can affect correctness (join as integer expression).

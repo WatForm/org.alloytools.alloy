@@ -2,6 +2,7 @@ package ca.uwaterloo.watform.portus.cli;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,15 +22,11 @@ final class PortusCLIOptions {
     public final Option pickCommandNumber = new Option(
             "-command", 1, "Run the arg'th command (1-indexed) in each file if no specific command is specified.");
 
-    public final EnumOption fortressCompiler = new EnumOption("-compiler", Arrays.asList(
-            "constants",
-            "constants-si",
-            "constants-claessen",
-            "datatype-no-range",
-            "datatype-with-range",
-            "datatype-no-range-euf",
-            "datatype-with-range-euf"
-    ), "constants", "The Fortress compiler to use.");
+    public final Option fortressCompiler = new Option("-compiler", 1, Collections.singletonList("Standard"),
+            "The Fortress compiler to use; see Fortress docs for options. (default: Standard)");
+
+    public final Option fortressSolver = new Option("-solver", 1, Collections.singletonList("Z3NonIncCliSolver"),
+            "The Fortress solver to use; see Fortress docs for options. (default: Z3NonIncCliSolver)");
 
     public final Option setAllScopes = new Option(
             "-all-scopes", 1, "Set the scope of all non-one, non-lone top-level sigs to this scope, exact.");
@@ -92,7 +89,8 @@ final class PortusCLIOptions {
             "-enable-fortress-nonexact-scopes", "Enable use of the Fortress-level non-exact scopes feature.");
 
     public final Option[] allOptions = new Option[] {
-            help, adjustBitwidth, noTimeout, pickCommandNumber, fortressCompiler,
+            help, adjustBitwidth, noTimeout, pickCommandNumber,
+            fortressCompiler, fortressSolver,
             setAllScopes, setSigScope,
             useRunPortusProcessor, useRunKodkodProcessor,
             useCorrectnessProcessor, useDeltaDebugProcessor,
@@ -189,21 +187,31 @@ final class PortusCLIOptions {
 
         private final String name;
         private final int arity;
+        private final List<String> defaultArgs;
 
         private final String help;
 
-        public Option(String name, int arity, String help) {
+        public Option(String name, int arity, List<String> defaultArgs, String help) {
             if (name == null || help == null) {
                 throw new NullPointerException();
             }
+            if (defaultArgs != null && defaultArgs.size() != arity) {
+                throw new IllegalArgumentException("Default arguments must have same size as arity!");
+            }
             this.name = name;
             this.help = help;
+            this.defaultArgs = defaultArgs;
             this.arity = arity;
+        }
+
+        // Default to no default args
+        public Option(String name, int arity, String help) {
+            this(name, arity, null, help);
         }
 
         // Default to 0-ary
         public Option(String name, String help) {
-            this(name, 0, help);
+            this(name, 0, null, help);
         }
 
         public String name() {
@@ -215,12 +223,21 @@ final class PortusCLIOptions {
             return activeOptionsToArgs.containsKey(this);
         }
 
-        // Get the arguments passed to the option; must be active.
+        // Get the arguments passed to the option; if there are no default arguments, must be active.
         public List<String> arguments() {
             if (!active()) {
-                throw new IllegalArgumentException("Option is not active!");
+                if (defaultArgs != null) {
+                    return defaultArgs;
+                } else {
+                    throw new IllegalArgumentException("Option is not active!");
+                }
             }
             return activeOptionsToArgs.get(this);
+        }
+
+        public String singleArgument() {
+            if (arity != 1) throw new IllegalArgumentException("Can only call singleArgument() on a unary Option!");
+            return arguments().get(0);
         }
 
         // What should we display the option as for printing?
