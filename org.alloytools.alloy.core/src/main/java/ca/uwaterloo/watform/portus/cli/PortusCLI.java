@@ -5,9 +5,12 @@ import ca.uwaterloo.watform.portus.SanitizingNameGenerator;
 import ca.uwaterloo.watform.portus.SortPolicy;
 import ca.uwaterloo.watform.portus.TimeoutException;
 import edu.mit.csail.sdg.alloy4.A4Reporter;
+import edu.mit.csail.sdg.alloy4.ConstList;
 import edu.mit.csail.sdg.alloy4.Pair;
+import edu.mit.csail.sdg.alloy4.Pos;
 import edu.mit.csail.sdg.alloy4.Util;
 import edu.mit.csail.sdg.ast.Command;
+import edu.mit.csail.sdg.ast.CommandScope;
 import edu.mit.csail.sdg.ast.Module;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.parser.CompUtil;
@@ -20,6 +23,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -120,6 +124,31 @@ public final class PortusCLI {
         }
     }
 
+    // Use this instead of command.change(sig, exact, scope) because it mishandles the case where the scope for the sig
+    // is (presumably erroneously) specified twice:
+    //   sig A {}
+    //   run {} for 3 A, 3 A
+    // This is valid iff the duplicate scopes are the same. command.change(sig, exact, scope) only changes the first
+    // scope, leading to an error. This changes all of the scopes.
+    private static Command changeScope(Command command, Sig sig, boolean exact, int scope) {
+        AtomicBoolean foundAny = new AtomicBoolean(false);
+        List<CommandScope> newScopes = command.scope.stream().map(cmdScope -> {
+            if (cmdScope.sig == sig) {
+                foundAny.set(true);
+                return new CommandScope(cmdScope.pos, cmdScope.sigPos, sig, exact, scope, scope, 1);
+            } else {
+                return cmdScope;
+            }
+        }).collect(Collectors.toList());
+
+        if (foundAny.get()) {
+            return command.change(ConstList.make(newScopes));
+        } else {
+            CommandScope cmdScope = new CommandScope(Pos.UNKNOWN, Pos.UNKNOWN, sig, exact, scope, scope, 1);
+            return command.change(Util.append(command.scope, cmdScope));
+        }
+    }
+
     // Implement the setAllScopes and setSigScope options
     private static Command performScopeOverrides(Module world, Command command, PortusCLIOptions options) {
         List<Sig> overridableSigs = world.getAllReachableUserDefinedSigs().stream()
@@ -132,7 +161,7 @@ public final class PortusCLI {
             validateScope(scope, options);
             System.out.println("Setting all scopes to " + scope);
             for (Sig sig : overridableSigs) {
-                command = command.change(sig, true, scope);
+                command = changeScope(command, sig, true, scope);
             }
         }
 
@@ -152,7 +181,7 @@ public final class PortusCLI {
 
             Sig sig = overridableSigs.get(whichSig - 1); // convert to 0-indexed
             System.out.println("Setting scope of " + sig.label + " to " + scope);
-            command = command.change(sig, true, scope);
+            command = changeScope(command, sig, true, scope);
         }
 
         return command;
