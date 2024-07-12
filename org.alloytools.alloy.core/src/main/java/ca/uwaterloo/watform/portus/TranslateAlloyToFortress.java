@@ -9,7 +9,7 @@ import edu.mit.csail.sdg.translator.A4Options;
 import edu.mit.csail.sdg.translator.AlloySolution;
 import edu.mit.csail.sdg.translator.CommandRunner;
 import edu.mit.csail.sdg.translator.ScopeComputer;
-import fortress.compilers.ConfigurableCompiler;
+import fortress.compilers.AlmostNothingCompiler;
 import fortress.data.NameGenerator;
 import fortress.interpretation.Interpretation;
 import fortress.modelfinders.ErrorResult;
@@ -21,9 +21,6 @@ import fortress.msfol.Term;
 import fortress.msfol.Theory;
 import fortress.operations.SmtlibConverter;
 import fortress.solvers.Solver;
-import fortress.transformers.DomainEliminationTransformer$;
-import fortress.transformers.EnumEliminationTransformer$;
-import fortress.transformers.TypecheckSanitizeTransformer$;
 import fortress.util.Dump;
 import fortress.util.Milliseconds;
 
@@ -232,12 +229,8 @@ public final class TranslateAlloyToFortress implements CommandRunner {
                 // Use all the standard transformers
                 finder.setCompiler(options.portusOptions.fortressCompiler);
             } else { // PRE_FORTRESS_SMTLIB
-                // Use only the typechecking transformer
-                ConfigurableCompiler compiler = new ConfigurableCompiler();
-                compiler.addTransformer(TypecheckSanitizeTransformer$.MODULE$);
-                compiler.addTransformer(EnumEliminationTransformer$.MODULE$);
-                compiler.addTransformer(DomainEliminationTransformer$.MODULE$);
-                finder.setCompiler(compiler);
+                // Use almost nothing! (only typecheck + enums->DEs + DEs->constants)
+                finder.setCompiler(new AlmostNothingCompiler());
             }
 
             translated.configureModelFinder(finder);
