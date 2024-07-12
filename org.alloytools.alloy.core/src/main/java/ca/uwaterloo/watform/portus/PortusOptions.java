@@ -61,7 +61,7 @@ public final class PortusOptions implements Serializable {
     public String fortressCompiler = "Standard";
 
     // The name of the Fortress solver to use according to the SolversRegistry.
-    public String fortressSolver = "Z3NonIncCliSolver";
+    public String fortressSolver = "Z3NonIncCli";
 
     // Enable or disable each optimization individually.
     // Don't allow disabling the function optimization because it can affect correctness (join as integer expression).

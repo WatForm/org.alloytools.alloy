@@ -25,8 +25,8 @@ final class PortusCLIOptions {
     public final Option fortressCompiler = new Option("-compiler", 1, Collections.singletonList("Standard"),
             "The Fortress compiler to use; see Fortress docs for options. (default: Standard)");
 
-    public final Option fortressSolver = new Option("-solver", 1, Collections.singletonList("Z3NonIncCliSolver"),
-            "The Fortress solver to use; see Fortress docs for options. (default: Z3NonIncCliSolver)");
+    public final Option fortressSolver = new Option("-solver", 1, Collections.singletonList("Z3NonIncCli"),
+            "The Fortress solver to use; see Fortress docs for options. (default: Z3NonIncCli)");
 
     public final Option setAllScopes = new Option(
             "-all-scopes", 1, "Set the scope of all non-one, non-lone top-level sigs to this scope, exact.");
