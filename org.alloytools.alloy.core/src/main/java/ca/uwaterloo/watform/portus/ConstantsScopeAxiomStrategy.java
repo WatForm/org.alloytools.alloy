@@ -34,8 +34,16 @@ final class ConstantsScopeAxiomStrategy implements ScopeAxiomStrategy {
             throw new ErrorFatal("Can only generate a constants scope axiom for sigs with defined sorts!");
         }
         int sortScope = sortPolicy.getSortScope(sort);
+        if (scope == sortScope) {
+            // don't need to assert an upper bound
+            return Term.mkTop();
+        }
 
-        // Generate sortScope - scope constants and assert that they are distinct and not in sig
+        // Because we rely on the sort's scope to upper-bound the size of the sig, the sort must be unchanging.
+        // (That is, changing the sort in the output Fortress theory is not semantically correct.)
+        context.markSortUnchanging(sort);
+
+        // Generate `sortScope - scope` constants and assert that they are distinct and not in sig
         Function<AnnotatedVar, Term> notInSig = var ->
                 recursiveTranslator.translate(ExprElementOf.make(var, sig).not(), context);
         return generateDistinctConstantsAxiom(sortScope - scope, sort, notInSig, context);
