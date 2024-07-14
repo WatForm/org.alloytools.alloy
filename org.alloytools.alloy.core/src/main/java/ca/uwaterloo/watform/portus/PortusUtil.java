@@ -338,6 +338,20 @@ final class PortusUtil {
         return Term.mkAnd(conjuncts);
     }
 
+    public static Term mkExhaustiveLookupTable(Term input, List<Pair<Term, Term>> table) {
+        if (table.isEmpty()) {
+            throw new IllegalArgumentException("Cannot make an empty exhaustive lookup table!");
+        }
+        Term firstKey = table.get(0).a;
+        Term firstValue = table.get(0).b;
+        if (table.size() == 1) {
+            // it's exhaustive, so don't both checking the key
+            return firstValue;
+        }
+        return Term.mkIfThenElse(Term.mkEq(input, firstKey), firstValue,
+                mkExhaustiveLookupTable(input, table.subList(1, table.size())));
+    }
+
     /**
      * Given a current list of integers [x1,...,xn] and a list of maximums [m1,...,mn],
      * mutate current to the next element in the Cartesian product {1,...,m1}x...x{1,...,mn}.

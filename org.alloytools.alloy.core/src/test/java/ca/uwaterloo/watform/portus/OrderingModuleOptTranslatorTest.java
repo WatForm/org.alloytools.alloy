@@ -74,7 +74,7 @@ public class OrderingModuleOptTranslatorTest {
             if (exprElementOf.sub != orderedSig) fail();
             if (exprElementOf.tuple.size() != 1 || exprElementOf.tuple.getSort(0) != orderedSigSort) fail();
             return Term.mkApp("inOrderedSig", exprElementOf.tuple.getTerm(0));
-        }, scalarCaster, policy);
+        }, scalarCaster, policy, new SanitizingNameGenerator(), false);
 
         when(scoper.isExact(orderedSig)).thenReturn(true);
         when(policy.getSort(orderedSig)).thenReturn(orderedSigSort);
@@ -119,7 +119,6 @@ public class OrderingModuleOptTranslatorTest {
     @Test
     public void testTranslate_orderedSig_first_simple() {
         // first is hardcoded as the first DE in the range: [[x \in first]] := x = @_(first)
-        // now this is failing?????
         when(scoper.sig2scope(orderedSig)).thenReturn(3);
         when(rangeAssigner.getDomainElementRange(orderedSig)).thenReturn(new Pair<>(1, 3));
         translator.translate(ordSig, context);

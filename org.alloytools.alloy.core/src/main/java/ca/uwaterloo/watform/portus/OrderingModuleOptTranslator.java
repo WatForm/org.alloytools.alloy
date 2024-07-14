@@ -9,10 +9,13 @@ import edu.mit.csail.sdg.ast.ExprCall;
 import edu.mit.csail.sdg.ast.ExprList;
 import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.Sig;
+import fortress.data.NameGenerator;
 import fortress.msfol.DomainElement;
 import fortress.msfol.FuncDecl;
+import fortress.msfol.FunctionDefinition;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
+import fortress.msfol.Var;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -174,21 +177,40 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
                 return; // already exists
             }
 
-            // Generate the function itself (next: sort->sort)
+            // Add a definition for next
             Sort sort = sortPolicy.getSort(sig);
-            FuncDecl funcDecl = FuncDecl.mkFuncDecl(nextFuncName, sort, sort);
-            context.addFunctionDeclaration(funcDecl);
-
-            // Constrain it by hardcoding the order, leaving next(last) undefined
-            // Note: deRange is inclusive, so we exclude the last element in the range
             context.rangeAssigner.addRangeAxiom(sig, topLevelTranslator, context); // ensure range is valid
-            Pair<Integer, Integer> deRange = context.rangeAssigner.getDomainElementRange(sig);
-            for (int de = deRange.a; de < deRange.b; de++) {
-                // "next(_@de) = _@(de+1)"
-                Term axiom = Term.mkEq(
-                        Term.mkApp(nextFuncName, Term.mkDomainElement(de, sort)),
-                        Term.mkDomainElement(de + 1, sort));
-                context.addAxiom(axiom);
+
+            if (useDefinition) {
+                // Generate a lookup table for the definition body
+                List<Pair<Term, Term>> lookupTable = new ArrayList<>();
+                Pair<Integer, Integer> deRange = context.rangeAssigner.getDomainElementRange(sig);
+                for (int de = deRange.a; de < deRange.b; de++) {
+                    // "next(_@de) = _@(de+1)"
+                    lookupTable.add(new Pair<>(Term.mkDomainElement(de, sort), Term.mkDomainElement(de + 1, sort)));
+                }
+
+                Var inputVar = Term.mkVar(nameGenerator.freshName("x"));
+                Term lookupTableTerm = PortusUtil.mkExhaustiveLookupTable(inputVar, lookupTable);
+                FunctionDefinition definition = FunctionDefinition.mkFunctionDefinition(
+                        nextFuncName, Collections.singletonList(inputVar.of(sort)), sort, lookupTableTerm);
+                context.addFunctionDefinition(definition);
+            } else {
+                // Generate the function (next: sort->sort)
+                FuncDecl funcDecl = FuncDecl.mkFuncDecl(nextFuncName, sort, sort);
+                context.addFunctionDeclaration(funcDecl);
+
+                // Constrain it by hardcoding the order, leaving next(last) undefined
+                // Note: deRange is inclusive, so we exclude the last element in the range
+                context.rangeAssigner.addRangeAxiom(sig, topLevelTranslator, context); // ensure range is valid
+                Pair<Integer, Integer> deRange = context.rangeAssigner.getDomainElementRange(sig);
+                for (int de = deRange.a; de < deRange.b; de++) {
+                    // "next(_@de) = _@(de+1)"
+                    Term axiom = Term.mkEq(
+                            Term.mkApp(nextFuncName, Term.mkDomainElement(de, sort)),
+                            Term.mkDomainElement(de + 1, sort));
+                    context.addAxiom(axiom);
+                }
             }
         }
     }
@@ -197,11 +219,18 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
 
     private final ScalarCaster rootScalarCaster;
     private final SortPolicy sortPolicy;
+    private final NameGenerator nameGenerator;
 
-    public OrderingModuleOptTranslator(Translator topLevel, ScalarCaster rootScalarCaster, SortPolicy sortPolicy) {
+    private final boolean useDefinition;
+
+    public OrderingModuleOptTranslator(
+            Translator topLevel, ScalarCaster rootScalarCaster, SortPolicy sortPolicy, NameGenerator nameGenerator,
+            boolean useDefinition) {
         super(topLevel);
         this.rootScalarCaster = rootScalarCaster;
         this.sortPolicy = sortPolicy;
+        this.nameGenerator = nameGenerator;
+        this.useDefinition = useDefinition;
     }
 
     @Override

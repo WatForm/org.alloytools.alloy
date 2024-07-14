@@ -74,9 +74,12 @@ final class PortusCLIOptions {
             "-disable-all-opts", "Shortcut: Disable all optimizations except the function optimization and the " +
             "partition sort policy, use the cardinality scope axiom strategy.");
 
+    public final Option disableOrderingDefinition = new Option(
+            "-disable-ordering-defn", "Disable using definitions in the ordering module.");
     public final Option enableSumBalancing = new Option(
             "-enable-sum-balancing",
             "Enable balanced sum definitions (experimental). Requires sum definitions optimization.");
+
     public final Option enableElementOfScalarOpt = new Option(
             "-enable-element-scalar-opt", "Enable element-of scalar caster optimization (experimental).");
     public final Option enableCaching = new Option(
@@ -100,7 +103,8 @@ final class PortusCLIOptions {
             disableSimpleScalarOpt, disableOneSigOpt, disableJoinOpt, disableOrderingModuleOpt,
             disableMembershipPredicateOpt, disablePartitionSortPolicy, disableSumDefinitionsOpt,
             useCardinalityScopeAxiomStrategy, disableFuncOpt, disableAllOpts,
-            enableSumBalancing, enableElementOfScalarOpt, enableCaching, enableKodkodIntCompatibility,
+            disableOrderingDefinition, enableSumBalancing,
+            enableElementOfScalarOpt, enableCaching, enableKodkodIntCompatibility,
             enableFortressNonExactScopes,
     };
 

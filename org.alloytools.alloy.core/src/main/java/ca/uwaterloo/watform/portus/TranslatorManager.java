@@ -74,7 +74,8 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
         OneSigOptTranslator oneSigOpt = new OneSigOptTranslator(this, sortPolicy, sigAxioms);
         FunctionOptTranslator functionOpt = new FunctionOptTranslator(
                 this, this, this, sortPolicy, nameGenerator, true);
-        OrderingModuleOptTranslator orderingModuleOpt = new OrderingModuleOptTranslator(this, this, sortPolicy);
+        OrderingModuleOptTranslator orderingModuleOpt = new OrderingModuleOptTranslator(
+                this, this, sortPolicy, nameGenerator, options.enableOrderingDefinition);
         MembershipPredicateOptTranslator membershipPredOpt = new MembershipPredicateOptTranslator(
                 this, sortPolicy, sigAxioms, !options.enableFortressNonExactScopes);
         DefaultTranslator defaultTranslator = new DefaultTranslator(

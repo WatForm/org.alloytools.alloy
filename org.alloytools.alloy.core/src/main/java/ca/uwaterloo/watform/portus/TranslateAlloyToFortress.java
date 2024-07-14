@@ -11,6 +11,7 @@ import edu.mit.csail.sdg.translator.CommandRunner;
 import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.compilers.AlmostNothingCompiler;
 import fortress.data.NameGenerator;
+import fortress.interpretation.BasicInterpretation;
 import fortress.interpretation.Interpretation;
 import fortress.modelfinders.ErrorResult;
 import fortress.modelfinders.ModelFinder;
@@ -157,8 +158,18 @@ public final class TranslateAlloyToFortress implements CommandRunner {
                 throw new TimeoutException();
             }
 
-            return (result == ModelFinderResult.Sat()) ? finder.viewModel() : null;
+            return (result == ModelFinderResult.Sat()) ? postprocessInterp(finder.viewModel(), translated) : null;
         }
+    }
+
+    private Interpretation postprocessInterp(Interpretation interpretation, TranslationResult translated) {
+        // Add the function definitions from the theory because they aren't returned from Fortress.
+        //noinspection unchecked
+        return new BasicInterpretation(
+                interpretation.sortInterpretations(),
+                interpretation.constantInterpretations(),
+                interpretation.functionInterpretations(),
+                interpretation.functionDefinitions().concat(translated.getTheory().functionDefinitions()).toSet());
     }
 
     private ModelFinder createModelFinder(PortusOptions options) {

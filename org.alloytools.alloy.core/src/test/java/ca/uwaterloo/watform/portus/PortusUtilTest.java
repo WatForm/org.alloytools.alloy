@@ -185,6 +185,44 @@ public class PortusUtilTest {
     }
 
     @Test
+    public void testMakeExhaustiveLookupTable_oneElement() {
+        Term key = Term.mkVar("key");
+        Term value = Term.mkVar("value");
+        Term input = Term.mkVar("input");
+        Term actual = PortusUtil.mkExhaustiveLookupTable(input, Collections.singletonList(new Pair<>(key, value)));
+        assertEquals(value, actual);
+    }
+
+    @Test
+    public void testMakeExhaustiveLookupTable_twoElements() {
+        Term key1 = Term.mkVar("key1");
+        Term value1 = Term.mkVar("value1");
+        Term key2 = Term.mkVar("key2");
+        Term value2 = Term.mkVar("value2");
+        Term input = Term.mkVar("input");
+        Term expected = Term.mkIfThenElse(Term.mkEq(input, key1), value1, value2);
+        Term actual = PortusUtil.mkExhaustiveLookupTable(input, Arrays.asList(
+                new Pair<>(key1, value1), new Pair<>(key2, value2)));
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    public void testMakeExhaustiveLookupTable_threeElements() {
+        Term key1 = Term.mkVar("key1");
+        Term value1 = Term.mkVar("value1");
+        Term key2 = Term.mkVar("key2");
+        Term value2 = Term.mkVar("value2");
+        Term key3 = Term.mkVar("key3");
+        Term value3 = Term.mkVar("value3");
+        Term input = Term.mkVar("input");
+        Term expected = Term.mkIfThenElse(Term.mkEq(input, key1), value1,
+                Term.mkIfThenElse(Term.mkEq(input, key2), value2, value3));
+        Term actual = PortusUtil.mkExhaustiveLookupTable(input, Arrays.asList(
+                new Pair<>(key1, value1), new Pair<>(key2, value2), new Pair<>(key3, value3)));
+        assertEquals(expected, actual);
+    }
+
+    @Test
     public void testComputeFreeVariables_triviallyNone() {
         Sort sort = Sort.mkSortConst("S");
         Sig sig = new Sig.PrimSig("S");
