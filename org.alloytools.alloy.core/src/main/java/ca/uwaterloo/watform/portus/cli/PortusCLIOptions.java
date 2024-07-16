@@ -62,6 +62,8 @@ final class PortusCLIOptions {
             "-disable-ordering-opt", "DEPRECATED: no-op. The ordering module optimization cannot be disabled.");
     public final Option disableMembershipPredicateOpt = new Option(
             "-disable-mem-pred-opt", "Disable membership predicate optimization.");
+    public final Option disableClosureOfScalarOpt = new Option(
+            "-disable-closure-scalar-opt", "Disable closure-of-scalar optimization.");
     public final Option disablePartitionSortPolicy = new Option(
             "-disable-partition-sp", "Disable the partition sort policy, use the univ sort policy.");
     public final Option disableSumDefinitionsOpt = new Option(
@@ -101,7 +103,8 @@ final class PortusCLIOptions {
             useStatisticsProcessor, useCountCommandsProcessor,
             alwaysShowKodkodTime,
             disableSimpleScalarOpt, disableOneSigOpt, disableJoinOpt, disableOrderingModuleOpt,
-            disableMembershipPredicateOpt, disablePartitionSortPolicy, disableSumDefinitionsOpt,
+            disableClosureOfScalarOpt, disableMembershipPredicateOpt, disablePartitionSortPolicy,
+            disableSumDefinitionsOpt,
             useCardinalityScopeAxiomStrategy, disableFuncOpt, disableAllOpts,
             disableOrderingDefinition, enableSumBalancing,
             enableElementOfScalarOpt, enableCaching, enableKodkodIntCompatibility,

@@ -414,9 +414,8 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
                 Term guard = Term.mkAnd(leftScalarGuard, inDomain);
                 Sort sort = optInfo.resultSort;
 
-                // There shouldn't be any extra free variables in the scalar
-                List<AnnotatedVar> scalarFreeVars = ConstList.make();
-                return new Pair<>(new AnnotatedTerm(scalar, sort, scalarFreeVars), guard);
+                // There shouldn't be any extra free variables in the scalar: just use the left scalar's free vars
+                return new Pair<>(new AnnotatedTerm(scalar, sort, leftScalar.getFreeVars()), guard);
             }
         }
         return null;
