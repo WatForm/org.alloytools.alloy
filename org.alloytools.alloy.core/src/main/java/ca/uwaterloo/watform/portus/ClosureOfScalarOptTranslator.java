@@ -18,6 +18,7 @@ import java.util.List;
 // TODO implement scalar caster for x.^f
 // Note success is reliant upon x.f being a scalar, so this relies upon FunctionOptTranslator's list of special cases
 // for scalar casting with functions
+// Even further optimization: instead of going up to |S|, go only up to max size of the expression (compute that)
 final class ClosureOfScalarOptTranslator extends AbstractTranslator {
 
     private final ScalarCaster scalarCaster;
@@ -82,6 +83,8 @@ final class ClosureOfScalarOptTranslator extends AbstractTranslator {
 
         Sort tcSort = scalarDefn.resultSort(); // TODO verify this is the same as the input sort?
         int sortScope = sortPolicy.getSortScope(tcSort);
+        context.markSortUnchanging(tcSort); // since we rely on the sort's scope here
+
         Term currentTerm = x.getTerm();
         for (int i = 0; i < sortScope; i++) {
             // guard: f^i(x) in dom(f)
