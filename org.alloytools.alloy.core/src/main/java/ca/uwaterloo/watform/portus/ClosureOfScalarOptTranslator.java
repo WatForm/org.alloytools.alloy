@@ -14,11 +14,18 @@ import fortress.msfol.Term;
 import java.util.ArrayList;
 import java.util.List;
 
-// TODO document
-// TODO implement scalar caster for x.^f
-// Note success is reliant upon x.f being a scalar, so this relies upon FunctionOptTranslator's list of special cases
-// for scalar casting with functions
-// Even further optimization: instead of going up to |S|, go only up to max size of the expression (compute that)
+/**
+ * An optimization for transitive closure over expressions that can be interpreted as Fortress functions.
+ * If f: S->S is a function from scalars to scalars, then roughly we can translate:
+ *   [[(x,y) \in ^f]] := y = f(x) || y = f(f(x)) || y = f(f(f(x))) || ... || y = f^{|S|}(x)
+ * This is implemented as follows. If castToScalar(x.e) = (e(x), guard(x)) for a fresh variable x, then
+ *   [[(x,y) \in ^e]] := guard(x) && (y = e(x) || (guard(e(x)) && (y = e(e(x))
+ *       || (... guard(e^{|S|-1}(x)) && y = e^{|S|}(x)))))
+ *
+ * Note that this is reliant upon x.f being a scalar - TODO recognize scalar-to-scalar functions.
+ * A further possible optimization: if we know the maximum size of the range of the function and it's less than |S|,
+ * we only have to go up to that size rather than |S|.
+ */
 final class ClosureOfScalarOptTranslator extends AbstractTranslator {
 
     private final ScalarCaster scalarCaster;
