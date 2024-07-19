@@ -44,7 +44,7 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
 
     private final boolean useCaching;
     private final ContextExprCache<Term> translationCache;
-    private final ContextExprCache<Pair<AnnotatedTerm, Term>> castToScalarCache;
+    private final ContextExprCache<Pair<AnnotatedTerm, AnnotatedTerm>> castToScalarCache;
 
     /**
      * Create a TranslatorManager that uses the given reporter and options
@@ -197,9 +197,9 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
      * @return (scalar term, guard), as casted by some scalar caster, or null if no caster can cast.
      */
     @Override
-    public Pair<AnnotatedTerm, Term> castToScalar(Expr expr, TranslationContext context) {
+    public Pair<AnnotatedTerm, AnnotatedTerm> castToScalar(Expr expr, TranslationContext context) {
         if (useCaching) {
-            Pair<AnnotatedTerm, Term> cached = castToScalarCache.get(expr, context);
+            Pair<AnnotatedTerm, AnnotatedTerm> cached = castToScalarCache.get(expr, context);
             if (cached != null) {
                 statistics.castToScalarCacheHitCount.increment();
                 return cached;
@@ -207,7 +207,7 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
         }
 
         for (ScalarCaster scalarCaster : scalarCasters) {
-            Pair<AnnotatedTerm, Term> attempt = scalarCaster.castToScalar(expr, context);
+            Pair<AnnotatedTerm, AnnotatedTerm> attempt = scalarCaster.castToScalar(expr, context);
             if (attempt != null) {
                 statistics.scalarCasterUsageCounts.increment(scalarCaster);
                 if (useCaching) {

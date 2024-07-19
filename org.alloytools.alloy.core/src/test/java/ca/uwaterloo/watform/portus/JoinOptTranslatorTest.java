@@ -74,9 +74,9 @@ public class JoinOptTranslatorTest {
 
         ExprVar alloyV = ExprVar.make(null, "v");
         AnnotatedVar v = Term.mkVar("v").of(testSort);
-        Term guard = Term.mkVar("guard");
+        AnnotatedVar guard = Term.mkVar("guard").of(Sort.Bool());
         when(mockScalarCaster.castToScalar(argThat(isSameAs(alloyV)), any()))
-                .thenReturn(new Pair<>(new AnnotatedTerm(v), guard));
+                .thenReturn(new Pair<>(new AnnotatedTerm(v), new AnnotatedTerm(guard)));
 
         AnnotatedVar x = Term.mkVar("x").of(testSort);
         Var flag = Term.mkVar("flag");
@@ -84,7 +84,7 @@ public class JoinOptTranslatorTest {
                 .thenReturn(flag);
 
         Term result = translator.translate(ExprElementOf.make(TermTuple.fromVars(x), alloyV.join(e)), context);
-        Term expected = Term.mkAnd(guard, flag);
+        Term expected = Term.mkAnd(guard.variable(), flag);
         assertEquals(expected, result);
     }
 
@@ -99,9 +99,9 @@ public class JoinOptTranslatorTest {
 
         ExprVar alloyV = ExprVar.make(null, "v");
         AnnotatedVar v = Term.mkVar("v").of(testSort);
-        Term guard = Term.mkVar("guard");
+        AnnotatedVar guard = Term.mkVar("guard").of(Sort.Bool());
         when(mockScalarCaster.castToScalar(argThat(isSameAs(alloyV)), any()))
-                .thenReturn(new Pair<>(new AnnotatedTerm(v), guard));
+                .thenReturn(new Pair<>(new AnnotatedTerm(v), new AnnotatedTerm(guard)));
 
         AnnotatedVar x = Term.mkVar("x").of(testSort);
         Var flag = Term.mkVar("flag");
@@ -109,7 +109,7 @@ public class JoinOptTranslatorTest {
                 .thenReturn(flag);
 
         Term result = translator.translate(ExprElementOf.make(TermTuple.fromVars(x), e.join(alloyV)), context);
-        Term expected = Term.mkAnd(guard, flag);
+        Term expected = Term.mkAnd(guard.variable(), flag);
         assertEquals(expected, result);
     }
 

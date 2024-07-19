@@ -360,25 +360,25 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
         assert joinExpr.op == ExprBinary.Op.JOIN;
 
         // Just cast it to a scalar - we implement the necesary casting.
-        Pair<AnnotatedTerm, Term> scalarResult = rootScalarCaster.castToScalar(joinExpr, context);
+        Pair<AnnotatedTerm, AnnotatedTerm> scalarResult = rootScalarCaster.castToScalar(joinExpr, context);
         if (scalarResult == null) {
             throw new ErrorNoPortusSupport(
                 "Using join as an integer expression requires a bound variable or a one sig on the LHS and unary "
                 + "function fields in all other positions");
         }
         AnnotatedTerm scalar = scalarResult.a;
-        Term guard = scalarResult.b;
+        AnnotatedTerm guard = scalarResult.b;
 
         if (!Objects.equals(scalar.getSort(), Sort.Int())) {
             throw new ErrorNoPortusSupport("A join used as an expression must be of the integer type");
         }
 
-        return Term.mkIfThenElse(guard, scalar.getTerm(), IntegerLiteral.apply(0));
+        return Term.mkIfThenElse(guard.getTerm(), scalar.getTerm(), IntegerLiteral.apply(0));
     }
 
     /** Try to cast expr to a scalar using the function state we have access to. */
     @Override
-    public Pair<AnnotatedTerm, Term> castToScalar(Expr expr, TranslationContext context) {
+    public Pair<AnnotatedTerm, AnnotatedTerm> castToScalar(Expr expr, TranslationContext context) {
         expr = PortusUtil.stripPortusNoops(expr);
 
         if (expr instanceof ExprBinary) {
@@ -387,12 +387,12 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
                 // it could be a join expression that resolves to a scalar
                 // "x.y" is a scalar if (and maybe only if) x is a scalar and y is optimized as a function
                 // then the scalar term is y(x)
-                Pair<AnnotatedTerm, Term> leftScalarData = rootScalarCaster.castToScalar(binExpr.left, context);
+                Pair<AnnotatedTerm, AnnotatedTerm> leftScalarData = rootScalarCaster.castToScalar(binExpr.left, context);
                 if (leftScalarData == null) {
                     return null;
                 }
                 AnnotatedTerm leftScalar = leftScalarData.a;
-                Term leftScalarGuard = leftScalarData.b;
+                AnnotatedTerm leftScalarGuard = leftScalarData.b;
 
                 Expr right = PortusUtil.stripPortusNoops(binExpr.right);
                 if (!(right instanceof Sig.Field)) {
@@ -411,11 +411,16 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
 
                 Term inDomain = makeDomainFormula(new TermTuple(leftScalar), optInfo, context);
                 Term scalar = Term.mkApp(optInfo.funcName, leftScalar.getTerm());
-                Term guard = Term.mkAnd(leftScalarGuard, inDomain);
+                Term guard = Term.mkAnd(leftScalarGuard.getTerm(), inDomain);
                 Sort sort = optInfo.resultSort;
 
                 // There shouldn't be any extra free variables in the scalar: just use the left scalar's free vars
-                return new Pair<>(new AnnotatedTerm(scalar, sort, leftScalar.getFreeVars()), guard);
+                return new Pair<>(
+                        new AnnotatedTerm(scalar, sort, leftScalar.getFreeVars()),
+                        // TODO this is imperfect; there could be more free variables in inDomain
+                        //   For full correctness, Translator should return AnnotatedTerm
+                        new AnnotatedTerm(guard, Sort.Bool(),
+                                SetOps.union(leftScalarGuard.getFreeVars(), leftScalar.getFreeVars())));
             }
         }
         return null;

@@ -16,7 +16,7 @@ interface ScalarCaster {
      * Use of the scalar term must be conditioned on the guard (it could be a domain check, for example); the guard
      * evaluates to false iff the expr evaluates to the empty set. The guard will be Top if it is not necessary.
      */
-    Pair<AnnotatedTerm, Term> castToScalar(Expr expr, TranslationContext context);
+    Pair<AnnotatedTerm, AnnotatedTerm> castToScalar(Expr expr, TranslationContext context);
 
     /**
      * The name of the scalar caster, for display purposes.

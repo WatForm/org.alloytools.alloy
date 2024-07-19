@@ -47,12 +47,12 @@ public class SimpleScalarOptTranslatorTest {
         ExprVar alloyY = ExprVar.make(null, "y");
         Var x = Term.mkVar("x");
         Var y = Term.mkVar("y");
-        Term guardX = Term.mkVar("guardX");
-        Term guardY = Term.mkVar("guardY");
+        Var guardX = Term.mkVar("guardX");
+        Var guardY = Term.mkVar("guardY");
         when(mockScalarCaster.castToScalar(eq(alloyX), any()))
-                .thenReturn(new Pair<>(new AnnotatedTerm(x.of(sort)), guardX));
+                .thenReturn(new Pair<>(new AnnotatedTerm(x.of(sort)), new AnnotatedTerm(guardX.of(Sort.Bool()))));
         when(mockScalarCaster.castToScalar(eq(alloyY), any()))
-                .thenReturn(new Pair<>(new AnnotatedTerm(y.of(sort)), guardY));
+                .thenReturn(new Pair<>(new AnnotatedTerm(y.of(sort)), new AnnotatedTerm(guardY.of(Sort.Bool()))));
 
         Translator translator = new SimpleScalarOptTranslator(mockTranslator, mockScalarCaster);
         //noinspection SuspiciousNameCombination
@@ -72,12 +72,12 @@ public class SimpleScalarOptTranslatorTest {
         ExprVar alloyY = ExprVar.make(null, "y");
         Var x = Term.mkVar("x");
         Var y = Term.mkVar("y");
-        Term guardX = Term.mkVar("guardX");
-        Term guardY = Term.mkVar("guardY");
+        Var guardX = Term.mkVar("guardX");
+        Var guardY = Term.mkVar("guardY");
         when(mockScalarCaster.castToScalar(eq(alloyX), any()))
-                .thenReturn(new Pair<>(new AnnotatedTerm(x.of(sort)), guardX));
+                .thenReturn(new Pair<>(new AnnotatedTerm(x.of(sort)), new AnnotatedTerm(guardX.of(Sort.Bool()))));
         when(mockScalarCaster.castToScalar(eq(alloyY), any()))
-                .thenReturn(new Pair<>(new AnnotatedTerm(y.of(sort)), guardY));
+                .thenReturn(new Pair<>(new AnnotatedTerm(y.of(sort)), new AnnotatedTerm(guardY.of(Sort.Bool()))));
 
         Translator translator = new SimpleScalarOptTranslator(mockTranslator, mockScalarCaster);
         //noinspection SuspiciousNameCombination
@@ -96,12 +96,12 @@ public class SimpleScalarOptTranslatorTest {
         ExprVar alloyY = ExprVar.make(null, "y");
         Var x = Term.mkVar("x");
         Var y = Term.mkVar("y");
-        Term guardX = Term.mkVar("guardX");
-        Term guardY = Term.mkVar("guardY");
+        Var guardX = Term.mkVar("guardX");
+        Var guardY = Term.mkVar("guardY");
         when(mockScalarCaster.castToScalar(eq(alloyX), any()))
-                .thenReturn(new Pair<>(new AnnotatedTerm(x.of(sortX)), guardX));
+                .thenReturn(new Pair<>(new AnnotatedTerm(x.of(sortX)), new AnnotatedTerm(guardX.of(Sort.Bool()))));
         when(mockScalarCaster.castToScalar(eq(alloyY), any()))
-                .thenReturn(new Pair<>(new AnnotatedTerm(y.of(sortY)), guardY));
+                .thenReturn(new Pair<>(new AnnotatedTerm(y.of(sortY)), new AnnotatedTerm(guardY.of(Sort.Bool()))));
 
         Translator translator = new SimpleScalarOptTranslator(mockTranslator, mockScalarCaster);
         //noinspection SuspiciousNameCombination
@@ -118,12 +118,12 @@ public class SimpleScalarOptTranslatorTest {
         ExprVar alloyY = ExprVar.make(null, "y");
         Var x = Term.mkVar("x");
         Var y = Term.mkVar("y");
-        Term guardX = Term.mkVar("guardX");
-        Term guardY = Term.mkVar("guardY");
+        Var guardX = Term.mkVar("guardX");
+        Var guardY = Term.mkVar("guardY");
         when(mockScalarCaster.castToScalar(eq(alloyX), any()))
-                .thenReturn(new Pair<>(new AnnotatedTerm(x.of(sortX)), guardX));
+                .thenReturn(new Pair<>(new AnnotatedTerm(x.of(sortX)), new AnnotatedTerm(guardX.of(Sort.Bool()))));
         when(mockScalarCaster.castToScalar(eq(alloyY), any()))
-                .thenReturn(new Pair<>(new AnnotatedTerm(y.of(sortY)), guardY));
+                .thenReturn(new Pair<>(new AnnotatedTerm(y.of(sortY)), new AnnotatedTerm(guardY.of(Sort.Bool()))));
 
         Translator translator = new SimpleScalarOptTranslator(mockTranslator, mockScalarCaster);
         //noinspection SuspiciousNameCombination
@@ -138,9 +138,9 @@ public class SimpleScalarOptTranslatorTest {
         ExprVar alloyX = ExprVar.make(null, "x");
         ExprVar alloyE = ExprVar.make(null, "e");
         Var x = Term.mkVar("x");
-        Term guardX = Term.mkVar("guardX");
+        Var guardX = Term.mkVar("guardX");
         when(mockScalarCaster.castToScalar(eq(alloyX), any()))
-                .thenReturn(new Pair<>(new AnnotatedTerm(x.of(sort)), guardX));
+                .thenReturn(new Pair<>(new AnnotatedTerm(x.of(sort)), new AnnotatedTerm(guardX.of(Sort.Bool()))));
 
         Var flag = Term.mkVar("flag");
         when(mockTranslator.translate(argThat(isAlphaEquivalent(ExprElementOf.make(x.of(sort), alloyE))), any()))
@@ -159,9 +159,9 @@ public class SimpleScalarOptTranslatorTest {
         ExprVar alloyX = ExprVar.make(null, "x");
         ExprVar alloyE = ExprVar.make(null, "e");
         Var x = Term.mkVar("x");
-        Term guardX = Term.mkVar("guardX");
+        Var guardX = Term.mkVar("guardX");
         when(mockScalarCaster.castToScalar(eq(alloyX), any()))
-                .thenReturn(new Pair<>(new AnnotatedTerm(x.of(sort)), guardX));
+                .thenReturn(new Pair<>(new AnnotatedTerm(x.of(sort)), new AnnotatedTerm(guardX.of(Sort.Bool()))));
 
         Translator translator = new SimpleScalarOptTranslator(mockTranslator, mockScalarCaster);
         Term result = translator.translate(alloyX.equal(alloyE), context);
@@ -175,9 +175,9 @@ public class SimpleScalarOptTranslatorTest {
         ExprVar alloyE = ExprVar.make(null, "e");
         Var e = Term.mkVar("e");
         Var v = Term.mkVar("v");
-        Term guard = Term.mkVar("guard");
+        Var guard = Term.mkVar("guard");
         when(mockScalarCaster.castToScalar(eq(alloyE), any()))
-                .thenReturn(new Pair<>(new AnnotatedTerm(e.of(sort)), guard));
+                .thenReturn(new Pair<>(new AnnotatedTerm(e.of(sort)), new AnnotatedTerm(guard.of(Sort.Bool()))));
 
         Translator translator = new SimpleScalarOptTranslator(mockTranslator, mockScalarCaster);
         Term result = translator.translate(ExprElementOf.make(v.of(sort), alloyE), context);
@@ -207,9 +207,9 @@ public class SimpleScalarOptTranslatorTest {
         Var e = Term.mkVar("e");
         Var v1 = Term.mkVar("v1");
         Var v2 = Term.mkVar("v2");
-        Term guard = Term.mkVar("guard");
+        Var guard = Term.mkVar("guard");
         when(mockScalarCaster.castToScalar(eq(alloyE), any()))
-                .thenReturn(new Pair<>(new AnnotatedTerm(e.of(sort)), guard));
+                .thenReturn(new Pair<>(new AnnotatedTerm(e.of(sort)), new AnnotatedTerm(guard.of(Sort.Bool()))));
 
         Translator translator = new SimpleScalarOptTranslator(mockTranslator, mockScalarCaster);
         Term result = translator.translate(ExprElementOf.make(
@@ -225,9 +225,9 @@ public class SimpleScalarOptTranslatorTest {
         ExprVar alloyE = ExprVar.make(null, "e");
         Var e = Term.mkVar("e");
         Var v = Term.mkVar("v");
-        Term guard = Term.mkVar("guard");
+        Var guard = Term.mkVar("guard");
         when(mockScalarCaster.castToScalar(eq(alloyE), any()))
-                .thenReturn(new Pair<>(new AnnotatedTerm(e.of(sortE)), guard));
+                .thenReturn(new Pair<>(new AnnotatedTerm(e.of(sortE)), new AnnotatedTerm(guard.of(Sort.Bool()))));
 
         Translator translator = new SimpleScalarOptTranslator(mockTranslator, mockScalarCaster);
         Term result = translator.translate(ExprElementOf.make(v.of(sortV), alloyE), context);

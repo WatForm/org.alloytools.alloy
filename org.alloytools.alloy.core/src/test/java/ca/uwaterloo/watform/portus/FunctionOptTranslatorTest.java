@@ -18,7 +18,6 @@ import fortress.msfol.Var;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.stubbing.Answer;
-import scala.collection.Set$;
 import scala.jdk.javaapi.CollectionConverters;
 
 import java.util.ArrayList;
@@ -163,18 +162,6 @@ public class FunctionOptTranslatorTest {
         Term result = translator.translate(field, context);
         assertNotNull(result); // opt applied
 
-        /*
-        // it added the following axiom to constrain the domain predicate:
-        // forall x: sortA . inDomain(x) => [[x \in A]]
-        String domainPredName = "inDomain_0";
-        Var x = Term.mkVar("x0_0");
-        Term expectedAxiom = Term.mkForall(x.of(sortA), Term.mkImp(
-                Term.mkApp(domainPredName, x),
-                Term.mkApp("inA", x)));
-        assertEquals(1, context.getTheory().axioms().size());
-        assertEquals(expectedAxiom, context.getTheory().axioms().head());
-         */
-
         // should have two functions and two axioms
         Theory theory = context.getTheory();
         assertEquals(2, theory.functionDeclarations().size());
@@ -301,8 +288,9 @@ public class FunctionOptTranslatorTest {
         Var guard = Term.mkVar("guard");
         Var scalar = Term.mkVar("scalar");
         //noinspection SuspiciousNameCombination
-        when(mockScalarCaster.castToScalar(argThat(isSameAs(x.join(y))), any()))
-                .thenReturn(new Pair<>(new AnnotatedTerm(scalar.of(Sort.Int())), guard));
+        when(mockScalarCaster.castToScalar(argThat(isSameAs(x.join(y))), any())).thenReturn(new Pair<>(
+                new AnnotatedTerm(scalar.of(Sort.Int())),
+                new AnnotatedTerm(guard.of(Sort.Bool()))));
 
         Translator translator = new FunctionOptTranslator(
                 mockRoot, mockScalarCaster, mockEvaluator, mockSortPolicy, nameGenerator, true);
@@ -319,8 +307,9 @@ public class FunctionOptTranslatorTest {
         ExprVar x = ExprVar.make(null, "x");
         Term flagX = Term.mkVar("t");
         Term guardFlagX = Term.mkVar("guardT");
-        when(mockScalarCaster.castToScalar(eq(x), any()))
-                .thenReturn(new Pair<>(new AnnotatedTerm(flagX, sortA, new ArrayList<>()), guardFlagX));
+        when(mockScalarCaster.castToScalar(eq(x), any())).thenReturn(new Pair<>(
+                new AnnotatedTerm(flagX, sortA),
+                new AnnotatedTerm(guardFlagX, Sort.Bool())));
 
         Sig sigA = new Sig.PrimSig("A");
         when(mockSortPolicy.getSort(sigA)).thenReturn(sortA);
@@ -336,12 +325,14 @@ public class FunctionOptTranslatorTest {
         assertEquals(1, theory.functionDeclarations().size());
         FuncDecl func = theory.functionDeclarations().head();
 
-        Pair<AnnotatedTerm, Term> result = translator.castToScalar(x.join(f), context);
+        Pair<AnnotatedTerm, AnnotatedTerm> result = translator.castToScalar(x.join(f), context);
         assertNotNull(result);
         assertEquals(Term.mkApp(func.name(), flagX), result.a.getTerm());
         assertEquals(sortA, result.a.getSort());
         assertTrue(result.a.getFreeVars().isEmpty());
-        assertEquals(Term.mkAnd(guardFlagX, Term.mkApp("inA", flagX)), result.b);
+        assertEquals(Term.mkAnd(guardFlagX, Term.mkApp("inA", flagX)), result.b.getTerm());
+        assertEquals(Sort.Bool(), result.b.getSort());
+        assertTrue(result.b.getFreeVars().isEmpty());
     }
 
     @Test

@@ -45,19 +45,19 @@ final class SimpleScalarOptTranslator implements Translator {
         }
         AnnotatedTerm term = expr.tuple.getAnnotatedTerm(0);
 
-        Pair<AnnotatedTerm, Term> scalarData = scalarCaster.castToScalar(expr.sub, context);
+        Pair<AnnotatedTerm, AnnotatedTerm> scalarData = scalarCaster.castToScalar(expr.sub, context);
         if (scalarData == null) {
             return null;
         }
         AnnotatedTerm scalar = scalarData.a;
-        Term guard = scalarData.b;
+        AnnotatedTerm guard = scalarData.b;
 
         if (!Objects.equals(term.getSort(), scalar.getSort())) {
             // short-circuit: can't possibly be equal
             return Term.mkBottom();
         }
 
-        return Term.mkAnd(guard, Term.mkEq(term.getTerm(), scalar.getTerm()));
+        return Term.mkAnd(guard.getTerm(), Term.mkEq(term.getTerm(), scalar.getTerm()));
     }
 
     /**
@@ -70,16 +70,16 @@ final class SimpleScalarOptTranslator implements Translator {
             return null;
         }
 
-        Pair<AnnotatedTerm, Term> leftScalarData = scalarCaster.castToScalar(expr.left, context);
+        Pair<AnnotatedTerm, AnnotatedTerm> leftScalarData = scalarCaster.castToScalar(expr.left, context);
         if (leftScalarData == null) {
             return null;
         }
-        Pair<AnnotatedTerm, Term> rightScalarData = scalarCaster.castToScalar(expr.right, context);
+        Pair<AnnotatedTerm, AnnotatedTerm> rightScalarData = scalarCaster.castToScalar(expr.right, context);
         if (rightScalarData == null) {
             if (expr.op == ExprBinary.Op.IN) {
                 // Left is a scalar - translate as [[guardLeft => left \in right]].
                 AnnotatedTerm scalarLeft = leftScalarData.a;
-                Term guardLeft = leftScalarData.b;
+                Term guardLeft = leftScalarData.b.getTerm();
                 return Term.mkImp(guardLeft,
                         rootTranslator.translate(ExprElementOf.make(scalarLeft, expr.right), context));
             } else {
@@ -94,8 +94,8 @@ final class SimpleScalarOptTranslator implements Translator {
             return Term.mkBottom();
         }
 
-        Term guardLeft = leftScalarData.b;
-        Term guardRight = rightScalarData.b;
+        Term guardLeft = leftScalarData.b.getTerm();
+        Term guardRight = rightScalarData.b.getTerm();
         if (expr.op == ExprBinary.Op.EQUALS) {
             // For equals, either (both guards are false, so both exprs are empty) or (both guards are true, so
             // both expressions are nonempty, and the expressions are equal).
