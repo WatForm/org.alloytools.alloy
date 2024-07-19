@@ -5,13 +5,12 @@ import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.ExprVar;
-import fortress.data.NameGenerator;
 import fortress.msfol.AnnotatedVar;
-import fortress.msfol.FunctionDefinition;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -30,14 +29,12 @@ final class ClosureOfScalarOptTranslator extends AbstractTranslator {
 
     private final ScalarCaster scalarCaster;
     private final SortPolicy sortPolicy;
-    private final NameGenerator nameGenerator;
 
     public ClosureOfScalarOptTranslator(
-            Translator topLevel, ScalarCaster scalarCaster, SortPolicy sortPolicy, NameGenerator nameGenerator) {
+            Translator topLevel, ScalarCaster scalarCaster, SortPolicy sortPolicy) {
         super(topLevel);
         this.scalarCaster = scalarCaster;
         this.sortPolicy = sortPolicy;
-        this.nameGenerator = nameGenerator;
     }
 
     @Override
@@ -56,51 +53,46 @@ final class ClosureOfScalarOptTranslator extends AbstractTranslator {
         AnnotatedTerm y = tuple.getAnnotatedTerm(1);
         Expr closedExpr = expr.sub;
 
-        // see if it can be hoisted to a defined function
+        // cast x.e to scalar
         ExprVar probeAlloyVar = ExprVar.make(null, "%probe");
         AnnotatedVar probeVar = Term.mkVar("__@probe").of(x.getSort());
         context.addTermMapping(probeAlloyVar.label, new AnnotatedTerm(probeVar));
-        Pair<FunctionDefinition, FunctionDefinition> defns;
+        Pair<AnnotatedTerm, AnnotatedTerm> scalarAndGuard;
         try {
-            // x.e must be a scalar: hoist that to a map
-            defns = ScalarsToDefinitions.tryMakeDefinitions(
-                    "scalarTC", probeAlloyVar.join(closedExpr), context, scalarCaster, nameGenerator);
+            scalarAndGuard = scalarCaster.castToScalar(probeAlloyVar.join(closedExpr), context);
         } finally {
             context.removeMapping(probeAlloyVar.label);
         }
-        if (defns == null) return null;  // x.e is not a scalar
+        if (scalarAndGuard == null) return null;  // x.e is not a scalar
 
-        // TODO don't do this if they already exist
-        FunctionDefinition scalarDefn = defns.a;
-        FunctionDefinition guardDefn = defns.b;
-        context.addFunctionDefinition(scalarDefn);
-        if (guardDefn != null) {
-            context.addFunctionDefinition(guardDefn);
-        }
+        AnnotatedTerm scalar = scalarAndGuard.a;
+        AnnotatedTerm guard = scalarAndGuard.b;
 
-        if (!scalarDefn.argSortedVar().contains(probeVar)
-                && (guardDefn == null || !guardDefn.argSortedVar().contains(probeVar))) {
+        if (!scalar.getFreeVars().contains(probeVar)
+                && (guard == null || !guard.getFreeVars().contains(probeVar))) {
             // Neither contain the probe variable: value of scalar does not depend on x!
             // So [[(x,y) \in ^e]] := y = e
-            return Term.mkEq(y.getTerm(), scalarDefn.body());
+            return Term.mkEq(y.getTerm(), scalar.getTerm());
         }
 
         List<Term> scalarCalls = new ArrayList<>(); // scalarCalls[i] := y = f^{i+1}(x)
         List<Term> guardCalls = new ArrayList<>(); // guardCalls[i] := f^i(x) in dom(f)
 
-        Sort tcSort = scalarDefn.resultSort(); // TODO verify this is the same as the input sort?
+        Sort tcSort = scalar.getSort(); // TODO verify this is the same as the input sort?
         int sortScope = sortPolicy.getSortScope(tcSort);
         context.markSortUnchanging(tcSort); // since we rely on the sort's scope here
 
         Term currentTerm = x.getTerm();
         for (int i = 0; i < sortScope; i++) {
             // guard: f^i(x) in dom(f)
-            Term guard = (guardDefn == null) ? Term.mkTop() : callAndSub(guardDefn, probeVar, currentTerm);
+            Term guardApp = (guard == null) ? Term.mkTop() : PortusUtil.substitute(
+                    Collections.singletonList(probeVar), Collections.singletonList(currentTerm), guard.getTerm());
             // scalar: y = f^{i+1}(x)
-            currentTerm = callAndSub(scalarDefn, probeVar, currentTerm);
+            currentTerm = PortusUtil.substitute(
+                    Collections.singletonList(probeVar), Collections.singletonList(currentTerm), scalar.getTerm());
 
             scalarCalls.add(Term.mkEq(y.getTerm(), currentTerm));
-            guardCalls.add(guard);
+            guardCalls.add(guardApp);
         }
 
         // Assemble it
@@ -115,18 +107,8 @@ final class ClosureOfScalarOptTranslator extends AbstractTranslator {
             assembled = Term.mkOr(Term.mkEq(y.getTerm(), x.getTerm()), assembled);
         }
 
-        // TODO maybe make a definition for this
+        // TODO make a definition for this!
         return assembled;
-    }
-
-    private Term callAndSub(FunctionDefinition defn, AnnotatedVar probeVar, Term sub) {
-        return Term.mkApp(defn.name(), defn.argSortedVar().map(annotatedVar -> {
-            if (annotatedVar.equals(probeVar)) {
-                return sub;
-            } else {
-                return annotatedVar.variable();
-            }
-        }).toSeq());
     }
 
 }

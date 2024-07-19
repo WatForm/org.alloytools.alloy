@@ -78,8 +78,7 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
                 this, this, sortPolicy, nameGenerator, options.enableOrderingDefinition);
         MembershipPredicateOptTranslator membershipPredOpt = new MembershipPredicateOptTranslator(
                 this, sortPolicy, sigAxioms, !options.enableFortressNonExactScopes);
-        ClosureOfScalarOptTranslator closureOfScalarOpt = new ClosureOfScalarOptTranslator(
-                this, this, sortPolicy, nameGenerator);
+        ClosureOfScalarOptTranslator closureOfScalarOpt = new ClosureOfScalarOptTranslator(this, this, sortPolicy);
         DefaultTranslator defaultTranslator = new DefaultTranslator(
                 this, scopeAxiomStrategy, sigAxioms, sortPolicy, nameGenerator);
 
