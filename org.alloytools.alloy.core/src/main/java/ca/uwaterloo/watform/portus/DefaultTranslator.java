@@ -20,6 +20,7 @@ import edu.mit.csail.sdg.ast.Sig;
 import fortress.data.NameGenerator;
 import fortress.msfol.AnnotatedVar;
 import fortress.msfol.FuncDecl;
+import fortress.msfol.FunctionDefinition;
 import fortress.msfol.IntegerLiteral;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
@@ -70,10 +71,9 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
     // Names of the above relation predicates for easy access.
     private final Map<Sig.Field, FuncDecl> relationPredicateDecls = new HashMap<>();
 
-    // When "^expr" or "*expr" is translated, this "maps" expr and the auxiliary function's signature
+    // When "^expr" or "*expr" is translated, this maps expr and the auxiliary function's signature
     // to the name of an auxiliary function f_sort(x,y,extras) = [[(x,y,extras) \in expr]], used in the translation.
-    // It's not a real map because Expr doesn't support equals()/hashCode() easily, and we can tolerate O(n) lookup.
-    private final List<Pair<Pair<Expr, List<Sort>>, String>> auxClosureRelationNames = new ArrayList<>();
+    private final ExprCache<String> auxClosureRelationNames;
 
     public DefaultTranslator(
             Translator topLevelTranslator, ScopeAxiomStrategy scopeAxiomStrategy, SigAxioms sigAxioms,
@@ -83,6 +83,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
         this.sigAxioms = sigAxioms;
         this.sortPolicy = sortPolicy;
         this.nameGenerator = nameGenerator;
+        this.auxClosureRelationNames = new ExprCache<>(sortPolicy);
     }
 
     @Override
@@ -917,56 +918,39 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
         if (expr instanceof Sig.Field) {
             Sig.Field field = (Sig.Field) expr;
             // It's possible that the function optimization optimized this field, so we don't have it.
-            // TODO: is it possible to close over a binary function in the function optimization?
             if (field.type().arity() == 2 && relationPredicateDecls.containsKey(field)) {
                 return relationPredicateDecls.get(field).name();
             }
         }
 
-        // The type of the aux relation is (sort,sort,*extras)->Bool
-        List<AnnotatedVar> freeVars = PortusUtil.computeFreeVariables(expr, context, sortPolicy);
-        List<Sort> auxRelSorts = new ArrayList<>();
-        auxRelSorts.add(sort);
-        auxRelSorts.add(sort);
-        auxRelSorts.addAll(freeVars.stream().map(AnnotatedVar::sort).collect(Collectors.toList()));
-
-        // Use this as the key to compare previous expr/sort combos so that we don't get confused by lets
-        // (without this otherwise e.g. with "fun f[x] { ^x }", we'd use the same aux function for all arguments x)
-        Expr expandedExpr = PortusUtil.expandLets(expr, context.varMappingContext, sortPolicy);
-
         // Have we already translated this expr/sort combo? If so, use its name.
-        for (Pair<Pair<Expr, List<Sort>>, String> exprAndClosureName : auxClosureRelationNames) {
-            Expr prevExpr = exprAndClosureName.a.a;
-            List<Sort> prevSorts = exprAndClosureName.a.b;
-            if (auxRelSorts.equals(prevSorts) && expandedExpr.isSame(prevExpr)) {
-                return exprAndClosureName.b;
-            }
+        String cachedName = auxClosureRelationNames.get(expr, sort, context.varMappingContext);
+        if (cachedName != null) {
+            return cachedName;
         }
 
         if (!expr.type().hasArity(2)) {
             throw new ErrorSyntax("We can only take the transitive/reflexive closure of binary expressions.");
         }
 
-        // Introduce an auxiliary relation f(x,y) = [[(x,y) \in expr]] of type sort->sort
+        // Define an auxiliary relation f(x,y) = [[(x,y) \in expr]] of type sort->sort
+        // Use a definition because otherwise we'd need an expensive axiom.
         // Also include any free variables in the term as extra arguments.
         String auxRelationName = nameGenerator.freshName("closureAux_" + sort.name());
-        auxClosureRelationNames.add(new Pair<>(new Pair<>(expandedExpr, auxRelSorts), auxRelationName));
-        FuncDecl auxDecl = FuncDecl.mkFuncDecl(auxRelationName, auxRelSorts, Sort.Bool());
-        context.addFunctionDeclaration(auxDecl);
+        auxClosureRelationNames.put(expr, sort, auxRelationName, context.varMappingContext);
 
-        // Give it our desired interpretation with an axiom "forall x, y: sort . f(x,y) = [[(x, y) \in expr]]".
-        // TODO: this can be done more cheaply (avoiding the forall) with a definition instead
+        // The type of the aux relation is (sort,sort,*extras)->Bool
+        List<AnnotatedVar> freeVars = PortusUtil.computeFreeVariables(expr, context, sortPolicy);
         Var x = Term.mkVar(nameGenerator.freshName("x"));
         Var y = Term.mkVar(nameGenerator.freshName("y"));
-        List<AnnotatedVar> axiomDecls = new ArrayList<>(Arrays.asList(x.of(sort), y.of(sort)));
-        axiomDecls.addAll(freeVars);
-        List<Var> allVars = axiomDecls.stream().map(AnnotatedVar::variable).collect(Collectors.toList());
+        List<AnnotatedVar> decls = new ArrayList<>(Arrays.asList(x.of(sort), y.of(sort)));
+        decls.addAll(freeVars);
+
         Term inExpr = recursivelyTranslate(ExprElementOf.make(
                 TermTuple.fromVars(x.of(sort), y.of(sort)), expr), context);
-        context.addAxiom(Term.mkForall(axiomDecls,
-                Term.mkIff(
-                        Term.mkApp(auxRelationName, allVars),
-                        inExpr)));
+        FunctionDefinition auxDefn = FunctionDefinition.mkFunctionDefinition(
+                auxRelationName, decls, Sort.Bool(), inExpr);
+        context.addFunctionDefinition(auxDefn);
 
         return auxRelationName;
     }

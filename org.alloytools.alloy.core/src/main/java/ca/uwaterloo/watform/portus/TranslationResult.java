@@ -1,6 +1,6 @@
 package ca.uwaterloo.watform.portus;
 
-import fortress.modelfind.ModelFinder;
+import fortress.modelfinders.ModelFinder;
 import fortress.msfol.Sort;
 import fortress.msfol.Theory;
 import fortress.problemstate.ProblemState;
@@ -36,10 +36,10 @@ public final class TranslationResult {
     }
 
     /**
-     * Get the theory as a Fortress ProblemState.
+     * Convert a theory to a problem state given our sort policy.
      */
-    public ProblemState getProblemState() {
-        return ProblemState.apply(getTheory(),
+    public ProblemState getProblemState(Theory theory) {
+        return ProblemState.apply(theory,
                 PortusUtil.<Sort, Scope>toScalaMap(context.getSortToScopeMap(sortPolicy)), false);
     }
 

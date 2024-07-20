@@ -4,7 +4,7 @@ import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.ast.Command;
 import edu.mit.csail.sdg.translator.AlloySolution;
 import fortress.logging.EventLogger;
-import fortress.modelfind.ModelFinderResult;
+import fortress.modelfinders.ModelFinderResult;
 import fortress.msfol.Theory;
 import fortress.transformers.ProblemStateTransformer;
 import fortress.util.Nanoseconds;

@@ -44,7 +44,7 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
 
     private final boolean useCaching;
     private final ContextExprCache<Term> translationCache;
-    private final ContextExprCache<Pair<AnnotatedTerm, Term>> castToScalarCache;
+    private final ContextExprCache<Pair<AnnotatedTerm, AnnotatedTerm>> castToScalarCache;
 
     /**
      * Create a TranslatorManager that uses the given reporter and options
@@ -74,9 +74,12 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
         OneSigOptTranslator oneSigOpt = new OneSigOptTranslator(this, sortPolicy, sigAxioms);
         FunctionOptTranslator functionOpt = new FunctionOptTranslator(
                 this, this, this, sortPolicy, nameGenerator, true);
-        OrderingModuleOptTranslator orderingModuleOpt = new OrderingModuleOptTranslator(this, this, sortPolicy);
+        OrderingModuleOptTranslator orderingModuleOpt = new OrderingModuleOptTranslator(
+                this, this, sortPolicy, nameGenerator, options.enableOrderingDefinition);
         MembershipPredicateOptTranslator membershipPredOpt = new MembershipPredicateOptTranslator(
                 this, sortPolicy, sigAxioms, !options.enableFortressNonExactScopes);
+        ClosureOfScalarOptTranslator closureOfScalarOpt = new ClosureOfScalarOptTranslator(
+                this, this, sortPolicy, nameGenerator);
         DefaultTranslator defaultTranslator = new DefaultTranslator(
                 this, scopeAxiomStrategy, sigAxioms, sortPolicy, nameGenerator);
 
@@ -105,11 +108,15 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
         if (options.enableMembershipPredicateOptimization) {
             translators.add(membershipPredOpt);
         }
+        if (options.enableClosureOfScalarOptimization) {
+            translators.add(closureOfScalarOpt);
+        }
         if (options.enableKodkodIntCompatibility) {
             translators.add(new KodkodIntCompatibilityTranslator(this, sortPolicy));
         }
         if (options.enableSumDefinitionsOptimization) {
-            translators.add(new SumDefinitionsOptTranslator(this, sortPolicy, nameGenerator));
+            translators.add(new SumDefinitionsOptTranslator(
+                    this, sortPolicy, nameGenerator, options.enableSumBalancing));
         }
         translators.add(defaultTranslator);
 
@@ -190,9 +197,9 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
      * @return (scalar term, guard), as casted by some scalar caster, or null if no caster can cast.
      */
     @Override
-    public Pair<AnnotatedTerm, Term> castToScalar(Expr expr, TranslationContext context) {
+    public Pair<AnnotatedTerm, AnnotatedTerm> castToScalar(Expr expr, TranslationContext context) {
         if (useCaching) {
-            Pair<AnnotatedTerm, Term> cached = castToScalarCache.get(expr, context);
+            Pair<AnnotatedTerm, AnnotatedTerm> cached = castToScalarCache.get(expr, context);
             if (cached != null) {
                 statistics.castToScalarCacheHitCount.increment();
                 return cached;
@@ -200,7 +207,7 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
         }
 
         for (ScalarCaster scalarCaster : scalarCasters) {
-            Pair<AnnotatedTerm, Term> attempt = scalarCaster.castToScalar(expr, context);
+            Pair<AnnotatedTerm, AnnotatedTerm> attempt = scalarCaster.castToScalar(expr, context);
             if (attempt != null) {
                 statistics.scalarCasterUsageCounts.increment(scalarCaster);
                 if (useCaching) {

@@ -74,7 +74,7 @@ public class OrderingModuleOptTranslatorTest {
             if (exprElementOf.sub != orderedSig) fail();
             if (exprElementOf.tuple.size() != 1 || exprElementOf.tuple.getSort(0) != orderedSigSort) fail();
             return Term.mkApp("inOrderedSig", exprElementOf.tuple.getTerm(0));
-        }, scalarCaster, policy);
+        }, scalarCaster, policy, new SanitizingNameGenerator(), false);
 
         when(scoper.isExact(orderedSig)).thenReturn(true);
         when(policy.getSort(orderedSig)).thenReturn(orderedSigSort);
@@ -119,7 +119,6 @@ public class OrderingModuleOptTranslatorTest {
     @Test
     public void testTranslate_orderedSig_first_simple() {
         // first is hardcoded as the first DE in the range: [[x \in first]] := x = @_(first)
-        // now this is failing?????
         when(scoper.sig2scope(orderedSig)).thenReturn(3);
         when(rangeAssigner.getDomainElementRange(orderedSig)).thenReturn(new Pair<>(1, 3));
         translator.translate(ordSig, context);
@@ -274,7 +273,7 @@ public class OrderingModuleOptTranslatorTest {
         when(rangeAssigner.getDomainElementRange(orderedSig)).thenReturn(new Pair<>(1, 3));
         translator.translate(ordSig, context);
 
-        Pair<AnnotatedTerm, Term> scalar = translator.castToScalar(ordSig.join(firstField), context);
+        Pair<AnnotatedTerm, AnnotatedTerm> scalar = translator.castToScalar(ordSig.join(firstField), context);
 
         // there should be one function, next: orderedSigSort -> orderedSigSort
         assertEquals(1, context.getTheory().functionDeclarations().size());
@@ -287,7 +286,9 @@ public class OrderingModuleOptTranslatorTest {
         assertEquals(Term.mkDomainElement(1, orderedSigSort), scalar.a.getTerm());
         assertEquals(orderedSigSort, scalar.a.getSort());
         assertTrue(scalar.a.getFreeVars().isEmpty());
-        assertEquals(Term.mkTop(), scalar.b);
+        assertEquals(Term.mkTop(), scalar.b.getTerm());
+        assertEquals(Sort.Bool(), scalar.b.getSort());
+        assertTrue(scalar.b.getFreeVars().isEmpty());
     }
 
     @Test
@@ -300,10 +301,11 @@ public class OrderingModuleOptTranslatorTest {
         ExprVar alloyX = ExprVar.make(null, "x");
         Var x = Term.mkVar("x");
         Var guardX = Term.mkVar("guardX");
-        when(scalarCaster.castToScalar(eq(alloyX), any()))
-                .thenReturn(new Pair<>(new AnnotatedTerm(x.of(orderedSigSort)), guardX));
+        when(scalarCaster.castToScalar(eq(alloyX), any())).thenReturn(new Pair<>(
+                new AnnotatedTerm(x.of(orderedSigSort)),
+                new AnnotatedTerm(guardX.of(Sort.Bool()))));
 
-        Pair<AnnotatedTerm, Term> scalar = translator.castToScalar(alloyX.join(ordSig.join(nextField)), context);
+        Pair<AnnotatedTerm, AnnotatedTerm> scalar = translator.castToScalar(alloyX.join(ordSig.join(nextField)), context);
 
         // there should be one function, next: orderedSigSort -> orderedSigSort
         assertEquals(1, context.getTheory().functionDeclarations().size());
@@ -315,12 +317,15 @@ public class OrderingModuleOptTranslatorTest {
         assertNotNull(scalar);
         assertEquals(Term.mkApp(nextFunc.name(), x), scalar.a.getTerm());
         assertEquals(orderedSigSort, scalar.a.getSort());
-        assertTrue(scalar.a.getFreeVars().isEmpty());
+        assertEquals(1, scalar.a.getFreeVars().size());
+        assertEquals(x.of(orderedSigSort), scalar.a.getFreeVars().iterator().next());
 
         Term expectedGuard = Term.mkAnd(guardX, Term.mkAnd(
                 Term.mkApp("inOrderedSig", x),
                 Term.mkNot(Term.mkEq(x, Term.mkDomainElement(3, orderedSigSort)))));
-        assertEquals(expectedGuard, scalar.b);
+        assertEquals(expectedGuard, scalar.b.getTerm());
+        assertEquals(Sort.Bool(), scalar.b.getSort());
+        assertEquals(2, scalar.b.getFreeVars().size()); // x and guardX
     }
 
     @Test
@@ -333,12 +338,13 @@ public class OrderingModuleOptTranslatorTest {
         ExprVar alloyX = ExprVar.make(null, "x");
         Var x = Term.mkVar("x");
         Var guardX = Term.mkVar("guardX");
-        when(scalarCaster.castToScalar(eq(alloyX), any()))
-                .thenReturn(new Pair<>(new AnnotatedTerm(x.of(orderedSigSort)), guardX));
+        when(scalarCaster.castToScalar(eq(alloyX), any())).thenReturn(new Pair<>(
+                new AnnotatedTerm(x.of(orderedSigSort)),
+                new AnnotatedTerm(guardX.of(Sort.Bool()))));
 
         Expr rhs = ExprUnary.Op.NOOP.make(null, ExprUnary.Op.NOOP.make(null, ordSig).cast2int()
                 .join(nextField.cast2int().cast2sigint()).cast2int());
-        Pair<AnnotatedTerm, Term> scalar = translator.castToScalar(alloyX.join(rhs), context);
+        Pair<AnnotatedTerm, AnnotatedTerm> scalar = translator.castToScalar(alloyX.join(rhs), context);
 
         // there should be one function, next: orderedSigSort -> orderedSigSort
         assertEquals(1, context.getTheory().functionDeclarations().size());
@@ -350,12 +356,15 @@ public class OrderingModuleOptTranslatorTest {
         assertNotNull(scalar);
         assertEquals(Term.mkApp(nextFunc.name(), x), scalar.a.getTerm());
         assertEquals(orderedSigSort, scalar.a.getSort());
-        assertTrue(scalar.a.getFreeVars().isEmpty());
+        assertEquals(1, scalar.a.getFreeVars().size());
+        assertEquals(x.of(orderedSigSort), scalar.a.getFreeVars().iterator().next());
 
         Term expectedGuard = Term.mkAnd(guardX, Term.mkAnd(
                 Term.mkApp("inOrderedSig", x),
                 Term.mkNot(Term.mkEq(x, Term.mkDomainElement(3, orderedSigSort)))));
-        assertEquals(expectedGuard, scalar.b);
+        assertEquals(expectedGuard, scalar.b.getTerm());
+        assertEquals(Sort.Bool(), scalar.b.getSort());
+        assertEquals(2, scalar.b.getFreeVars().size()); // x and guardX
     }
 
     @Test

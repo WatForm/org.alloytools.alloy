@@ -4,6 +4,7 @@ import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.Sig;
 import fortress.msfol.DomainElement;
+import fortress.msfol.Sort;
 import fortress.msfol.Term;
 
 /**
@@ -64,12 +65,13 @@ class OneSigOptTranslator extends AbstractTranslator implements ScalarCaster, Ev
 
     /** Cast an instance of a one sig to a scalar: its domain element. */
     @Override
-    public Pair<AnnotatedTerm, Term> castToScalar(Expr expr, TranslationContext context) {
+    public Pair<AnnotatedTerm, AnnotatedTerm> castToScalar(Expr expr, TranslationContext context) {
         DomainElement domainElement = castToDomainElement(expr, context);
         if (domainElement == null) return null;
 
         // No guard is needed
-        return new Pair<>(new AnnotatedTerm(domainElement, domainElement.sort()), Term.mkTop());
+        return new Pair<>(new AnnotatedTerm(domainElement, domainElement.sort()),
+                new AnnotatedTerm(Term.mkTop(), Sort.Bool()));
     }
 
     /** Evaluate an instance of a one sig as the value corresponding to its domain element. */

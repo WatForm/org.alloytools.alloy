@@ -5,9 +5,12 @@ import ca.uwaterloo.watform.portus.SanitizingNameGenerator;
 import ca.uwaterloo.watform.portus.SortPolicy;
 import ca.uwaterloo.watform.portus.TimeoutException;
 import edu.mit.csail.sdg.alloy4.A4Reporter;
+import edu.mit.csail.sdg.alloy4.ConstList;
 import edu.mit.csail.sdg.alloy4.Pair;
+import edu.mit.csail.sdg.alloy4.Pos;
 import edu.mit.csail.sdg.alloy4.Util;
 import edu.mit.csail.sdg.ast.Command;
+import edu.mit.csail.sdg.ast.CommandScope;
 import edu.mit.csail.sdg.ast.Module;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.parser.CompUtil;
@@ -20,6 +23,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -87,12 +91,16 @@ public final class PortusCLI {
         options.enableJoinOptimization = !disableAllOpts && !cliOptions.disableJoinOpt.active();
         options.enableMembershipPredicateOptimization = !disableAllOpts
                 && !cliOptions.disableMembershipPredicateOpt.active();
+        options.enableClosureOfScalarOptimization = !disableAllOpts && !cliOptions.disableClosureOfScalarOpt.active();
         options.enablePartitionSortPolicy = !disableAllOpts && !cliOptions.disablePartitionSortPolicy.active();
         options.enableSumDefinitionsOptimization = !disableAllOpts && !cliOptions.disableSumDefinitionsOpt.active();
         // specifically don't include the function optimization in disableAllOpts
         options.enableFuncOptimization = !cliOptions.disableFuncOpt.active();
         options.enableConstantsScopeAxiomStrategy = !disableAllOpts
                 && !cliOptions.useCardinalityScopeAxiomStrategy.active();
+
+        options.enableOrderingDefinition = !cliOptions.disableOrderingDefinition.active();
+        options.enableSumBalancing = cliOptions.enableSumBalancing.active();
 
         options.enableElementOfScalarOptimization = cliOptions.enableElementOfScalarOpt.active();
         options.enableCaching = cliOptions.enableCaching.active();
@@ -102,35 +110,9 @@ public final class PortusCLI {
         options.enableFortressNonExactScopes = cliOptions.enableFortressNonExactScopes.active();
     }
 
-    private static void setFortressCompiler(PortusOptions options, PortusCLIOptions cliOptions) {
-        if (!cliOptions.fortressCompiler.validate()) {
-            System.err.println("Error: Unknown Fortress compiler: " + cliOptions.fortressCompiler.chosen());
-            cliOptions.printHelp(PROGRAM_NAME);
-            System.exit(-1);
-        }
-        switch (cliOptions.fortressCompiler.chosen()) {
-            case "constants":
-                options.fortressCompiler = PortusOptions.FortressCompiler.CONSTANTS_METHOD;
-                break;
-            case "constants-claessen":
-                options.fortressCompiler = PortusOptions.FortressCompiler.CONSTANTS_METHOD_CLAESSEN;
-                break;
-            case "datatype-no-range":
-                options.fortressCompiler = PortusOptions.FortressCompiler.DATATYPE_METHOD_NO_RANGE;
-                break;
-            case "datatype-with-range":
-                options.fortressCompiler = PortusOptions.FortressCompiler.DATATYPE_METHOD_WITH_RANGE;
-                break;
-            case "datatype-no-range-euf":
-                options.fortressCompiler = PortusOptions.FortressCompiler.DATATYPE_METHOD_NO_RANGE_EUF;
-                break;
-            case "datatype-with-range-euf":
-                options.fortressCompiler = PortusOptions.FortressCompiler.DATATYPE_METHOD_WITH_RANGE_EUF;
-                break;
-            default:
-                throw new IllegalArgumentException(
-                        "Bug: mismatch between PortusCLI and PortusCLIOptions on Fortress compiler options");
-        }
+    private static void setFortressOptions(PortusOptions options, PortusCLIOptions cliOptions) {
+        options.fortressCompiler = cliOptions.fortressCompiler.singleArgument();
+        options.fortressSolver = cliOptions.fortressSolver.singleArgument();
     }
 
     private static boolean canOverrideSig(Sig sig) {
@@ -142,6 +124,31 @@ public final class PortusCLI {
             System.err.println("Error: scope cannot be negative");
             options.printHelp(PROGRAM_NAME);
             System.exit(-1);
+        }
+    }
+
+    // Use this instead of command.change(sig, exact, scope) because it mishandles the case where the scope for the sig
+    // is (presumably erroneously) specified twice:
+    //   sig A {}
+    //   run {} for 3 A, 3 A
+    // This is valid iff the duplicate scopes are the same. command.change(sig, exact, scope) only changes the first
+    // scope, leading to an error. This changes all of the scopes.
+    private static Command changeScope(Command command, Sig sig, boolean exact, int scope) {
+        AtomicBoolean foundAny = new AtomicBoolean(false);
+        List<CommandScope> newScopes = command.scope.stream().map(cmdScope -> {
+            if (cmdScope.sig == sig) {
+                foundAny.set(true);
+                return new CommandScope(cmdScope.pos, cmdScope.sigPos, sig, exact, scope, scope, 1);
+            } else {
+                return cmdScope;
+            }
+        }).collect(Collectors.toList());
+
+        if (foundAny.get()) {
+            return command.change(ConstList.make(newScopes));
+        } else {
+            CommandScope cmdScope = new CommandScope(Pos.UNKNOWN, Pos.UNKNOWN, sig, exact, scope, scope, 1);
+            return command.change(Util.append(command.scope, cmdScope));
         }
     }
 
@@ -157,7 +164,7 @@ public final class PortusCLI {
             validateScope(scope, options);
             System.out.println("Setting all scopes to " + scope);
             for (Sig sig : overridableSigs) {
-                command = command.change(sig, true, scope);
+                command = changeScope(command, sig, true, scope);
             }
         }
 
@@ -177,7 +184,7 @@ public final class PortusCLI {
 
             Sig sig = overridableSigs.get(whichSig - 1); // convert to 0-indexed
             System.out.println("Setting scope of " + sig.label + " to " + scope);
-            command = command.change(sig, true, scope);
+            command = changeScope(command, sig, true, scope);
         }
 
         return command;
@@ -256,7 +263,7 @@ public final class PortusCLI {
             A4Options alloyOptions = new A4Options();
             alloyOptions.originalFilename = alloyFilename;
             applyOptionFlags(alloyOptions.portusOptions, options);
-            setFortressCompiler(alloyOptions.portusOptions, options);
+            setFortressOptions(alloyOptions.portusOptions, options);
 
             if (options.noTimeout.active()) {
                 // Set the timeout to something silly like 20 days

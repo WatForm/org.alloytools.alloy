@@ -9,24 +9,19 @@ import edu.mit.csail.sdg.translator.A4Options;
 import edu.mit.csail.sdg.translator.AlloySolution;
 import edu.mit.csail.sdg.translator.CommandRunner;
 import edu.mit.csail.sdg.translator.ScopeComputer;
-import fortress.compiler.ConfigurableCompiler;
-import fortress.compiler.LogicCompiler;
+import fortress.compilers.AlmostNothingCompiler;
 import fortress.data.NameGenerator;
+import fortress.interpretation.BasicInterpretation;
 import fortress.interpretation.Interpretation;
-import fortress.modelfind.CompilationModelFinder;
-import fortress.modelfind.ErrorResult;
-import fortress.modelfind.ModelFinder;
-import fortress.modelfind.ModelFinderResult;
+import fortress.modelfinders.ErrorResult;
+import fortress.modelfinders.ModelFinder;
+import fortress.modelfinders.ModelFinderResult;
+import fortress.modelfinders.StandardModelFinder;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
 import fortress.msfol.Theory;
 import fortress.operations.SmtlibConverter;
-import fortress.solverinterface.SolverInterface;
-import fortress.solverinterface.Z3CliInterface$;
-import fortress.solverinterface.solver;
-import fortress.transformers.DomainEliminationTransformer$;
-import fortress.transformers.EnumEliminationTransformer$;
-import fortress.transformers.TypecheckSanitizeTransformer$;
+import fortress.solvers.Solver;
 import fortress.util.Dump;
 import fortress.util.Milliseconds;
 
@@ -72,6 +67,17 @@ public final class TranslateAlloyToFortress implements CommandRunner {
             TranslationResult translated = translate(statistics, world, command, scoper, options);
 
             logger.translationFinished(translated.getTheory());
+
+            // Write raw MSFOL or SMTLIB+ to file if the appropriate solver is chosen
+            if (options.solver.id().equals(A4Options.SatSolver.FORTRESS_MSFOL.id())) {
+                writeFortressToFile(logger, options, translated);
+                return null;
+            }
+            if (options.solver.id().equals(A4Options.SatSolver.POST_FORTRESS_SMTLIB.id())
+                    || options.solver.id().equals(A4Options.SatSolver.PRE_FORTRESS_SMTLIB.id())) {
+                writeSmtlibToFile(logger, options, translated);
+                return null;
+            }
 
             Interpretation interpretation = solve(logger, statistics, translated, options);
             AlloySolution solution = new FortressSolution(
@@ -132,18 +138,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
     private Interpretation solve(
             PortusLogger logger, PortusStatistics statistics, TranslationResult translated, A4Options options)
             throws IOException {
-        // Write raw MSFOL or SMTLIB+ to file if the appropriate solver is chosen
-        if (options.solver.id().equals(A4Options.SatSolver.FORTRESS_MSFOL.id())) {
-            writeFortressToFile(logger, options, translated);
-            return null;
-        }
-        if (options.solver.id().equals(A4Options.SatSolver.POST_FORTRESS_SMTLIB.id())
-                || options.solver.id().equals(A4Options.SatSolver.PRE_FORTRESS_SMTLIB.id())) {
-            writeSmtlibToFile(logger, options, translated);
-            return null;
-        }
-
-        try (ModelFinder finder = createModelFinder(Z3CliInterface$.MODULE$, options.portusOptions)) {
+        try (ModelFinder finder = createModelFinder(options.portusOptions)) {
             translated.configureModelFinder(finder);
             finder.setTimeout(Milliseconds.apply(options.portusOptions.timeoutMillis));
             finder.addLogger(logger);
@@ -163,17 +158,25 @@ public final class TranslateAlloyToFortress implements CommandRunner {
                 throw new TimeoutException();
             }
 
-            return (result == ModelFinderResult.Sat()) ? finder.viewModel() : null;
+            return (result == ModelFinderResult.Sat()) ? postprocessInterp(finder.viewModel(), translated) : null;
         }
     }
 
-    private ModelFinder createModelFinder(SolverInterface solverInterface, PortusOptions options) {
-        return new CompilationModelFinder(solverInterface) {
-            @Override
-            public LogicCompiler createCompiler() {
-                return options.makeFortressCompiler();
-            }
-        };
+    private Interpretation postprocessInterp(Interpretation interpretation, TranslationResult translated) {
+        // Add the function definitions from the theory because they aren't returned from Fortress.
+        //noinspection unchecked
+        return new BasicInterpretation(
+                interpretation.sortInterpretations(),
+                interpretation.constantInterpretations(),
+                interpretation.functionInterpretations(),
+                interpretation.functionDefinitions().concat(translated.getTheory().functionDefinitions()).toSet());
+    }
+
+    private ModelFinder createModelFinder(PortusOptions options) {
+        ModelFinder modelFinder = new StandardModelFinder();
+        modelFinder.setCompiler(options.fortressCompiler);
+        modelFinder.setSolver(options.fortressSolver);
+        return modelFinder;
     }
 
     private void writeFortressToFile(PortusLogger logger, A4Options options, TranslationResult translated)
@@ -198,13 +201,15 @@ public final class TranslateAlloyToFortress implements CommandRunner {
             // The trick is to replace Fortress's solver connection (SolverSession) with one that just translates
             // everything to SMT-LIB and writes to the file.
             SmtlibConverter converter = new SmtlibConverter(writer);
-            SolverInterface solverInterface = () -> new solver() {
+            Solver solver = new Solver() {
                 @Override
                 public void setTheory(Theory theory) {
                     // In order to dump the scope info as well, we need to create a problem state from the theory
                     // and scopes and dump that.
                     try {
-                        writer.write(Dump.problemStateToSmtlib(translated.getProblemState()));
+                        System.out.println("Stats of final theory:");
+                        PortusStatistics.printTheoryStats(theory);
+                        writer.write(Dump.problemStateToSmtlibTC(translated.getProblemState(theory)));
                     } catch (IOException e) {
                         throw new UncheckedIOException(e);
                     }
@@ -229,22 +234,14 @@ public final class TranslateAlloyToFortress implements CommandRunner {
                 public void close() {}
             };
 
-            ModelFinder finder;
+            ModelFinder finder = new StandardModelFinder();
+            finder.setSolver(solver);
             if (options.solver.id().equals(A4Options.SatSolver.POST_FORTRESS_SMTLIB.id())) {
                 // Use all the standard transformers
-                finder = createModelFinder(solverInterface, options.portusOptions);
+                finder.setCompiler(options.portusOptions.fortressCompiler);
             } else { // PRE_FORTRESS_SMTLIB
-                // Use only the typechecking transformer
-                finder = new CompilationModelFinder(solverInterface) {
-                    @Override
-                    public LogicCompiler createCompiler() {
-                        ConfigurableCompiler compiler = new ConfigurableCompiler();
-                        compiler.addTransformer(TypecheckSanitizeTransformer$.MODULE$);
-                        compiler.addTransformer(EnumEliminationTransformer$.MODULE$);
-                        compiler.addTransformer(DomainEliminationTransformer$.MODULE$);
-                        return compiler;
-                    }
-                };
+                // Use almost nothing! (only typecheck + enums->DEs + DEs->constants)
+                finder.setCompiler(new AlmostNothingCompiler());
             }
 
             translated.configureModelFinder(finder);

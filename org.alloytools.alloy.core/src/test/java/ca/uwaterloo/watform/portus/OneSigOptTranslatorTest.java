@@ -91,12 +91,14 @@ public class OneSigOptTranslatorTest {
         when(mockTranslator.translate(any(), any())).thenReturn(flagRangeAxiom);
         when(mockRangeAssigner.getDomainElementRange(testOneSig)).thenReturn(new Pair<>(1, 1));
 
-        Pair<AnnotatedTerm, Term> result = opt.castToScalar(testOneSig, context);
+        Pair<AnnotatedTerm, AnnotatedTerm> result = opt.castToScalar(testOneSig, context);
         assertNotNull(result);
         assertEquals(Term.mkDomainElement(1, testSort), result.a.getTerm());
         assertEquals(testSort, result.a.getSort());
         assertTrue(result.a.getFreeVars().isEmpty());
-        assertEquals(Term.mkTop(), result.b);
+        assertEquals(Term.mkTop(), result.b.getTerm());
+        assertEquals(Sort.Bool(), result.b.getSort());
+        assertTrue(result.b.getFreeVars().isEmpty());
     }
 
 }

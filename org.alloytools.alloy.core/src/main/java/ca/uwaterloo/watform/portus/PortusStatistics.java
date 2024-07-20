@@ -99,6 +99,13 @@ public final class PortusStatistics {
     private int theoryAxiomCount = -1;
     private int theorySymbolCount = -1;
 
+    /** Quickly print a theory's stats for debugging purposes. */
+    public static void printTheoryStats(Theory theory) {
+        PortusStatistics statistics = new PortusStatistics();
+        statistics.setTheoryStats(theory);
+        statistics.printTheoryStats("");
+    }
+
     public void setTheoryStats(Theory theory) {
         hasTheoryStats = true;
         theorySortCount = theory.sorts().size();
@@ -108,7 +115,6 @@ public final class PortusStatistics {
         theorySymbolCount = PortusUtil.countSymbols(theory);
     }
 
-    @SuppressWarnings("SameParameterValue")
     private void printTheoryStats(String indent) {
         if (!hasTheoryStats) {
             System.out.println(indent + "(none)");
@@ -152,7 +158,7 @@ public final class PortusStatistics {
             System.out.println(indent + "Portus translation time: " + translationStopwatch.formatDuration());
         }
         if (smtSolverStopwatch.hasRun()) {
-            System.out.println(indent + "SMT solver time: " + smtSolverStopwatch.formatDuration());
+            System.out.println(indent + "Fortress + SMT solver time: " + smtSolverStopwatch.formatDuration());
         }
         if (kodkodStopwatch.hasRun()) {
             System.out.println(indent + "Kodkod time: " + kodkodStopwatch.formatDuration());

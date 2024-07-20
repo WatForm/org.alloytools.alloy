@@ -5,13 +5,6 @@ import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.A4Options.SatSolver;
 import edu.mit.csail.sdg.translator.CommandRunner;
 import edu.mit.csail.sdg.translator.ScopeComputer;
-import fortress.compiler.ConstantsMethodCompiler;
-import fortress.compiler.ConstantsClaessenCompiler;
-import fortress.compiler.DatatypeMethodNoRangeCompiler;
-import fortress.compiler.DatatypeMethodNoRangeEUFCompiler;
-import fortress.compiler.DatatypeMethodWithRangeCompiler;
-import fortress.compiler.DatatypeMethodWithRangeEUFCompiler;
-import fortress.compiler.LogicCompiler;
 import fortress.data.NameGenerator;
 
 import java.io.File;
@@ -64,34 +57,11 @@ public final class PortusOptions implements Serializable {
     // By default, a random filename.
     public String outputName = "tmp" + Math.abs(new Random().nextLong());
 
-    public enum FortressCompiler {
-        CONSTANTS_METHOD,
-        CONSTANTS_METHOD_CLAESSEN,
-        DATATYPE_METHOD_NO_RANGE,
-        DATATYPE_METHOD_WITH_RANGE,
-        DATATYPE_METHOD_NO_RANGE_EUF,
-        DATATYPE_METHOD_WITH_RANGE_EUF,
-    }
+    // The name of the Fortress compiler to use according to the CompilersRegistry.
+    public String fortressCompiler = "Standard";
 
-    public FortressCompiler fortressCompiler = FortressCompiler.CONSTANTS_METHOD;
-
-    public LogicCompiler makeFortressCompiler() {
-        switch (fortressCompiler) {
-            case CONSTANTS_METHOD:
-            default:
-                return new ConstantsMethodCompiler() {};
-            case CONSTANTS_METHOD_CLAESSEN:
-                return new ConstantsClaessenCompiler() {};
-            case DATATYPE_METHOD_NO_RANGE:
-                return new DatatypeMethodNoRangeCompiler() {};
-            case DATATYPE_METHOD_WITH_RANGE:
-                return new DatatypeMethodWithRangeCompiler() {};
-            case DATATYPE_METHOD_NO_RANGE_EUF:
-                return new DatatypeMethodNoRangeEUFCompiler() {};
-            case DATATYPE_METHOD_WITH_RANGE_EUF:
-                return new DatatypeMethodWithRangeEUFCompiler() {};
-        }
-    }
+    // The name of the Fortress solver to use according to the SolversRegistry.
+    public String fortressSolver = "Z3NonIncCli";
 
     // Enable or disable each optimization individually.
     // Don't allow disabling the function optimization because it can affect correctness (join as integer expression).
@@ -99,11 +69,15 @@ public final class PortusOptions implements Serializable {
     public boolean enableOneSigOptimization = true;
     public boolean enableJoinOptimization = true;
     public boolean enableMembershipPredicateOptimization = true;
+    public boolean enableClosureOfScalarOptimization = true;
     public boolean enableSumDefinitionsOptimization = true;
     public boolean enableFuncOptimization = true;
 
     public boolean enablePartitionSortPolicy = true;
     public boolean enableConstantsScopeAxiomStrategy = true; // alternative: cardinality; TODO: refactor this
+
+    public boolean enableOrderingDefinition = false;
+    public boolean enableSumBalancing = false;
 
     public boolean enableElementOfScalarOptimization = false;
     public boolean enableCaching = false;

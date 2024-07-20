@@ -9,10 +9,13 @@ import edu.mit.csail.sdg.ast.ExprCall;
 import edu.mit.csail.sdg.ast.ExprList;
 import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.Sig;
+import fortress.data.NameGenerator;
 import fortress.msfol.DomainElement;
 import fortress.msfol.FuncDecl;
+import fortress.msfol.FunctionDefinition;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
+import fortress.msfol.Var;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -132,13 +135,13 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
             }
 
             // translate [[(x,y) \in next]] as guard && scalar = y
-            Pair<AnnotatedTerm, Term> nextScalar = getNextScalarAndGuard(tuple.getAnnotatedTerm(0), context);
+            Pair<AnnotatedTerm, AnnotatedTerm> nextScalar = getNextScalarAndGuard(tuple.getAnnotatedTerm(0), context);
             if (nextScalar == null) {
                 return Term.mkBottom();
             }
             AnnotatedTerm scalar = nextScalar.a;
-            Term guard = nextScalar.b;
-            return Term.mkAnd(guard, Term.mkEq(scalar.getTerm(), tuple.getTerm(1)));
+            AnnotatedTerm guard = nextScalar.b;
+            return Term.mkAnd(guard.getTerm(), Term.mkEq(scalar.getTerm(), tuple.getTerm(1)));
         }
 
         public AnnotatedTerm getFirstScalar(TranslationContext context) {
@@ -149,7 +152,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
             return new AnnotatedTerm(Term.mkDomainElement(range.a, sort), sort, Collections.emptyList());
         }
 
-        public Pair<AnnotatedTerm, Term> getNextScalarAndGuard(AnnotatedTerm left, TranslationContext context) {
+        public Pair<AnnotatedTerm, AnnotatedTerm> getNextScalarAndGuard(AnnotatedTerm left, TranslationContext context) {
             context.rangeAssigner.addRangeAxiom(sig, topLevelTranslator, context); // ensure range is valid
             Sort sort = sortPolicy.getSort(sig);
             if (!Objects.equals(left.getSort(), sort)) {
@@ -166,7 +169,9 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
                     recursivelyTranslate(ExprElementOf.make(left, sig), context),
                     Term.mkNot(Term.mkEq(left.getTerm(), lastDE)));
             Term scalar = Term.mkApp(nextFuncName, left.getTerm());
-            return new Pair<>(new AnnotatedTerm(scalar, sort, Collections.emptyList()), guard);
+            return new Pair<>(
+                    new AnnotatedTerm(scalar, sort, left.getFreeVars()),
+                    new AnnotatedTerm(guard, Sort.Bool(), left.getFreeVars()));
         }
 
         public void addNextPredicate(TranslationContext context) {
@@ -174,21 +179,40 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
                 return; // already exists
             }
 
-            // Generate the function itself (next: sort->sort)
+            // Add a definition for next
             Sort sort = sortPolicy.getSort(sig);
-            FuncDecl funcDecl = FuncDecl.mkFuncDecl(nextFuncName, sort, sort);
-            context.addFunctionDeclaration(funcDecl);
-
-            // Constrain it by hardcoding the order, leaving next(last) undefined
-            // Note: deRange is inclusive, so we exclude the last element in the range
             context.rangeAssigner.addRangeAxiom(sig, topLevelTranslator, context); // ensure range is valid
-            Pair<Integer, Integer> deRange = context.rangeAssigner.getDomainElementRange(sig);
-            for (int de = deRange.a; de < deRange.b; de++) {
-                // "next(_@de) = _@(de+1)"
-                Term axiom = Term.mkEq(
-                        Term.mkApp(nextFuncName, Term.mkDomainElement(de, sort)),
-                        Term.mkDomainElement(de + 1, sort));
-                context.addAxiom(axiom);
+
+            if (useDefinition) {
+                // Generate a lookup table for the definition body
+                List<Pair<Term, Term>> lookupTable = new ArrayList<>();
+                Pair<Integer, Integer> deRange = context.rangeAssigner.getDomainElementRange(sig);
+                for (int de = deRange.a; de < deRange.b; de++) {
+                    // "next(_@de) = _@(de+1)"
+                    lookupTable.add(new Pair<>(Term.mkDomainElement(de, sort), Term.mkDomainElement(de + 1, sort)));
+                }
+
+                Var inputVar = Term.mkVar(nameGenerator.freshName("x"));
+                Term lookupTableTerm = PortusUtil.mkExhaustiveLookupTable(inputVar, lookupTable);
+                FunctionDefinition definition = FunctionDefinition.mkFunctionDefinition(
+                        nextFuncName, Collections.singletonList(inputVar.of(sort)), sort, lookupTableTerm);
+                context.addFunctionDefinition(definition);
+            } else {
+                // Generate the function (next: sort->sort)
+                FuncDecl funcDecl = FuncDecl.mkFuncDecl(nextFuncName, sort, sort);
+                context.addFunctionDeclaration(funcDecl);
+
+                // Constrain it by hardcoding the order, leaving next(last) undefined
+                // Note: deRange is inclusive, so we exclude the last element in the range
+                context.rangeAssigner.addRangeAxiom(sig, topLevelTranslator, context); // ensure range is valid
+                Pair<Integer, Integer> deRange = context.rangeAssigner.getDomainElementRange(sig);
+                for (int de = deRange.a; de < deRange.b; de++) {
+                    // "next(_@de) = _@(de+1)"
+                    Term axiom = Term.mkEq(
+                            Term.mkApp(nextFuncName, Term.mkDomainElement(de, sort)),
+                            Term.mkDomainElement(de + 1, sort));
+                    context.addAxiom(axiom);
+                }
             }
         }
     }
@@ -197,11 +221,18 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
 
     private final ScalarCaster rootScalarCaster;
     private final SortPolicy sortPolicy;
+    private final NameGenerator nameGenerator;
 
-    public OrderingModuleOptTranslator(Translator topLevel, ScalarCaster rootScalarCaster, SortPolicy sortPolicy) {
+    private final boolean useDefinition;
+
+    public OrderingModuleOptTranslator(
+            Translator topLevel, ScalarCaster rootScalarCaster, SortPolicy sortPolicy, NameGenerator nameGenerator,
+            boolean useDefinition) {
         super(topLevel);
         this.rootScalarCaster = rootScalarCaster;
         this.sortPolicy = sortPolicy;
+        this.nameGenerator = nameGenerator;
+        this.useDefinition = useDefinition;
     }
 
     @Override
@@ -373,11 +404,11 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
 
     /** Try to cast to various scalars implemented by this translator. */
     @Override
-    public Pair<AnnotatedTerm, Term> castToScalar(Expr expr, TranslationContext context) {
+    public Pair<AnnotatedTerm, AnnotatedTerm> castToScalar(Expr expr, TranslationContext context) {
         expr = PortusUtil.stripPortusNoops(expr);
 
         // Is it first?
-        Pair<AnnotatedTerm, Term> firstScalar = castToFirstScalar(expr, context);
+        Pair<AnnotatedTerm, AnnotatedTerm> firstScalar = castToFirstScalar(expr, context);
         if (firstScalar != null) {
             return firstScalar;
         }
@@ -387,11 +418,11 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
     }
 
     /** Try to cast expr to a scalar representing a "first" field. We actually have to recognize "Ord.first". */
-    private Pair<AnnotatedTerm, Term> castToFirstScalar(Expr expr, TranslationContext context) {
+    private Pair<AnnotatedTerm, AnnotatedTerm> castToFirstScalar(Expr expr, TranslationContext context) {
         for (OrderInfo order : orders) {
             if (order.matchesFirstUsage(expr)) {
                 // No guard is necessary since it's a plain domain element.
-                return new Pair<>(order.getFirstScalar(context), Term.mkTop());
+                return new Pair<>(order.getFirstScalar(context), new AnnotatedTerm(Term.mkTop(), Sort.Bool()));
             }
         }
         return null;
@@ -401,16 +432,16 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
      * Try to cast expr to a scalar representing "x.next" for a scalar x. (Actually "x.(Ord.next)".)
      * Note: we can't readily translate "next.x" as a scalar.
      */
-    private Pair<AnnotatedTerm, Term> castToJoinWithNextScalar(Expr expr, TranslationContext context) {
+    private Pair<AnnotatedTerm, AnnotatedTerm> castToJoinWithNextScalar(Expr expr, TranslationContext context) {
         if (!(expr instanceof ExprBinary)) return null;
         ExprBinary exprBinary = (ExprBinary) expr;
         if (exprBinary.op != ExprBinary.Op.JOIN) return null;
 
         // Strip any noops and go through any call/let indirection
         // (Note: this returns null for each unmentioned node, not natural recursion.)
-        return new ContextVisitReturn.Default<Pair<AnnotatedTerm, Term>>(context, sortPolicy) {
+        return new ContextVisitReturn.Default<Pair<AnnotatedTerm, AnnotatedTerm>>(context, sortPolicy) {
             @Override
-            public Pair<AnnotatedTerm, Term> visit(ExprUnary x) {
+            public Pair<AnnotatedTerm, AnnotatedTerm> visit(ExprUnary x) {
                 // Strip any noops
                 Expr stripped = PortusUtil.stripPortusNoops(x);
                 if (stripped != x) {
@@ -420,7 +451,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
             }
 
             @Override
-            public Pair<AnnotatedTerm, Term> visit(ExprCall x) throws Err {
+            public Pair<AnnotatedTerm, AnnotatedTerm> visit(ExprCall x) throws Err {
                 varMappingContext.addLetMappingsFromCall(x);
                 try {
                     return visitThis(x.fun.getBody());
@@ -430,23 +461,25 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
             }
 
             @Override
-            public Pair<AnnotatedTerm, Term> visit(ExprBinary x) {
+            public Pair<AnnotatedTerm, AnnotatedTerm> visit(ExprBinary x) {
                 for (OrderInfo order : orders) {
                     if (order.matchesNextUsage(x)) {
-                        Pair<AnnotatedTerm, Term> leftScalar = rootScalarCaster.castToScalar(
+                        Pair<AnnotatedTerm, AnnotatedTerm> leftScalar = rootScalarCaster.castToScalar(
                                 exprBinary.left, context);
                         if (leftScalar == null) {
                             return null;
                         }
 
                         // Combine the guards and use the resulting scalar
-                        Pair<AnnotatedTerm, Term> nextScalar = order.getNextScalarAndGuard(
+                        Pair<AnnotatedTerm, AnnotatedTerm> nextScalar = order.getNextScalarAndGuard(
                                 leftScalar.a, context);
                         if (nextScalar == null) {
                             return null; // sort don't work out - let someone else deal with it
                         }
-                        Term guard = Term.mkAnd(leftScalar.b, nextScalar.b);
-                        return new Pair<>(nextScalar.a, guard);
+                        Term guard = Term.mkAnd(leftScalar.b.getTerm(), nextScalar.b.getTerm());
+                        return new Pair<>(nextScalar.a,
+                                new AnnotatedTerm(guard, Sort.Bool(),
+                                        SetOps.union(leftScalar.b.getFreeVars(), nextScalar.b.getFreeVars())));
                     }
                 }
                 return null;

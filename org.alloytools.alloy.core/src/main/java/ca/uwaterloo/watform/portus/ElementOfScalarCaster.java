@@ -53,7 +53,7 @@ final class ElementOfScalarCaster implements ScalarCaster {
     }
 
     @Override
-    public Pair<AnnotatedTerm, Term> castToScalar(Expr expr, TranslationContext context) {
+    public Pair<AnnotatedTerm, AnnotatedTerm> castToScalar(Expr expr, TranslationContext context) {
         // Since we perform recursive translations, it's possible that this scalar caster gets
         // invoked during a translation it triggered. To avoid stack overflows, ignore any
         // such recursive calls.
@@ -62,13 +62,13 @@ final class ElementOfScalarCaster implements ScalarCaster {
         }
         currentlyRunning = true;
 
-        Pair<AnnotatedTerm, Term> result = castToScalarImpl(expr, context);
+        Pair<AnnotatedTerm, AnnotatedTerm> result = castToScalarImpl(expr, context);
 
         currentlyRunning = false;
         return result;
     }
 
-    private Pair<AnnotatedTerm, Term> castToScalarImpl(Expr expr, TranslationContext context) {
+    private Pair<AnnotatedTerm, AnnotatedTerm> castToScalarImpl(Expr expr, TranslationContext context) {
         // Construct [[x \in expr]] for a fresh variable x.
         // First, find the sort of x.
         SortResolvant resolvant = sortPolicy.getMinimalExprSorts(expr, context);
@@ -158,7 +158,7 @@ final class ElementOfScalarCaster implements ScalarCaster {
             return null;
         }
 
-        return new Pair<>(new AnnotatedTerm(scalar, sort), guard);
+        return new Pair<>(new AnnotatedTerm(scalar, sort), new AnnotatedTerm(guard, Sort.Bool()));
     }
 
     private List<Term> collectConjuncts(Term term) {
