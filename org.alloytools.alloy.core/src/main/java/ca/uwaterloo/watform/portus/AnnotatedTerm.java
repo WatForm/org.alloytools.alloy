@@ -11,7 +11,7 @@ import java.util.Objects;
 /**
  * A Fortress Term annotated with sort data, effectively generalizing {@link AnnotatedVar}.
  */
-final class AnnotatedTerm {
+class AnnotatedTerm {
 
     private final Term term;
     private final Sort sort;

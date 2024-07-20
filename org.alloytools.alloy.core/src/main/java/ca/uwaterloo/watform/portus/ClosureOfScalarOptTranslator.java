@@ -106,9 +106,11 @@ final class ClosureOfScalarOptTranslator extends AbstractTranslator {
                 .collect(Collectors.toList());
 
         List<AnnotatedVar> defnParams = SetOps.concatenate(Arrays.<AnnotatedVar>asList(xDefnVar, yDefnVar), freeVars);
-        List<Term> defnArgs = SetOps.concatenate(Arrays.<Term>asList(x.getTerm(), y.getTerm()), freeVars.stream()
-                .map(AnnotatedVar::variable)
-                .collect(Collectors.toList()));
+        List<Term> defnArgs = SetOps.concatenate(
+                Arrays.<Term>asList(x.getTerm(), y.getTerm()),
+                (List<Term>) freeVars.stream()
+                    .<Term>map(AnnotatedVar::variable)
+                    .collect(Collectors.toList()));
 
         // See if we've cached it; include the closure/rclosure in the cache key to differentiate ^e and *e
         String cachedDefnName = closureDefnNameCache.get(expr, tcSort, context.varMappingContext);
