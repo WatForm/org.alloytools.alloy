@@ -107,7 +107,7 @@ final class ClosureOfScalarOptTranslator extends AbstractTranslator {
             assembled = Term.mkOr(Term.mkEq(y.getTerm(), x.getTerm()), assembled);
         }
 
-        // TODO make a definition for this!
+        // TODO make a definition for this like in DefaultTranslator!
         return assembled;
     }
 

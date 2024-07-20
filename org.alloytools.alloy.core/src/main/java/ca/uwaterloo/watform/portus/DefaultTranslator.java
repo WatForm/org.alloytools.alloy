@@ -71,10 +71,9 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
     // Names of the above relation predicates for easy access.
     private final Map<Sig.Field, FuncDecl> relationPredicateDecls = new HashMap<>();
 
-    // When "^expr" or "*expr" is translated, this "maps" expr and the auxiliary function's signature
+    // When "^expr" or "*expr" is translated, this maps expr and the auxiliary function's signature
     // to the name of an auxiliary function f_sort(x,y,extras) = [[(x,y,extras) \in expr]], used in the translation.
-    // It's not a real map because Expr doesn't support equals()/hashCode() easily, and we can tolerate O(n) lookup.
-    private final List<Pair<Pair<Expr, List<Sort>>, String>> auxClosureRelationNames = new ArrayList<>();
+    private final ExprCache<String> auxClosureRelationNames;
 
     public DefaultTranslator(
             Translator topLevelTranslator, ScopeAxiomStrategy scopeAxiomStrategy, SigAxioms sigAxioms,
@@ -84,6 +83,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
         this.sigAxioms = sigAxioms;
         this.sortPolicy = sortPolicy;
         this.nameGenerator = nameGenerator;
+        this.auxClosureRelationNames = new ExprCache<>(sortPolicy);
     }
 
     @Override
@@ -915,30 +915,15 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
         if (expr instanceof Sig.Field) {
             Sig.Field field = (Sig.Field) expr;
             // It's possible that the function optimization optimized this field, so we don't have it.
-            // TODO: is it possible to close over a binary function in the function optimization?
             if (field.type().arity() == 2 && relationPredicateDecls.containsKey(field)) {
                 return relationPredicateDecls.get(field).name();
             }
         }
 
-        // The type of the aux relation is (sort,sort,*extras)->Bool
-        List<AnnotatedVar> freeVars = PortusUtil.computeFreeVariables(expr, context, sortPolicy);
-        List<Sort> auxRelSorts = new ArrayList<>();
-        auxRelSorts.add(sort);
-        auxRelSorts.add(sort);
-        auxRelSorts.addAll(freeVars.stream().map(AnnotatedVar::sort).collect(Collectors.toList()));
-
-        // Use this as the key to compare previous expr/sort combos so that we don't get confused by lets
-        // (without this otherwise e.g. with "fun f[x] { ^x }", we'd use the same aux function for all arguments x)
-        Expr expandedExpr = PortusUtil.expandLets(expr, context.varMappingContext, sortPolicy);
-
         // Have we already translated this expr/sort combo? If so, use its name.
-        for (Pair<Pair<Expr, List<Sort>>, String> exprAndClosureName : auxClosureRelationNames) {
-            Expr prevExpr = exprAndClosureName.a.a;
-            List<Sort> prevSorts = exprAndClosureName.a.b;
-            if (auxRelSorts.equals(prevSorts) && expandedExpr.isSame(prevExpr)) {
-                return exprAndClosureName.b;
-            }
+        String cachedName = auxClosureRelationNames.get(expr, sort, context.varMappingContext);
+        if (cachedName != null) {
+            return cachedName;
         }
 
         if (!expr.type().hasArity(2)) {
@@ -949,8 +934,10 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
         // Use a definition because otherwise we'd need an expensive axiom.
         // Also include any free variables in the term as extra arguments.
         String auxRelationName = nameGenerator.freshName("closureAux_" + sort.name());
-        auxClosureRelationNames.add(new Pair<>(new Pair<>(expandedExpr, auxRelSorts), auxRelationName));
+        auxClosureRelationNames.put(expr, sort, auxRelationName, context.varMappingContext);
 
+        // The type of the aux relation is (sort,sort,*extras)->Bool
+        List<AnnotatedVar> freeVars = PortusUtil.computeFreeVariables(expr, context, sortPolicy);
         Var x = Term.mkVar(nameGenerator.freshName("x"));
         Var y = Term.mkVar(nameGenerator.freshName("y"));
         List<AnnotatedVar> decls = new ArrayList<>(Arrays.asList(x.of(sort), y.of(sort)));

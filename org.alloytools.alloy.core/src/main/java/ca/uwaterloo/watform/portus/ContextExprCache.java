@@ -7,6 +7,7 @@ import java.util.Map;
 
 /**
  * A cache with expr keys which is intelligent with respect to the var mapping context.
+ * NOTE: Outdated and broken - part of ElementOfScalarCaster.
  */
 final class ContextExprCache<T> {
 
