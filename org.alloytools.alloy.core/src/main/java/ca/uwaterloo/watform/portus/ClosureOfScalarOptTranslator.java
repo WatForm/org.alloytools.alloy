@@ -73,11 +73,13 @@ final class ClosureOfScalarOptTranslator extends AbstractTranslator {
         ExprVar probeAlloyVar = ExprVar.make(null, "%probe");
         AnnotatedVar probeVar = Term.mkVar("__@probe").of(x.getSort());
         context.addTermMapping(probeAlloyVar.label, new AnnotatedTerm(probeVar));
+        context.addFortressVar(probeVar);
         Pair<AnnotatedTerm, AnnotatedTerm> scalarAndGuard;
         try {
             scalarAndGuard = scalarCaster.castToScalar(probeAlloyVar.join(closedExpr), context);
         } finally {
             context.removeMapping(probeAlloyVar.label);
+            context.removeFortressVar(probeVar);
         }
         if (scalarAndGuard == null) return null;  // x.e is not a scalar
 

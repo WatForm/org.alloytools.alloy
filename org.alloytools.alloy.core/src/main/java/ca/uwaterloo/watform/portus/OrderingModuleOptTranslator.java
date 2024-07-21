@@ -194,12 +194,17 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
 
                 Var inputVar = Term.mkVar(nameGenerator.freshName("x"));
                 Term lookupTableTerm;
-                if (lookupTable.isEmpty()) {
-                    // The ordered sig has a scope of 1, so every value of next is ignored.
-                    // This is an edge case so don't bother optimizing specially - assign it arbitrarily.
-                    lookupTableTerm = Term.mkDomainElement(deRange.a, sort);
-                } else {
-                    lookupTableTerm = PortusUtil.mkExhaustiveLookupTable(inputVar, lookupTable);
+                try {
+                    context.addFortressVar(inputVar.of(sort));
+                    if (lookupTable.isEmpty()) {
+                        // The ordered sig has a scope of 1, so every value of next is ignored.
+                        // This is an edge case so don't bother optimizing specially - assign it arbitrarily.
+                        lookupTableTerm = Term.mkDomainElement(deRange.a, sort);
+                    } else {
+                        lookupTableTerm = PortusUtil.mkExhaustiveLookupTable(inputVar, lookupTable);
+                    }
+                } finally {
+                    context.removeFortressVar(inputVar.of(sort));
                 }
                 FunctionDefinition definition = FunctionDefinition.mkFunctionDefinition(
                         nextFuncName, Collections.singletonList(inputVar.of(sort)), sort, lookupTableTerm);

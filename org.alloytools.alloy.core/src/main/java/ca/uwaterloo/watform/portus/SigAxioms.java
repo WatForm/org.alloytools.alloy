@@ -113,9 +113,14 @@ class SigAxioms {
         }
 
         AnnotatedVar x = Term.mkVar(nameGenerator.freshName("x")).of(sort);
-        Term inSig1 = rootTranslator.translate(ExprElementOf.make(x, sig1), context);
-        Term inSig2 = rootTranslator.translate(ExprElementOf.make(x, sig2), context);
-        return Term.mkForall(x, Term.mkNot(Term.mkAnd(inSig1, inSig2)));
+        try {
+            context.addFortressVar(x);
+            Term inSig1 = rootTranslator.translate(ExprElementOf.make(x, sig1), context);
+            Term inSig2 = rootTranslator.translate(ExprElementOf.make(x, sig2), context);
+            return Term.mkForall(x, Term.mkNot(Term.mkAnd(inSig1, inSig2)));
+        } finally {
+            context.removeFortressVar(x);
+        }
     }
 
 }

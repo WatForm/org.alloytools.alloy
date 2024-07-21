@@ -44,8 +44,14 @@ final class ConstantsScopeAxiomStrategy implements ScopeAxiomStrategy {
         context.markSortUnchanging(sort);
 
         // Generate `sortScope - scope` constants and assert that they are distinct and not in sig
-        Function<AnnotatedVar, Term> notInSig = var ->
-                recursiveTranslator.translate(ExprElementOf.make(var, sig).not(), context);
+        Function<AnnotatedVar, Term> notInSig = var -> {
+            try {
+                context.addFortressVar(var);
+                return recursiveTranslator.translate(ExprElementOf.make(var, sig).not(), context);
+            } finally {
+                context.removeFortressVar(var);
+            }
+        };
         return generateDistinctConstantsAxiom(sortScope - scope, sort, notInSig, context);
     }
 
@@ -60,8 +66,14 @@ final class ConstantsScopeAxiomStrategy implements ScopeAxiomStrategy {
         Term scopeAtMost = makeNonExactScopeAxiom(sig, scope, recursiveTranslator, context);
 
         // This actually asserts that the scope is at least `scope`, so the conjunction gives equality
-        Function<AnnotatedVar, Term> inSig = var ->
-                recursiveTranslator.translate(ExprElementOf.make(var, sig), context);
+        Function<AnnotatedVar, Term> inSig = var -> {
+            try {
+                context.addFortressVar(var);
+                return recursiveTranslator.translate(ExprElementOf.make(var, sig), context);
+            } finally {
+                context.removeFortressVar(var);
+            }
+        };
         Term scopeAtLeast = generateDistinctConstantsAxiom(scope, sort, inSig, context);
         return Term.mkAnd(scopeAtMost, scopeAtLeast);
     }

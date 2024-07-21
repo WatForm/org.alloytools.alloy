@@ -96,7 +96,13 @@ final class ElementOfScalarCaster implements ScalarCaster {
         Expr elementOf = ExprElementOf.make(x, expr);
 //        TranslationContext contextCopy = new TranslationContext(context);
 //        Term elementOfResult = rootTranslator.translate(elementOf, contextCopy);
-        Term elementOfResult = rootTranslator.translate(elementOf, context);
+        Term elementOfResult;
+        try {
+            context.addFortressVar(x);
+            elementOfResult = rootTranslator.translate(elementOf, context);
+        } finally {
+            context.removeFortressVar(x);
+        }
 
         // See if it's of the form "guard && x = f".
         // There should be one conjunct of the form "x = f", and the rest shouldn't reference x (they're the guard).

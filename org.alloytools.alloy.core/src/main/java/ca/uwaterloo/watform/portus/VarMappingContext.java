@@ -6,32 +6,42 @@ import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprCall;
 import edu.mit.csail.sdg.ast.ExprVar;
+import fortress.msfol.AnnotatedVar;
 import fortress.msfol.Sort;
+import fortress.msfol.Var;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.Stack;
+import java.util.function.Function;
 
 /**
- * Responsible for keeping track of the current lexical scope's mapping from Alloy variables to Fortress Terms
+ * Responsible for keeping track of the current Alloy lexical scope's mapping from Alloy variables to Fortress Terms
  * (e.g. from quantifiers) and Alloy expressions (e.g. from lets).
  */
 final class VarMappingContext {
 
-    // The current lexical scope's mapping from Alloy variable labels to either
+    // The current Alloy lexical scope's mapping from Alloy variable labels to either
     // Fortress Terms (i.e. for quantified vars) or Alloy expressions as used in the "let x = e | ..." construct.
     // We use a single Env so these types of mappings can shadow each other.
     private Env<String, Either<AnnotatedTerm, LetContext>> alloyVarMapping;
 
+    // The current Fortress translation scope's map from Fortress variables to their corresponding sorts.
+    // This is necessary because Fortress does not keep track of the sorts of its variables itself.
+    private final Env<Var, Sort> fortressVarsToSorts;
+
     public VarMappingContext() {
         this.alloyVarMapping = new Env<>();
+        this.fortressVarsToSorts = new Env<>();
     }
 
     public VarMappingContext(VarMappingContext varMappingContext) {
         this.alloyVarMapping = varMappingContext.alloyVarMapping.dup();
+        this.fortressVarsToSorts = varMappingContext.fortressVarsToSorts.dup();
     }
 
     /**
@@ -141,21 +151,88 @@ final class VarMappingContext {
         }
     }
 
-    /** Replace all instances of sort "from" with sort "to", useful if sorts have been semantically merged. */
-    public void replaceSort(Sort from, Sort to) {
-        replaceSortInEnv(alloyVarMapping, from, to);
+    /**
+     * Add a mapping for the sort of a Fortress variable.
+     * This must be called before translating any term for which the variable will be in scope, and the mapping must
+     * be removed afterwards with {@link #removeFortressVar}.
+     */
+    public void addFortressVar(Var var, Sort sort) {
+        fortressVarsToSorts.put(var, sort);
     }
 
-    private static void replaceSortInEnv(Env<String, Either<AnnotatedTerm, LetContext>> env, Sort from, Sort to) {
-        Set<String> keys = new HashSet<>(env.keySet());
-        Stack<Either<AnnotatedTerm, LetContext>> stack = new Stack<>();
-    
-        for (String key : keys) {
+    public void addFortressVar(AnnotatedVar var) {
+        addFortressVar(var.variable(), var.sort());
+    }
+
+    public void addFortressVars(List<AnnotatedVar> vars) {
+        for (AnnotatedVar var : vars) {
+            addFortressVar(var);
+        }
+    }
+
+    public void addFortressVars(AnnotatedVar... vars) {
+        addFortressVars(Arrays.asList(vars));
+    }
+
+    /**
+     * Is the Fortress variable in scope?
+     */
+    public boolean isFortressVarKnown(Var var) {
+        return fortressVarsToSorts.has(var);
+    }
+
+    /**
+     * Get the sort for the Fortress variable, if it is in scope.
+     * If not, return null.
+     */
+    public Sort getFortressVarSort(Var var) {
+        if (isFortressVarKnown(var)) {
+            return fortressVarsToSorts.get(var);
+        }
+        return null;
+    }
+
+    /**
+     * Remove the Fortress variable from the scope.
+     * This must be called after translating the term in which the variable is in scope.
+     */
+    public void removeFortressVar(Var var) {
+        fortressVarsToSorts.remove(var);
+    }
+
+    /** Convenience: remove through an AnnotatedVar. */
+    public void removeFortressVar(AnnotatedVar var) {
+        removeFortressVar(var.variable());
+    }
+
+    /** Remove a list of variables previously added with addFortressVars. */
+    public void removeFortressVars(List<AnnotatedVar> vars) {
+        // Remove in reverse order just in case, although it should be fine
+        for (int i = vars.size() - 1; i >= 0; i--) {
+            removeFortressVar(vars.get(i));
+        }
+    }
+
+    public void removeFortressVars(AnnotatedVar... vars) {
+        removeFortressVars(Arrays.asList(vars));
+    }
+
+    /** Replace all instances of sort "from" with sort "to", useful if sorts have been semantically merged. */
+    public void replaceSort(Sort from, Sort to) {
+        mapEnv(alloyVarMapping, either -> replaceSortInEither(either, from, to));
+        mapEnv(fortressVarsToSorts, sort -> sort.equals(from) ? to : sort);
+    }
+
+    private static <K, V> void mapEnv(Env<K, V> env, Function<V, V> map) {
+        Set<K> keys = new HashSet<>(env.keySet());
+        Stack<V> stack = new Stack<>();
+
+        for (K key : keys) {
             // Env acts as a stack: remove everything from env and push it onto a temp stack
             while (env.has(key)) {
-                Either<AnnotatedTerm, LetContext> value = env.get(key);
+                V value = env.get(key);
                 env.remove(key);
-                stack.push(replaceSortInEither(value, from, to));
+                stack.push(map.apply(value));
             }
 
             // Now put the stack back into the env.
@@ -252,16 +329,16 @@ final class VarMappingContext {
 
         private boolean replacingSort = false;
 
-        public void replaceSort(Sort from, Sort to) {
+        private void replaceSort(Sort from, Sort to) {
             // Hack: avoid reentrancy since this data structure could be cyclic
             if (replacingSort) {
                 return;
             }
             replacingSort = true;
 
-            replaceSortInEnv(savedVarMapping, from, to);
+            mapEnv(savedVarMapping, either -> replaceSortInEither(either, from, to));
             if (oldMapping != null) {
-                replaceSortInEnv(oldMapping, from, to);
+                mapEnv(oldMapping,  either -> replaceSortInEither(either, from, to));
             }
 
             replacingSort = false;

@@ -63,7 +63,13 @@ final class SumDefinitionsOptTranslator extends AbstractTranslator {
         }
 
         Expr conditionExpr = ExprElementOf.make(TermTuple.fromVars(vars), expr.sub);
-        Term condition = recursivelyTranslate(conditionExpr, context);
+        Term condition;
+        try {
+            context.addFortressVars(vars); // Add only the expanded-only vars since free vars should already be in scope
+            condition = recursivelyTranslate(conditionExpr, context);
+        } finally {
+            context.removeFortressVars(vars);
+        }
         List<AnnotatedVar> conditionVars = PortusUtil.computeFreeVariables(conditionExpr, context, sortPolicy);
         AnnotatedTerm conditionAnnotated = new AnnotatedTerm(condition, Sort.Bool(), conditionVars);
         return translateSum(new AnnotatedTerm(IntegerLiteral.apply(1), Sort.Int()), conditionAnnotated, vars, context);
@@ -98,6 +104,7 @@ final class SumDefinitionsOptTranslator extends AbstractTranslator {
             for (String alloyVarName : alloyVarNames) {
                 context.removeMapping(alloyVarName);
             }
+            context.removeFortressVars(vars);
         }
 
         return translateSum(sub, condition, vars, context);

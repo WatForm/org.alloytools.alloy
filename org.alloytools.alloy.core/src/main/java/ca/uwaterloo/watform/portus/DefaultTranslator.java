@@ -255,9 +255,15 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
         List<AnnotatedVar> vars = argSorts.stream()
                 .map(sort -> Term.mkVar(nameGenerator.freshName("x")).of(sort))
                 .collect(Collectors.toList());
-        Term domainAxiom = Term.mkForall(vars, Term.mkImp(
+        Term domainAxiom;
+        try {
+            context.addFortressVars(vars);
+            domainAxiom = Term.mkForall(vars, Term.mkImp(
                 recursivelyTranslate(ExprElementOf.make(TermTuple.fromVars(vars), field), context),
                 recursivelyTranslate(ExprElementOf.make(vars.get(0), field.sig), context)));
+        } finally {
+            context.removeFortressVars(vars);
+        }
 
         return Term.mkAnd(domainAxiom, rangeAxiom);
     }
@@ -400,10 +406,15 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
         // prepend y to make (y, x{m+1}, ..., xn)
         TermTuple rightSubTuple = TermTuple.fromVars(y).concat(tuple.slice(partitionIdx, tuple.size()));
 
-        //noinspection SuspiciousNameCombination - IntelliJ is overzealous
-        return Term.mkExists(y, Term.mkAnd(
-                recursivelyTranslate(ExprElementOf.make(leftSubTuple, left), context),
-                recursivelyTranslate(ExprElementOf.make(rightSubTuple, right), context)));
+        try {
+            context.addFortressVar(y);
+            //noinspection SuspiciousNameCombination - IntelliJ is overzealous
+            return Term.mkExists(y, Term.mkAnd(
+                    recursivelyTranslate(ExprElementOf.make(leftSubTuple, left), context),
+                    recursivelyTranslate(ExprElementOf.make(rightSubTuple, right), context)));
+        } finally {
+            context.removeFortressVar(y);
+        }
     }
 
     /** Translate "tuple \in left->right". */
@@ -483,8 +494,14 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
         }
 
         // translate [[(x1,y2,...,yn) \in override]]
-        Term firstInOverride = recursivelyTranslate(
-                ExprElementOf.make(new TermTuple(allTerms), override), context);
+        Term firstInOverride;
+        try {
+            context.addFortressVars(quantifiedVars);
+            firstInOverride = recursivelyTranslate(
+                    ExprElementOf.make(new TermTuple(allTerms), override), context);
+        } finally {
+            context.removeFortressVars(quantifiedVars);
+        }
 
         return Term.mkOr(inOverride, Term.mkAnd(
                 inBase, Term.mkNot(Term.mkExists(quantifiedVars, firstInOverride))));
@@ -677,8 +694,15 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
                         .of(sorts.get(idx)))
                 .collect(Collectors.toList());
 
-        Term inE1 = recursivelyTranslate(ExprElementOf.make(TermTuple.fromVars(vars), e1), context);
-        Term inE2 = recursivelyTranslate(ExprElementOf.make(TermTuple.fromVars(vars), e2), context);
+        Term inE1, inE2;
+        try {
+            context.addFortressVars(vars);
+            inE1 = recursivelyTranslate(ExprElementOf.make(TermTuple.fromVars(vars), e1), context);
+            inE2 = recursivelyTranslate(ExprElementOf.make(TermTuple.fromVars(vars), e2), context);
+        } finally {
+            context.removeFortressVars(vars);
+        }
+
         if (isEquals) {
             return Term.mkForall(vars, Term.mkIff(inE1, inE2));
         } else { // ExprBinary.Op.IN
@@ -831,7 +855,13 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
             vars.add(var.of(sorts.get(i)));
         }
 
-        Term condition = recursivelyTranslate(ExprElementOf.make(TermTuple.fromVars(vars), expr), context);
+        Term condition;
+        try {
+            context.addFortressVars(vars);
+            condition = recursivelyTranslate(ExprElementOf.make(TermTuple.fromVars(vars), expr), context);
+        } finally {
+            context.removeFortressVars(vars);
+        }
         return translateSum(IntegerLiteral.apply(1), condition, vars, context);
     }
 
@@ -943,11 +973,18 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
         List<AnnotatedVar> decls = new ArrayList<>(Arrays.asList(x.of(sort), y.of(sort)));
         decls.addAll(freeVars);
 
-        Term inExpr = recursivelyTranslate(ExprElementOf.make(
-                TermTuple.fromVars(x.of(sort), y.of(sort)), expr), context);
-        FunctionDefinition auxDefn = FunctionDefinition.mkFunctionDefinition(
-                auxRelationName, decls, Sort.Bool(), inExpr);
-        context.addFunctionDefinition(auxDefn);
+        try {
+            // Only add mappings for x and y because the rest should be covered by the free variables.
+            // TODO: If this causes bugs, use a fresh var mapping context for the definition.
+            context.addFortressVars(x.of(sort), y.of(sort));
+            Term inExpr = recursivelyTranslate(ExprElementOf.make(
+                    TermTuple.fromVars(x.of(sort), y.of(sort)), expr), context);
+            FunctionDefinition auxDefn = FunctionDefinition.mkFunctionDefinition(
+                    auxRelationName, decls, Sort.Bool(), inExpr);
+            context.addFunctionDefinition(auxDefn);
+        } finally {
+            context.removeFortressVars(x.of(sort), y.of(sort));
+        }
 
         return auxRelationName;
     }
@@ -1052,7 +1089,13 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
         }
 
         // technically, we actually translate as pseudo-Alloy "Q (x1,...,xn): e | true", so there's an extra true
-        Term condition = recursivelyTranslate(ExprElementOf.make(TermTuple.fromVars(vars), expr), context);
+        Term condition;
+        try {
+            context.addFortressVars(vars);
+            condition = recursivelyTranslate(ExprElementOf.make(TermTuple.fromVars(vars), expr), context);
+        } finally {
+            context.removeFortressVars(vars);
+        }
         Term sub = Term.mkTop();
         return translateRawQuantifier(quantifier, vars, condition, sub, context);
     }
@@ -1107,6 +1150,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
             for (String alloyVarName : alloyVarNames) {
                 context.removeMapping(alloyVarName);
             }
+            context.removeFortressVars(vars);
         }
 
         return translateRawQuantifier(expr.op, vars, condition, sub, context);

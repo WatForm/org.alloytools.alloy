@@ -164,17 +164,22 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
             decls.add(decl);
         }
 
-        Term domainFormula = makeDomainFormula(TermTuple.fromVars(decls), info, context);
-
-        // Map "this" to the first variable, because it represents the signature's atom
-        context.addTermMapping("this", new AnnotatedTerm(decls.get(0)));
-        Term consequent;
+        Term domainFormula, consequent;
         try {
-            AnnotatedTerm funcApp = new AnnotatedTerm(Term.mkApp(info.funcName, vars), info.resultSort, decls);
-            consequent = recursivelyTranslate(ExprElementOf.make(funcApp,
-                    info.boundExprs.get(info.boundExprs.size() - 1)), context);
+            context.addFortressVars(decls);
+            domainFormula = makeDomainFormula(TermTuple.fromVars(decls), info, context);
+
+            try {
+                // Map "this" to the first variable, because it represents the signature's atom
+                context.addTermMapping("this", new AnnotatedTerm(decls.get(0)));
+                AnnotatedTerm funcApp = new AnnotatedTerm(Term.mkApp(info.funcName, vars), info.resultSort, decls);
+                consequent = recursivelyTranslate(ExprElementOf.make(funcApp,
+                        info.boundExprs.get(info.boundExprs.size() - 1)), context);
+            } finally {
+                context.removeMapping("this");
+            }
         } finally {
-            context.removeMapping("this");
+            context.removeFortressVars(decls);
         }
 
         return Term.mkForall(decls, Term.mkImp(domainFormula, consequent));
@@ -196,9 +201,14 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
             terms.add(new AnnotatedTerm(decl));
         }
 
-        TermTuple tuple = new TermTuple(terms);
-        Term domainFormula = makeBoundExprDomainFormula(tuple, boundExprs, context);
-        return Term.mkForall(decls, Term.mkImp(Term.mkApp(domainPredName, vars), domainFormula));
+        try {
+            context.addFortressVars(decls);
+            TermTuple tuple = new TermTuple(terms);
+            Term domainFormula = makeBoundExprDomainFormula(tuple, boundExprs, context);
+            return Term.mkForall(decls, Term.mkImp(Term.mkApp(domainPredName, vars), domainFormula));
+        } finally {
+            context.removeFortressVars(decls);
+        }
     }
 
     /** Create the proper (right-) arrow. */
@@ -307,14 +317,19 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
         FieldFuncInfo leftInfo = optimizedFieldsInfo.get(left);
 
         List<AnnotatedVar> vars = makeArgVars(leftInfo);
-        TermTuple termTuple = TermTuple.fromVars(vars);
-        Term domainFormula = makeDomainFormula(termTuple, leftInfo, context);
+        try {
+            context.addFortressVars(vars);
+            TermTuple termTuple = TermTuple.fromVars(vars);
+            Term domainFormula = makeDomainFormula(termTuple, leftInfo, context);
 
-        Term funcApp = Term.mkApp(leftInfo.funcName, termTuple.getTerms());
-        TermTuple varsWithFuncApp = termTuple.concat(new TermTuple(funcApp, leftInfo.resultSort, vars));
-        Term inRight = recursivelyTranslate(ExprElementOf.make(varsWithFuncApp, right), context);
+            Term funcApp = Term.mkApp(leftInfo.funcName, termTuple.getTerms());
+            TermTuple varsWithFuncApp = termTuple.concat(new TermTuple(funcApp, leftInfo.resultSort, vars));
+            Term inRight = recursivelyTranslate(ExprElementOf.make(varsWithFuncApp, right), context);
 
-        return Term.mkForall(vars, Term.mkImp(domainFormula, inRight));
+            return Term.mkForall(vars, Term.mkImp(domainFormula, inRight));
+        } finally {
+            context.removeFortressVars(vars);
+        }
     }
 
     private Term translateOptimizedEquals(Sig.Field left, Sig.Field right, TranslationContext context) {
@@ -332,17 +347,22 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
         }
 
         List<AnnotatedVar> vars = makeArgVars(leftInfo);
-        TermTuple termTuple = TermTuple.fromVars(vars);
+        try {
+            context.removeFortressVars(vars);
+            TermTuple termTuple = TermTuple.fromVars(vars);
 
-        // TODO: if rightDomainFormula is cheaper than leftDomainFormula, swap them for a slight optimization
-        Term leftDomainFormula = makeDomainFormula(termTuple, leftInfo, context);
-        Term rightDomainFormula = makeDomainFormula(termTuple, rightInfo, context);
-        Term funcsEqual = Term.mkEq(
-                Term.mkApp(leftInfo.funcName, termTuple.getTerms()),
-                Term.mkApp(rightInfo.funcName, termTuple.getTerms()));
-        return Term.mkForall(vars, Term.mkAnd(
-                Term.mkIff(leftDomainFormula, rightDomainFormula),
-                Term.mkImp(leftDomainFormula, funcsEqual)));
+            // TODO: if rightDomainFormula is cheaper than leftDomainFormula, swap them for a slight optimization
+            Term leftDomainFormula = makeDomainFormula(termTuple, leftInfo, context);
+            Term rightDomainFormula = makeDomainFormula(termTuple, rightInfo, context);
+            Term funcsEqual = Term.mkEq(
+                    Term.mkApp(leftInfo.funcName, termTuple.getTerms()),
+                    Term.mkApp(rightInfo.funcName, termTuple.getTerms()));
+            return Term.mkForall(vars, Term.mkAnd(
+                    Term.mkIff(leftDomainFormula, rightDomainFormula),
+                    Term.mkImp(leftDomainFormula, funcsEqual)));
+        } finally {
+            context.removeFortressVars(vars);
+        }
     }
 
     /** Translate "x.y" as an integer expression. We do this here because we need to use the function for y. */

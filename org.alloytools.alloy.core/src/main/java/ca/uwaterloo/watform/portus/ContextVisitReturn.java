@@ -147,7 +147,7 @@ abstract class ContextVisitReturn<T> extends FortressVisitReturn<T> {
     }
 
     /** A base implementation of ContextVisitReturn that by default returns null from each method. */
-    public static class Default<T> extends ContextVisitReturn<T> {
+    static class Default<T> extends ContextVisitReturn<T> {
         public Default(TranslationContext context, SortPolicy sortPolicy) {
             super(context, sortPolicy);
         }

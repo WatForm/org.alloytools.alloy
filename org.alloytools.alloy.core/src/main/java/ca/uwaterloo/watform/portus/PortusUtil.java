@@ -212,7 +212,7 @@ final class PortusUtil {
 
     /**
      * Translate a list of decls from a quantifier.
-     * @return Pair of (pair of (list of mapped Alloy variable names, list of Fortress vars), (condition, )),
+     * @return Pair of (pair of (list of mapped Alloy variable names, list of Fortress vars), condition),
      *   where the condition expresses that each variable is in the expr the decl declares it to be in.
      *   The condition must be true for the variables to be used.
      * @apiNote The variable names are added to the context's var mapping and must be cleaned up after.
@@ -275,10 +275,15 @@ final class PortusUtil {
                 alloyVarNames.add(name.label);
                 fortressVars.add(annotatedVar);
 
-                // Add the condition "var \in declExpr" to restrict the domain of var
-                Expr domainExpr = ExprElementOf.make(annotatedVar, declExpr);
-                conditions.add(rootTranslator.translate(domainExpr, context));
-                conditionFreeVars.addAll(computeFreeVariables(domainExpr, context, sortPolicy));
+                try {
+                    // Add the condition "var \in declExpr" to restrict the domain of var
+                    context.addFortressVar(annotatedVar);
+                    Expr domainExpr = ExprElementOf.make(annotatedVar, declExpr);
+                    conditions.add(rootTranslator.translate(domainExpr, context));
+                    conditionFreeVars.addAll(computeFreeVariables(domainExpr, context, sortPolicy));
+                } finally {
+                    context.removeFortressVar(annotatedVar);
+                }
 
                 // Add it to the lexical scope to translate the subformula
                 termMappingsToAdd.add(new Pair<>(name.label, new AnnotatedTerm(annotatedVar)));
@@ -289,6 +294,9 @@ final class PortusUtil {
                 context.addTermMapping(mapping.a, mapping.b);
             }
         }
+
+        // Add all the fortress vars for translating the sub expression
+        context.addFortressVars(fortressVars);
 
         // All the conditions must be true for a set of variables to be used
         Term condition = conditions.isEmpty() ? Term.mkTop() : Term.mkAnd(conditions);
@@ -527,7 +535,7 @@ final class PortusUtil {
                 }
                 AnnotatedTerm mappedTerm = varMappingContext.getTermMapping(x.label);
                 assert mappedTerm != null;
-                return new ArrayList<>(mappedTerm.getFreeVars());
+                return new ArrayList<>(mappedTerm.getFreeVars()); // CAN WE GET RID OF THIS?
             }
 
             @Override

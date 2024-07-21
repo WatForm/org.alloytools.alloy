@@ -31,26 +31,34 @@ final class QuantifierScopeAxiomStrategy implements ScopeAxiomStrategy {
         List<AnnotatedVar> vars = makeVars(scope, sig);
         AnnotatedVar x = AnnotatedVar.apply(Term.mkVar(nameGenerator.freshName("x")), sortPolicy.getSort(sig));
 
-        // construct the !(xi = xj) conjuncts
-        List<Term> conjuncts = new ArrayList<>();
-        for (int i = 0; i < scope; i++) {
-            for (int j = i+1; j < scope; j++) {
-                conjuncts.add(Term.mkNot(Term.mkEq(vars.get(i).variable(), vars.get(j).variable())));
+        try {
+            context.addFortressVars(vars);
+            context.addFortressVar(x);
+
+            // construct the !(xi = xj) conjuncts
+            List<Term> conjuncts = new ArrayList<>();
+            for (int i = 0; i < scope; i++) {
+                for (int j = i + 1; j < scope; j++) {
+                    conjuncts.add(Term.mkNot(Term.mkEq(vars.get(i).variable(), vars.get(j).variable())));
+                }
             }
+
+            // construct the x = xi disjuncts
+            List<Term> eqDisjuncts = vars.stream()
+                    .map(var -> Term.mkEq(x.variable(), var.variable()))
+                    .collect(Collectors.toList());
+
+            // construct the last conjunct
+            Term xInChild = recursiveTranslator.translate(ExprElementOf.make(x, sig), context);
+            Term implication = Term.mkIff(xInChild, Term.mkOr(eqDisjuncts));
+            conjuncts.add(implication);
+
+            // construct the final axiom
+            return Term.mkExists(vars, Term.mkForall(x, Term.mkAnd(conjuncts)));
+        } finally {
+            context.removeFortressVar(x);
+            context.removeFortressVars(vars);
         }
-
-        // construct the x = xi disjuncts
-        List<Term> eqDisjuncts = vars.stream()
-                .map(var -> Term.mkEq(x.variable(), var.variable()))
-                .collect(Collectors.toList());
-
-        // construct the last conjunct
-        Term xInChild = recursiveTranslator.translate(ExprElementOf.make(x, sig), context);
-        Term implication = Term.mkIff(xInChild, Term.mkOr(eqDisjuncts));
-        conjuncts.add(implication);
-
-        // construct the final axiom
-        return Term.mkExists(vars, Term.mkForall(x, Term.mkAnd(conjuncts)));
     }
 
     @Override
@@ -60,23 +68,29 @@ final class QuantifierScopeAxiomStrategy implements ScopeAxiomStrategy {
         int numVars = scope + 1;
         List<AnnotatedVar> vars = makeVars(numVars, sig);
 
-        // construct the conjuncts
-        List<Term> conjuncts = vars.stream()
-                .map(var -> recursiveTranslator.translate(ExprElementOf.make(var, sig), context))
-                .collect(Collectors.toList());
-        Term conjunction = Term.mkAnd(conjuncts);
+        try {
+            context.addFortressVars(vars);
 
-        // construct the O(scope^2) disjuncts
-        List<Term> disjuncts = new ArrayList<>();
-        for (int i = 0; i < numVars; i++) {
-            for (int j = i+1; j < numVars; j++) {
-                disjuncts.add(Term.mkEq(vars.get(i).variable(), vars.get(j).variable()));
+            // construct the conjuncts
+            List<Term> conjuncts = vars.stream()
+                    .map(var -> recursiveTranslator.translate(ExprElementOf.make(var, sig), context))
+                    .collect(Collectors.toList());
+            Term conjunction = Term.mkAnd(conjuncts);
+
+            // construct the O(scope^2) disjuncts
+            List<Term> disjuncts = new ArrayList<>();
+            for (int i = 0; i < numVars; i++) {
+                for (int j = i + 1; j < numVars; j++) {
+                    disjuncts.add(Term.mkEq(vars.get(i).variable(), vars.get(j).variable()));
+                }
             }
-        }
-        Term disjunction = Term.mkOr(disjuncts);
+            Term disjunction = Term.mkOr(disjuncts);
 
-        // construct the forall and the final axiom
-        return Term.mkForall(vars, Term.mkImp(conjunction, disjunction));
+            // construct the forall and the final axiom
+            return Term.mkForall(vars, Term.mkImp(conjunction, disjunction));
+        } finally {
+            context.removeFortressVars(vars);
+        }
     }
 
     private List<AnnotatedVar> makeVars(int numVars, Sig sig) {
