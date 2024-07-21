@@ -1,6 +1,7 @@
 package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
+import fortress.msfol.Sort;
 import fortress.msfol.Term;
 
 import java.util.Arrays;
@@ -19,17 +20,17 @@ final class Scalar {
     private final int arity;
 
     private final Function<List<AnnotatedTerm>, AnnotatedTerm> scalarGenerator;
-    private final Function<List<AnnotatedTerm>, BoolTerm> guardGenerator;
+    private final Function<List<AnnotatedTerm>, AnnotatedTerm> guardGenerator;
 
     public Scalar(int arity, Function<List<AnnotatedTerm>, AnnotatedTerm> scalarGenerator,
-                  Function<List<AnnotatedTerm>, BoolTerm> guardGenerator) {
+                  Function<List<AnnotatedTerm>, AnnotatedTerm> guardGenerator) {
         this.arity = arity;
         this.scalarGenerator = scalarGenerator;
         this.guardGenerator = guardGenerator;
     }
 
     /** Create a nilary scalar. */
-    public Scalar(AnnotatedTerm scalar, BoolTerm guard) {
+    public Scalar(AnnotatedTerm scalar, AnnotatedTerm guard) {
         this(0, args -> scalar, args -> guard);
     }
 
@@ -52,14 +53,14 @@ final class Scalar {
         return getScalar(Arrays.asList(args));
     }
 
-    public BoolTerm getGuard(List<AnnotatedTerm> args) {
+    public AnnotatedTerm getGuard(List<AnnotatedTerm> args) {
         if (args.size() != arity) {
             throw new ErrorFatal("Internal Portus error: getGuard expected " + arity + " args, got " + args.size());
         }
         return guardGenerator.apply(args);
     }
 
-    public BoolTerm getGuard(AnnotatedTerm... args) {
+    public AnnotatedTerm getGuard(AnnotatedTerm... args) {
         return getGuard(Arrays.asList(args));
     }
 
@@ -83,12 +84,12 @@ final class Scalar {
             List<AnnotatedTerm> gArgs = SetOps.concatenate(fResult, args.subList(f.arity(), arity));
             return g.getScalar(gArgs);
         };
-        Function<List<AnnotatedTerm>, BoolTerm> guardGenerator = args -> {
+        Function<List<AnnotatedTerm>, AnnotatedTerm> guardGenerator = args -> {
             // guard_f(x1, ..., xn) && guard_g(f(x1, ..., xn), y2, ..., ym)
             List<AnnotatedTerm> fArgs = args.subList(0, f.arity());
             AnnotatedTerm fResult = f.getScalar(fArgs);
             List<AnnotatedTerm> gArgs = SetOps.concatenate(fResult, args.subList(f.arity(), arity));
-            return new BoolTerm(Term.mkAnd(f.getGuard(fArgs).getTerm(), g.getGuard(gArgs).getTerm()));
+            return new AnnotatedTerm(Term.mkAnd(f.getGuard(fArgs).getTerm(), g.getGuard(gArgs).getTerm()), Sort.Bool());
         };
         return new Scalar(arity, scalarGenerator, guardGenerator);
     }

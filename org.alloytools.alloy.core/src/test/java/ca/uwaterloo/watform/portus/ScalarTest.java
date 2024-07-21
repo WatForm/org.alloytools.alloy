@@ -20,8 +20,8 @@ public class ScalarTest {
         Var x = Term.mkVar("x");
         Var guardF = Term.mkVar("guardF");
 
-        Scalar f = new Scalar(new AnnotatedTerm(x.of(sort)), new BoolTerm(guardF.of(Sort.Bool())));
-        Scalar g = new Scalar(new AnnotatedTerm(x.of(sort)), new BoolTerm(guardF.of(Sort.Bool())));
+        Scalar f = new Scalar(new AnnotatedTerm(x.of(sort)), new AnnotatedTerm(guardF.of(Sort.Bool())));
+        Scalar g = new Scalar(new AnnotatedTerm(x.of(sort)), new AnnotatedTerm(guardF.of(Sort.Bool())));
         assertThrows(ErrorFatal.class, () -> Scalar.compose(f, g));
     }
 
@@ -32,10 +32,10 @@ public class ScalarTest {
         Var x = Term.mkVar("x");
         Var guardF = Term.mkVar("guardF");
 
-        Scalar f = new Scalar(new AnnotatedTerm(x.of(sort)), new BoolTerm(guardF.of(Sort.Bool())));
+        Scalar f = new Scalar(new AnnotatedTerm(x.of(sort)), new AnnotatedTerm(guardF.of(Sort.Bool())));
         Scalar g = new Scalar(1,
                 args -> new AnnotatedTerm(Term.mkApp("g", args.get(0).getTerm()), sort),
-                args -> new BoolTerm(Term.mkApp("guardG", args.get(0).getTerm())));
+                args -> new AnnotatedTerm(Term.mkApp("guardG", args.get(0).getTerm()), Sort.Bool()));
 
         Scalar composition = Scalar.compose(f, g);
         assertEquals(0, composition.arity());
@@ -53,10 +53,10 @@ public class ScalarTest {
 
         Scalar f = new Scalar(1,
                 args -> new AnnotatedTerm(Term.mkApp("f", args.get(0).getTerm()), sort),
-                args -> new BoolTerm(Term.mkApp("guardF", args.get(0).getTerm())));
+                args -> new AnnotatedTerm(Term.mkApp("guardF", args.get(0).getTerm()), Sort.Bool()));
         Scalar g = new Scalar(1,
                 args -> new AnnotatedTerm(Term.mkApp("g", args.get(0).getTerm()), sort),
-                args -> new BoolTerm(Term.mkApp("guardG", args.get(0).getTerm())));
+                args -> new AnnotatedTerm(Term.mkApp("guardG", args.get(0).getTerm()), Sort.Bool()));
 
         Scalar composition = Scalar.compose(f, g);
         assertEquals(1, composition.arity());
@@ -76,12 +76,12 @@ public class ScalarTest {
         Var y = Term.mkVar("y");
         Var guardF = Term.mkVar("guardF");
 
-        Scalar f = new Scalar(new AnnotatedTerm(x.of(sort)), new BoolTerm(guardF.of(Sort.Bool())));
+        Scalar f = new Scalar(new AnnotatedTerm(x.of(sort)), new AnnotatedTerm(guardF.of(Sort.Bool())));
         Scalar g = new Scalar(2,
                 args -> new AnnotatedTerm(
                         Term.mkApp("g", args.get(0).getTerm(), args.get(1).getTerm()), sort),
-                args -> new BoolTerm(
-                        Term.mkApp("guardG", args.get(0).getTerm(), args.get(1).getTerm())));
+                args -> new AnnotatedTerm(
+                        Term.mkApp("guardG", args.get(0).getTerm(), args.get(1).getTerm()), Sort.Bool()));
 
         Scalar composition = Scalar.compose(f, g);
         assertEquals(1, composition.arity());
@@ -102,12 +102,12 @@ public class ScalarTest {
 
         Scalar f = new Scalar(1,
                 args -> new AnnotatedTerm(Term.mkApp("f", args.get(0).getTerm()), sort),
-                args -> new BoolTerm(Term.mkApp("guardF", args.get(0).getTerm())));
+                args -> new AnnotatedTerm(Term.mkApp("guardF", args.get(0).getTerm()), Sort.Bool()));
         Scalar g = new Scalar(2,
                 args -> new AnnotatedTerm(
                         Term.mkApp("g", args.get(0).getTerm(), args.get(1).getTerm()), sort),
-                args -> new BoolTerm(
-                        Term.mkApp("guardG", args.get(0).getTerm(), args.get(1).getTerm())));
+                args -> new AnnotatedTerm(
+                        Term.mkApp("guardG", args.get(0).getTerm(), args.get(1).getTerm()), Sort.Bool()));
 
         Scalar composition = Scalar.compose(f, g);
         assertEquals(2, composition.arity());
