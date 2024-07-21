@@ -2753,6 +2753,7 @@ public class DefaultTranslatorTest {
         Var x = Term.mkVar("x"), y = Term.mkVar("y");
         Var vVar = Term.mkVar("v");
         context.addTermMapping("v", new AnnotatedTerm(vVar.of(univ)));
+        context.addFortressVar(vVar, univ);
 
         // mock out [[(x,y) \in v->v]] from the axiom
         Var flagInE = makeFlagConstant("inE");
@@ -2794,6 +2795,7 @@ public class DefaultTranslatorTest {
         Var x = Term.mkVar("x"), y = Term.mkVar("y");
         Var vVar = Term.mkVar("v");
         context.addTermMapping("v", new AnnotatedTerm(vVar.of(univ)));
+        context.addFortressVar(vVar, univ);
 
         // mock out [[(x,y) \in v->v]] from the axiom
         Var flagInE = makeFlagConstant("inE");
@@ -2842,11 +2844,13 @@ public class DefaultTranslatorTest {
 
         // with one free variable
         context.addTermMapping("v", new AnnotatedTerm(vVar.of(univ)));
+        context.addFortressVar(vVar, univ);
         Term result1 = translator.translate(
                 ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(univ)), e.closure()), context);
 
         // with no free variables - "v" is mapped to univ
         context.removeMapping("v");
+        context.removeFortressVar(vVar);
         context.addLetMapping("v", Sig.UNIV);
         delegateToRealTranslator(); // easier than mocking out the univ->univ translation
         Term result2 = translator.translate(
@@ -2897,6 +2901,7 @@ public class DefaultTranslatorTest {
 
         // with one free variable
         context.addTermMapping("v", new AnnotatedTerm(vVar.of(univ)));
+        context.addFortressVar(vVar, univ);
         Term result1 = translator.translate(
                 ExprElementOf.make(TermTuple.fromVars(x.of(univ), y.of(univ)), e.reflexiveClosure()), context);
 
@@ -2973,7 +2978,9 @@ public class DefaultTranslatorTest {
         Var flagInE = makeFlagConstant("xInE");
         Var flagSub = makeFlagConstant("f");
         Var flagX = makeFlagConstant("x");
-        context.addTermMapping("e", new AnnotatedTerm(makeFlagConstant("e"), univ));
+        Var eFlag = makeFlagConstant("e");
+        context.addTermMapping("e", new AnnotatedTerm(eFlag.of(univ)));
+        context.addFortressVar(eFlag, univ);
 
         when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(flagX.of(univ), e))), any()))
                 .thenReturn(flagInE);
@@ -3013,8 +3020,11 @@ public class DefaultTranslatorTest {
         Var flagInE1 = makeFlagConstant("x1InE1"), flagInE2 = makeFlagConstant("x2InE2");
         Var flagSub = makeFlagConstant("f");
         Var flagX = makeFlagConstant("x");
-        context.addTermMapping("e1", new AnnotatedTerm(makeFlagConstant("e1"), univ));
-        context.addTermMapping("e2", new AnnotatedTerm(makeFlagConstant("e2"), univ));
+        Var e1Flag = makeFlagConstant("e1"), e2Flag = makeFlagConstant("e2");
+        context.addTermMapping("e1", new AnnotatedTerm(e1Flag, univ));
+        context.addTermMapping("e2", new AnnotatedTerm(e2Flag, univ));
+        context.addFortressVar(e1Flag, univ);
+        context.addFortressVar(e2Flag, univ);
 
         when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(flagX.of(univ), e1))), any()))
                 .thenReturn(flagInE1, flagInE2);
@@ -3064,7 +3074,9 @@ public class DefaultTranslatorTest {
         Var flagInE = makeFlagConstant("xInE");
         Var flagSub = makeFlagConstant("f");
         Var flagX = makeFlagConstant("x");
-        context.addTermMapping("e", new AnnotatedTerm(makeFlagConstant("e"), univ));
+        Var eFlag = makeFlagConstant("e");
+        context.addTermMapping("e", new AnnotatedTerm(eFlag, univ));
+        context.addFortressVar(eFlag, univ);
 
         when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(flagX.of(univ), e))), any()))
                 .thenReturn(flagInE);
@@ -3105,7 +3117,9 @@ public class DefaultTranslatorTest {
         Var flagInE1 = makeFlagConstant("x1InE1"), flagInE2 = makeFlagConstant("x2InE2");
         Var flagSub = makeFlagConstant("disjImpliesF");
         Var flagX = makeFlagConstant("x");
-        context.addTermMapping("e", new AnnotatedTerm(makeFlagConstant("e"), univ));
+        Var eFlag = makeFlagConstant("e");
+        context.addTermMapping("e", new AnnotatedTerm(eFlag, univ));
+        context.addFortressVar(eFlag, univ);
 
         when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(flagX.of(univ), e))), any()))
                 .thenReturn(flagInE1, flagInE2);
@@ -3156,8 +3170,11 @@ public class DefaultTranslatorTest {
         Var flagInE1 = makeFlagConstant("x1InE1"), flagInE2 = makeFlagConstant("x2InE2");
         Var flagSub = makeFlagConstant("f");
         Var flagX = makeFlagConstant("x");
-        context.addTermMapping("e1", new AnnotatedTerm(makeFlagConstant("e1"), univ));
-        context.addTermMapping("e2", new AnnotatedTerm(makeFlagConstant("e2"), univ));
+        Var e1Flag = makeFlagConstant("e1"), e2Flag = makeFlagConstant("e2");
+        context.addTermMapping("e1", new AnnotatedTerm(e1Flag, univ));
+        context.addTermMapping("e2", new AnnotatedTerm(e2Flag, univ));
+        context.addFortressVar(e1Flag, univ);
+        context.addFortressVar(e2Flag, univ);
 
         when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(flagX.of(univ), e1))), any()))
                 .thenReturn(flagInE1, flagInE2);
@@ -3193,7 +3210,9 @@ public class DefaultTranslatorTest {
         Var flagInE = makeFlagConstant("xInE");
         Var flagSub = makeFlagConstant("f");
         Var flagX = makeFlagConstant("x");
-        context.addTermMapping("e", new AnnotatedTerm(makeFlagConstant("e"), univ));
+        Var eFlag = makeFlagConstant("e");
+        context.addTermMapping("e", new AnnotatedTerm(eFlag, univ));
+        context.addFortressVar(eFlag, univ);
 
         // "e" gets translated to "one e" at some point
         when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(flagX.of(univ), e))), any()))
@@ -3233,7 +3252,9 @@ public class DefaultTranslatorTest {
         Var flagInE = makeFlagConstant("xInE");
         Var flagSub = makeFlagConstant("f");
         Var flagX = makeFlagConstant("x");
-        context.addTermMapping("e", new AnnotatedTerm(makeFlagConstant("e"), univ));
+        Var eFlag = makeFlagConstant("e");
+        context.addTermMapping("e", new AnnotatedTerm(eFlag, univ));
+        context.addFortressVar(eFlag, univ);
 
         when(mockRoot.translate(argThat(isAlphaEquivalent(ExprElementOf.make(flagX.of(univ), e))), any()))
                 .thenReturn(flagInE);
@@ -3269,7 +3290,9 @@ public class DefaultTranslatorTest {
         ExprVar e = makeTestVarWithType("e", Type.make(sig));
         Decl alloyX = e.oneOf("x");
         ExprVar f = makeTestFormulaVar("f");
-        context.addTermMapping("e", new AnnotatedTerm(makeFlagConstant("e"), univ));
+        Var eFlag = makeFlagConstant("e");
+        context.addTermMapping("e", new AnnotatedTerm(eFlag, univ));
+        context.addFortressVar(eFlag, univ);
 
         // use flag predicates for [[\in e]] and [[f]] to make sure the substitution happens correctly
         FuncDecl flagInE = FuncDecl.mkFuncDecl("inE", univ, Sort.Bool());
@@ -3309,7 +3332,9 @@ public class DefaultTranslatorTest {
         ExprVar e = makeTestVarWithType("e", Type.make(sig));
         Decl alloyX = e.oneOf("x");
         ExprVar f = makeTestFormulaVar("f");
-        context.addTermMapping("e", new AnnotatedTerm(makeFlagConstant("e"), univ));
+        Var eFlag = makeFlagConstant("e");
+        context.addTermMapping("e", new AnnotatedTerm(eFlag, univ));
+        context.addFortressVar(eFlag, univ);
 
         // use flag predicates for [[\in e]] and [[f]] to make sure the substitution happens correctly
         FuncDecl flagInE = FuncDecl.mkFuncDecl("inE", univ, Sort.Bool());
@@ -3399,7 +3424,9 @@ public class DefaultTranslatorTest {
         ExprVar e = makeTestVarWithType("e", Type.make(sig));
         Decl alloyX = e.oneOf("x");
         ExprVar f = makeTestSmallIntVar("f");
-        context.addTermMapping("e", new AnnotatedTerm(makeFlagConstant("e"), univ));
+        Var eFlag = makeFlagConstant("e");
+        context.addTermMapping("e", new AnnotatedTerm(eFlag, univ));
+        context.addFortressVar(eFlag, univ);
 
         // translate [[x \in e]] with a function inE(x)
         when(mockRoot.translate(argThat(isAlphaEquivalent(
@@ -3430,7 +3457,9 @@ public class DefaultTranslatorTest {
         ExprVar e = makeTestVarWithType("e", Type.make(sig));
         Decl alloyX = e.oneOf("x");
         ExprVar f = makeTestSmallIntVar("f");
-        context.addTermMapping("e", new AnnotatedTerm(makeFlagConstant("e"), univ));
+        Var eFlag = makeFlagConstant("e");
+        context.addTermMapping("e", new AnnotatedTerm(eFlag, univ));
+        context.addFortressVar(eFlag, univ);
 
         // translate [[x \in e]] with a function inE(x)
         when(mockRoot.translate(argThat(isAlphaEquivalent(
@@ -3469,8 +3498,11 @@ public class DefaultTranslatorTest {
         Decl alloyX = e1.oneOf("x");
         Decl alloyY = e2.oneOf("y");
         ExprVar f = makeTestSmallIntVar("f");
-        context.addTermMapping("e1", new AnnotatedTerm(makeFlagConstant("e1"), univ));
-        context.addTermMapping("e2", new AnnotatedTerm(makeFlagConstant("e2"), univ));
+        Var e1Flag = makeFlagConstant("e1"), e2Flag = makeFlagConstant("e2");
+        context.addTermMapping("e1", new AnnotatedTerm(e1Flag, univ));
+        context.addTermMapping("e2", new AnnotatedTerm(e2Flag, univ));
+        context.addFortressVar(e1Flag, univ);
+        context.addFortressVar(e2Flag, univ);
 
         // translate [[x \in e1]] with a function inE1(x) and similar for [[y \in e2]] and inE2(y)
         when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(Term.mkVar("x_0").of(univ), e1))), any()))
@@ -3510,8 +3542,11 @@ public class DefaultTranslatorTest {
         Decl alloyX = e1.oneOf("x");
         Decl alloyY = e2.oneOf("y");
         ExprVar f = makeTestSmallIntVar("f");
-        context.addTermMapping("e1", new AnnotatedTerm(makeFlagConstant("e1"), univ));
-        context.addTermMapping("e2", new AnnotatedTerm(makeFlagConstant("e2"), univ));
+        Var e1Flag = makeFlagConstant("e1"), e2Flag = makeFlagConstant("e2");
+        context.addTermMapping("e1", new AnnotatedTerm(e1Flag, univ));
+        context.addTermMapping("e2", new AnnotatedTerm(e2Flag, univ));
+        context.addFortressVar(e1Flag, univ);
+        context.addFortressVar(e2Flag, univ);
 
         // translate [[x \in e1]] with a function inE1(x) and similar for [[y \in e2]] and inE2(y)
         when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(Term.mkVar("x_0").of(univ), e1))), any()))
@@ -3560,7 +3595,9 @@ public class DefaultTranslatorTest {
         ExprVar e = makeTestSmallIntVar("e");
         Decl alloyX = e.oneOf("x");
         ExprVar f = makeTestSmallIntVar("f");
-        context.addTermMapping("e", new AnnotatedTerm(makeFlagConstant("e"), Sort.Int()));
+        Var eFlag = makeFlagConstant("e");
+        context.addTermMapping("e", new AnnotatedTerm(eFlag, Sort.Int()));
+        context.addFortressVar(eFlag, Sort.Int());
 
         // translate [[x \in e]] with a function inE(x)
         when(mockRoot.translate(argThat(isAlphaEquivalent(
@@ -3595,8 +3632,12 @@ public class DefaultTranslatorTest {
         Decl alloyX = e1.oneOf("x");
         Decl alloyY = e2.oneOf("y");
         ExprVar f = makeTestSmallIntVar("f");
-        context.addTermMapping("e1", new AnnotatedTerm(makeFlagConstant("e1"), univ));
-        context.addTermMapping("e2", new AnnotatedTerm(makeFlagConstant("e2"), Sort.Int()));
+        Var e1Flag = makeFlagConstant("e1");
+        Var e2Flag = makeFlagConstant("e2");
+        context.addTermMapping("e1", new AnnotatedTerm(e1Flag, univ));
+        context.addTermMapping("e2", new AnnotatedTerm(e2Flag, Sort.Int()));
+        context.addFortressVar(e1Flag, univ);
+        context.addFortressVar(e2Flag, univ);
 
         // translate [[x \in e1]] with a function inE1(x) and similar for [[y \in e2]] and inE2(y)
         when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(Term.mkVar("x_0").of(univ), e1))), any()))

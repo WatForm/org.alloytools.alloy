@@ -36,8 +36,7 @@ abstract class ContextVisitReturn<T> extends FortressVisitReturn<T> {
     protected final VarMappingContext varMappingContext;
     private final SortPolicy sortPolicy;
 
-    // The placeholder which bound variables will be mapped to in the context. The sort varies.
-    protected final Var boundPlaceholderVar = Term.mkVar("%boundPlaceholderVar");
+    private static final String PLACEHOLDER_BOUND_VAR_PREFIX = "%boundPlaceholderVar%";
 
     public ContextVisitReturn(VarMappingContext varMappingContext, SortPolicy sortPolicy) {
         // Don't copy because rangeAssigner has side effects which need to be persisted
@@ -47,6 +46,16 @@ abstract class ContextVisitReturn<T> extends FortressVisitReturn<T> {
 
     public ContextVisitReturn(TranslationContext context, SortPolicy sortPolicy) {
         this(context.varMappingContext, sortPolicy);
+    }
+
+    // Quantified variables are mapped to an arbitrary variable satisfying this.
+    protected boolean isPlaceholderBoundVar(Var var) {
+        return var.name().startsWith(PLACEHOLDER_BOUND_VAR_PREFIX);
+    }
+
+    private Var getPlaceholderBoundVar(Sort sort) {
+        // use the same one for each sort
+        return Term.mkVar(PLACEHOLDER_BOUND_VAR_PREFIX + sort.name());
     }
 
     @Override
@@ -70,6 +79,7 @@ abstract class ContextVisitReturn<T> extends FortressVisitReturn<T> {
         // add var mappings for the quantified variables as we move into the quantifier
         List<T> argResults = new ArrayList<>();
         List<String> varNamesAdded = new ArrayList<>();
+        List<Var> placeholderBoundVars = new ArrayList<>();
         try {
             for (Decl decl : x.decls) {
                 for (ExprHasName name : decl.names) {
@@ -91,16 +101,21 @@ abstract class ContextVisitReturn<T> extends FortressVisitReturn<T> {
                         throw new ErrorNoPortusSupport("Portus only supports unary quantifier decl expressions!");
                     }
                     Sort sort = resolvant.getDefiniteSorts().get(0);
-                    varMappingContext.addTermMapping(name.label, new AnnotatedTerm(boundPlaceholderVar.of(sort)));
+                    Var placeholderBoundVar = getPlaceholderBoundVar(sort);
+                    varMappingContext.addTermMapping(name.label, new AnnotatedTerm(placeholderBoundVar.of(sort)));
+                    varMappingContext.addFortressVar(placeholderBoundVar.of(sort));
                     varNamesAdded.add(name.label);
+                    placeholderBoundVars.add(placeholderBoundVar);
                 }
             }
             return visitQuantifier(x, argResults, false);
         } finally {
             // remove the var mappings in reverse order
             for (int i = varNamesAdded.size() - 1; i >= 0; i--) {
-                String varName = varNamesAdded.get(i);
-                varMappingContext.removeMapping(varName);
+                varMappingContext.removeMapping(varNamesAdded.get(i));
+            }
+            for (int i = placeholderBoundVars.size() - 1; i >= 0; i--) {
+                varMappingContext.removeFortressVar(placeholderBoundVars.get(i));
             }
         }
     }

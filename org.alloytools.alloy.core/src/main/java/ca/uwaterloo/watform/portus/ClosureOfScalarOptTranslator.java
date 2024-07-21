@@ -115,7 +115,7 @@ final class ClosureOfScalarOptTranslator extends AbstractTranslator {
                     .collect(Collectors.toList()));
 
         // See if we've cached it; include the closure/rclosure in the cache key to differentiate ^e and *e
-        String cachedDefnName = closureDefnNameCache.get(expr, tcSort, context.varMappingContext);
+        String cachedDefnName = closureDefnNameCache.get(expr, tcSort, context);
         if (cachedDefnName != null) {
             return Term.mkApp(cachedDefnName, defnArgs);
         }
@@ -158,7 +158,7 @@ final class ClosureOfScalarOptTranslator extends AbstractTranslator {
                 Sort.Bool(),
                 assembled);
         context.addFunctionDefinition(defn);
-        closureDefnNameCache.put(expr, tcSort, defn.name(), context.varMappingContext);
+        closureDefnNameCache.put(expr, tcSort, defn.name(), context);
 
         return Term.mkApp(defn.name(), defnArgs);
     }

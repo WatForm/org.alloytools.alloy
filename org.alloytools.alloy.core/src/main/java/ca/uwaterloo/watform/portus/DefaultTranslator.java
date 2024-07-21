@@ -951,7 +951,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
         }
 
         // Have we already translated this expr/sort combo? If so, use its name.
-        String cachedName = auxClosureRelationNames.get(expr, sort, context.varMappingContext);
+        String cachedName = auxClosureRelationNames.get(expr, sort, context);
         if (cachedName != null) {
             return cachedName;
         }
@@ -964,7 +964,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
         // Use a definition because otherwise we'd need an expensive axiom.
         // Also include any free variables in the term as extra arguments.
         String auxRelationName = nameGenerator.freshName("closureAux_" + sort.name());
-        auxClosureRelationNames.put(expr, sort, auxRelationName, context.varMappingContext);
+        auxClosureRelationNames.put(expr, sort, auxRelationName, context);
 
         // The type of the aux relation is (sort,sort,*extras)->Bool
         List<AnnotatedVar> freeVars = PortusUtil.computeFreeVariables(expr, context, sortPolicy);

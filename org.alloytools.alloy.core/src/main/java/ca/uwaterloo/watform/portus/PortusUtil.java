@@ -26,12 +26,14 @@ import fortress.msfol.App;
 import fortress.msfol.BitVectorLiteral;
 import fortress.msfol.BuiltinApp;
 import fortress.msfol.Closure;
+import fortress.msfol.ConstantDefinition;
 import fortress.msfol.Distinct;
 import fortress.msfol.DomainElement;
 import fortress.msfol.EnumValue;
 import fortress.msfol.Eq;
 import fortress.msfol.Exists;
 import fortress.msfol.Forall;
+import fortress.msfol.FunctionDefinition;
 import fortress.msfol.IfThenElse;
 import fortress.msfol.Iff;
 import fortress.msfol.Implication;
@@ -47,6 +49,7 @@ import fortress.msfol.Theory;
 import fortress.msfol.Value;
 import fortress.msfol.Var;
 import fortress.operations.Substituter;
+import fortress.operations.TermOps;
 import scala.jdk.javaapi.CollectionConverters;
 
 import java.util.ArrayList;
@@ -438,18 +441,8 @@ final class PortusUtil {
      */
     public static List<AnnotatedVar> computeFreeVariables(
             Expr expr, TranslationContext context, SortPolicy sortPolicy) {
-        return computeFreeVariables(expr, context.varMappingContext, sortPolicy);
-    }
-
-    /**
-     * Get a list of the variables which are free in the translation of expr, with sorts determined by the context
-     * (which should assign a Fortress var for each free Alloy var).
-     */
-    public static List<AnnotatedVar> computeFreeVariables(
-            Expr expr, VarMappingContext varMappingContext, SortPolicy sortPolicy) {
-        // TODO: find sorts of free vars via earlier quantifiers
         // simple recursive implementation
-        return expr.accept(new ContextVisitReturn<List<AnnotatedVar>>(varMappingContext, sortPolicy) {
+        return expr.accept(new ContextVisitReturn<List<AnnotatedVar>>(context.varMappingContext, sortPolicy) {
             @SafeVarargs
             private final List<AnnotatedVar> union(List<AnnotatedVar>... lists) {
                 // this is O(n^2) to union two lists of length n, but this shouldn't be a bottleneck
@@ -512,7 +505,7 @@ final class PortusUtil {
                 List<AnnotatedVar> freeVars = argResults.stream().reduce(new ArrayList<>(), this::union);
                 List<AnnotatedVar> subFreeVars = visitThis(x.sub);
                 return union(freeVars, subFreeVars).stream()
-                        .filter(var -> !var.variable().equals(boundPlaceholderVar))
+                        .filter(var -> !isPlaceholderBoundVar(var.variable()))
                         .collect(Collectors.toList());
             }
 
@@ -535,7 +528,7 @@ final class PortusUtil {
                 }
                 AnnotatedTerm mappedTerm = varMappingContext.getTermMapping(x.label);
                 assert mappedTerm != null;
-                return new ArrayList<>(mappedTerm.getFreeVars()); // CAN WE GET RID OF THIS?
+                return computeTermFreeVars(mappedTerm.getTerm(), context);
             }
 
             @Override
@@ -552,7 +545,7 @@ final class PortusUtil {
 
             @Override
             public List<AnnotatedVar> visit(ExprElementOf x) throws Err {
-                return union(new ArrayList<>(x.tuple.getAllFreeVars()), visitThis(x.sub));
+                return union(new ArrayList<>(x.tuple.getAllFreeVars(context)), visitThis(x.sub));
             }
 
             @Override
@@ -570,6 +563,20 @@ final class PortusUtil {
                 throw new ErrorFatal("Visiting Macro isn't supported!");
             }
         });
+    }
+
+    public static List<AnnotatedVar> computeTermFreeVars(Term term, TranslationContext context) {
+        //noinspection unchecked
+        List<Var> freeVars = CollectionConverters.<Var> asJava(
+                TermOps.wrapTerm(term).freeVars(context.getTheory().signature()).toList());
+        List<AnnotatedVar> annotatedFreeVars = new ArrayList<>(freeVars.size());
+        for (Var var : freeVars) {
+            if (!context.isFortressVarKnown(var)) {
+                throw new ErrorFatal("Internal Portus error: sort of var " + var.name() + " unknown!");
+            }
+            annotatedFreeVars.add(new AnnotatedVar(var, context.getFortressVarSort(var)));
+        }
+        return annotatedFreeVars;
     }
 
     /**
@@ -1001,8 +1008,8 @@ final class PortusUtil {
 
         public int countAxiomSymbols(Theory theory) {
             return sumVisits(theory.axioms())
-                    + sumVisits(theory.functionDefinitions().map(defn -> defn.body()))
-                    + sumVisits(theory.constantDefinitions().map(defn -> defn.body()));
+                    + sumVisits(theory.functionDefinitions().map(FunctionDefinition::body))
+                    + sumVisits(theory.constantDefinitions().map(ConstantDefinition::body));
         }
 
         @Override

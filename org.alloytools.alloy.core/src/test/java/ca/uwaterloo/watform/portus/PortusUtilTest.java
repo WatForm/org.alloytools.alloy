@@ -17,6 +17,7 @@ import fortress.msfol.AnnotatedVar;
 import fortress.msfol.IntegerLiteral;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
+import fortress.msfol.Theory;
 import fortress.msfol.Value;
 import fortress.msfol.Var;
 import org.junit.Before;
@@ -38,6 +39,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -45,12 +47,15 @@ import static org.mockito.Mockito.withSettings;
 
 public class PortusUtilTest {
 
+    private final Sort sort = Sort.mkSortConst("Sort");
+
     private TranslationContext context;
     private SortPolicy policy;
 
     @Before
     public void setUp() {
         policy = mock(SortPolicy.class, CALLS_REAL_METHODS);
+        when(policy.addSortsToTheory(any())).thenReturn(Theory.empty().withSort(sort));
         ScopeComputer mockScoper = mock(ScopeComputer.class);
         RangeAssigner mockRangeAssigner = mock(RangeAssigner.class,
                 withSettings().useConstructor(new ArrayList<>(), policy, mockScoper));
@@ -224,7 +229,6 @@ public class PortusUtilTest {
 
     @Test
     public void testComputeFreeVariables_triviallyNone() {
-        Sort sort = Sort.mkSortConst("S");
         Sig sig = new Sig.PrimSig("S");
         when(policy.getSort(sig)).thenReturn(sort);
         Sig.Field field = sig.addField("field", sig);
@@ -252,10 +256,10 @@ public class PortusUtilTest {
 
     @Test
     public void testComputeFreeVariables_var() {
-        Sort sort = Sort.mkSortConst("S");
         ExprVar expr = makeTestVar("x");
         AnnotatedVar var = Var.apply("x").of(sort);
         context.addTermMapping("x", new AnnotatedTerm(var));
+        context.addFortressVar(var);
 
         List<AnnotatedVar> result = PortusUtil.computeFreeVariables(expr, context, policy);
         assertThat(result, containsInAnyOrder(var));
@@ -263,10 +267,10 @@ public class PortusUtilTest {
 
     @Test
     public void testComputeFreeVariables_unaryOps() {
-        Sort sort = Sort.mkSortConst("S");
         ExprVar expr = makeTestVar("x");
         AnnotatedVar var = Var.apply("x").of(sort);
         context.addTermMapping("x", new AnnotatedTerm(var));
+        context.addFortressVar(var);
 
         // all these should just have var
         List<Expr> unaryOps = Arrays.asList(
@@ -291,13 +295,14 @@ public class PortusUtilTest {
 
     @Test
     public void testComputeFreeVariables_binaryOps() {
-        Sort sort = Sort.mkSortConst("S");
         ExprVar x = makeTestVar("x");
         AnnotatedVar xVar = Var.apply("x").of(sort);
         context.addTermMapping("x", new AnnotatedTerm(xVar));
+        context.addFortressVar(xVar);
         ExprVar y = makeTestVar("y");
         AnnotatedVar yVar = Var.apply("y").of(sort);
         context.addTermMapping("y", new AnnotatedTerm(yVar));
+        context.addFortressVar(yVar);
 
         // all these should have x and y
         @SuppressWarnings("SuspiciousNameCombination")
@@ -335,16 +340,18 @@ public class PortusUtilTest {
 
     @Test
     public void testComputeFreeVariables_ite() {
-        Sort sort = Sort.mkSortConst("S");
         ExprVar x = makeTestVar("x");
         AnnotatedVar xVar = Var.apply("x").of(sort);
         context.addTermMapping("x", new AnnotatedTerm(xVar));
+        context.addFortressVar(xVar);
         ExprVar y = makeTestVar("y");
         AnnotatedVar yVar = Var.apply("y").of(sort);
         context.addTermMapping("y", new AnnotatedTerm(yVar));
+        context.addFortressVar(yVar);
         ExprVar z = makeTestVar("z");
         AnnotatedVar zVar = Var.apply("z").of(sort);
         context.addTermMapping("z", new AnnotatedTerm(zVar));
+        context.addFortressVar(zVar);
 
         @SuppressWarnings("SuspiciousNameCombination")
         Expr expr = x.ite(y, z);
@@ -354,14 +361,16 @@ public class PortusUtilTest {
 
     @Test
     public void testComputeFreeVariables_exprElementOf() {
-        Sort sort = Sort.mkSortConst("S");
         AnnotatedVar xVar = Var.apply("x").of(sort);
         context.addTermMapping("x", new AnnotatedTerm(xVar));
+        context.addFortressVar(xVar);
         AnnotatedVar yVar = Var.apply("y").of(sort);
         context.addTermMapping("y", new AnnotatedTerm(yVar));
+        context.addFortressVar(yVar);
         ExprVar z = makeTestVar("z");
         AnnotatedVar zVar = Var.apply("z").of(sort);
         context.addTermMapping("z", new AnnotatedTerm(zVar));
+        context.addFortressVar(zVar);
 
         Expr expr = ExprElementOf.make(TermTuple.fromVars(xVar, yVar), z);
         List<AnnotatedVar> result = PortusUtil.computeFreeVariables(expr, context, policy);
@@ -371,13 +380,14 @@ public class PortusUtilTest {
     @Test
     public void testComputeFreeVariables_merge() {
         // the result should only contain one instance of each var
-        Sort sort = Sort.mkSortConst("S");
         ExprVar x = makeTestVar("x");
         AnnotatedVar xVar = Var.apply("x").of(sort);
         context.addTermMapping("x", new AnnotatedTerm(xVar));
+        context.addFortressVar(xVar);
         ExprVar y = makeTestVar("y");
         AnnotatedVar yVar = Var.apply("y").of(sort);
         context.addTermMapping("y", new AnnotatedTerm(yVar));
+        context.addFortressVar(yVar);
 
         @SuppressWarnings("SuspiciousNameCombination")
         Expr expr = x.equal(y).and(y.equal(x)).and(x.in(x)).or(y.in(y));
@@ -388,7 +398,6 @@ public class PortusUtilTest {
     @Test
     public void testComputeFreeVariables_quantifiers_1() {
         // quantifiers should take away the variables they quantify over from the list
-        Sort sort = Sort.mkSortConst("S");
         Sig sig = new Sig.PrimSig("S");
         when(policy.getSort(sig)).thenReturn(sort);
         Decl xDecl = sig.oneOf("x");
@@ -401,7 +410,6 @@ public class PortusUtilTest {
 
     @Test
     public void testComputeFreeVariables_quantifiers_2() {
-        Sort sort = Sort.mkSortConst("S");
         Sig sig = new Sig.PrimSig("S");
         when(policy.getSort(sig)).thenReturn(sort);
         Decl xDecl = sig.oneOf("x");
@@ -410,6 +418,7 @@ public class PortusUtilTest {
         ExprVar y = (ExprVar) yDecl.get();
         AnnotatedVar yVar = Var.apply("yVar").of(sort);
         context.addTermMapping("y", new AnnotatedTerm(yVar));
+        context.addFortressVar(yVar);
 
         @SuppressWarnings("SuspiciousNameCombination")
         Expr expr = x.equal(y).forAll(xDecl);
@@ -444,7 +453,6 @@ public class PortusUtilTest {
     @Test
     public void testGetElement_nonInt_zeroIndexed() {
         // test getElement(0, Sort) = @1Sort
-        Sort sort = Sort.mkSortConst("A");
         Value actual = PortusUtil.getElement(0, sort);
         assertEquals(Term.mkDomainElement(1, sort), actual);
     }
@@ -490,7 +498,6 @@ public class PortusUtilTest {
     @Test
     public void testExpandLets_unchanged() {
         // test that expandLets reconstructs a variety of expressions properly
-        Sort sort = Sort.mkSortConst("Sort");
         Sig.PrimSig sig = new Sig.PrimSig("S");
         when(policy.getSort(sig)).thenReturn(sort);
         Sig.Field field = sig.addField("field", ExprConstant.ONE);
@@ -878,7 +885,6 @@ public class PortusUtilTest {
     public void testAreExprsEqual_elementOf() {
         ExprVar x = makeTestVar("x");
         ExprVar y = makeTestVar("y");
-        Sort sort = Sort.mkSortConst("Sort");
         Sort sort2 = Sort.mkSortConst("Sort2");
         AnnotatedVar fortressX = Term.mkVar("fx").of(sort);
         AnnotatedVar fortressXSort2 = Term.mkVar("fx").of(sort2);
@@ -927,7 +933,6 @@ public class PortusUtilTest {
         // Test the context functionality - map to the same term, should compare equal.
         ExprVar x = makeTestVar("x");
         ExprVar y = makeTestVar("y");
-        Sort sort = Sort.mkSortConst("Sort");
         AnnotatedVar fortressX = Term.mkVar("fx").of(sort);
 
         VarMappingContext context1 = new VarMappingContext();
@@ -958,7 +963,6 @@ public class PortusUtilTest {
         Func predFArgs2 = new Func(null, null, "f", Collections.singletonList(y.oneOf("l")), null, x);
         Func predFArgs3 = new Func(
                 null, null, "f", Arrays.asList(y.oneOf("k"), y.oneOf("l")), null, x);
-        Sort sort = Sort.mkSortConst("Sort");
         Sort sort2 = Sort.mkSortConst("Sort2");
         AnnotatedVar fortressX = Term.mkVar("fx").of(sort);
         AnnotatedVar fortressXSort2 = Term.mkVar("fx").of(sort2);
@@ -1058,7 +1062,6 @@ public class PortusUtilTest {
         // map to the same term, should have the same hash code.
         ExprVar x = makeTestVar("x");
         ExprVar y = makeTestVar("y");
-        Sort sort = Sort.mkSortConst("Sort");
         AnnotatedVar fortressX = Term.mkVar("fx").of(sort);
 
         VarMappingContext context1 = new VarMappingContext();
