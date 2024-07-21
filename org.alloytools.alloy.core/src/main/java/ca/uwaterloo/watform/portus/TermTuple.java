@@ -9,7 +9,6 @@ import fortress.msfol.Term;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -30,8 +29,8 @@ final class TermTuple {
         this(Arrays.asList(terms));
     }
 
-    public TermTuple(Term term, Sort sort, List<AnnotatedVar> freeVars) {
-        this(new AnnotatedTerm(term, sort, freeVars));
+    public TermTuple(Term term, Sort sort) {
+        this(new AnnotatedTerm(term, sort));
     }
 
     public static TermTuple fromVars(Iterable<AnnotatedVar> vars) {

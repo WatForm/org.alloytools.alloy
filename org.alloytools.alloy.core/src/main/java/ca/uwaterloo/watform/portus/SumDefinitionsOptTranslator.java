@@ -70,8 +70,7 @@ final class SumDefinitionsOptTranslator extends AbstractTranslator {
         } finally {
             context.removeFortressVars(vars);
         }
-        List<AnnotatedVar> conditionVars = PortusUtil.computeFreeVariables(conditionExpr, context, sortPolicy);
-        AnnotatedTerm conditionAnnotated = new AnnotatedTerm(condition, Sort.Bool(), conditionVars);
+        AnnotatedTerm conditionAnnotated = new AnnotatedTerm(condition, Sort.Bool());
         return translateSum(new AnnotatedTerm(IntegerLiteral.apply(1), Sort.Int()), conditionAnnotated, vars, context);
     }
 
@@ -97,8 +96,7 @@ final class SumDefinitionsOptTranslator extends AbstractTranslator {
         AnnotatedTerm sub;
         try {
             Term subTerm = recursivelyTranslate(expr.sub, context);
-            List<AnnotatedVar> freeVars = PortusUtil.computeFreeVariables(expr.sub, context, sortPolicy);
-            sub = new AnnotatedTerm(subTerm, Sort.Int(), freeVars);
+            sub = new AnnotatedTerm(subTerm, Sort.Int());
         } finally {
             // Remove the vars from the lexical scope since it's done
             for (String alloyVarName : alloyVarNames) {
@@ -120,8 +118,8 @@ final class SumDefinitionsOptTranslator extends AbstractTranslator {
 
         // We need to care about the free variables
         // Deduplicate them all and assign an arbitrary order
-        Set<AnnotatedVar> allFreeVarsSet = new HashSet<>(sub.getFreeVars());
-        allFreeVarsSet.addAll(condition.getFreeVars());
+        Set<AnnotatedVar> allFreeVarsSet = new HashSet<>(PortusUtil.computeTermFreeVars(sub.getTerm(), context));
+        allFreeVarsSet.addAll(PortusUtil.computeTermFreeVars(condition.getTerm(), context));
         vars.forEach(allFreeVarsSet::remove); // if there are any duplicates with the vars, remove them
         List<AnnotatedVar> freeVarsAnnotated = new ArrayList<>(allFreeVarsSet);
         List<Var> freeVars = freeVarsAnnotated.stream()

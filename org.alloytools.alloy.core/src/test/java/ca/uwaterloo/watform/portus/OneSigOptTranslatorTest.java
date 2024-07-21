@@ -14,7 +14,6 @@ import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
@@ -95,10 +94,8 @@ public class OneSigOptTranslatorTest {
         assertNotNull(result);
         assertEquals(Term.mkDomainElement(1, testSort), result.a.getTerm());
         assertEquals(testSort, result.a.getSort());
-        assertTrue(result.a.getFreeVars().isEmpty());
         assertEquals(Term.mkTop(), result.b.getTerm());
         assertEquals(Sort.Bool(), result.b.getSort());
-        assertTrue(result.b.getFreeVars().isEmpty());
     }
 
 }

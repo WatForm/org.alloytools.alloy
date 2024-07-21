@@ -53,11 +53,9 @@ import fortress.operations.TermOps;
 import scala.jdk.javaapi.CollectionConverters;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -229,7 +227,6 @@ final class PortusUtil {
         List<String> alloyVarNames = new ArrayList<>();
         List<AnnotatedVar> fortressVars = new ArrayList<>();
         List<Term> conditions = new ArrayList<>();
-        Set<AnnotatedVar> conditionFreeVars = new HashSet<>();
 
         for (Decl decl : decls) {
             // Kodkod evaluates the decl expression once. To emulate this, only add the
@@ -283,7 +280,6 @@ final class PortusUtil {
                     context.addFortressVar(annotatedVar);
                     Expr domainExpr = ExprElementOf.make(annotatedVar, declExpr);
                     conditions.add(rootTranslator.translate(domainExpr, context));
-                    conditionFreeVars.addAll(computeFreeVariables(domainExpr, context, sortPolicy));
                 } finally {
                     context.removeFortressVar(annotatedVar);
                 }
@@ -303,7 +299,7 @@ final class PortusUtil {
 
         // All the conditions must be true for a set of variables to be used
         Term condition = conditions.isEmpty() ? Term.mkTop() : Term.mkAnd(conditions);
-        AnnotatedTerm conditionAnnotated = new AnnotatedTerm(condition, Sort.Bool(), conditionFreeVars);
+        AnnotatedTerm conditionAnnotated = new AnnotatedTerm(condition, Sort.Bool());
         return new Pair<>(new Pair<>(alloyVarNames, fortressVars), conditionAnnotated);
     }
 

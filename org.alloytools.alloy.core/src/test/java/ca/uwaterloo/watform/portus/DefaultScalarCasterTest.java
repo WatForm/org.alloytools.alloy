@@ -74,10 +74,8 @@ public class DefaultScalarCasterTest {
         assertNotNull(result);
         assertEquals(flagTwo, result.a.getTerm());
         assertEquals(Sort.Int(), result.a.getSort());
-        assertTrue(result.a.getFreeVars().isEmpty());
         assertEquals(Term.mkTop(), result.b.getTerm());
         assertEquals(Sort.Bool(), result.b.getSort());
-        assertTrue(result.b.getFreeVars().isEmpty());
     }
 
     @Test
@@ -93,10 +91,8 @@ public class DefaultScalarCasterTest {
         assertNotNull(result);
         assertEquals(flagTwo, result.a.getTerm());
         assertEquals(Sort.Int(), result.a.getSort());
-        assertTrue(result.a.getFreeVars().isEmpty());
         assertEquals(Term.mkTop(), result.b.getTerm());
         assertEquals(Sort.Bool(), result.b.getSort());
-        assertTrue(result.b.getFreeVars().isEmpty());
     }
 
     @Test
@@ -111,7 +107,6 @@ public class DefaultScalarCasterTest {
         assertEquals(mapped, result.a);
         assertEquals(Term.mkTop(), result.b.getTerm());
         assertEquals(Sort.Bool(), result.b.getSort());
-        assertTrue(result.b.getFreeVars().isEmpty());
     }
 
     @Test

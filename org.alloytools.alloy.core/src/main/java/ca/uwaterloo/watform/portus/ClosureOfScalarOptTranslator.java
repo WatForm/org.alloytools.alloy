@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -81,13 +82,20 @@ final class ClosureOfScalarOptTranslator extends AbstractTranslator {
             context.removeMapping(probeAlloyVar.label);
             context.removeFortressVar(probeVar);
         }
-        if (scalarAndGuard == null) return null;  // x.e is not a scalar
 
         AnnotatedTerm scalar = scalarAndGuard.a;
         AnnotatedTerm guard = scalarAndGuard.b;
 
-        if (!scalar.getFreeVars().contains(probeVar)
-                && (guard == null || !guard.getFreeVars().contains(probeVar))) {
+        List<AnnotatedVar> scalarFreeVars = PortusUtil.computeTermFreeVars(scalar.getTerm(), context);
+        List<AnnotatedVar> guardFreeVars = PortusUtil.computeTermFreeVars(guard.getTerm(), context);
+
+        Set<AnnotatedVar> freeVarSet = SetOps.union(new HashSet<>(scalarFreeVars), new HashSet<>(guardFreeVars));
+        List<AnnotatedVar> freeVars = freeVarSet.stream()
+                .filter(aVar -> !aVar.equals(probeVar)) // remove the probe variable
+                .sorted(Comparator.comparing(AnnotatedVar::name)) // sort alphabetically as arbitrary order
+                .collect(Collectors.toList());
+
+        if (!freeVars.contains(probeVar)) {
             // Neither contain the probe variable: value of scalar does not depend on x!
             // So [[(x,y) \in ^e]] := y = e
             return Term.mkEq(y.getTerm(), scalar.getTerm());
@@ -99,13 +107,6 @@ final class ClosureOfScalarOptTranslator extends AbstractTranslator {
         // Variables for the function definition
         AnnotatedVar xDefnVar = new AnnotatedVar(Term.mkVar(nameGenerator.freshName("x")), x.getSort());
         AnnotatedVar yDefnVar = new AnnotatedVar(Term.mkVar(nameGenerator.freshName("y")), y.getSort());
-
-        Set<AnnotatedVar> freeVarSet = (guard == null) ? scalar.getFreeVars()
-                : SetOps.union(scalar.getFreeVars(), guard.getFreeVars());
-        List<AnnotatedVar> freeVars = freeVarSet.stream()
-                .filter(aVar -> !aVar.equals(probeVar)) // remove the probe variable
-                .sorted(Comparator.comparing(AnnotatedVar::name)) // sort alphabetically as arbitrary order
-                .collect(Collectors.toList());
 
         List<AnnotatedVar> defnParams = SetOps.concatenate(Arrays.<AnnotatedVar>asList(xDefnVar, yDefnVar), freeVars);
         List<Term> defnArgs = SetOps.concatenate(
@@ -129,7 +130,7 @@ final class ClosureOfScalarOptTranslator extends AbstractTranslator {
         Term currentTerm = xDefnVar.variable();
         for (int i = 0; i < sortScope; i++) {
             // guard: f^i(x) in dom(f)
-            Term guardApp = (guard == null) ? Term.mkTop() : PortusUtil.substitute(
+            Term guardApp = PortusUtil.substitute(
                     Collections.singletonList(probeVar), Collections.singletonList(currentTerm), guard.getTerm());
             // scalar: y = f^{i+1}(x)
             currentTerm = PortusUtil.substitute(

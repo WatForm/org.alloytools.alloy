@@ -2,7 +2,6 @@ package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.ast.Expr;
-import fortress.msfol.Term;
 
 /**
  * A scalar caster is something that can try to cast an Alloy expression to a scalar Fortress term.

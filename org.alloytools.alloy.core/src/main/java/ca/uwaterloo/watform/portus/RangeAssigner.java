@@ -188,7 +188,7 @@ class RangeAssigner {
 
     private Term getDEInSigAxiom(Sig sig, int deIdx, Sort sort, Translator translator, TranslationContext context) {
         // [[_@deIdx \in sig]]
-        AnnotatedTerm domainElement = new AnnotatedTerm(Term.mkDomainElement(deIdx, sort), sort, new ArrayList<>());
+        AnnotatedTerm domainElement = new AnnotatedTerm(Term.mkDomainElement(deIdx, sort), sort);
         Expr axiom = ExprElementOf.make(domainElement, sig);
         return translator.translate(axiom, context);
     }

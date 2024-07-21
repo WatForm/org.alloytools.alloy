@@ -17,7 +17,6 @@ import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Func;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.parser.Macro;
-import fortress.msfol.AnnotatedVar;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
 
@@ -25,7 +24,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 
 /**
  * A scalar caster which casts simple expressions to scalars which don't need any additional state.
@@ -81,10 +79,8 @@ final class DefaultScalarCaster implements ScalarCaster {
                 Term scalar = translator.translate(expr, context);
                 assert scalar != null;
 
-                // Assume no guard on usage needed, and there should be no free variables
-                List<AnnotatedVar> freeVars = ConstList.make();
-                return new Pair<>(new AnnotatedTerm(scalar, sort, freeVars),
-                        new AnnotatedTerm(Term.mkTop(), Sort.Bool()));
+                // Assume no guard on usage needed.
+                return new Pair<>(new AnnotatedTerm(scalar, sort), new AnnotatedTerm(Term.mkTop(), Sort.Bool()));
             }
 
             @Override
@@ -168,11 +164,7 @@ final class DefaultScalarCaster implements ScalarCaster {
                 Term condition = translator.translate(x.cond, context);
                 Term scalar = Term.mkIfThenElse(condition, leftScalar.getTerm(), rightScalar.getTerm());
                 Term guard = Term.mkIfThenElse(condition, leftGuard.getTerm(), rightGuard.getTerm());
-                Set<AnnotatedVar> scalarFreeVars = SetOps.union(leftScalar.getFreeVars(), rightScalar.getFreeVars());
-                Set<AnnotatedVar> guardFreeVars = SetOps.union(leftScalar.getFreeVars(), rightScalar.getFreeVars());
-                return new Pair<>(
-                        new AnnotatedTerm(scalar, sort, scalarFreeVars),
-                        new AnnotatedTerm(guard, Sort.Bool(), guardFreeVars));
+                return new Pair<>(new AnnotatedTerm(scalar, sort), new AnnotatedTerm(guard, Sort.Bool()));
             }
 
             @Override

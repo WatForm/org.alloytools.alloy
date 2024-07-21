@@ -26,7 +26,6 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThrows;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -285,10 +284,8 @@ public class OrderingModuleOptTranslatorTest {
         assertNotNull(scalar);
         assertEquals(Term.mkDomainElement(1, orderedSigSort), scalar.a.getTerm());
         assertEquals(orderedSigSort, scalar.a.getSort());
-        assertTrue(scalar.a.getFreeVars().isEmpty());
         assertEquals(Term.mkTop(), scalar.b.getTerm());
         assertEquals(Sort.Bool(), scalar.b.getSort());
-        assertTrue(scalar.b.getFreeVars().isEmpty());
     }
 
     @Test
@@ -317,15 +314,12 @@ public class OrderingModuleOptTranslatorTest {
         assertNotNull(scalar);
         assertEquals(Term.mkApp(nextFunc.name(), x), scalar.a.getTerm());
         assertEquals(orderedSigSort, scalar.a.getSort());
-        assertEquals(1, scalar.a.getFreeVars().size());
-        assertEquals(x.of(orderedSigSort), scalar.a.getFreeVars().iterator().next());
 
         Term expectedGuard = Term.mkAnd(guardX, Term.mkAnd(
                 Term.mkApp("inOrderedSig", x),
                 Term.mkNot(Term.mkEq(x, Term.mkDomainElement(3, orderedSigSort)))));
         assertEquals(expectedGuard, scalar.b.getTerm());
         assertEquals(Sort.Bool(), scalar.b.getSort());
-        assertEquals(2, scalar.b.getFreeVars().size()); // x and guardX
     }
 
     @Test
@@ -356,15 +350,12 @@ public class OrderingModuleOptTranslatorTest {
         assertNotNull(scalar);
         assertEquals(Term.mkApp(nextFunc.name(), x), scalar.a.getTerm());
         assertEquals(orderedSigSort, scalar.a.getSort());
-        assertEquals(1, scalar.a.getFreeVars().size());
-        assertEquals(x.of(orderedSigSort), scalar.a.getFreeVars().iterator().next());
 
         Term expectedGuard = Term.mkAnd(guardX, Term.mkAnd(
                 Term.mkApp("inOrderedSig", x),
                 Term.mkNot(Term.mkEq(x, Term.mkDomainElement(3, orderedSigSort)))));
         assertEquals(expectedGuard, scalar.b.getTerm());
         assertEquals(Sort.Bool(), scalar.b.getSort());
-        assertEquals(2, scalar.b.getFreeVars().size()); // x and guardX
     }
 
     @Test

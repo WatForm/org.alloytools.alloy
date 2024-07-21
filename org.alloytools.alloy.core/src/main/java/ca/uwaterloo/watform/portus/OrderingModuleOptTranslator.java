@@ -149,7 +149,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
             context.rangeAssigner.addRangeAxiom(sig, topLevelTranslator, context); // ensure range is valid
             Sort sort = sortPolicy.getSort(sig);
             Pair<Integer, Integer> range = context.rangeAssigner.getDomainElementRange(sig);
-            return new AnnotatedTerm(Term.mkDomainElement(range.a, sort), sort, Collections.emptyList());
+            return new AnnotatedTerm(Term.mkDomainElement(range.a, sort), sort);
         }
 
         public Pair<AnnotatedTerm, AnnotatedTerm> getNextScalarAndGuard(AnnotatedTerm left, TranslationContext context) {
@@ -169,9 +169,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
                     recursivelyTranslate(ExprElementOf.make(left, sig), context),
                     Term.mkNot(Term.mkEq(left.getTerm(), lastDE)));
             Term scalar = Term.mkApp(nextFuncName, left.getTerm());
-            return new Pair<>(
-                    new AnnotatedTerm(scalar, sort, left.getFreeVars()),
-                    new AnnotatedTerm(guard, Sort.Bool(), left.getFreeVars()));
+            return new Pair<>(new AnnotatedTerm(scalar, sort), new AnnotatedTerm(guard, Sort.Bool()));
         }
 
         public void addNextPredicate(TranslationContext context) {
@@ -489,9 +487,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
                             return null; // sort don't work out - let someone else deal with it
                         }
                         Term guard = Term.mkAnd(leftScalar.b.getTerm(), nextScalar.b.getTerm());
-                        return new Pair<>(nextScalar.a,
-                                new AnnotatedTerm(guard, Sort.Bool(),
-                                        SetOps.union(leftScalar.b.getFreeVars(), nextScalar.b.getFreeVars())));
+                        return new Pair<>(nextScalar.a, new AnnotatedTerm(guard, Sort.Bool()));
                     }
                 }
                 return null;

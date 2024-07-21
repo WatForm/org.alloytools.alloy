@@ -1174,7 +1174,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
             case LONE: {
                 // naive for now
                 // forall x, y: S . [[x \in e]] && [[y \in e]] && [[f]] && [[f[x/y]]] => x = y
-                List<AnnotatedVar> primed = prime(vars, context);
+                List<AnnotatedVar> primed = prime(vars);
                 Term primedCondition = PortusUtil.substituteVars(vars, primed, condition);
                 Term primedSub = PortusUtil.substituteVars(vars, primed, sub);
                 Term equal = PortusUtil.mkVarsEqual(vars, primed);
@@ -1187,7 +1187,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
                 // naive for now
                 // exists x: S . [[x \in e]] && [[f]] && forall y: S . [[y \in e]]
                 //   && [[f[x/y]]] => x = y
-                List<AnnotatedVar> primed = prime(vars, context);
+                List<AnnotatedVar> primed = prime(vars);
                 Term primedCondition = PortusUtil.substituteVars(vars, primed, condition);
                 Term primedSub = PortusUtil.substituteVars(vars, primed, sub);
                 Term equal = PortusUtil.mkVarsEqual(vars, primed);
@@ -1566,7 +1566,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
     }
 
     /** Generate a copy of `vars` with each variable suffixed with "_prime". */
-    private List<AnnotatedVar> prime(List<AnnotatedVar> vars, TranslationContext context) {
+    private List<AnnotatedVar> prime(List<AnnotatedVar> vars) {
         return vars.stream()
                 .map(var -> Term.mkVar(nameGenerator.freshName(var.variable().name() + "_prime")).of(var.sort()))
                 .collect(Collectors.toList());

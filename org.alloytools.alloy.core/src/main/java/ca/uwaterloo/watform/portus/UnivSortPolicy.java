@@ -5,14 +5,9 @@ import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.msfol.Sort;
 import fortress.msfol.Theory;
-import fortress.problemstate.ExactScope;
-import fortress.problemstate.Scope;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * A simple sort policy which assigns everything to a single univ sort, except for integers, which it assigns

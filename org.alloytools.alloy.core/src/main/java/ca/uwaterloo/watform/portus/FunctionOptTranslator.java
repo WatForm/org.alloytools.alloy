@@ -172,7 +172,7 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
             try {
                 // Map "this" to the first variable, because it represents the signature's atom
                 context.addTermMapping("this", new AnnotatedTerm(decls.get(0)));
-                AnnotatedTerm funcApp = new AnnotatedTerm(Term.mkApp(info.funcName, vars), info.resultSort, decls);
+                AnnotatedTerm funcApp = new AnnotatedTerm(Term.mkApp(info.funcName, vars), info.resultSort);
                 consequent = recursivelyTranslate(ExprElementOf.make(funcApp,
                         info.boundExprs.get(info.boundExprs.size() - 1)), context);
             } finally {
@@ -323,7 +323,7 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
             Term domainFormula = makeDomainFormula(termTuple, leftInfo, context);
 
             Term funcApp = Term.mkApp(leftInfo.funcName, termTuple.getTerms());
-            TermTuple varsWithFuncApp = termTuple.concat(new TermTuple(funcApp, leftInfo.resultSort, vars));
+            TermTuple varsWithFuncApp = termTuple.concat(new TermTuple(funcApp, leftInfo.resultSort));
             Term inRight = recursivelyTranslate(ExprElementOf.make(varsWithFuncApp, right), context);
 
             return Term.mkForall(vars, Term.mkImp(domainFormula, inRight));
@@ -434,13 +434,7 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
                 Term guard = Term.mkAnd(leftScalarGuard.getTerm(), inDomain);
                 Sort sort = optInfo.resultSort;
 
-                // There shouldn't be any extra free variables in the scalar: just use the left scalar's free vars
-                return new Pair<>(
-                        new AnnotatedTerm(scalar, sort, leftScalar.getFreeVars()),
-                        // TODO this is imperfect; there could be more free variables in inDomain
-                        //   For full correctness, Translator should return AnnotatedTerm
-                        new AnnotatedTerm(guard, Sort.Bool(),
-                                SetOps.union(leftScalarGuard.getFreeVars(), leftScalar.getFreeVars())));
+                return new Pair<>(new AnnotatedTerm(scalar, sort), new AnnotatedTerm(guard, Sort.Bool()));
             }
         }
         return null;

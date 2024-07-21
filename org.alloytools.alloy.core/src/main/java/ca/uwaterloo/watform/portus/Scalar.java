@@ -1,6 +1,7 @@
 package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
+import fortress.msfol.Term;
 
 import java.util.Arrays;
 import java.util.List;
@@ -87,7 +88,7 @@ final class Scalar {
             List<AnnotatedTerm> fArgs = args.subList(0, f.arity());
             AnnotatedTerm fResult = f.getScalar(fArgs);
             List<AnnotatedTerm> gArgs = SetOps.concatenate(fResult, args.subList(f.arity(), arity));
-            return f.getGuard(fArgs).and(g.getGuard(gArgs));
+            return new BoolTerm(Term.mkAnd(f.getGuard(fArgs).getTerm(), g.getGuard(gArgs).getTerm()));
         };
         return new Scalar(arity, scalarGenerator, guardGenerator);
     }

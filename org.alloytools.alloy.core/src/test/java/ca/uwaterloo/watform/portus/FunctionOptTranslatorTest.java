@@ -329,10 +329,8 @@ public class FunctionOptTranslatorTest {
         assertNotNull(result);
         assertEquals(Term.mkApp(func.name(), flagX), result.a.getTerm());
         assertEquals(sortA, result.a.getSort());
-        assertTrue(result.a.getFreeVars().isEmpty());
         assertEquals(Term.mkAnd(guardFlagX, Term.mkApp("inA", flagX)), result.b.getTerm());
         assertEquals(Sort.Bool(), result.b.getSort());
-        assertTrue(result.b.getFreeVars().isEmpty());
     }
 
     @Test
