@@ -10,7 +10,6 @@ import edu.mit.csail.sdg.ast.Sig;
 import fortress.data.NameGenerator;
 import fortress.msfol.AnnotatedVar;
 import fortress.msfol.FuncDecl;
-import fortress.msfol.IntegerLiteral;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
 import fortress.msfol.Var;
@@ -20,7 +19,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -45,7 +43,7 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
             ExprBinary.Op.LONE_ARROW_LONE));
 
     // A POJO collecting information about a field subject to this optimization.
-    private static final class FieldFuncInfo {
+    private final class FieldFuncInfo {
         // Invariant: argSorts.size() + 1 == arity == sum of boundExpr.type().arity() for each boundExpr in boundExprs
         // Also, we must have at least one arg sort.
         public final String funcName;
@@ -76,20 +74,20 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
             }
         }
 
-        public FuncDecl getDecl() {
-            return FuncDecl.mkFuncDecl(funcName, argSorts, resultSort);
-        }
-
         public FuncDecl getDomainPredDecl() {
             if (domainPredName == null) {
                 throw new ErrorFatal("Cannot get domain predicate declaration: no domain predicate!");
             }
             return FuncDecl.mkFuncDecl(domainPredName, argSorts, Sort.Bool());
         }
-    }
 
-    // The base scalar caster; use this instead of calling castToScalar directly for generality.
-    private final ScalarCaster rootScalarCaster;
+        public Scalar toScalar(TranslationContext context) {
+            // the scalar function's arity is arity - 1 because the last element is the output
+            return new Scalar(arity - 1, resultSort,
+                    tuple -> Term.mkApp(funcName, tuple.getTerms()),
+                    tuple -> makeDomainFormula(tuple, this, context));
+        }
+    }
 
     // The base evaluator; use this instead of calling evaluate directly for generality.
     private final Evaluator rootEvaluator;
@@ -104,10 +102,9 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
     private final Map<Sig.Field, FieldFuncInfo> optimizedFieldsInfo = new HashMap<>();
 
     public FunctionOptTranslator(
-            Translator topLevel, ScalarCaster rootScalarCaster, Evaluator rootEvaluator,
-            SortPolicy sortPolicy, NameGenerator nameGenerator, boolean optimizeLone) {
+            Translator topLevel, Evaluator rootEvaluator, SortPolicy sortPolicy, NameGenerator nameGenerator,
+            boolean optimizeLone) {
         super(topLevel);
-        this.rootScalarCaster = rootScalarCaster;
         this.rootEvaluator = rootEvaluator;
         this.sortPolicy = sortPolicy;
         this.nameGenerator = nameGenerator;
@@ -269,27 +266,9 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
         }
     }
 
-    /** Translate "tuple \in field" where field is affected by this optimization. */
-    @Override
-    public Term translate(TermTuple tuple, Sig.Field field, TranslationContext context) {
-        if (!optimizedFieldsInfo.containsKey(field)) return null; // not subject to this optimization
-
-        // [[(x1,..,xn) \in f]] := ((x1,...,x{n-1}) in f's domain) && f(x1,...,x{n-1}) = xn
-        FieldFuncInfo info = optimizedFieldsInfo.get(field);
-        Term domainFormula = makeDomainFormula(tuple.slice(0, tuple.size() - 1), info, context);
-        Term funcFormula = Term.mkEq(
-                Term.mkApp(info.funcName, tuple.slice(0, tuple.size() - 1).getTerms()),
-                tuple.getTerm(tuple.size() - 1));
-        return Term.mkAnd(domainFormula, funcFormula);
-    }
-
     /** Translate optimized in/equals, and integer join expressions (e.g. "x.size"). */
     @Override
     public Term translate(ExprBinary expr, TranslationContext context) {
-        if (expr.op == ExprBinary.Op.JOIN) {
-            return translateIntJoin(expr, context);
-        }
-
         if (expr.op != ExprBinary.Op.IN && expr.op != ExprBinary.Op.EQUALS) return null;
         int arity = expr.left.type().arity();
         if (expr.right.type().arity() != arity) return null; // default translator can deal with it
@@ -365,79 +344,21 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
         }
     }
 
-    /** Translate "x.y" as an integer expression. We do this here because we need to use the function for y. */
-    private Term translateIntJoin(ExprBinary joinExpr, TranslationContext context) {
-        // The common case is that "x.y" is an integer expression if y is a function X->one Int and x is a singleton
-        // set. We restrict x to a singleton (i.e. bound variable or one sig) because we don't support treating
-        // sets of integers like integers. (Kodkod does support this, it just sums them.)
-        // We require y to be optimized as a function. Technically we could have y as a singleton set and
-        // x: Int one->Y (among other exotic combinations), but this is less common.
-        // Then we map x.y to "x in y's domain => y(x) else 0". Defaulting to 0 is consistent with Kodkod's behaviour
-        // (because an empty set sums to 0).
-        // TODO: might also have to support fun/next (ExprConstant.NEXT) here
-        // Note: this case is not supported by the default translator, so this 'optimization' must be activated
-        // for expressions of this form to be successfully translated.
-        assert joinExpr.op == ExprBinary.Op.JOIN;
-
-        // Just cast it to a scalar - we implement the necesary casting.
-        Pair<AnnotatedTerm, AnnotatedTerm> scalarResult = rootScalarCaster.castToScalar(joinExpr, context);
-        if (scalarResult == null) {
-            throw new ErrorNoPortusSupport(
-                "Using join as an integer expression requires a bound variable or a one sig on the LHS and unary "
-                + "function fields in all other positions");
-        }
-        AnnotatedTerm scalar = scalarResult.a;
-        AnnotatedTerm guard = scalarResult.b;
-
-        if (!Objects.equals(scalar.getSort(), Sort.Int())) {
-            throw new ErrorNoPortusSupport("A join used as an expression must be of the integer type");
-        }
-
-        return Term.mkIfThenElse(guard.getTerm(), scalar.getTerm(), IntegerLiteral.apply(0));
-    }
-
-    /** Try to cast expr to a scalar using the function state we have access to. */
+    /** Cast a field optimized here to a scalar function. */
     @Override
-    public Pair<AnnotatedTerm, AnnotatedTerm> castToScalar(Expr expr, TranslationContext context) {
+    public Scalar castToScalar(Expr expr, TranslationContext context) {
         expr = PortusUtil.stripPortusNoops(expr);
-
-        if (expr instanceof ExprBinary) {
-            ExprBinary binExpr = (ExprBinary) expr;
-            if (binExpr.op == ExprBinary.Op.JOIN) {
-                // it could be a join expression that resolves to a scalar
-                // "x.y" is a scalar if (and maybe only if) x is a scalar and y is optimized as a function
-                // then the scalar term is y(x)
-                Pair<AnnotatedTerm, AnnotatedTerm> leftScalarData = rootScalarCaster.castToScalar(binExpr.left, context);
-                if (leftScalarData == null) {
-                    return null;
-                }
-                AnnotatedTerm leftScalar = leftScalarData.a;
-                AnnotatedTerm leftScalarGuard = leftScalarData.b;
-
-                Expr right = PortusUtil.stripPortusNoops(binExpr.right);
-                if (!(right instanceof Sig.Field)) {
-                    return null;
-                }
-                Sig.Field field = (Sig.Field) right;
-                if (!optimizedFieldsInfo.containsKey(field)) {
-                    return null;
-                }
-                FieldFuncInfo optInfo = optimizedFieldsInfo.get(field);
-                if (optInfo.argSorts.size() != 1) {
-                    // we require unary functions
-                    // TODO this restriction could be loosened to allow translating into things like f(g(x),h(y))
-                    return null;
-                }
-
-                Term inDomain = makeDomainFormula(new TermTuple(leftScalar), optInfo, context);
-                Term scalar = Term.mkApp(optInfo.funcName, leftScalar.getTerm());
-                Term guard = Term.mkAnd(leftScalarGuard.getTerm(), inDomain);
-                Sort sort = optInfo.resultSort;
-
-                return new Pair<>(new AnnotatedTerm(scalar, sort), new AnnotatedTerm(guard, Sort.Bool()));
-            }
+        if (!(expr instanceof Sig.Field)) {
+            return null;
         }
-        return null;
+
+        // Ignore if it's not a field optimized here.
+        Sig.Field field = (Sig.Field) expr;
+        if (!optimizedFieldsInfo.containsKey(field)) {
+            return null;
+        }
+
+        return optimizedFieldsInfo.get(field).toScalar(context);
     }
 
     /** Evaluate fields we optimized here. */

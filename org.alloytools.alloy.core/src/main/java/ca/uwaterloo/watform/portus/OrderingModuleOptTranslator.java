@@ -1,13 +1,10 @@
 package ca.uwaterloo.watform.portus;
 
-import edu.mit.csail.sdg.alloy4.Err;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprBinary;
-import edu.mit.csail.sdg.ast.ExprCall;
 import edu.mit.csail.sdg.ast.ExprList;
-import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.Sig;
 import fortress.data.NameGenerator;
 import fortress.msfol.DomainElement;
@@ -20,7 +17,6 @@ import fortress.msfol.Var;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
 
 /**
  * The ordering module optimization, where we hardcode a "next" function and a "first" element
@@ -32,6 +28,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
     private final class OrderInfo {
         private final Sig ordSig;
         private final Sig.PrimSig sig;
+        private final Sort sort;
         private final Sig.Field first;
         private final Sig.Field next;
         private final String nextFuncName;
@@ -42,6 +39,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
         public OrderInfo(Sig ordSig, Sig.PrimSig sig, Sig.Field first, Sig.Field next, TranslationContext context) {
             this.ordSig = ordSig;
             this.sig = sig;
+            this.sort = sortPolicy.getSort(sig);
             this.first = first;
             this.next = next;
             this.nextFuncName = generateNextFuncName();
@@ -109,67 +107,32 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
             return nextField != null && matchesNextField(nextField);
         }
 
-        public Term translateFirst(TermTuple tuple, TranslationContext context) {
-            if (tuple.size() != 1) {
-                throw new ErrorFatal("'first' is unary but used in a " + tuple.size() + "-ary context");
-            }
-            AnnotatedTerm term = tuple.getAnnotatedTerm(0);
-            AnnotatedTerm first = getFirstScalar(context);
-
-            if (!Objects.equals(term.getSort(), first.getSort())) {
-                // Short-circuit: sorts are mismatched, can't be equal
-                return Term.mkBottom();
-            }
-            return Term.mkEq(term.getTerm(), first.getTerm());
+        public Expr getFirstUsage() {
+            return ordSig.join(first);
         }
 
-        public Term translateNext(TermTuple tuple, TranslationContext context) {
-            if (tuple.size() != 2) {
-                throw new ErrorFatal("'next' is binary but used in a " + tuple.size() + "-ary context");
-            }
-
-            // Short-circuit if the sorts are wrong
-            Sort sort = sortPolicy.getSort(sig);
-            if (!Objects.equals(tuple.getSort(0), sort) || !Objects.equals(tuple.getSort(1), sort)) {
-                return Term.mkBottom();
-            }
-
-            // translate [[(x,y) \in next]] as guard && scalar = y
-            Pair<AnnotatedTerm, AnnotatedTerm> nextScalar = getNextScalarAndGuard(tuple.getAnnotatedTerm(0), context);
-            if (nextScalar == null) {
-                return Term.mkBottom();
-            }
-            AnnotatedTerm scalar = nextScalar.a;
-            AnnotatedTerm guard = nextScalar.b;
-            return Term.mkAnd(guard.getTerm(), Term.mkEq(scalar.getTerm(), tuple.getTerm(1)));
+        public Expr getNextUsage() {
+            return ordSig.join(next);
         }
 
         public AnnotatedTerm getFirstScalar(TranslationContext context) {
             // Use the first in the range of domain elements
             context.rangeAssigner.addRangeAxiom(sig, topLevelTranslator, context); // ensure range is valid
-            Sort sort = sortPolicy.getSort(sig);
             Pair<Integer, Integer> range = context.rangeAssigner.getDomainElementRange(sig);
             return new AnnotatedTerm(Term.mkDomainElement(range.a, sort), sort);
         }
 
-        public Pair<AnnotatedTerm, AnnotatedTerm> getNextScalarAndGuard(AnnotatedTerm left, TranslationContext context) {
+        public Scalar getNextScalar(TranslationContext context) {
             context.rangeAssigner.addRangeAxiom(sig, topLevelTranslator, context); // ensure range is valid
-            Sort sort = sortPolicy.getSort(sig);
-            if (!Objects.equals(left.getSort(), sort)) {
-                // Sorts don't match - ignore
-                return null;
-            }
-
-            // Use [[x \in sig]] && x != last as the guard, and next(x) as the scalar
-            // We check x != last because next(last) is left undefined, and x \in sig to avoid extraneous entries
             Pair<Integer, Integer> range = context.rangeAssigner.getDomainElementRange(sig);
             DomainElement lastDE = Term.mkDomainElement(range.b, sort);
 
-            Term guard = Term.mkAnd(
-                    recursivelyTranslate(ExprElementOf.make(left, sig), context),
-                    Term.mkNot(Term.mkEq(left.getTerm(), lastDE)));
-            Term scalar = Term.mkApp(nextFuncName, left.getTerm());
-            return new Pair<>(new AnnotatedTerm(scalar, sort), new AnnotatedTerm(guard, Sort.Bool()));
+            // TODO: Short-circuit if it's a domain element?
+            return new Scalar(1, sort,
+                    tuple -> Term.mkApp(nextFuncName, tuple.getTerms()),
+                    tuple -> Term.mkAnd(
+                            recursivelyTranslate(ExprElementOf.make(tuple, sig), context),
+                            Term.mkNot(Term.mkEq(tuple.getTerm(0), lastDE))));
         }
 
         public void addNextPredicate(TranslationContext context) {
@@ -229,17 +192,14 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
 
     private final List<OrderInfo> orders = new ArrayList<>();
 
-    private final ScalarCaster rootScalarCaster;
     private final SortPolicy sortPolicy;
     private final NameGenerator nameGenerator;
 
     private final boolean useDefinition;
 
     public OrderingModuleOptTranslator(
-            Translator topLevel, ScalarCaster rootScalarCaster, SortPolicy sortPolicy, NameGenerator nameGenerator,
-            boolean useDefinition) {
+            Translator topLevel, SortPolicy sortPolicy, NameGenerator nameGenerator, boolean useDefinition) {
         super(topLevel);
-        this.rootScalarCaster = rootScalarCaster;
         this.sortPolicy = sortPolicy;
         this.nameGenerator = nameGenerator;
         this.useDefinition = useDefinition;
@@ -383,20 +343,6 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
     }
 
     @Override
-    public Term translate(TermTuple tuple, ExprBinary expr, TranslationContext context) {
-        // If it's a usage of any of the recognized first/next predicates, translate with it
-        // (a "usage" is like Ord.First or Ord.Next)
-        for (OrderInfo order : orders) {
-            if (order.matchesFirstUsage(expr)) {
-                return order.translateFirst(tuple, context);
-            } else if (order.matchesNextUsage(expr)) {
-                return order.translateNext(tuple, context);
-            }
-        }
-        return null;
-    }
-
-    @Override
     public Term translate(TermTuple tuple, Sig.Field field, TranslationContext context) {
         // For visualization/XML, when First and Next are used outside "Ord.First"/"Ord.Next" expressions,
         // translate them directly by stripping the first element of the tuple (since that's the Ord one-sig),
@@ -404,95 +350,30 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
         for (OrderInfo order : orders) {
             Term matchesOrdDE = order.getMatchesOrdDETerm(tuple.getTerm(0), context);
             if (order.matchesFirstField(field)) {
-                return Term.mkAnd(matchesOrdDE, order.translateFirst(tuple.slice(1, tuple.size()), context));
+                return Term.mkAnd(matchesOrdDE, recursivelyTranslate(
+                        ExprElementOf.make(tuple.slice(1, tuple.size()), order.getFirstUsage()), context));
             } else if (order.matchesNextField(field)) {
-                return Term.mkAnd(matchesOrdDE, order.translateNext(tuple.slice(1, tuple.size()), context));
+                return Term.mkAnd(matchesOrdDE, recursivelyTranslate(
+                        ExprElementOf.make(tuple.slice(1, tuple.size()), order.getNextUsage()), context));
             }
         }
         return null;
     }
 
-    /** Try to cast to various scalars implemented by this translator. */
+    /** Cast first and next to scalars. */
     @Override
-    public Pair<AnnotatedTerm, AnnotatedTerm> castToScalar(Expr expr, TranslationContext context) {
+    public Scalar castToScalar(Expr expr, TranslationContext context) {
         expr = PortusUtil.stripPortusNoops(expr);
 
-        // Is it first?
-        Pair<AnnotatedTerm, AnnotatedTerm> firstScalar = castToFirstScalar(expr, context);
-        if (firstScalar != null) {
-            return firstScalar;
-        }
-
-        // Try again with next
-        return castToJoinWithNextScalar(expr, context);
-    }
-
-    /** Try to cast expr to a scalar representing a "first" field. We actually have to recognize "Ord.first". */
-    private Pair<AnnotatedTerm, AnnotatedTerm> castToFirstScalar(Expr expr, TranslationContext context) {
         for (OrderInfo order : orders) {
             if (order.matchesFirstUsage(expr)) {
                 // No guard is necessary since it's a plain domain element.
-                return new Pair<>(order.getFirstScalar(context), new AnnotatedTerm(Term.mkTop(), Sort.Bool()));
+                return new Scalar(order.getFirstScalar(context), Term.mkTop());
+            } else if (order.matchesNextUsage(expr)) {
+                return order.getNextScalar(context);
             }
         }
         return null;
-    }
-
-    /**
-     * Try to cast expr to a scalar representing "x.next" for a scalar x. (Actually "x.(Ord.next)".)
-     * Note: we can't readily translate "next.x" as a scalar.
-     */
-    private Pair<AnnotatedTerm, AnnotatedTerm> castToJoinWithNextScalar(Expr expr, TranslationContext context) {
-        if (!(expr instanceof ExprBinary)) return null;
-        ExprBinary exprBinary = (ExprBinary) expr;
-        if (exprBinary.op != ExprBinary.Op.JOIN) return null;
-
-        // Strip any noops and go through any call/let indirection
-        // (Note: this returns null for each unmentioned node, not natural recursion.)
-        return new ContextVisitReturn.Default<Pair<AnnotatedTerm, AnnotatedTerm>>(context, sortPolicy) {
-            @Override
-            public Pair<AnnotatedTerm, AnnotatedTerm> visit(ExprUnary x) {
-                // Strip any noops
-                Expr stripped = PortusUtil.stripPortusNoops(x);
-                if (stripped != x) {
-                    return visitThis(stripped);
-                }
-                return null;
-            }
-
-            @Override
-            public Pair<AnnotatedTerm, AnnotatedTerm> visit(ExprCall x) throws Err {
-                varMappingContext.addLetMappingsFromCall(x);
-                try {
-                    return visitThis(x.fun.getBody());
-                } finally {
-                    varMappingContext.removeLetMappingsFromCall(x);
-                }
-            }
-
-            @Override
-            public Pair<AnnotatedTerm, AnnotatedTerm> visit(ExprBinary x) {
-                for (OrderInfo order : orders) {
-                    if (order.matchesNextUsage(x)) {
-                        Pair<AnnotatedTerm, AnnotatedTerm> leftScalar = rootScalarCaster.castToScalar(
-                                exprBinary.left, context);
-                        if (leftScalar == null) {
-                            return null;
-                        }
-
-                        // Combine the guards and use the resulting scalar
-                        Pair<AnnotatedTerm, AnnotatedTerm> nextScalar = order.getNextScalarAndGuard(
-                                leftScalar.a, context);
-                        if (nextScalar == null) {
-                            return null; // sort don't work out - let someone else deal with it
-                        }
-                        Term guard = Term.mkAnd(leftScalar.b.getTerm(), nextScalar.b.getTerm());
-                        return new Pair<>(nextScalar.a, new AnnotatedTerm(guard, Sort.Bool()));
-                    }
-                }
-                return null;
-            }
-        }.visitThis(exprBinary.right);
     }
 
 }

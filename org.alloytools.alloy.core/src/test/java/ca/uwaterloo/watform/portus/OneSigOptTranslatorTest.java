@@ -14,6 +14,7 @@ import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
@@ -90,12 +91,12 @@ public class OneSigOptTranslatorTest {
         when(mockTranslator.translate(any(), any())).thenReturn(flagRangeAxiom);
         when(mockRangeAssigner.getDomainElementRange(testOneSig)).thenReturn(new Pair<>(1, 1));
 
-        Pair<AnnotatedTerm, AnnotatedTerm> result = opt.castToScalar(testOneSig, context);
+        Scalar result = opt.castToScalar(testOneSig, context);
         assertNotNull(result);
-        assertEquals(Term.mkDomainElement(1, testSort), result.a.getTerm());
-        assertEquals(testSort, result.a.getSort());
-        assertEquals(Term.mkTop(), result.b.getTerm());
-        assertEquals(Sort.Bool(), result.b.getSort());
+        assertTrue(result.isNilary());
+        assertEquals(Term.mkDomainElement(1, testSort), result.getNilaryScalar());
+        assertEquals(testSort, result.getSort());
+        assertEquals(Term.mkTop(), result.getNilaryGuard());
     }
 
 }

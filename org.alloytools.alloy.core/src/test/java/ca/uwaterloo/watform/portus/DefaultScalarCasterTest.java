@@ -1,6 +1,5 @@
 package ca.uwaterloo.watform.portus;
 
-import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.ast.Attr;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprCall;
@@ -70,12 +69,11 @@ public class DefaultScalarCasterTest {
         Term flagTwo = Term.mkVar("flagTwo");
         when(mockTranslator.translate(argThat(isSameAs(ExprConstant.makeNUMBER(2))), any())).thenReturn(flagTwo);
 
-        Pair<AnnotatedTerm, AnnotatedTerm> result = scalarCaster.castToScalar(ExprConstant.makeNUMBER(2), context);
+        Scalar result = scalarCaster.castToScalar(ExprConstant.makeNUMBER(2), context);
         assertNotNull(result);
-        assertEquals(flagTwo, result.a.getTerm());
-        assertEquals(Sort.Int(), result.a.getSort());
-        assertEquals(Term.mkTop(), result.b.getTerm());
-        assertEquals(Sort.Bool(), result.b.getSort());
+        assertEquals(flagTwo, result.getNilaryScalar());
+        assertEquals(Sort.Int(), result.getSort());
+        assertEquals(Term.mkTop(), result.getNilaryGuard());
     }
 
     @Test
@@ -87,12 +85,11 @@ public class DefaultScalarCasterTest {
                 .then(args -> scalarCaster.castToScalar(args.getArgument(0), args.getArgument(1)));
 
         Expr expr = ExprUnary.Op.NOOP.make(null, ExprConstant.makeNUMBER(2).cast2int().cast2sigint().cast2int());
-        Pair<AnnotatedTerm, AnnotatedTerm> result = scalarCaster.castToScalar(expr, context);
+        Scalar result = scalarCaster.castToScalar(expr, context);
         assertNotNull(result);
-        assertEquals(flagTwo, result.a.getTerm());
-        assertEquals(Sort.Int(), result.a.getSort());
-        assertEquals(Term.mkTop(), result.b.getTerm());
-        assertEquals(Sort.Bool(), result.b.getSort());
+        assertEquals(flagTwo, result.getNilaryScalar());
+        assertEquals(Sort.Int(), result.getSort());
+        assertEquals(Term.mkTop(), result.getNilaryGuard());
     }
 
     @Test
@@ -102,11 +99,10 @@ public class DefaultScalarCasterTest {
         AnnotatedTerm mapped = new AnnotatedTerm(Term.mkVar("t").of(sort));
         context.addTermMapping("x", mapped);
 
-        Pair<AnnotatedTerm, AnnotatedTerm> result = scalarCaster.castToScalar(ExprVar.make(null, "x"), context);
+        Scalar result = scalarCaster.castToScalar(ExprVar.make(null, "x"), context);
         assertNotNull(result);
-        assertEquals(mapped, result.a);
-        assertEquals(Term.mkTop(), result.b.getTerm());
-        assertEquals(Sort.Bool(), result.b.getSort());
+        assertEquals(mapped, result.getNilaryAnnotatedScalar());
+        assertEquals(Term.mkTop(), result.getNilaryGuard());
     }
 
     @Test
@@ -115,27 +111,25 @@ public class DefaultScalarCasterTest {
         Sort sort = Sort.mkSortConst("Sort");
         ExprVar mapping = ExprVar.make(null, "mapping");
         AnnotatedTerm flag = new AnnotatedTerm(Term.mkVar("flag").of(sort));
-        AnnotatedTerm flagGuard = new AnnotatedTerm(Term.mkVar("flagGuard").of(Sort.Bool()));
-        when(mockRoot.castToScalar(eq(mapping), any())).thenReturn(new Pair<>(flag, flagGuard));
+        Term flagGuard = Term.mkVar("flagGuard");
+        when(mockRoot.castToScalar(eq(mapping), any())).thenReturn(new Scalar(flag, flagGuard));
         context.addLetMapping("x", mapping);
 
-        Pair<AnnotatedTerm, AnnotatedTerm> result = scalarCaster.castToScalar(ExprVar.make(null, "x"), context);
+        Scalar result = scalarCaster.castToScalar(ExprVar.make(null, "x"), context);
         assertNotNull(result);
-        assertEquals(flag, result.a);
-        assertEquals(flagGuard, result.b);
+        assertEquals(flag, result.getNilaryAnnotatedScalar());
+        assertEquals(flagGuard, result.getNilaryGuard());
     }
 
     @Test
     public void testCastToScalar_let() {
         // test castToScalar(let a=0 | 1) = 1
         ExprVar a = ExprVar.make(null, "a");
-        Pair<AnnotatedTerm, AnnotatedTerm> flag = new Pair<>(
-                new AnnotatedTerm(Term.mkVar("flag").of(testSort)),
-                new AnnotatedTerm(Term.mkVar("flagGuard").of(Sort.Bool())));
+        Scalar flag = new Scalar(new AnnotatedTerm(Term.mkVar("flag").of(testSort)), Term.mkVar("flagGuard"));
         when(mockRoot.castToScalar(eq(ExprConstant.ONE), any())).thenReturn(flag);
 
         Expr let = ExprLet.make(null, a, ExprConstant.ZERO, ExprConstant.ONE);
-        Pair<AnnotatedTerm, AnnotatedTerm> result = scalarCaster.castToScalar(let, context);
+        Scalar result = scalarCaster.castToScalar(let, context);
         assertEquals(flag, result);
     }
 
@@ -146,9 +140,7 @@ public class DefaultScalarCasterTest {
         Func func = new Func(null, null, "f", Collections.singletonList(testOneSig.oneOf("y")), testOneSig, funcBody);
 
         ExprVar x = ExprVar.make(null, "x");
-        Pair<AnnotatedTerm, AnnotatedTerm> flag = new Pair<>(
-                new AnnotatedTerm(Term.mkVar("flag").of(testSort)),
-                new AnnotatedTerm(Term.mkVar("flagGuard").of(Sort.Bool())));
+        Scalar flag = new Scalar(new AnnotatedTerm(Term.mkVar("flag").of(testSort)), Term.mkVar("flagGuard"));
         when(mockRoot.castToScalar(eq(funcBody), any())).then(args -> {
            // make sure y is mapped to x
            TranslationContext newContext = args.getArgument(1); 
@@ -158,7 +150,7 @@ public class DefaultScalarCasterTest {
         });
 
         Expr call = ExprCall.make(null, null, func, Collections.singletonList(x), 0);
-        Pair<AnnotatedTerm, AnnotatedTerm> result = scalarCaster.castToScalar(call, context);
+        Scalar result = scalarCaster.castToScalar(call, context);
         assertEquals(flag, result);
     }
 
@@ -174,23 +166,47 @@ public class DefaultScalarCasterTest {
         Var leftGuard = Term.mkVar("leftGuard");
         Var rightGuard = Term.mkVar("rightGuard");
         when(mockTranslator.translate(eq(cond), any())).thenReturn(condTerm);
-        when(mockRoot.castToScalar(eq(left), any())).thenReturn(new Pair<>(
-                new AnnotatedTerm(leftTerm.of(testSort)),
-                new AnnotatedTerm(leftGuard.of(Sort.Bool()))));
-        when(mockRoot.castToScalar(eq(right), any())).thenReturn(new Pair<>(
-                new AnnotatedTerm(rightTerm.of(testSort)),
-                new AnnotatedTerm(rightGuard.of(Sort.Bool()))));
+        when(mockRoot.castToScalar(eq(left), any())).thenReturn(new Scalar(testSort, leftTerm, leftGuard));
+        when(mockRoot.castToScalar(eq(right), any())).thenReturn(new Scalar(testSort, rightTerm, rightGuard));
 
         Expr ite = ExprITE.make(null, cond, left, right);
-        Pair<AnnotatedTerm, AnnotatedTerm> result = scalarCaster.castToScalar(ite, context);
+        Scalar result = scalarCaster.castToScalar(ite, context);
         assertNotNull(result);
 
         Term expectedScalar = Term.mkIfThenElse(condTerm, leftTerm, rightTerm);
         Term expectedGuard = Term.mkIfThenElse(condTerm, leftGuard, rightGuard);
-        assertEquals(expectedScalar, result.a.getTerm());
-        assertEquals(testSort, result.a.getSort());
-        assertEquals(expectedGuard, result.b.getTerm());
-        assertEquals(Sort.Bool(), result.b.getSort());
+        assertEquals(expectedScalar, result.getNilaryScalar());
+        assertEquals(testSort, result.getSort());
+        assertEquals(expectedGuard, result.getNilaryGuard());
+    }
+
+    @Test
+    public void testCastToScalar_ite_arity1() {
+        // test castToScalar(c => left(x) else right(x)) =
+        //   (c => left(x) else right(x), c => leftGuard(x) else rightGuard(x))
+        Expr cond = ExprVar.make(null, "cond");
+        Expr left = ExprVar.make(null, "left");
+        Expr right = ExprVar.make(null, "right");
+        Term condTerm = Term.mkVar("cond");
+        Var x = Term.mkVar("x");
+        when(mockTranslator.translate(eq(cond), any())).thenReturn(condTerm);
+        when(mockRoot.castToScalar(eq(left), any())).thenReturn(new Scalar(1, testSort,
+                tuple -> Term.mkApp("left", tuple.getTerms()),
+                tuple -> Term.mkApp("leftGuard", tuple.getTerms())));
+        when(mockRoot.castToScalar(eq(right), any())).thenReturn(new Scalar(1, testSort,
+                tuple -> Term.mkApp("right", tuple.getTerms()),
+                tuple -> Term.mkApp("rightGuard", tuple.getTerms())));
+
+        Expr ite = ExprITE.make(null, cond, left, right);
+        Scalar result = scalarCaster.castToScalar(ite, context);
+        assertNotNull(result);
+
+        Term expectedScalar = Term.mkIfThenElse(condTerm, Term.mkApp("left", x), Term.mkApp("right", x));
+        Term expectedGuard = Term.mkIfThenElse(condTerm, Term.mkApp("leftGuard", x), Term.mkApp("rightGuard", x));
+        assertEquals(1, result.getArity());
+        assertEquals(expectedScalar, result.getScalar(TermTuple.fromVars(x.of(testSort))));
+        assertEquals(testSort, result.getSort());
+        assertEquals(expectedGuard, result.getGuard(TermTuple.fromVars(x.of(testSort))));
     }
 
 }

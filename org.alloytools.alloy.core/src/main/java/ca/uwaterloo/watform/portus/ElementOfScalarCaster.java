@@ -1,6 +1,5 @@
 package ca.uwaterloo.watform.portus;
 
-import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.ast.Expr;
 import fortress.data.NameGenerator;
 import fortress.msfol.AndList;
@@ -26,6 +25,8 @@ import java.util.List;
  * casting "y.(x.f)" to "f(x,y)", where f is a binary function and x and y are variables.
  *
  * This has the effect of greatly increasing calls to the translators!
+ *
+ * NOTE: Here be dragons! This is outdated, experimental, and likely superseded by the new Scalar system.
  */
 final class ElementOfScalarCaster implements ScalarCaster {
 
@@ -53,7 +54,7 @@ final class ElementOfScalarCaster implements ScalarCaster {
     }
 
     @Override
-    public Pair<AnnotatedTerm, AnnotatedTerm> castToScalar(Expr expr, TranslationContext context) {
+    public Scalar castToScalar(Expr expr, TranslationContext context) {
         // Since we perform recursive translations, it's possible that this scalar caster gets
         // invoked during a translation it triggered. To avoid stack overflows, ignore any
         // such recursive calls.
@@ -62,13 +63,13 @@ final class ElementOfScalarCaster implements ScalarCaster {
         }
         currentlyRunning = true;
 
-        Pair<AnnotatedTerm, AnnotatedTerm> result = castToScalarImpl(expr, context);
+        Scalar result = castToScalarImpl(expr, context);
 
         currentlyRunning = false;
         return result;
     }
 
-    private Pair<AnnotatedTerm, AnnotatedTerm> castToScalarImpl(Expr expr, TranslationContext context) {
+    private Scalar castToScalarImpl(Expr expr, TranslationContext context) {
         // Construct [[x \in expr]] for a fresh variable x.
         // First, find the sort of x.
         SortResolvant resolvant = sortPolicy.getMinimalExprSorts(expr, context);
@@ -164,7 +165,7 @@ final class ElementOfScalarCaster implements ScalarCaster {
             return null;
         }
 
-        return new Pair<>(new AnnotatedTerm(scalar, sort), new AnnotatedTerm(guard, Sort.Bool()));
+        return new Scalar(sort, scalar, guard);
     }
 
     private List<Term> collectConjuncts(Term term) {

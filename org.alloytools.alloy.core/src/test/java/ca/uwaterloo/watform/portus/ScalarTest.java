@@ -20,8 +20,8 @@ public class ScalarTest {
         Var x = Term.mkVar("x");
         Var guardF = Term.mkVar("guardF");
 
-        Scalar f = new Scalar(new AnnotatedTerm(x.of(sort)), new AnnotatedTerm(guardF.of(Sort.Bool())));
-        Scalar g = new Scalar(new AnnotatedTerm(x.of(sort)), new AnnotatedTerm(guardF.of(Sort.Bool())));
+        Scalar f = new Scalar(new AnnotatedTerm(x.of(sort)), guardF);
+        Scalar g = new Scalar(new AnnotatedTerm(x.of(sort)), guardF);
         assertThrows(ErrorFatal.class, () -> Scalar.compose(f, g));
     }
 
@@ -32,17 +32,17 @@ public class ScalarTest {
         Var x = Term.mkVar("x");
         Var guardF = Term.mkVar("guardF");
 
-        Scalar f = new Scalar(new AnnotatedTerm(x.of(sort)), new AnnotatedTerm(guardF.of(Sort.Bool())));
-        Scalar g = new Scalar(1,
-                args -> new AnnotatedTerm(Term.mkApp("g", args.get(0).getTerm()), sort),
-                args -> new AnnotatedTerm(Term.mkApp("guardG", args.get(0).getTerm()), Sort.Bool()));
+        Scalar f = new Scalar(new AnnotatedTerm(x.of(sort)), guardF);
+        Scalar g = new Scalar(1, sort,
+                tuple -> Term.mkApp("g", tuple.getTerm(0)),
+                tuple -> Term.mkApp("guardG", tuple.getTerm(0)));
 
         Scalar composition = Scalar.compose(f, g);
-        assertEquals(0, composition.arity());
+        assertEquals(0, composition.getArity());
         assertTrue(composition.isNilary());
-        assertEquals(Term.mkApp("g", x), composition.getScalar().getTerm());
-        assertEquals(sort, composition.getScalar().getSort());
-        assertEquals(Term.mkAnd(guardF, Term.mkApp("guardG", x)), composition.getGuard().getTerm());
+        assertEquals(Term.mkApp("g", x), composition.getNilaryScalar());
+        assertEquals(sort, composition.getSort());
+        assertEquals(Term.mkAnd(guardF, Term.mkApp("guardG", x)), composition.getNilaryGuard());
     }
 
     @Test
@@ -51,21 +51,21 @@ public class ScalarTest {
         Sort sort = Sort.mkSortConst("S");
         Var x = Term.mkVar("x");
 
-        Scalar f = new Scalar(1,
-                args -> new AnnotatedTerm(Term.mkApp("f", args.get(0).getTerm()), sort),
-                args -> new AnnotatedTerm(Term.mkApp("guardF", args.get(0).getTerm()), Sort.Bool()));
-        Scalar g = new Scalar(1,
-                args -> new AnnotatedTerm(Term.mkApp("g", args.get(0).getTerm()), sort),
-                args -> new AnnotatedTerm(Term.mkApp("guardG", args.get(0).getTerm()), Sort.Bool()));
+        Scalar f = new Scalar(1, sort,
+                tuple -> Term.mkApp("f", tuple.getTerm(0)),
+                tuple -> Term.mkApp("guardF", tuple.getTerm(0)));
+        Scalar g = new Scalar(1, sort,
+                tuple -> Term.mkApp("g", tuple.getTerm(0)),
+                tuple -> Term.mkApp("guardG", tuple.getTerm(0)));
 
         Scalar composition = Scalar.compose(f, g);
-        assertEquals(1, composition.arity());
+        assertEquals(1, composition.getArity());
         assertFalse(composition.isNilary());
-        AnnotatedTerm scalar = composition.getScalar(new AnnotatedTerm(x.of(sort)));
-        assertEquals(Term.mkApp("g", Term.mkApp("f", x)), scalar.getTerm());
-        assertEquals(sort, scalar.getSort());
-        AnnotatedTerm guard = composition.getGuard(new AnnotatedTerm(x.of(sort)));
-        assertEquals(Term.mkAnd(Term.mkApp("guardF", x), Term.mkApp("guardG", Term.mkApp("f", x))), guard.getTerm());
+        Term scalar = composition.getScalar(TermTuple.fromVars(x.of(sort)));
+        assertEquals(Term.mkApp("g", Term.mkApp("f", x)), scalar);
+        assertEquals(sort, composition.getSort());
+        Term guard = composition.getGuard(TermTuple.fromVars(x.of(sort)));
+        assertEquals(Term.mkAnd(Term.mkApp("guardF", x), Term.mkApp("guardG", Term.mkApp("f", x))), guard);
     }
 
     @Test
@@ -76,21 +76,19 @@ public class ScalarTest {
         Var y = Term.mkVar("y");
         Var guardF = Term.mkVar("guardF");
 
-        Scalar f = new Scalar(new AnnotatedTerm(x.of(sort)), new AnnotatedTerm(guardF.of(Sort.Bool())));
-        Scalar g = new Scalar(2,
-                args -> new AnnotatedTerm(
-                        Term.mkApp("g", args.get(0).getTerm(), args.get(1).getTerm()), sort),
-                args -> new AnnotatedTerm(
-                        Term.mkApp("guardG", args.get(0).getTerm(), args.get(1).getTerm()), Sort.Bool()));
+        Scalar f = new Scalar(new AnnotatedTerm(x.of(sort)), guardF);
+        Scalar g = new Scalar(2, sort,
+                tuple -> Term.mkApp("g", tuple.getTerm(0), tuple.getTerm(1)),
+                tuple -> Term.mkApp("guardG", tuple.getTerm(0), tuple.getTerm(1)));
 
         Scalar composition = Scalar.compose(f, g);
-        assertEquals(1, composition.arity());
+        assertEquals(1, composition.getArity());
         assertFalse(composition.isNilary());
-        AnnotatedTerm scalar = composition.getScalar(new AnnotatedTerm(y.of(sort)));
-        assertEquals(Term.mkApp("g", x, y), scalar.getTerm());
-        assertEquals(sort, scalar.getSort());
-        AnnotatedTerm guard = composition.getGuard(new AnnotatedTerm(y.of(sort)));
-        assertEquals(Term.mkAnd(guardF, Term.mkApp("guardG", x, y)), guard.getTerm());
+        Term scalar = composition.getScalar(TermTuple.fromVars(y.of(sort)));
+        assertEquals(Term.mkApp("g", x, y), scalar);
+        assertEquals(sort, composition.getSort());
+        Term guard = composition.getGuard(TermTuple.fromVars(y.of(sort)));
+        assertEquals(Term.mkAnd(guardF, Term.mkApp("guardG", x, y)), guard);
     }
 
     @Test
@@ -100,23 +98,21 @@ public class ScalarTest {
         Var x = Term.mkVar("x");
         Var y = Term.mkVar("y");
 
-        Scalar f = new Scalar(1,
-                args -> new AnnotatedTerm(Term.mkApp("f", args.get(0).getTerm()), sort),
-                args -> new AnnotatedTerm(Term.mkApp("guardF", args.get(0).getTerm()), Sort.Bool()));
-        Scalar g = new Scalar(2,
-                args -> new AnnotatedTerm(
-                        Term.mkApp("g", args.get(0).getTerm(), args.get(1).getTerm()), sort),
-                args -> new AnnotatedTerm(
-                        Term.mkApp("guardG", args.get(0).getTerm(), args.get(1).getTerm()), Sort.Bool()));
+        Scalar f = new Scalar(1, sort,
+                tuple -> Term.mkApp("f", tuple.getTerm(0)),
+                tuple -> Term.mkApp("guardF", tuple.getTerm(0)));
+        Scalar g = new Scalar(2, sort,
+                tuple -> Term.mkApp("g", tuple.getTerm(0), tuple.getTerm(1)),
+                tuple -> Term.mkApp("guardG", tuple.getTerm(0), tuple.getTerm(1)));
 
         Scalar composition = Scalar.compose(f, g);
-        assertEquals(2, composition.arity());
+        assertEquals(2, composition.getArity());
         assertFalse(composition.isNilary());
-        AnnotatedTerm scalar = composition.getScalar(new AnnotatedTerm(x.of(sort)), new AnnotatedTerm(y.of(sort)));
-        assertEquals(Term.mkApp("g", Term.mkApp("f", x), y), scalar.getTerm());
-        assertEquals(sort, scalar.getSort());
-        AnnotatedTerm guard = composition.getGuard(new AnnotatedTerm(x.of(sort)), new AnnotatedTerm(y.of(sort)));
-        assertEquals(Term.mkAnd(Term.mkApp("guardF", x), Term.mkApp("guardG", Term.mkApp("f", x), y)), guard.getTerm());
+        Term scalar = composition.getScalar(TermTuple.fromVars(x.of(sort), y.of(sort)));
+        assertEquals(Term.mkApp("g", Term.mkApp("f", x), y), scalar);
+        assertEquals(sort, composition.getSort());
+        Term guard = composition.getGuard(TermTuple.fromVars(x.of(sort), y.of(sort)));
+        assertEquals(Term.mkAnd(Term.mkApp("guardF", x), Term.mkApp("guardG", Term.mkApp("f", x), y)), guard);
     }
 
 }

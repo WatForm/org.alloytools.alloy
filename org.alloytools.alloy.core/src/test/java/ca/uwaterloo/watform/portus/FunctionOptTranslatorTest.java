@@ -1,6 +1,5 @@
 package ca.uwaterloo.watform.portus;
 
-import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprBinary;
 import edu.mit.csail.sdg.ast.ExprVar;
@@ -9,7 +8,6 @@ import edu.mit.csail.sdg.ast.Type;
 import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.data.NameGenerator;
 import fortress.msfol.FuncDecl;
-import fortress.msfol.IntegerLiteral;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
 import fortress.msfol.Theory;
@@ -25,19 +23,17 @@ import java.util.Arrays;
 import java.util.Set;
 
 import static ca.uwaterloo.watform.portus.FortressASTMatcher.isAlphaEquivalentTerm;
-import static ca.uwaterloo.watform.portus.IsSameMatcher.isSameAs;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
-import static org.mockito.hamcrest.MockitoHamcrest.argThat;
 
 public class FunctionOptTranslatorTest {
 
@@ -47,7 +43,6 @@ public class FunctionOptTranslatorTest {
     private final Sort sortC = Sort.mkSortConst("sortC");
 
     private Translator mockRoot;
-    private ScalarCaster mockScalarCaster;
     private Evaluator mockEvaluator;
 
     private SortPolicy mockSortPolicy;
@@ -68,7 +63,6 @@ public class FunctionOptTranslatorTest {
     @Before
     public void setUp() {
         mockRoot = mock(Translator.class);
-        mockScalarCaster = mock(ScalarCaster.class);
         mockEvaluator = mock(Evaluator.class);
         mockSortPolicy = mock(SortPolicy.class);
         when(mockSortPolicy.addSortsToTheory(any())).thenReturn(
@@ -87,7 +81,7 @@ public class FunctionOptTranslatorTest {
         Sig.PrimSig sigB = new Sig.PrimSig("B");
         Sig.Field field = sigA.addField("f", sigB.setOf());
         Translator translator = new FunctionOptTranslator(
-                mockRoot, mockScalarCaster, mockEvaluator, mockSortPolicy, nameGenerator, true);
+                mockRoot, mockEvaluator, mockSortPolicy, nameGenerator, true);
         assertNull(translator.translate(field, context));
     }
 
@@ -98,7 +92,7 @@ public class FunctionOptTranslatorTest {
         Sig.PrimSig sigB = new Sig.PrimSig("B");
         Sig.Field field = sigA.addField("f", sigB.loneOf());
         Translator translator = new FunctionOptTranslator(
-                mockRoot, mockScalarCaster, mockEvaluator, mockSortPolicy, nameGenerator, false);
+                mockRoot, mockEvaluator, mockSortPolicy, nameGenerator, false);
         assertNull(translator.translate(field, context));
     }
 
@@ -115,7 +109,7 @@ public class FunctionOptTranslatorTest {
 
         // even when lone opt is on
         Translator translator = new FunctionOptTranslator(
-                mockRoot, mockScalarCaster, mockEvaluator, mockSortPolicy, nameGenerator, true);
+                mockRoot, mockEvaluator, mockSortPolicy, nameGenerator, true);
         when(mockRoot.translate(any(), any()))
                 .then(useTestFunction("inA", sigA))
                 .then(useTestFunction("inB", sigB));
@@ -154,7 +148,7 @@ public class FunctionOptTranslatorTest {
 
         // lone opt must be on
         Translator translator = new FunctionOptTranslator(
-                mockRoot, mockScalarCaster, mockEvaluator, mockSortPolicy, nameGenerator, true);
+                mockRoot, mockEvaluator, mockSortPolicy, nameGenerator, true);
         when(mockRoot.translate(any(), any()))
                 .then(useTestFunction("inA", sigA))
                 .then(useTestFunction("inB", sigB));
@@ -208,7 +202,7 @@ public class FunctionOptTranslatorTest {
 
         // even when lone opt is on
         Translator translator = new FunctionOptTranslator(
-                mockRoot, mockScalarCaster, mockEvaluator, mockSortPolicy, nameGenerator, true);
+                mockRoot, mockEvaluator, mockSortPolicy, nameGenerator, true);
         when(mockRoot.translate(any(), any()))
                 .then(useTestFunction("inA", sigA))
                 .then(useTestFunction("inB", sigB))
@@ -245,7 +239,7 @@ public class FunctionOptTranslatorTest {
         Sig.Field fieldG = sigA.addField("g", ExprVar.make(null, "this", Type.make(sigA)).join(fieldF).oneOf());
 
         Translator translator = new FunctionOptTranslator(
-                mockRoot, mockScalarCaster, mockEvaluator, mockSortPolicy, nameGenerator, true);
+                mockRoot, mockEvaluator, mockSortPolicy, nameGenerator, true);
         when(mockRoot.translate(any(), any()))
                 .then(useTestFunction("inA", sigA))
                 .then(ctx -> {
@@ -281,56 +275,135 @@ public class FunctionOptTranslatorTest {
     }
 
     @Test
-    public void testTranslate_intJoin() {
-        // test [[x.y]] := guard => scalar else 0 where castToScalar(x.y) = (scalar, guard)
-        ExprVar x = ExprVar.make(null, "x");
-        ExprVar y = ExprVar.make(null, "y");
-        Var guard = Term.mkVar("guard");
-        Var scalar = Term.mkVar("scalar");
-        //noinspection SuspiciousNameCombination
-        when(mockScalarCaster.castToScalar(argThat(isSameAs(x.join(y))), any())).thenReturn(new Pair<>(
-                new AnnotatedTerm(scalar.of(Sort.Int())),
-                new AnnotatedTerm(guard.of(Sort.Bool()))));
+    public void testCastToScalar_unary_one() {
+        // test "sig A { f: B }" results in a scalar function f: sort(A)->sort(B) with the appropriate guard
+        Sig.PrimSig sigA = new Sig.PrimSig("A");
+        Sig.PrimSig sigB = new Sig.PrimSig("B");
+        when(mockSortPolicy.getSort(sigA)).thenReturn(sortA);
+        when(mockSortPolicy.getSort(sigB)).thenReturn(sortB);
+        Sig.Field field = sigA.addField("f", sigB.oneOf());
 
-        Translator translator = new FunctionOptTranslator(
-                mockRoot, mockScalarCaster, mockEvaluator, mockSortPolicy, nameGenerator, true);
-        //noinspection SuspiciousNameCombination
-        Term result = translator.translate(x.join(y), context);
+        // even when lone opt is on
+        FunctionOptTranslator translator = new FunctionOptTranslator(
+                mockRoot, mockEvaluator, mockSortPolicy, nameGenerator, true);
+        when(mockRoot.translate(any(), any()))
+                .then(useTestFunction("inA", sigA))
+                .then(useTestFunction("inB", sigB))
+                .then(useTestFunction("inA", sigA));
 
-        Term expected = Term.mkIfThenElse(guard, scalar, IntegerLiteral.apply(0));
-        assertEquals(expected, result);
+        Term result = translator.translate(field, context);
+        assertNotNull(result); // opt applied
+
+        Scalar scalar = translator.castToScalar(field, context);
+        assertNotNull(scalar);
+
+        Var x = Term.mkVar("x");
+        assertFalse(scalar.isNilary());
+        assertEquals(1, scalar.getArity());
+        assertEquals(sortB, scalar.getSort());
+        assertEquals(Term.mkApp("f_0", x), scalar.getScalar(TermTuple.fromVars(x.of(sortA))));
+        assertEquals(Term.mkApp("inA", x), scalar.getGuard(TermTuple.fromVars(x.of(sortA))));
     }
 
     @Test
-    public void testCastToScalar_join() {
-        // test castToScalar(x.f) = (f(t), guardT && inA(t)) where castToScalar(x) = (t, guardT) and sig A { f: one A }
-        ExprVar x = ExprVar.make(null, "x");
-        Term flagX = Term.mkVar("t");
-        Term guardFlagX = Term.mkVar("guardT");
-        when(mockScalarCaster.castToScalar(eq(x), any())).thenReturn(new Pair<>(
-                new AnnotatedTerm(flagX, sortA),
-                new AnnotatedTerm(guardFlagX, Sort.Bool())));
-
-        Sig sigA = new Sig.PrimSig("A");
+    public void testCastToScalar_unary_lone() {
+        // test "sig A { f: lone B }" results in a scalar function f: sort(A)->sort(B) with the appropriate guard
+        Sig.PrimSig sigA = new Sig.PrimSig("A");
+        Sig.PrimSig sigB = new Sig.PrimSig("B");
         when(mockSortPolicy.getSort(sigA)).thenReturn(sortA);
-        when(mockRoot.translate(any(), any()))
-                .then(useTestFunction("inA", sigA));
-        Sig.Field f = sigA.addField("f", sigA);
+        when(mockSortPolicy.getSort(sigB)).thenReturn(sortB);
+        Sig.Field field = sigA.addField("f", sigB.loneOf());
 
-        // put the field in the system and get the generated function name
+        // even when lone opt is on
         FunctionOptTranslator translator = new FunctionOptTranslator(
-                mockRoot, mockScalarCaster, mockEvaluator, mockSortPolicy, nameGenerator, true);
-        assertNotNull(translator.translate(f, context));
-        Theory theory = context.getTheory();
-        assertEquals(1, theory.functionDeclarations().size());
-        FuncDecl func = theory.functionDeclarations().head();
+                mockRoot, mockEvaluator, mockSortPolicy, nameGenerator, true);
+        when(mockRoot.translate(any(), any()))
+                .then(useTestFunction("inA", sigA))
+                .then(useTestFunction("inB", sigB));
 
-        Pair<AnnotatedTerm, AnnotatedTerm> result = translator.castToScalar(x.join(f), context);
-        assertNotNull(result);
-        assertEquals(Term.mkApp(func.name(), flagX), result.a.getTerm());
-        assertEquals(sortA, result.a.getSort());
-        assertEquals(Term.mkAnd(guardFlagX, Term.mkApp("inA", flagX)), result.b.getTerm());
-        assertEquals(Sort.Bool(), result.b.getSort());
+        Term result = translator.translate(field, context);
+        assertNotNull(result); // opt applied
+
+        Scalar scalar = translator.castToScalar(field, context);
+        assertNotNull(scalar);
+
+        Var x = Term.mkVar("x");
+        assertFalse(scalar.isNilary());
+        assertEquals(1, scalar.getArity());
+        assertEquals(sortB, scalar.getSort());
+        assertEquals(Term.mkApp("f_0", x), scalar.getScalar(TermTuple.fromVars(x.of(sortA))));
+        assertEquals(Term.mkApp("inDomain_0", x), scalar.getGuard(TermTuple.fromVars(x.of(sortA))));
+    }
+
+    @Test
+    public void testCastToScalar_binary_one() {
+        // test "sig A { f: B->one C }" results in a scalar function f: sort(A) x sort(B) -> sort(C) with guard
+        Sig.PrimSig sigA = new Sig.PrimSig("A");
+        Sig.PrimSig sigB = new Sig.PrimSig("B");
+        Sig.PrimSig sigC = new Sig.PrimSig("C");
+        when(mockSortPolicy.getSort(sigA)).thenReturn(sortA);
+        when(mockSortPolicy.getSort(sigB)).thenReturn(sortB);
+        when(mockSortPolicy.getSort(sigC)).thenReturn(sortC);
+        Sig.Field field = sigA.addField("f", sigB.any_arrow_one(sigC));
+
+        // even when lone opt is on
+        FunctionOptTranslator translator = new FunctionOptTranslator(
+                mockRoot, mockEvaluator, mockSortPolicy, nameGenerator, true);
+        when(mockRoot.translate(any(), any()))
+                .then(useTestFunction("inA", sigA))
+                .then(useTestFunction("inB", sigB))
+                .then(useTestFunction("inC", sigC))
+                .then(useTestFunction("inA", sigA))
+                .then(useTestFunction("inB", sigB));
+
+        Term result = translator.translate(field, context);
+        assertNotNull(result); // opt applied
+
+        Scalar scalar = translator.castToScalar(field, context);
+        assertNotNull(scalar);
+
+        Var x = Term.mkVar("x");
+        Var y = Term.mkVar("y");
+        assertFalse(scalar.isNilary());
+        assertEquals(2, scalar.getArity());
+        assertEquals(sortC, scalar.getSort());
+        assertEquals(Term.mkApp("f_0", x, y), scalar.getScalar(TermTuple.fromVars(x.of(sortA), y.of(sortB))));
+        assertEquals(Term.mkAnd(Term.mkApp("inA", x), Term.mkApp("inB", y)),
+                scalar.getGuard(TermTuple.fromVars(x.of(sortA), y.of(sortB))));
+    }
+
+    @Test
+    public void testCastToScalar_binary_lone() {
+        // test "sig A { f: B->lone C }" results in a scalar function f: sort(A) x sort(B) -> sort(C) with guard
+        Sig.PrimSig sigA = new Sig.PrimSig("A");
+        Sig.PrimSig sigB = new Sig.PrimSig("B");
+        Sig.PrimSig sigC = new Sig.PrimSig("C");
+        when(mockSortPolicy.getSort(sigA)).thenReturn(sortA);
+        when(mockSortPolicy.getSort(sigB)).thenReturn(sortB);
+        when(mockSortPolicy.getSort(sigC)).thenReturn(sortC);
+        Sig.Field field = sigA.addField("f", sigB.any_arrow_lone(sigC));
+
+        // even when lone opt is on
+        FunctionOptTranslator translator = new FunctionOptTranslator(
+                mockRoot, mockEvaluator, mockSortPolicy, nameGenerator, true);
+        when(mockRoot.translate(any(), any()))
+                .then(useTestFunction("inA", sigA))
+                .then(useTestFunction("inB", sigB))
+                .then(useTestFunction("inC", sigC));
+
+        Term result = translator.translate(field, context);
+        assertNotNull(result); // opt applied
+
+        Scalar scalar = translator.castToScalar(field, context);
+        assertNotNull(scalar);
+
+        Var x = Term.mkVar("x");
+        Var y = Term.mkVar("y");
+        assertFalse(scalar.isNilary());
+        assertEquals(2, scalar.getArity());
+        assertEquals(sortC, scalar.getSort());
+        assertEquals(Term.mkApp("f_0", x, y), scalar.getScalar(TermTuple.fromVars(x.of(sortA), y.of(sortB))));
+        assertEquals(Term.mkApp("inDomain_0", x, y), scalar.getGuard(TermTuple.fromVars(x.of(sortA), y.of(sortB))));
     }
 
     @Test
@@ -340,7 +413,7 @@ public class FunctionOptTranslatorTest {
         when(mockSortPolicy.getSort(sigA)).thenReturn(sortA);
         Sig.Field fieldF = sigA.addField("f", sigA.oneOf());
         FunctionOptTranslator translator = new FunctionOptTranslator(
-                mockRoot, mockScalarCaster, mockEvaluator, mockSortPolicy, nameGenerator, true);
+                mockRoot, mockEvaluator, mockSortPolicy, nameGenerator, true);
         FortressSolution solution = mock(FortressSolution.class);
         assertNull(translator.evaluate(fieldF, solution, context));
     }
@@ -355,7 +428,7 @@ public class FunctionOptTranslatorTest {
 
         // lone opt must be on
         FunctionOptTranslator translator = new FunctionOptTranslator(
-                mockRoot, mockScalarCaster, mockEvaluator, mockSortPolicy, nameGenerator, true);
+                mockRoot, mockEvaluator, mockSortPolicy, nameGenerator, true);
         when(mockRoot.translate(any(), any()))
                 .then(useTestFunction("inA", sigA))
                 .then(useTestFunction("inB", sigB));
@@ -385,7 +458,7 @@ public class FunctionOptTranslatorTest {
         Sig.Field field = sigA.addField("f", sigB.oneOf());
 
         FunctionOptTranslator translator = new FunctionOptTranslator(
-                mockRoot, mockScalarCaster, mockEvaluator, mockSortPolicy, nameGenerator, true);
+                mockRoot, mockEvaluator, mockSortPolicy, nameGenerator, true);
         when(mockRoot.translate(any(), any()))
                 .then(useTestFunction("inA", sigA))
                 .then(useTestFunction("inB", sigB));
@@ -409,7 +482,7 @@ public class FunctionOptTranslatorTest {
         Sig.Field field = sigA.addField("f", sigB.oneOf());
 
         FunctionOptTranslator translator = new FunctionOptTranslator(
-                mockRoot, mockScalarCaster, mockEvaluator, mockSortPolicy, nameGenerator, true);
+                mockRoot, mockEvaluator, mockSortPolicy, nameGenerator, true);
         when(mockRoot.translate(any(), any()))
                 .then(useTestFunction("inA", sigA))
                 .then(useTestFunction("inB", sigB));
@@ -437,7 +510,7 @@ public class FunctionOptTranslatorTest {
         Sig.Field field = sigA.addField("f", sigB.oneOf());
 
         FunctionOptTranslator translator = new FunctionOptTranslator(
-                mockRoot, mockScalarCaster, mockEvaluator, mockSortPolicy, nameGenerator, true);
+                mockRoot, mockEvaluator, mockSortPolicy, nameGenerator, true);
         when(mockRoot.translate(any(), any()))
                 .then(useTestFunction("inA", sigA))
                 .then(useTestFunction("inB", sigB));
@@ -472,7 +545,7 @@ public class FunctionOptTranslatorTest {
         Sig.Field field = sigA.addField("f", sigB.any_arrow_one(sigC));
 
         FunctionOptTranslator translator = new FunctionOptTranslator(
-                mockRoot, mockScalarCaster, mockEvaluator, mockSortPolicy, nameGenerator, true);
+                mockRoot, mockEvaluator, mockSortPolicy, nameGenerator, true);
         when(mockRoot.translate(any(), any()))
                 .then(useTestFunction("inA", sigA))
                 .then(useTestFunction("inB", sigB))
