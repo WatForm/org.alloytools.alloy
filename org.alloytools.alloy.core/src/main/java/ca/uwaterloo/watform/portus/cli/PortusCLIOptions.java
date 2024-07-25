@@ -64,6 +64,8 @@ final class PortusCLIOptions {
             "-disable-mem-pred-opt", "Disable membership predicate optimization.");
     public final Option disableClosureOfScalarOpt = new Option(
             "-disable-closure-scalar-opt", "Disable closure-of-scalar optimization.");
+    public final Option disableIntsAsScalars = new Option(
+            "-disable-ints-as-scalars", "Disable translating integer expressions using the cast-to-scalar system.");
     public final Option disablePartitionSortPolicy = new Option(
             "-disable-partition-sp", "Disable the partition sort policy, use the univ sort policy.");
     public final Option disableSumDefinitionsOpt = new Option(
@@ -103,7 +105,7 @@ final class PortusCLIOptions {
             useStatisticsProcessor, useCountCommandsProcessor,
             alwaysShowKodkodTime,
             disableSimpleScalarOpt, disableOneSigOpt, disableJoinOpt, disableOrderingModuleOpt,
-            disableClosureOfScalarOpt, disableMembershipPredicateOpt, disablePartitionSortPolicy,
+            disableClosureOfScalarOpt, disableIntsAsScalars, disableMembershipPredicateOpt, disablePartitionSortPolicy,
             disableSumDefinitionsOpt,
             useCardinalityScopeAxiomStrategy, disableFuncOpt, disableAllOpts,
             disableOrderingDefinition, enableSumBalancing,

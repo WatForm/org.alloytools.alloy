@@ -80,6 +80,7 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
                 this, this, sortPolicy, nameGenerator);
         DefaultTranslator defaultTranslator = new DefaultTranslator(
                 this, scopeAxiomStrategy, sigAxioms, sortPolicy, nameGenerator);
+        IntAsScalarTranslator intAsScalarTranslator = new IntAsScalarTranslator(this);
 
         List<ScopeExpansionMarker> scopeExpansionMarkers = new ArrayList<>();
         scopeExpansionMarkers.add(defaultTranslator);
@@ -117,6 +118,9 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
                     this, sortPolicy, nameGenerator, options.enableSumBalancing));
         }
         translators.add(defaultTranslator);
+        if (options.enableIntsAsScalars) {
+            translators.add(intAsScalarTranslator);
+        }
 
         scalarCasters.add(orderingModuleOpt);
         if (options.enableOneSigOptimization) {

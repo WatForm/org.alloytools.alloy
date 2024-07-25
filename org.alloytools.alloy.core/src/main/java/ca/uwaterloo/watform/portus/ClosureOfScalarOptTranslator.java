@@ -1,10 +1,7 @@
 package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.ErrorSyntax;
-import edu.mit.csail.sdg.alloy4.Pair;
-import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprUnary;
-import edu.mit.csail.sdg.ast.ExprVar;
 import fortress.data.NameGenerator;
 import fortress.msfol.AnnotatedVar;
 import fortress.msfol.FunctionDefinition;
@@ -14,23 +11,18 @@ import scala.jdk.javaapi.CollectionConverters;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
  * An optimization for transitive closure over expressions that can be interpreted as Fortress functions.
  * If f: S->S is a function from scalars to scalars, then roughly we can translate:
  *   [[(x,y) \in ^f]] := y = f(x) || y = f(f(x)) || y = f(f(f(x))) || ... || y = f^{|S|}(x)
- * This is implemented as follows. If castToScalar(x.e) = (e(x), guard(x)) for a fresh variable x, then
+ * This is implemented as follows. If castToScalar(e) = (e(x), guard(x)) for a fresh variable x, then
  *   [[(x,y) \in ^e]] := guard(x) && (y = e(x) || (guard(e(x)) && (y = e(e(x))
  *       || (... guard(e^{|S|-1}(x)) && y = e^{|S|}(x)))))
  * We create a definition for the above and reuse it for closures over the same expression.
  *
- * Note that this is reliant upon x.f being a scalar - TODO recognize scalar-to-scalar functions.
  * A further possible optimization: if we know the maximum size of the range of the function and it's less than |S|,
  * we only have to go up to that size rather than |S|.
  */
@@ -66,48 +58,31 @@ final class ClosureOfScalarOptTranslator extends AbstractTranslator {
 
         AnnotatedTerm x = tuple.getAnnotatedTerm(0);
         AnnotatedTerm y = tuple.getAnnotatedTerm(1);
-        Expr closedExpr = expr.sub;
 
-        if (!x.getSort().equals(y.getSort())) return null; // let someone else deal with it
-
-        // cast x.e to scalar
-        ExprVar probeAlloyVar = ExprVar.make(null, "%probe");
-        AnnotatedVar probeVar = Term.mkVar("__@probe").of(x.getSort());
-        context.addTermMapping(probeAlloyVar.label, new AnnotatedTerm(probeVar));
-        context.addFortressVar(probeVar);
-        Pair<AnnotatedTerm, AnnotatedTerm> scalarAndGuard;
-        try {
-            scalarAndGuard = scalarCaster.castToScalar(probeAlloyVar.join(closedExpr), context);
-        } finally {
-            context.removeMapping(probeAlloyVar.label);
-            context.removeFortressVar(probeVar);
+        // If the sorts don't work out, let someone else deal with it
+        if (!x.getSort().equals(y.getSort())) {
+            return null;
         }
 
-        AnnotatedTerm scalar = scalarAndGuard.a;
-        AnnotatedTerm guard = scalarAndGuard.b;
-
-        List<AnnotatedVar> scalarFreeVars = PortusUtil.computeTermFreeVars(scalar.getTerm(), context);
-        List<AnnotatedVar> guardFreeVars = PortusUtil.computeTermFreeVars(guard.getTerm(), context);
-
-        Set<AnnotatedVar> freeVarSet = SetOps.union(new HashSet<>(scalarFreeVars), new HashSet<>(guardFreeVars));
-        List<AnnotatedVar> freeVars = freeVarSet.stream()
-                .filter(aVar -> !aVar.equals(probeVar)) // remove the probe variable
-                .sorted(Comparator.comparing(AnnotatedVar::name)) // sort alphabetically as arbitrary order
-                .collect(Collectors.toList());
-
-        if (!freeVars.contains(probeVar)) {
-            // Neither contain the probe variable: value of scalar does not depend on x!
-            // So [[(x,y) \in ^e]] := y = e
-            return Term.mkEq(y.getTerm(), scalar.getTerm());
+        Scalar closedScalar = scalarCaster.castToScalar(expr.sub, context);
+        if (closedScalar == null || closedScalar.getArity() != 1 || !y.getSort().equals(closedScalar.getSort())) {
+            // arity != 1 should be impossible, but let someone else deal with it otherwise
+            return null;
         }
 
-        Sort tcSort = scalar.getSort();
-        if (!tcSort.equals(x.getSort())) return null; // let someone else deal with it
+        Sort tcSort = closedScalar.getSort();
+        int sortScope = sortPolicy.getSortScope(tcSort);
+        context.markSortUnchanging(tcSort); // since we rely on the sort's scope here
 
         // Variables for the function definition
         AnnotatedVar xDefnVar = new AnnotatedVar(Term.mkVar(nameGenerator.freshName("x")), x.getSort());
         AnnotatedVar yDefnVar = new AnnotatedVar(Term.mkVar(nameGenerator.freshName("y")), y.getSort());
 
+        boolean reflexive = (expr.op == ExprUnary.Op.RCLOSURE);
+        Term defnBody = buildClosureTerm(
+                new AnnotatedTerm(xDefnVar), yDefnVar.variable(), closedScalar, sortScope, reflexive);
+
+        List<AnnotatedVar> freeVars = PortusUtil.computeFreeVariables(expr, context, sortPolicy);
         List<AnnotatedVar> defnParams = SetOps.concatenate(Arrays.<AnnotatedVar>asList(xDefnVar, yDefnVar), freeVars);
         List<Term> defnArgs = SetOps.concatenate(
                 Arrays.<Term>asList(x.getTerm(), y.getTerm()),
@@ -121,47 +96,48 @@ final class ClosureOfScalarOptTranslator extends AbstractTranslator {
             return Term.mkApp(cachedDefnName, defnArgs);
         }
 
-        int sortScope = sortPolicy.getSortScope(tcSort);
-        context.markSortUnchanging(tcSort); // since we rely on the sort's scope here
+        // Make a definition and cache it for efficiency
+        FunctionDefinition defn = new FunctionDefinition(
+                nameGenerator.freshName("scalarTC"),
+                CollectionConverters.asScala(defnParams).toSeq(),
+                Sort.Bool(),
+                defnBody);
+        context.addFunctionDefinition(defn);
+        closureDefnNameCache.put(expr, tcSort, defn.name(), context);
 
+        return Term.mkApp(defn.name(), defnArgs);
+    }
+
+    private Term buildClosureTerm(AnnotatedTerm x, Term y, Scalar scalar, int sortScope, boolean reflexive) {
         List<Term> scalarCalls = new ArrayList<>(); // scalarCalls[i] := y = f^{i+1}(x)
         List<Term> guardCalls = new ArrayList<>(); // guardCalls[i] := f^i(x) in dom(f)
 
-        Term currentTerm = xDefnVar.variable();
+        // Build up all of the calls
+        AnnotatedTerm currentTerm = x;
         for (int i = 0; i < sortScope; i++) {
             // guard: f^i(x) in dom(f)
-            Term guardApp = PortusUtil.substitute(
-                    Collections.singletonList(probeVar), Collections.singletonList(currentTerm), guard.getTerm());
+            Term guardApp = scalar.getGuard(new TermTuple(currentTerm));
             // scalar: y = f^{i+1}(x)
-            currentTerm = PortusUtil.substitute(
-                    Collections.singletonList(probeVar), Collections.singletonList(currentTerm), scalar.getTerm());
+            currentTerm = scalar.getAnnotatedScalar(new TermTuple(currentTerm));
 
-            scalarCalls.add(Term.mkEq(yDefnVar.variable(), currentTerm));
+            scalarCalls.add(Term.mkEq(y, currentTerm.getTerm()));
             guardCalls.add(guardApp);
         }
 
-        // Assemble it
+        // Assemble the term
         Term assembled = Term.mkBottom();
         for (int i = sortScope - 1; i >= 0; i--) {
             assembled = Term.mkOr(scalarCalls.get(i), assembled); // y = f^{i+1}(x)
             // Add a guard for all the terms currently assembled
             assembled = Term.mkAnd(guardCalls.get(i), assembled); // f^i(x) in dom(f)
         }
-        if (expr.op == ExprUnary.Op.RCLOSURE) {
+
+        if (reflexive) {
             // add y = x for reflexive closure
-            assembled = Term.mkOr(Term.mkEq(yDefnVar.variable(), xDefnVar.variable()), assembled);
+            assembled = Term.mkOr(Term.mkEq(y, x.getTerm()), assembled);
         }
 
-        // Make a definition and cache it for efficiency
-        FunctionDefinition defn = new FunctionDefinition(
-                nameGenerator.freshName("scalarTC"),
-                CollectionConverters.asScala(defnParams).toSeq(),
-                Sort.Bool(),
-                assembled);
-        context.addFunctionDefinition(defn);
-        closureDefnNameCache.put(expr, tcSort, defn.name(), context);
-
-        return Term.mkApp(defn.name(), defnArgs);
+        return assembled;
     }
 
 }

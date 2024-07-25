@@ -92,6 +92,7 @@ public final class PortusCLI {
         options.enableMembershipPredicateOptimization = !disableAllOpts
                 && !cliOptions.disableMembershipPredicateOpt.active();
         options.enableClosureOfScalarOptimization = !disableAllOpts && !cliOptions.disableClosureOfScalarOpt.active();
+        options.enableIntsAsScalars = !disableAllOpts && !cliOptions.disableIntsAsScalars.active();
         options.enablePartitionSortPolicy = !disableAllOpts && !cliOptions.disablePartitionSortPolicy.active();
         options.enableSumDefinitionsOptimization = !disableAllOpts && !cliOptions.disableSumDefinitionsOpt.active();
         // specifically don't include the function optimization in disableAllOpts

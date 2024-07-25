@@ -2,7 +2,6 @@ package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.translator.ScopeComputer;
-import fortress.msfol.IntegerLiteral;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
 import fortress.msfol.Var;
@@ -37,20 +36,6 @@ public class SimpleScalarOptTranslatorTest {
         RangeAssigner mockRangeAssigner = mock(RangeAssigner.class,
                 withSettings().useConstructor(new ArrayList<>(), mockSortPolicy, mockScoper));
         context = new TranslationContext(new PortusOptions(), mockScoper, mockSortPolicy, mockRangeAssigner);
-    }
-
-    @Test
-    public void testTranslate_intExpr() {
-        // test [[i]] := guard => i else 0 when castToScalar(i) = (i, guard)
-        ExprVar alloyI = ExprVar.make(null, "i");
-        Var i = Term.mkVar("i");
-        Var guard = Term.mkVar("guard");
-        when(mockScalarCaster.castToScalar(eq(alloyI), any())).thenReturn(new Scalar(Sort.Int(), i, guard));
-
-        Translator translator = new SimpleScalarOptTranslator(mockTranslator, mockScalarCaster);
-        Term result = translator.translate(alloyI, context);
-        Term expected = Term.mkIfThenElse(guard, i, IntegerLiteral.apply(0));
-        assertEquals(expected, result);
     }
 
     @Test

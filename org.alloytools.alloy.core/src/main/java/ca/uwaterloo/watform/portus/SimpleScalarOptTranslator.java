@@ -1,10 +1,7 @@
 package ca.uwaterloo.watform.portus;
 
-import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprBinary;
-import fortress.msfol.IntegerLiteral;
-import fortress.msfol.Sort;
 import fortress.msfol.Term;
 
 import java.util.Objects;
@@ -29,35 +26,12 @@ final class SimpleScalarOptTranslator implements Translator {
 
     @Override
     public Term translate(Expr expr, TranslationContext context) {
-        Term intExprScalar = translateIntExprAsScalar(expr, context);
-        if (intExprScalar != null) {
-            return intExprScalar;
-        }
         if (expr instanceof ExprBinary) {
             return translateInEquals((ExprBinary) expr, context);
         } else if (expr instanceof ExprElementOf) {
             return translateExprElementOf((ExprElementOf) expr, context);
         }
         return null;
-    }
-
-    private Term translateIntExprAsScalar(Expr expr, TranslationContext context) {
-        // Use the cast-to-scalar system to translate integer expressions.
-        // This allows us to translate some, but not all, complex integer expressions such as x.f when f: A->Int.
-        // We can only translate integer expressions that can be cast to scalar.
-        // TODO: Avoid recursive translation issues with DefaultScalarCaster.
-        Scalar scalar = scalarCaster.castToScalar(expr, context);
-        if (scalar == null) {
-            return null;
-        }
-        if (!scalar.isNilary() || !scalar.getSort().equals(Sort.Int())) {
-            throw new ErrorFatal("Internal Portus error: Only integer expressions without free variables can be "
-                    + "translated with translate()!");
-        }
-
-        // Translate as guard => integer else 0; that is, treat empty sets as 0.
-        // This is consistent with Kodkod, which sums sets of integers when used as an integer.
-        return Term.mkIfThenElse(scalar.getNilaryGuard(), scalar.getNilaryScalar(), IntegerLiteral.apply(0));
     }
 
     /**
