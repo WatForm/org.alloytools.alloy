@@ -17,7 +17,9 @@ import java.util.ArrayList;
 
 import static ca.uwaterloo.watform.portus.IsSameMatcher.isSameAs;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -28,7 +30,7 @@ public class JoinOptTranslatorTest {
 
     private final Sort testSort = Sort.mkSortConst("testSort");
 
-    private Translator translator;
+    private JoinOptTranslator translator;
     private Translator mockRoot;
     private ScalarCaster mockScalarCaster;
 
@@ -198,6 +200,27 @@ public class JoinOptTranslatorTest {
         Term result = translator.translate(ExprElementOf.make(TermTuple.fromVars(x), e.join(alloyV)), context);
         Term expected = Term.mkAnd(guard, flag);
         assertEquals(expected, result);
+    }
+
+    @Test
+    public void testTranslate_join_composition() {
+        // test castToScalar(x.f) implements composition
+        ExprVar alloyX = ExprVar.make(null, "x");
+        ExprVar alloyF = ExprVar.make(null, "f");
+        AnnotatedVar x = Term.mkVar("x").of(testSort);
+        Var guardX = Term.mkVar("guardX");
+        when(mockScalarCaster.castToScalar(argThat(isSameAs(alloyX)), any()))
+                .thenReturn(new Scalar(new AnnotatedTerm(x), guardX));
+        when(mockScalarCaster.castToScalar(argThat(isSameAs(alloyF)), any()))
+                .thenReturn(new Scalar(1, testSort,
+                        tuple -> Term.mkApp("f", tuple.getTerms()),
+                        tuple -> Term.mkApp("guardF", tuple.getTerms())));
+
+        Scalar scalar = translator.castToScalar(alloyX.join(alloyF), context);
+        assertNotNull(scalar);
+        assertTrue(scalar.isNilary());
+        assertEquals(Term.mkApp("f", x.variable()), scalar.getNilaryScalar());
+        assertEquals(Term.mkAnd(guardX, Term.mkApp("guardF", x.variable())), scalar.getNilaryGuard());
     }
 
 }
