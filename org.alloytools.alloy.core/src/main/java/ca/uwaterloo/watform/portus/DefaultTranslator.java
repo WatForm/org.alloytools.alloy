@@ -855,14 +855,13 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
             vars.add(var.of(sorts.get(i)));
         }
 
-        Term condition;
         try {
             context.addFortressVars(vars);
-            condition = recursivelyTranslate(ExprElementOf.make(TermTuple.fromVars(vars), expr), context);
+            Term condition = recursivelyTranslate(ExprElementOf.make(TermTuple.fromVars(vars), expr), context);
+            return translateSum(IntegerLiteral.apply(1), condition, vars, context);
         } finally {
             context.removeFortressVars(vars);
         }
-        return translateSum(IntegerLiteral.apply(1), condition, vars, context);
     }
 
     /** Translate "tuple \in expr", where expr is an ExprUnary formula. */
@@ -1142,9 +1141,9 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
         Term condition = varsAndCond.b.getTerm();
 
         // Process subformula - Fortress vars were added to the lexical scope in translateDeclList()
-        Term sub;
         try {
-            sub = recursivelyTranslate(expr.sub, context);
+            Term sub = recursivelyTranslate(expr.sub, context);
+            return translateRawQuantifier(expr.op, vars, condition, sub, context);
         } finally {
             // Remove the vars from the lexical scope since it's done (always, even if there's an exception)
             for (String alloyVarName : alloyVarNames) {
@@ -1152,8 +1151,6 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
             }
             context.removeFortressVars(vars);
         }
-
-        return translateRawQuantifier(expr.op, vars, condition, sub, context);
     }
 
     /** Translate "Q vars: e | f" after the vars, condition (vars \in e) and the subformula have been translated. */

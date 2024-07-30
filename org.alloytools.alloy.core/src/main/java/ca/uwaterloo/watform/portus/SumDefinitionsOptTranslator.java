@@ -63,15 +63,15 @@ final class SumDefinitionsOptTranslator extends AbstractTranslator {
         }
 
         Expr conditionExpr = ExprElementOf.make(TermTuple.fromVars(vars), expr.sub);
-        Term condition;
         try {
             context.addFortressVars(vars); // Add only the expanded-only vars since free vars should already be in scope
-            condition = recursivelyTranslate(conditionExpr, context);
+            Term condition = recursivelyTranslate(conditionExpr, context);
+            AnnotatedTerm conditionAnnotated = new AnnotatedTerm(condition, Sort.Bool());
+            return translateSum(
+                    new AnnotatedTerm(IntegerLiteral.apply(1), Sort.Int()), conditionAnnotated, vars, context);
         } finally {
             context.removeFortressVars(vars);
         }
-        AnnotatedTerm conditionAnnotated = new AnnotatedTerm(condition, Sort.Bool());
-        return translateSum(new AnnotatedTerm(IntegerLiteral.apply(1), Sort.Int()), conditionAnnotated, vars, context);
     }
 
     @Override
@@ -93,10 +93,10 @@ final class SumDefinitionsOptTranslator extends AbstractTranslator {
         AnnotatedTerm condition = varsAndCond.b;
 
         // Process subformula - Fortress vars were added to the lexical scope in translateDeclList()
-        AnnotatedTerm sub;
         try {
             Term subTerm = recursivelyTranslate(expr.sub, context);
-            sub = new AnnotatedTerm(subTerm, Sort.Int());
+            AnnotatedTerm sub = new AnnotatedTerm(subTerm, Sort.Int());
+            return translateSum(sub, condition, vars, context);
         } finally {
             // Remove the vars from the lexical scope since it's done
             for (String alloyVarName : alloyVarNames) {
@@ -104,8 +104,6 @@ final class SumDefinitionsOptTranslator extends AbstractTranslator {
             }
             context.removeFortressVars(vars);
         }
-
-        return translateSum(sub, condition, vars, context);
     }
 
     private Term translateSum(
