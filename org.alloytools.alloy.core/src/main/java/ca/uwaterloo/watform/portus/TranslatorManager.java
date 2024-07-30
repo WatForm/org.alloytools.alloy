@@ -72,6 +72,7 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
         // There *shouldn't* be side effects in the constructors, so it should be ok to always construct these
         OneSigOptTranslator oneSigOpt = new OneSigOptTranslator(this, sortPolicy, sigAxioms);
         FunctionOptTranslator functionOpt = new FunctionOptTranslator(this, this, sortPolicy, nameGenerator, true);
+        JoinOptTranslator joinOpt = new JoinOptTranslator(this, this);
         OrderingModuleOptTranslator orderingModuleOpt = new OrderingModuleOptTranslator(
                 this, sortPolicy, nameGenerator, options.enableOrderingDefinition);
         MembershipPredicateOptTranslator membershipPredOpt = new MembershipPredicateOptTranslator(
@@ -102,7 +103,7 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
             translators.add(functionOpt);
         }
         if (options.enableJoinOptimization) {
-            translators.add(new JoinOptTranslator(this, this));
+            translators.add(joinOpt);
         }
         if (options.enableMembershipPredicateOptimization) {
             translators.add(membershipPredOpt);
@@ -128,6 +129,9 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
         }
         if (options.enableFuncOptimization) {
             scalarCasters.add(functionOpt);
+        }
+        if (options.enableJoinOptimization) {
+            scalarCasters.add(joinOpt);
         }
         scalarCasters.add(new DefaultScalarCaster(this, this, sortPolicy));
         if (options.enableElementOfScalarOptimization) {

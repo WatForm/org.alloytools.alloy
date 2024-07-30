@@ -266,7 +266,7 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
         }
     }
 
-    /** Translate optimized in/equals, and integer join expressions (e.g. "x.size"). */
+    /** Translate optimized in/equals. */
     @Override
     public Term translate(ExprBinary expr, TranslationContext context) {
         if (expr.op != ExprBinary.Op.IN && expr.op != ExprBinary.Op.EQUALS) return null;

@@ -556,9 +556,8 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
                 // these are integer expressions and not formulas
                 return translateArithmeticOperation(expr.op, expr.left, expr.right, context);
             case JOIN:
-                // "x.y" might be an integer expression, but we don't handle it here because it needs functions
-                throw new ErrorNoPortusSupport(
-                        "Join integer expressions are only supported with the function optimization");
+                // "x.y" might be an integer expression, but we handle it elsewhere because it needs scalars
+                return null;
             case AND:
             case OR:
                 // confusingly, AND and OR aren't real ExprBinary ops
