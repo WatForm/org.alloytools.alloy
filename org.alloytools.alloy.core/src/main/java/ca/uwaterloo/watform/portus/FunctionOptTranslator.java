@@ -82,8 +82,7 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
         }
 
         public Scalar toScalar(TranslationContext context) {
-            // the scalar function's arity is arity - 1 because the last element is the output
-            return new Scalar(arity - 1, resultSort,
+            return new Scalar(argSorts, resultSort,
                     tuple -> Term.mkApp(funcName, tuple.getTerms()),
                     tuple -> makeDomainFormula(tuple, this, context));
         }
@@ -266,84 +265,6 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
         }
     }
 
-    /** Translate optimized in/equals. */
-    @Override
-    public Term translate(ExprBinary expr, TranslationContext context) {
-        if (expr.op != ExprBinary.Op.IN && expr.op != ExprBinary.Op.EQUALS) return null;
-        int arity = expr.left.type().arity();
-        if (expr.right.type().arity() != arity) return null; // default translator can deal with it
-
-        boolean leftOptimized = expr.left instanceof Sig.Field
-                && optimizedFieldsInfo.containsKey((Sig.Field) expr.left);
-        boolean rightOptimized = expr.right instanceof Sig.Field
-                && optimizedFieldsInfo.containsKey((Sig.Field) expr.right);
-
-        if (expr.op == ExprBinary.Op.IN && leftOptimized) {
-            // "in" only requires the left operand to be optimized - if the right is optimized that will follow
-            return translateOptimizedIn((Sig.Field) expr.left, expr.right, context);
-        } else if (expr.op == ExprBinary.Op.EQUALS && leftOptimized && rightOptimized) {
-            // "=" requires both to be optimized
-            return translateOptimizedEquals((Sig.Field) expr.left, (Sig.Field) expr.right, context);
-        } else {
-            return null; // not applicable
-        }
-    }
-
-    private Term translateOptimizedIn(Sig.Field left, Expr right, TranslationContext context) {
-        // We assume all validation is already complete.
-        // [[e1 in e2]] := forall x1:S1,...,x{n-1}:S{n-1} . ((x1,...,x{n-1}) in f's domain) =>
-        //   [[(x1,...,x{n-1},f(x1,...,x{n-1})) \in e2]] where f is e1's function
-        FieldFuncInfo leftInfo = optimizedFieldsInfo.get(left);
-
-        List<AnnotatedVar> vars = makeArgVars(leftInfo);
-        try {
-            context.addFortressVars(vars);
-            TermTuple termTuple = TermTuple.fromVars(vars);
-            Term domainFormula = makeDomainFormula(termTuple, leftInfo, context);
-
-            Term funcApp = Term.mkApp(leftInfo.funcName, termTuple.getTerms());
-            TermTuple varsWithFuncApp = termTuple.concat(new TermTuple(funcApp, leftInfo.resultSort));
-            Term inRight = recursivelyTranslate(ExprElementOf.make(varsWithFuncApp, right), context);
-
-            return Term.mkForall(vars, Term.mkImp(domainFormula, inRight));
-        } finally {
-            context.removeFortressVars(vars);
-        }
-    }
-
-    private Term translateOptimizedEquals(Sig.Field left, Sig.Field right, TranslationContext context) {
-        // Again assume all validation is complete.
-        // [[e1 = e2]] := forall x1:S1,...,x{n-1}:S{n-1} .
-        //   (((x1,...,x{n-1}) in f's domain) <=> ((x1,...,x{n-1}) in g's domain)) &&
-        //   (((x1,...,x{n-1}) in f's domain) => f(x1,...,x{n-1}) = g(x1,...,x{n-1})
-        // where f is e1's function and g is e2's function.
-        // Unfortunately there doesn't seem to exist an equivalent formula using each atomic formula only once.
-        FieldFuncInfo leftInfo = optimizedFieldsInfo.get(left);
-        FieldFuncInfo rightInfo = optimizedFieldsInfo.get(right);
-        if (!leftInfo.argSorts.equals(rightInfo.argSorts)) {
-            // let the default translator deal with it
-            return null;
-        }
-
-        List<AnnotatedVar> vars = makeArgVars(leftInfo);
-        try {
-            context.removeFortressVars(vars);
-            TermTuple termTuple = TermTuple.fromVars(vars);
-
-            // TODO: if rightDomainFormula is cheaper than leftDomainFormula, swap them for a slight optimization
-            Term leftDomainFormula = makeDomainFormula(termTuple, leftInfo, context);
-            Term rightDomainFormula = makeDomainFormula(termTuple, rightInfo, context);
-            Term funcsEqual = Term.mkEq(
-                    Term.mkApp(leftInfo.funcName, termTuple.getTerms()),
-                    Term.mkApp(rightInfo.funcName, termTuple.getTerms()));
-            return Term.mkForall(vars, Term.mkAnd(
-                    Term.mkIff(leftDomainFormula, rightDomainFormula),
-                    Term.mkImp(leftDomainFormula, funcsEqual)));
-        } finally {
-            context.removeFortressVars(vars);
-        }
-    }
-
     /** Cast a field optimized here to a scalar function. */
     @Override
     public Scalar castToScalar(Expr expr, TranslationContext context) {
@@ -375,14 +296,6 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
         return domain.stream()
                 .map(args -> SetOps.concatenate(args, solution.evaluateTerm(Term.mkApp(info.funcName, args))))
                 .collect(ValueTupleSet.collect(info.arity));
-    }
-
-    private List<AnnotatedVar> makeArgVars(FieldFuncInfo info) {
-        List<AnnotatedVar> varList = new ArrayList<>();
-        for (int i = 0; i < info.argSorts.size(); i++) {
-            varList.add(Term.mkVar(nameGenerator.freshName("x" + i)).of(info.argSorts.get(i)));
-        }
-        return varList;
     }
 
     /**

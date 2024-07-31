@@ -72,7 +72,7 @@ public class DefaultScalarCasterTest {
         Scalar result = scalarCaster.castToScalar(ExprConstant.makeNUMBER(2), context);
         assertNotNull(result);
         assertEquals(flagTwo, result.getNilaryScalar());
-        assertEquals(Sort.Int(), result.getSort());
+        assertEquals(Sort.Int(), result.getResultSort());
         assertEquals(Term.mkTop(), result.getNilaryGuard());
     }
 
@@ -88,7 +88,7 @@ public class DefaultScalarCasterTest {
         Scalar result = scalarCaster.castToScalar(expr, context);
         assertNotNull(result);
         assertEquals(flagTwo, result.getNilaryScalar());
-        assertEquals(Sort.Int(), result.getSort());
+        assertEquals(Sort.Int(), result.getResultSort());
         assertEquals(Term.mkTop(), result.getNilaryGuard());
     }
 
@@ -176,7 +176,7 @@ public class DefaultScalarCasterTest {
         Term expectedScalar = Term.mkIfThenElse(condTerm, leftTerm, rightTerm);
         Term expectedGuard = Term.mkIfThenElse(condTerm, leftGuard, rightGuard);
         assertEquals(expectedScalar, result.getNilaryScalar());
-        assertEquals(testSort, result.getSort());
+        assertEquals(testSort, result.getResultSort());
         assertEquals(expectedGuard, result.getNilaryGuard());
     }
 
@@ -190,10 +190,12 @@ public class DefaultScalarCasterTest {
         Term condTerm = Term.mkVar("cond");
         Var x = Term.mkVar("x");
         when(mockTranslator.translate(eq(cond), any())).thenReturn(condTerm);
-        when(mockRoot.castToScalar(eq(left), any())).thenReturn(new Scalar(1, testSort,
+        when(mockRoot.castToScalar(eq(left), any())).thenReturn(new Scalar(
+                Collections.singletonList(testSort), testSort,
                 tuple -> Term.mkApp("left", tuple.getTerms()),
                 tuple -> Term.mkApp("leftGuard", tuple.getTerms())));
-        when(mockRoot.castToScalar(eq(right), any())).thenReturn(new Scalar(1, testSort,
+        when(mockRoot.castToScalar(eq(right), any())).thenReturn(new Scalar(
+                Collections.singletonList(testSort), testSort,
                 tuple -> Term.mkApp("right", tuple.getTerms()),
                 tuple -> Term.mkApp("rightGuard", tuple.getTerms())));
 
@@ -205,7 +207,7 @@ public class DefaultScalarCasterTest {
         Term expectedGuard = Term.mkIfThenElse(condTerm, Term.mkApp("leftGuard", x), Term.mkApp("rightGuard", x));
         assertEquals(1, result.getArity());
         assertEquals(expectedScalar, result.getScalar(TermTuple.fromVars(x.of(testSort))));
-        assertEquals(testSort, result.getSort());
+        assertEquals(testSort, result.getResultSort());
         assertEquals(expectedGuard, result.getGuard(TermTuple.fromVars(x.of(testSort))));
     }
 

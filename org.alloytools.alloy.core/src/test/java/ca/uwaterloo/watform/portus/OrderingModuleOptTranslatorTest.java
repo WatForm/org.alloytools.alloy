@@ -323,7 +323,7 @@ public class OrderingModuleOptTranslatorTest {
         assertNotNull(scalar);
         assertTrue(scalar.isNilary());
         assertEquals(Term.mkDomainElement(1, orderedSigSort), scalar.getNilaryScalar());
-        assertEquals(orderedSigSort, scalar.getSort());
+        assertEquals(orderedSigSort, scalar.getResultSort());
         assertEquals(Term.mkTop(), scalar.getNilaryGuard());
     }
 
@@ -346,7 +346,7 @@ public class OrderingModuleOptTranslatorTest {
         assertNotNull(scalar);
         assertTrue(scalar.isNilary());
         assertEquals(Term.mkDomainElement(5, orderedSigSort), scalar.getNilaryScalar());
-        assertEquals(orderedSigSort, scalar.getSort());
+        assertEquals(orderedSigSort, scalar.getResultSort());
         assertEquals(Term.mkTop(), scalar.getNilaryGuard());
     }
 
@@ -370,6 +370,8 @@ public class OrderingModuleOptTranslatorTest {
         assertNotNull(scalar);
         assertFalse(scalar.isNilary());
         assertEquals(1, scalar.getArity());
+        assertEquals(orderedSigSort, scalar.getArgSorts().get(0));
+        assertEquals(orderedSigSort, scalar.getResultSort());
         assertEquals(Term.mkApp(nextFunc.name(), x.variable()), scalar.getScalar(TermTuple.fromVars(x)));
         Term expectedGuard = Term.mkAnd(
                 Term.mkApp("inOrderedSig", x.variable()),

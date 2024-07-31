@@ -14,6 +14,8 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 
 import static ca.uwaterloo.watform.portus.IsSameMatcher.isSameAs;
 import static org.junit.Assert.assertEquals;
@@ -94,7 +96,8 @@ public class JoinOptTranslatorTest {
         // test [[x \in f . e]] := guard(x) && [[f(x) \in e]] when f is a unary scalar function
         ExprVar e = ExprVar.make(null, "e");
         ExprVar f = ExprVar.make(null, "f");
-        when(mockScalarCaster.castToScalar(argThat(isSameAs(f)), any())).thenReturn(new Scalar(1, testSort,
+        when(mockScalarCaster.castToScalar(argThat(isSameAs(f)), any())).thenReturn(new Scalar(
+                Collections.singletonList(testSort), testSort,
                 tuple -> Term.mkApp("f", tuple.getTerms()),
                 tuple -> Term.mkApp("guard", tuple.getTerms())));
 
@@ -114,7 +117,8 @@ public class JoinOptTranslatorTest {
         // test [[(x,y) \in f . e]] := guard(x) && [[(f(x),y) \in e]] when f is a unary scalar function
         ExprVar e = ExprVar.make(null, "e");
         ExprVar f = ExprVar.make(null, "f");
-        when(mockScalarCaster.castToScalar(argThat(isSameAs(f)), any())).thenReturn(new Scalar(1, testSort,
+        when(mockScalarCaster.castToScalar(argThat(isSameAs(f)), any())).thenReturn(new Scalar(
+                Collections.singletonList(testSort), testSort,
                 tuple -> Term.mkApp("f", tuple.getTerms()),
                 tuple -> Term.mkApp("guard", tuple.getTerms())));
 
@@ -136,7 +140,8 @@ public class JoinOptTranslatorTest {
         // test [[(x,y) \in f . e]] := guard(x,y) && [[f(x,y) \in e]] when f is a binary scalar function
         ExprVar e = ExprVar.make(null, "e");
         ExprVar f = ExprVar.make(null, "f");
-        when(mockScalarCaster.castToScalar(argThat(isSameAs(f)), any())).thenReturn(new Scalar(2, testSort,
+        when(mockScalarCaster.castToScalar(argThat(isSameAs(f)), any())).thenReturn(new Scalar(
+                Arrays.asList(testSort, testSort), testSort,
                 tuple -> Term.mkApp("f", tuple.getTerms()),
                 tuple -> Term.mkApp("guard", tuple.getTerms())));
 
@@ -158,7 +163,8 @@ public class JoinOptTranslatorTest {
         // test [[(x,y,z) \in f . e]] := guard(x,y) && [[(f(x,y),z) \in e]] when f is a binary scalar function
         ExprVar e = ExprVar.make(null, "e");
         ExprVar f = ExprVar.make(null, "f");
-        when(mockScalarCaster.castToScalar(argThat(isSameAs(f)), any())).thenReturn(new Scalar(2, testSort,
+        when(mockScalarCaster.castToScalar(argThat(isSameAs(f)), any())).thenReturn(new Scalar(
+                Arrays.asList(testSort, testSort), testSort,
                 tuple -> Term.mkApp("f", tuple.getTerms()),
                 tuple -> Term.mkApp("guard", tuple.getTerms())));
 
@@ -212,7 +218,7 @@ public class JoinOptTranslatorTest {
         when(mockScalarCaster.castToScalar(argThat(isSameAs(alloyX)), any()))
                 .thenReturn(new Scalar(new AnnotatedTerm(x), guardX));
         when(mockScalarCaster.castToScalar(argThat(isSameAs(alloyF)), any()))
-                .thenReturn(new Scalar(1, testSort,
+                .thenReturn(new Scalar(Collections.singletonList(testSort), testSort,
                         tuple -> Term.mkApp("f", tuple.getTerms()),
                         tuple -> Term.mkApp("guardF", tuple.getTerms())));
 

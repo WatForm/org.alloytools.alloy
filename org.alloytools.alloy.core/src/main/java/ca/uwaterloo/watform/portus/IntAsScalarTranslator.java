@@ -28,7 +28,7 @@ final class IntAsScalarTranslator implements Translator {
         if (scalar == null) {
             return null;
         }
-        if (!scalar.isNilary() || !scalar.getSort().equals(Sort.Int())) {
+        if (!scalar.isNilary() || !scalar.getResultSort().equals(Sort.Int())) {
             throw new ErrorFatal("Internal Portus error: Only formulas and integer expressions without free variables "
                     + "can be translated with translate()!");
         }

@@ -5,7 +5,7 @@ import fortress.data.NameGenerator;
 import scala.collection.Set$;
 
 /**
- * A generator for a NameGenerator that sanitizes names so that Fortress can accept them.
+ * A decorator for a NameGenerator that sanitizes names so that Fortress can accept them.
  * The character " is permitted in Alloy identifiers but not Fortress identifiers, so it is replaced before being passed
  * to the wrapped NameGenerator.
  * TODO: Reverse the sanitization for display?

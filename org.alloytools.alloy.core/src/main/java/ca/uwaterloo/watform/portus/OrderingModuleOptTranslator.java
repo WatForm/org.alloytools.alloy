@@ -128,7 +128,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
             DomainElement lastDE = Term.mkDomainElement(range.b, sort);
 
             // TODO: Short-circuit if it's a domain element?
-            return new Scalar(1, sort,
+            return new Scalar(Collections.singletonList(sort), sort,
                     tuple -> Term.mkApp(nextFuncName, tuple.getTerms()),
                     tuple -> Term.mkAnd(
                             recursivelyTranslate(ExprElementOf.make(tuple, sig), context),

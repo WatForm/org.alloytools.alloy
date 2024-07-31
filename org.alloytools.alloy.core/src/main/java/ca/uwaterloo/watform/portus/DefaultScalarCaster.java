@@ -148,13 +148,12 @@ final class DefaultScalarCaster implements ScalarCaster {
                     return null;
                 }
 
-                // If the arities or sorts aren't compatible, let someone else deal with it
-                if (leftScalar.getArity() != rightScalar.getArity()
-                        || !leftScalar.getSort().equals(rightScalar.getSort())) {
+                // If the arities/arg sorts/result sorts aren't compatible, let someone else deal with it
+                if (!leftScalar.hasSameSignature(rightScalar)) {
                     return null;
                 }
-                int arity = leftScalar.getArity();
-                Sort sort = leftScalar.getSort();
+                List<Sort> argSorts = leftScalar.getArgSorts();
+                Sort resultSort = leftScalar.getResultSort();
 
                 // scalar is "condition => left else right", guard is "condition => guardLeft else guardRight"
                 // (we have to repeat condition in normal translation anyways, so it should be fine)
@@ -163,7 +162,7 @@ final class DefaultScalarCaster implements ScalarCaster {
                         Term.mkIfThenElse(condition, leftScalar.getScalar(tuple), rightScalar.getScalar(tuple));
                 Function<TermTuple, Term> guardGenerator = tuple ->
                         Term.mkIfThenElse(condition, leftScalar.getGuard(tuple), rightScalar.getGuard(tuple));
-                return new Scalar(arity, sort, scalarGenerator, guardGenerator);
+                return new Scalar(argSorts, resultSort, scalarGenerator, guardGenerator);
             }
 
             @Override

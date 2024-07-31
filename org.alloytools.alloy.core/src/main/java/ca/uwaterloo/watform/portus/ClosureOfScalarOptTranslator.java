@@ -65,12 +65,12 @@ final class ClosureOfScalarOptTranslator extends AbstractTranslator {
         }
 
         Scalar closedScalar = scalarCaster.castToScalar(expr.sub, context);
-        if (closedScalar == null || closedScalar.getArity() != 1 || !y.getSort().equals(closedScalar.getSort())) {
+        if (closedScalar == null || closedScalar.getArity() != 1 || !y.getSort().equals(closedScalar.getResultSort())) {
             // arity != 1 should be impossible, but let someone else deal with it otherwise
             return null;
         }
 
-        Sort tcSort = closedScalar.getSort();
+        Sort tcSort = closedScalar.getResultSort();
         int sortScope = sortPolicy.getSortScope(tcSort);
         context.markSortUnchanging(tcSort); // since we rely on the sort's scope here
 

@@ -2,8 +2,13 @@ package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprBinary;
+import fortress.data.NameGenerator;
+import fortress.msfol.AnnotatedVar;
+import fortress.msfol.Sort;
 import fortress.msfol.Term;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -13,10 +18,13 @@ final class SimpleScalarOptTranslator implements Translator {
 
     private final Translator rootTranslator;
     private final ScalarCaster scalarCaster;
+    private final NameGenerator nameGenerator;
 
-    public SimpleScalarOptTranslator(Translator rootTranslator, ScalarCaster scalarCaster) {
+    public SimpleScalarOptTranslator(
+            Translator rootTranslator, ScalarCaster scalarCaster, NameGenerator nameGenerator) {
         this.rootTranslator = rootTranslator;
         this.scalarCaster = scalarCaster;
+        this.nameGenerator = nameGenerator;
     }
 
     @Override
@@ -52,63 +60,87 @@ final class SimpleScalarOptTranslator implements Translator {
         TermTuple args = expr.tuple.slice(0, expr.tuple.size() - 1);
 
         // If the sorts don't match up, short-circuit: can't possibly be equal
-        if (!Objects.equals(scalar.getSort(), last.getSort())) {
+        if (!Objects.equals(scalar.getResultSort(), last.getSort())) {
             return Term.mkBottom();
         }
 
         return Term.mkAnd(scalar.getGuard(args), Term.mkEq(last.getTerm(), scalar.getScalar(args)));
     }
 
-    /**
-     * For "in" and "=", if both are (nilary) scalars, just translate [[left = right]] or [[left in right]]
-     * as a plain equals.
-     * For "in", if left is a (nilary) scalar, translate [[left in right]] as [[left \in right]].
-     * TODO: Bring the optimized in/equals from FunctionOptTranslator here!
-     */
     private Term translateInEquals(ExprBinary expr, TranslationContext context) {
-        if (expr.op != ExprBinary.Op.EQUALS && expr.op != ExprBinary.Op.IN) {
-            return null;
-        }
+        if (expr.op != ExprBinary.Op.EQUALS && expr.op != ExprBinary.Op.IN) return null;
 
-        // Note: it should be impossible for them to be non-nilary scalars in this context, but just in case.
         Scalar leftScalar = scalarCaster.castToScalar(expr.left, context);
-        if (leftScalar == null || !leftScalar.isNilary()) {
+        if (leftScalar == null) {
             return null;
         }
+        if (expr.op == ExprBinary.Op.IN) {
+            return translateOptimizedIn(leftScalar, expr.right, context);
+        }
+
         Scalar rightScalar = scalarCaster.castToScalar(expr.right, context);
-        if (rightScalar == null || !rightScalar.isNilary()) {
-            if (expr.op == ExprBinary.Op.IN) {
-                // Left is a scalar - translate as [[guardLeft => left \in right]].
-                AnnotatedTerm scalarLeft = leftScalar.getNilaryAnnotatedScalar();
-                Term guardLeft = leftScalar.getNilaryGuard();
-                return Term.mkImp(guardLeft,
-                        rootTranslator.translate(ExprElementOf.make(scalarLeft, expr.right), context));
-            } else {
-                return null;
-            }
+        if (rightScalar == null) {
+            return null;
+        }
+        return translateOptimizedEquals(leftScalar, rightScalar);
+    }
+
+    /**
+     * If castToScalar(f) = (f, guard_f) of arity n, then translate:
+     *   [[f in g]] := forall x1,...xn . guard_f(x1,...,xn) => [[(x1,...,xn,f(x1,...,xn)) \in g]]
+     * This will be further optimized if g is also a scalar.
+     */
+    private Term translateOptimizedIn(Scalar leftScalar, Expr right, TranslationContext context) {
+        List<AnnotatedVar> argVars = makeArgVars(leftScalar.getArgSorts());
+
+        TermTuple tuple = TermTuple.fromVars(argVars);
+        TermTuple tupleWithLeft = tuple.concat(new TermTuple(leftScalar.getAnnotatedScalar(tuple)));
+
+        try {
+            context.addFortressVars(argVars);
+            Term inRight = rootTranslator.translate(ExprElementOf.make(tupleWithLeft, right), context);
+            Term body = Term.mkImp(leftScalar.getGuard(tuple), inRight);
+            return makeSmartForall(argVars, body);
+        } finally {
+            context.removeFortressVars(argVars);
+        }
+    }
+
+    /**
+     * If castToScalar(f) = (f, guard_f) and castToScalar(g) = (g, guard_g), both of arity n, then translate:
+     *   [[f = g]] := forall x1,...,xn . guard_f(x1,...,xn)
+     *     guard_f(x1,...,xn) => (guard_g(x1,..,xn) && f(x1,...,xn) = g(x1,...,xn)) else !guard_g(x1,...,xn)
+     */
+    private Term translateOptimizedEquals(Scalar left, Scalar right) {
+        if (!left.hasSameSignature(right)) {
+            return null; // let someone else deal with it
         }
 
-        // Short-circuit if the sorts aren't the same
-        if (!Objects.equals(leftScalar.getSort(), rightScalar.getSort())) {
-            return Term.mkBottom();
-        }
+        List<AnnotatedVar> argVars = makeArgVars(left.getArgSorts());
+        TermTuple tuple = TermTuple.fromVars(argVars);
 
-        Term guardLeft = leftScalar.getNilaryGuard();
-        Term guardRight = rightScalar.getNilaryGuard();
-        if (expr.op == ExprBinary.Op.EQUALS) {
-            // For equals, either (both guards are false, so both exprs are empty) or (both guards are true, so
-            // both expressions are nonempty, and the expressions are equal).
-            // Express this as guardLeft => guardRight && left = right else !guardRight.
-            return Term.mkIfThenElse(guardLeft,
-                    Term.mkAnd(guardRight, Term.mkEq(leftScalar.getNilaryScalar(), rightScalar.getNilaryScalar())),
-                    Term.mkNot(guardRight));
-        } else { // ExprBinary.Op.IN
-            // For in, the left guard is allowed to be false (empty is in anything), but if it is true then the
-            // right guard must be true and the scalars must be equal.
-            // Express this as guardLeft => guardRight && left = right.
-            return Term.mkImp(guardLeft,
-                    Term.mkAnd(guardRight, Term.mkEq(leftScalar.getNilaryScalar(), rightScalar.getNilaryScalar())));
+        // TODO: if right guard is cheaper than left guard, swap them for a (very) slight optimization
+        Term body = Term.mkIfThenElse(left.getGuard(tuple),
+                Term.mkAnd(right.getGuard(tuple), Term.mkEq(left.getScalar(tuple), right.getScalar(tuple))),
+                Term.mkNot(right.getGuard(tuple)));
+        return makeSmartForall(argVars, body);
+    }
+
+    /** Make a list of annotated variables from a list of sorts. */
+    private List<AnnotatedVar> makeArgVars(List<Sort> sorts) {
+        List<AnnotatedVar> varList = new ArrayList<>();
+        for (int i = 0; i < sorts.size(); i++) {
+            varList.add(Term.mkVar(nameGenerator.freshName("x" + i)).of(sorts.get(i)));
         }
+        return varList;
+    }
+
+    /** Return forall vars. body, handling the case where vars is empty. */
+    private Term makeSmartForall(List<AnnotatedVar> vars, Term body) {
+        if (vars.isEmpty()) {
+            return body;
+        }
+        return Term.mkForall(vars, body);
     }
 
 }
