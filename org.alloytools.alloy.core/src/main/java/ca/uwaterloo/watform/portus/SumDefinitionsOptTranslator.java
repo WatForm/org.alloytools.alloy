@@ -63,10 +63,15 @@ final class SumDefinitionsOptTranslator extends AbstractTranslator {
         }
 
         Expr conditionExpr = ExprElementOf.make(TermTuple.fromVars(vars), expr.sub);
-        Term condition = recursivelyTranslate(conditionExpr, context);
-        List<AnnotatedVar> conditionVars = PortusUtil.computeFreeVariables(conditionExpr, context, sortPolicy);
-        AnnotatedTerm conditionAnnotated = new AnnotatedTerm(condition, Sort.Bool(), conditionVars);
-        return translateSum(new AnnotatedTerm(IntegerLiteral.apply(1), Sort.Int()), conditionAnnotated, vars, context);
+        try {
+            context.addFortressVars(vars); // Add only the expanded-only vars since free vars should already be in scope
+            Term condition = recursivelyTranslate(conditionExpr, context);
+            AnnotatedTerm conditionAnnotated = new AnnotatedTerm(condition, Sort.Bool());
+            return translateSum(
+                    new AnnotatedTerm(IntegerLiteral.apply(1), Sort.Int()), conditionAnnotated, vars, context);
+        } finally {
+            context.removeFortressVars(vars);
+        }
     }
 
     @Override
@@ -88,19 +93,17 @@ final class SumDefinitionsOptTranslator extends AbstractTranslator {
         AnnotatedTerm condition = varsAndCond.b;
 
         // Process subformula - Fortress vars were added to the lexical scope in translateDeclList()
-        AnnotatedTerm sub;
         try {
             Term subTerm = recursivelyTranslate(expr.sub, context);
-            List<AnnotatedVar> freeVars = PortusUtil.computeFreeVariables(expr.sub, context, sortPolicy);
-            sub = new AnnotatedTerm(subTerm, Sort.Int(), freeVars);
+            AnnotatedTerm sub = new AnnotatedTerm(subTerm, Sort.Int());
+            return translateSum(sub, condition, vars, context);
         } finally {
             // Remove the vars from the lexical scope since it's done
             for (String alloyVarName : alloyVarNames) {
                 context.removeMapping(alloyVarName);
             }
+            context.removeFortressVars(vars);
         }
-
-        return translateSum(sub, condition, vars, context);
     }
 
     private Term translateSum(
@@ -113,8 +116,8 @@ final class SumDefinitionsOptTranslator extends AbstractTranslator {
 
         // We need to care about the free variables
         // Deduplicate them all and assign an arbitrary order
-        Set<AnnotatedVar> allFreeVarsSet = new HashSet<>(sub.getFreeVars());
-        allFreeVarsSet.addAll(condition.getFreeVars());
+        Set<AnnotatedVar> allFreeVarsSet = new HashSet<>(PortusUtil.computeTermFreeVars(sub.getTerm(), context));
+        allFreeVarsSet.addAll(PortusUtil.computeTermFreeVars(condition.getTerm(), context));
         vars.forEach(allFreeVarsSet::remove); // if there are any duplicates with the vars, remove them
         List<AnnotatedVar> freeVarsAnnotated = new ArrayList<>(allFreeVarsSet);
         List<Var> freeVars = freeVarsAnnotated.stream()

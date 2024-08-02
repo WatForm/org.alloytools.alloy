@@ -2,7 +2,6 @@ package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.Err;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
-import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.ast.Command;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.Module;
@@ -44,7 +43,7 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
 
     private final boolean useCaching;
     private final ContextExprCache<Term> translationCache;
-    private final ContextExprCache<Pair<AnnotatedTerm, AnnotatedTerm>> castToScalarCache;
+    private final ContextExprCache<Scalar> castToScalarCache;
 
     /**
      * Create a TranslatorManager that uses the given reporter and options
@@ -72,16 +71,17 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
 
         // There *shouldn't* be side effects in the constructors, so it should be ok to always construct these
         OneSigOptTranslator oneSigOpt = new OneSigOptTranslator(this, sortPolicy, sigAxioms);
-        FunctionOptTranslator functionOpt = new FunctionOptTranslator(
-                this, this, this, sortPolicy, nameGenerator, true);
+        FunctionOptTranslator functionOpt = new FunctionOptTranslator(this, this, sortPolicy, nameGenerator, true);
+        JoinOptTranslator joinOpt = new JoinOptTranslator(this, this);
         OrderingModuleOptTranslator orderingModuleOpt = new OrderingModuleOptTranslator(
-                this, this, sortPolicy, nameGenerator, options.enableOrderingDefinition);
+                this, sortPolicy, nameGenerator, options.enableOrderingDefinition);
         MembershipPredicateOptTranslator membershipPredOpt = new MembershipPredicateOptTranslator(
                 this, sortPolicy, sigAxioms, !options.enableFortressNonExactScopes);
         ClosureOfScalarOptTranslator closureOfScalarOpt = new ClosureOfScalarOptTranslator(
                 this, this, sortPolicy, nameGenerator);
         DefaultTranslator defaultTranslator = new DefaultTranslator(
                 this, scopeAxiomStrategy, sigAxioms, sortPolicy, nameGenerator);
+        IntAsScalarTranslator intAsScalarTranslator = new IntAsScalarTranslator(this);
 
         List<ScopeExpansionMarker> scopeExpansionMarkers = new ArrayList<>();
         scopeExpansionMarkers.add(defaultTranslator);
@@ -93,7 +93,7 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
         passes.add(new TranslationPass(this, sortPolicy, sigAxioms));
 
         if (options.enableSimpleScalarOptimization) {
-            translators.add(new SimpleScalarOptTranslator(this, this));
+            translators.add(new SimpleScalarOptTranslator(this, this, nameGenerator));
         }
         translators.add(orderingModuleOpt);
         if (options.enableOneSigOptimization) {
@@ -103,7 +103,7 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
             translators.add(functionOpt);
         }
         if (options.enableJoinOptimization) {
-            translators.add(new JoinOptTranslator(this, this));
+            translators.add(joinOpt);
         }
         if (options.enableMembershipPredicateOptimization) {
             translators.add(membershipPredOpt);
@@ -119,6 +119,9 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
                     this, sortPolicy, nameGenerator, options.enableSumBalancing));
         }
         translators.add(defaultTranslator);
+        if (options.enableIntsAsScalars) {
+            translators.add(intAsScalarTranslator);
+        }
 
         scalarCasters.add(orderingModuleOpt);
         if (options.enableOneSigOptimization) {
@@ -126,6 +129,9 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
         }
         if (options.enableFuncOptimization) {
             scalarCasters.add(functionOpt);
+        }
+        if (options.enableJoinOptimization) {
+            scalarCasters.add(joinOpt);
         }
         scalarCasters.add(new DefaultScalarCaster(this, this, sortPolicy));
         if (options.enableElementOfScalarOptimization) {
@@ -197,9 +203,9 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
      * @return (scalar term, guard), as casted by some scalar caster, or null if no caster can cast.
      */
     @Override
-    public Pair<AnnotatedTerm, AnnotatedTerm> castToScalar(Expr expr, TranslationContext context) {
+    public Scalar castToScalar(Expr expr, TranslationContext context) {
         if (useCaching) {
-            Pair<AnnotatedTerm, AnnotatedTerm> cached = castToScalarCache.get(expr, context);
+            Scalar cached = castToScalarCache.get(expr, context);
             if (cached != null) {
                 statistics.castToScalarCacheHitCount.increment();
                 return cached;
@@ -207,7 +213,7 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
         }
 
         for (ScalarCaster scalarCaster : scalarCasters) {
-            Pair<AnnotatedTerm, AnnotatedTerm> attempt = scalarCaster.castToScalar(expr, context);
+            Scalar attempt = scalarCaster.castToScalar(expr, context);
             if (attempt != null) {
                 statistics.scalarCasterUsageCounts.increment(scalarCaster);
                 if (useCaching) {

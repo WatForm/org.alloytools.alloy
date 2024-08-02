@@ -1,7 +1,6 @@
 package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.Err;
-import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.ast.VisitReturn;
 
 /**

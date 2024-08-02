@@ -12,6 +12,7 @@ import fortress.msfol.FunctionDefinition;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
 import fortress.msfol.Theory;
+import fortress.msfol.Var;
 import fortress.problemstate.Scope;
 
 import java.util.HashSet;
@@ -207,8 +208,57 @@ final class TranslationContext {
      * as previously added by {@link #addLetMappingsFromCall(ExprCall)}.
      */
     public void removeLetMappingsFromCall(ExprCall call) {
-        // Remove them individually, it's fine
         varMappingContext.removeLetMappingsFromCall(call);
+    }
+
+    /** @see VarMappingContext#addFortressVar(Var, Sort)  */
+    public void addFortressVar(Var var, Sort sort) {
+        varMappingContext.addFortressVar(var, sort);
+    }
+
+    /** @see VarMappingContext#addFortressVar(AnnotatedVar)  */
+    public void addFortressVar(AnnotatedVar var) {
+        varMappingContext.addFortressVar(var);
+    }
+
+    /** @see VarMappingContext#addFortressVars(List)  */
+    public void addFortressVars(List<AnnotatedVar> vars) {
+        varMappingContext.addFortressVars(vars);
+    }
+
+    /** @see VarMappingContext#addFortressVars(AnnotatedVar...)  */
+    public void addFortressVars(AnnotatedVar... vars) {
+        varMappingContext.addFortressVars(vars);
+    }
+
+    /** @see VarMappingContext#isFortressVarKnown(Var)  */
+    public boolean isFortressVarKnown(Var var) {
+        return varMappingContext.isFortressVarKnown(var);
+    }
+
+    /** @see VarMappingContext#getFortressVarSort(Var)  */
+    public Sort getFortressVarSort(Var var) {
+        return varMappingContext.getFortressVarSort(var);
+    }
+
+    /** @see VarMappingContext#removeFortressVar(Var)  */
+    public void removeFortressVar(Var var) {
+        varMappingContext.removeFortressVar(var);
+    }
+
+    /** @see VarMappingContext#removeFortressVar(AnnotatedVar)  */
+    public void removeFortressVar(AnnotatedVar var) {
+        varMappingContext.removeFortressVar(var);
+    }
+
+    /** @see VarMappingContext#removeFortressVars(List)  */
+    public void removeFortressVars(List<AnnotatedVar> vars) {
+        varMappingContext.removeFortressVars(vars);
+    }
+
+    /** @see VarMappingContext#removeFortressVars(AnnotatedVar...)  */
+    public void removeFortressVars(AnnotatedVar... vars) {
+        varMappingContext.removeFortressVars(vars);
     }
 
     /** Configure a model finder's theory and scopes to check this translation. */

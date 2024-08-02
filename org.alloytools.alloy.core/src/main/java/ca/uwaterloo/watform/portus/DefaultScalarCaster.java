@@ -2,7 +2,6 @@ package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.ConstList;
 import edu.mit.csail.sdg.alloy4.Err;
-import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.ast.Assert;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprBinary;
@@ -17,15 +16,13 @@ import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Func;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.parser.Macro;
-import fortress.msfol.AnnotatedVar;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
 
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
-import java.util.Set;
+import java.util.function.Function;
 
 /**
  * A scalar caster which casts simple expressions to scalars which don't need any additional state.
@@ -74,27 +71,25 @@ final class DefaultScalarCaster implements ScalarCaster {
     }
 
     @Override
-    public Pair<AnnotatedTerm, AnnotatedTerm> castToScalar(Expr expr, TranslationContext context) {
-        return new ContextVisitReturn<Pair<AnnotatedTerm, AnnotatedTerm>>(context, sortPolicy) {
-            private Pair<AnnotatedTerm, AnnotatedTerm> castByTranslating(Expr expr, Sort sort) {
+    public Scalar castToScalar(Expr expr, TranslationContext context) {
+        return new ContextVisitReturn<Scalar>(context, sortPolicy) {
+            private Scalar castByTranslating(Expr expr, Sort sort) {
                 // Translate as an expression of type `sort` and just use that
                 Term scalar = translator.translate(expr, context);
                 assert scalar != null;
 
-                // Assume no guard on usage needed, and there should be no free variables
-                List<AnnotatedVar> freeVars = ConstList.make();
-                return new Pair<>(new AnnotatedTerm(scalar, sort, freeVars),
-                        new AnnotatedTerm(Term.mkTop(), Sort.Bool()));
+                // Assume no guard on usage needed.
+                return new Scalar(new AnnotatedTerm(scalar, sort), Term.mkTop());
             }
 
             @Override
-            public Pair<AnnotatedTerm, AnnotatedTerm> visit(ExprList x) throws Err {
+            public Scalar visit(ExprList x) throws Err {
                 // None of the operators return scalars
                 return null;
             }
 
             @Override
-            public Pair<AnnotatedTerm, AnnotatedTerm> visit(ExprCall call) {
+            public Scalar visit(ExprCall call) {
                 // Cast the body
                 varMappingContext.addLetMappingsFromCall(call);
                 try {
@@ -105,7 +100,7 @@ final class DefaultScalarCaster implements ScalarCaster {
             }
 
             @Override
-            public Pair<AnnotatedTerm, AnnotatedTerm> visit(ExprConstant x) {
+            public Scalar visit(ExprConstant x) {
                 if (SCALAR_CONSTANTS.contains(x.op)) {
                     // Translate it as an integer/boolean expression and just use that
                     // Determine the Fortress sort: true, false are boolean, rest are integers
@@ -118,7 +113,7 @@ final class DefaultScalarCaster implements ScalarCaster {
             }
 
             @Override
-            public Pair<AnnotatedTerm, AnnotatedTerm> visit(ExprUnary x) {
+            public Scalar visit(ExprUnary x) {
                 // Check for and strip any noops
                 Expr denooped = PortusUtil.stripPortusNoops(x);
                 if (denooped != x) {
@@ -133,7 +128,7 @@ final class DefaultScalarCaster implements ScalarCaster {
             }
 
             @Override
-            public Pair<AnnotatedTerm, AnnotatedTerm> visit(ExprBinary x) {
+            public Scalar visit(ExprBinary x) {
                 if (SCALAR_BINARY_OPS.contains(x.op)) {
                     // Translate as an integer expression (they all return int)
                     return castByTranslating(x, Sort.Int());
@@ -142,66 +137,61 @@ final class DefaultScalarCaster implements ScalarCaster {
             }
 
             @Override
-            public Pair<AnnotatedTerm, AnnotatedTerm> visit(ExprITE x) {
+            public Scalar visit(ExprITE x) {
                 // If both branches are scalars, we can translate the whole ITE as a scalar
-                Pair<AnnotatedTerm, AnnotatedTerm> leftScalarAndGuard = rootScalarCaster.castToScalar(x.left, context);
-                if (leftScalarAndGuard == null) {
+                Scalar leftScalar = rootScalarCaster.castToScalar(x.left, context);
+                if (leftScalar == null) {
                     return null;
                 }
-                AnnotatedTerm leftScalar = leftScalarAndGuard.a;
-                AnnotatedTerm leftGuard = leftScalarAndGuard.b;
-                Pair<AnnotatedTerm, AnnotatedTerm> rightScalarAndGuard = rootScalarCaster.castToScalar(x.right, context);
-                if (rightScalarAndGuard == null) {
+                Scalar rightScalar = rootScalarCaster.castToScalar(x.right, context);
+                if (rightScalar == null) {
                     return null;
                 }
-                AnnotatedTerm rightScalar = rightScalarAndGuard.a;
-                AnnotatedTerm rightGuard = rightScalarAndGuard.b;
 
-                // If the sorts aren't compatible, let someone else deal with it
-                if (!Objects.equals(leftScalar.getSort(), rightScalar.getSort())) {
+                // If the arities/arg sorts/result sorts aren't compatible, let someone else deal with it
+                if (!leftScalar.hasSameSignature(rightScalar)) {
                     return null;
                 }
-                Sort sort = leftScalar.getSort();
+                List<Sort> argSorts = leftScalar.getArgSorts();
+                Sort resultSort = leftScalar.getResultSort();
 
                 // scalar is "condition => left else right", guard is "condition => guardLeft else guardRight"
                 // (we have to repeat condition in normal translation anyways, so it should be fine)
                 Term condition = translator.translate(x.cond, context);
-                Term scalar = Term.mkIfThenElse(condition, leftScalar.getTerm(), rightScalar.getTerm());
-                Term guard = Term.mkIfThenElse(condition, leftGuard.getTerm(), rightGuard.getTerm());
-                Set<AnnotatedVar> scalarFreeVars = SetOps.union(leftScalar.getFreeVars(), rightScalar.getFreeVars());
-                Set<AnnotatedVar> guardFreeVars = SetOps.union(leftScalar.getFreeVars(), rightScalar.getFreeVars());
-                return new Pair<>(
-                        new AnnotatedTerm(scalar, sort, scalarFreeVars),
-                        new AnnotatedTerm(guard, Sort.Bool(), guardFreeVars));
+                Function<TermTuple, Term> scalarGenerator = tuple ->
+                        Term.mkIfThenElse(condition, leftScalar.getScalar(tuple), rightScalar.getScalar(tuple));
+                Function<TermTuple, Term> guardGenerator = tuple ->
+                        Term.mkIfThenElse(condition, leftScalar.getGuard(tuple), rightScalar.getGuard(tuple));
+                return new Scalar(argSorts, resultSort, scalarGenerator, guardGenerator);
             }
 
             @Override
-            public Pair<AnnotatedTerm, AnnotatedTerm> visit(Sig sig) {
+            public Scalar visit(Sig sig) {
                 // one sigs are handled in OneSigOptTranslator
                 return null;
             }
 
             @Override
-            public Pair<AnnotatedTerm, AnnotatedTerm> visit(Sig.Field x) {
+            public Scalar visit(Sig.Field x) {
                 // No field can be a scalar on its own because no field is unary (always the sig on the left)
                 return null;
             }
 
             @Override
-            public Pair<AnnotatedTerm, AnnotatedTerm> visit(ExprElementOf x) {
+            public Scalar visit(ExprElementOf x) {
                 // ExprElementOf is always boolean, which we don't bother casting to scalar
                 return null;
             }
 
             @Override
-            public Pair<AnnotatedTerm, AnnotatedTerm> visitLet(ExprLet x) {
+            public Scalar visitLet(ExprLet x) {
                 // The mappings are already taken care of for us, so just cast the body
                 return rootScalarCaster.castToScalar(x.sub, context);
             }
 
             @Override
-            public Pair<AnnotatedTerm, AnnotatedTerm> visitQuantifier(
-                    ExprQt x, List<Pair<AnnotatedTerm, AnnotatedTerm>> argResults, boolean anyArgNone) {
+            public Scalar visitQuantifier(
+                    ExprQt x, List<Scalar> argResults, boolean anyArgNone) {
                 // Sum can be cast to scalar by translating since it's an int
                 if (x.op == ExprQt.Op.SUM) {
                     return castByTranslating(x, Sort.Int());
@@ -210,35 +200,35 @@ final class DefaultScalarCaster implements ScalarCaster {
             }
 
             @Override
-            public Pair<AnnotatedTerm, AnnotatedTerm> visitVar(ExprVar x) {
+            public Scalar visitVar(ExprVar x) {
                 // Check for mappings to scalars - lets handled for us
                 if (varMappingContext.hasTermMapping(x.label)) {
                     AnnotatedTerm fortressTerm = varMappingContext.getTermMapping(x.label);
                     assert fortressTerm != null;
                     // no guard on the variable usage is needed
-                    return new Pair<>(fortressTerm, new AnnotatedTerm(Term.mkTop(), Sort.Bool()));
+                    return new Scalar(fortressTerm, Term.mkTop());
                 }
                 return null;
             }
 
             @Override
-            public Pair<AnnotatedTerm, AnnotatedTerm> visitLetVarExpr(Expr expr) throws Err {
+            public Scalar visitLetVarExpr(Expr expr) throws Err {
                 // When super unwraps a let var for us, let all casters have a chance to cast it.
                 return rootScalarCaster.castToScalar(expr, context);
             }
 
             @Override
-            public Pair<AnnotatedTerm, AnnotatedTerm> visit(Func x) throws Err {
+            public Scalar visit(Func x) throws Err {
                 return null; // This probably shouldn't appear
             }
 
             @Override
-            public Pair<AnnotatedTerm, AnnotatedTerm> visit(Assert x) throws Err {
+            public Scalar visit(Assert x) throws Err {
                 return null; // This also probably shouldn't appear
             }
 
             @Override
-            public Pair<AnnotatedTerm, AnnotatedTerm> visit(Macro macro) throws Err {
+            public Scalar visit(Macro macro) throws Err {
                 return null; // This also probably shouldn't appear
             }
         }.visitThis(expr);

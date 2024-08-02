@@ -128,6 +128,13 @@ final class SetOps {
         return result;
     }
 
+    public static <T> List<T> concatenate(T value, List<T> list) {
+        List<T> result = new ArrayList<>(list.size() + 1);
+        result.add(value);
+        result.addAll(list);
+        return result;
+    }
+
     public static <T> List<T> concatenate(List<T> list, T value) {
         List<T> result = new ArrayList<>(list);
         result.add(value);

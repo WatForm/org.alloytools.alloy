@@ -67,8 +67,14 @@ final class BruteForceEvaluator implements Evaluator {
                     .collect(Collectors.toList());
 
             TranslationContext contextCopy = new TranslationContext(context);
-            Expr inExpr = ExprElementOf.make(TermTuple.fromVars(vars), expr);
-            Term formula = translator.translate(inExpr, contextCopy);
+            Term formula;
+            try {
+                contextCopy.addFortressVars(vars);
+                Expr inExpr = ExprElementOf.make(TermTuple.fromVars(vars), expr);
+                formula = translator.translate(inExpr, contextCopy);
+            } finally {
+                contextCopy.removeFortressVars(vars);
+            }
 
             List<List<Value>> sortAtoms = sortCombo.stream()
                     .map(solution::getSortAtoms)

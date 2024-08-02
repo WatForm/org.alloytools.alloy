@@ -9,7 +9,6 @@ import fortress.msfol.Term;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -30,8 +29,8 @@ final class TermTuple {
         this(Arrays.asList(terms));
     }
 
-    public TermTuple(Term term, Sort sort, List<AnnotatedVar> freeVars) {
-        this(new AnnotatedTerm(term, sort, freeVars));
+    public TermTuple(Term term, Sort sort) {
+        this(new AnnotatedTerm(term, sort));
     }
 
     public static TermTuple fromVars(Iterable<AnnotatedVar> vars) {
@@ -71,9 +70,9 @@ final class TermTuple {
     }
 
     /** Compute the set of all free variables in all the terms in the tuple. */
-    public ConstSet<AnnotatedVar> getAllFreeVars() {
+    public ConstSet<AnnotatedVar> getAllFreeVars(TranslationContext context) {
         return ConstSet.make(terms.stream()
-                .map(AnnotatedTerm::getFreeVars)
+                .map(term -> PortusUtil.computeTermFreeVars(term.getTerm(), context))
                 .map(HashSet::new) // make them mutable to union them
                 .reduce(new HashSet<>(), (set1, set2) -> {
                     set1.addAll(set2);

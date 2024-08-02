@@ -29,15 +29,15 @@ final class ExprCache<T> {
         private final List<Sort> freeVarSorts;
         private final Sort extraSort; // nullable
 
-        private CacheKey(Expr expr, Sort extraSort, VarMappingContext varMappingContext, SortPolicy sortPolicy) {
+        private CacheKey(Expr expr, Sort extraSort, TranslationContext context, SortPolicy sortPolicy) {
             if (expr == null) throw new NullPointerException();
 
             // Use this as the key to compare so that we don't get confused by lets
             // (without this otherwise e.g. with "fun f[x] { ^x }", we'd use the same aux function for all arguments x)
-            this.expr = PortusUtil.expandLets(expr, varMappingContext, sortPolicy);
+            this.expr = PortusUtil.expandLets(expr, context.varMappingContext, sortPolicy);
 
             // computeFreeVariables also recurses through lets
-            this.freeVarSorts = PortusUtil.computeFreeVariables(expr, varMappingContext, sortPolicy).stream()
+            this.freeVarSorts = PortusUtil.computeFreeVariables(expr, context, sortPolicy).stream()
                     .map(AnnotatedVar::sort)
                     .collect(Collectors.toList());
 
@@ -67,8 +67,8 @@ final class ExprCache<T> {
         this.sortPolicy = sortPolicy;
     }
 
-    public void put(Expr expr, Sort extraSort, T value, VarMappingContext varMappingContext) {
-        CacheKey key = new CacheKey(expr, extraSort, varMappingContext, sortPolicy);
+    public void put(Expr expr, Sort extraSort, T value, TranslationContext context) {
+        CacheKey key = new CacheKey(expr, extraSort, context, sortPolicy);
         remove(key);
         cache.add(new Pair<>(key, value));
     }
@@ -78,8 +78,8 @@ final class ExprCache<T> {
     }
 
     // Return null if cache miss
-    public T get(Expr expr, Sort extraSort, VarMappingContext varMappingContext) {
-        CacheKey key = new CacheKey(expr, extraSort, varMappingContext, sortPolicy);
+    public T get(Expr expr, Sort extraSort, TranslationContext context) {
+        CacheKey key = new CacheKey(expr, extraSort, context, sortPolicy);
         for (Pair<CacheKey, T> pair : cache) {
             if (key.equals(pair.a)) {
                 return pair.b;
