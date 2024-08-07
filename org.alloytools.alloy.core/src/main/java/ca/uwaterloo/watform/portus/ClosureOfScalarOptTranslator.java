@@ -1,16 +1,19 @@
 package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.ErrorSyntax;
+import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprUnary;
 import fortress.data.NameGenerator;
 import fortress.msfol.AnnotatedVar;
 import fortress.msfol.FunctionDefinition;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
+import scala.collection.immutable.Seq;
 import scala.jdk.javaapi.CollectionConverters;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -31,17 +34,25 @@ final class ClosureOfScalarOptTranslator extends AbstractTranslator {
     // Cache for definitions created by this optimization.
     private final ExprCache<String> closureDefnNameCache;
 
+    // Cache for definitions of nested functions: the ith defn is 2^i applications of the function.
+    private final ExprCache<List<String>> nestedScalarDefnNameCache;
+
     private final ScalarCaster scalarCaster;
     private final SortPolicy sortPolicy;
     private final NameGenerator nameGenerator;
 
+    private final boolean useSquareDefns;
+
     public ClosureOfScalarOptTranslator(
-            Translator topLevel, ScalarCaster scalarCaster, SortPolicy sortPolicy, NameGenerator nameGenerator) {
+            Translator topLevel, ScalarCaster scalarCaster, SortPolicy sortPolicy, NameGenerator nameGenerator,
+            boolean useSquareDefns) {
         super(topLevel);
         this.scalarCaster = scalarCaster;
         this.sortPolicy = sortPolicy;
         this.nameGenerator = nameGenerator;
+        this.useSquareDefns = useSquareDefns;
         this.closureDefnNameCache = new ExprCache<>(sortPolicy);
+        this.nestedScalarDefnNameCache = new ExprCache<>(sortPolicy);
     }
 
     @Override
@@ -80,7 +91,8 @@ final class ClosureOfScalarOptTranslator extends AbstractTranslator {
 
         boolean reflexive = (expr.op == ExprUnary.Op.RCLOSURE);
         Term defnBody = buildClosureTerm(
-                new AnnotatedTerm(xDefnVar), yDefnVar.variable(), closedScalar, sortScope, reflexive);
+                expr.sub, new AnnotatedTerm(xDefnVar), yDefnVar.variable(), closedScalar, sortScope, reflexive,
+                context);
 
         List<AnnotatedVar> freeVars = PortusUtil.computeFreeVariables(expr, context, sortPolicy);
         List<AnnotatedVar> defnParams = SetOps.concatenate(Arrays.<AnnotatedVar>asList(xDefnVar, yDefnVar), freeVars);
@@ -108,28 +120,18 @@ final class ClosureOfScalarOptTranslator extends AbstractTranslator {
         return Term.mkApp(defn.name(), defnArgs);
     }
 
-    private Term buildClosureTerm(AnnotatedTerm x, Term y, Scalar scalar, int sortScope, boolean reflexive) {
-        List<Term> scalarCalls = new ArrayList<>(); // scalarCalls[i] := y = f^{i+1}(x)
-        List<Term> guardCalls = new ArrayList<>(); // guardCalls[i] := f^i(x) in dom(f)
-
-        // Build up all of the calls
-        AnnotatedTerm currentTerm = x;
-        for (int i = 0; i < sortScope; i++) {
-            // guard: f^i(x) in dom(f)
-            Term guardApp = scalar.getGuard(new TermTuple(currentTerm));
-            // scalar: y = f^{i+1}(x)
-            currentTerm = scalar.getAnnotatedScalar(new TermTuple(currentTerm));
-
-            scalarCalls.add(Term.mkEq(y, currentTerm.getTerm()));
-            guardCalls.add(guardApp);
-        }
-
-        // Assemble the term
+    private Term buildClosureTerm(
+            Expr cacheKey, AnnotatedTerm x, Term y, Scalar scalar, int sortScope, boolean reflexive,
+            TranslationContext context) {
         Term assembled = Term.mkBottom();
         for (int i = sortScope - 1; i >= 0; i--) {
-            assembled = Term.mkOr(scalarCalls.get(i), assembled); // y = f^{i+1}(x)
-            // Add a guard for all the terms currently assembled
-            assembled = Term.mkAnd(guardCalls.get(i), assembled); // f^i(x) in dom(f)
+            // y = f^{i+1}(x)
+            Term iPlus1Nested = buildNestedCall(cacheKey, scalar, x, i + 1, context).getTerm();
+            assembled = Term.mkOr(Term.mkEq(y, iPlus1Nested), assembled);
+
+            // guard(f^i(x))
+            AnnotatedTerm iNested = buildNestedCall(cacheKey, scalar, x, i, context);
+            assembled = Term.mkAnd(scalar.getGuard(new TermTuple(iNested)), assembled);
         }
 
         if (reflexive) {
@@ -138,6 +140,70 @@ final class ClosureOfScalarOptTranslator extends AbstractTranslator {
         }
 
         return assembled;
+    }
+
+    // note: cache key should NOT include ^/* because it can be shared
+    private AnnotatedTerm buildNestedCall(
+            Expr cacheKey, Scalar scalar, AnnotatedTerm arg, int numNestings, TranslationContext context) {
+        if (useSquareDefns) {
+            return buildSquareDefnsNestedCall(cacheKey, scalar, arg, numNestings, context);
+        } else {
+            return buildPlainNestedCall(scalar, arg, numNestings);
+        }
+    }
+
+    private AnnotatedTerm buildPlainNestedCall(Scalar scalar, AnnotatedTerm arg, int numNestings) {
+        AnnotatedTerm result = arg;
+        for (int i = 0; i < numNestings; i++) {
+            result = scalar.getAnnotatedScalar(new TermTuple(result));
+        }
+        return result;
+    }
+
+    private AnnotatedTerm buildSquareDefnsNestedCall(
+            Expr cacheKey, Scalar scalar, AnnotatedTerm arg, int numNestings, TranslationContext context) {
+        List<String> squareDefns = nestedScalarDefnNameCache.get(cacheKey, scalar.getResultSort(), context);
+        if (squareDefns == null) {
+            squareDefns = makeSquareDefns(scalar, context);
+            nestedScalarDefnNameCache.put(cacheKey, scalar.getResultSort(), squareDefns, context);
+        }
+
+        // Express numNestings in binary and apply each definition accordingly
+        Term result = arg.getTerm();
+        for (int i = 0; i < squareDefns.size(); i++) {
+            if ((numNestings & (1 << i)) != 0) {
+                // numNestings has a 1 in this index in binary: apply the term
+                result = Term.mkApp(squareDefns.get(i), result);
+            }
+        }
+        return new AnnotatedTerm(result, scalar.getResultSort());
+    }
+
+    // Make definitions expressing f, f^2, f^4, f^8, ..., f^|sort|
+    private List<String> makeSquareDefns(Scalar scalar, TranslationContext context) {
+        int sortSize = sortPolicy.getSortScope(scalar.getResultSort());
+        List<String> defns = new ArrayList<>();
+        AnnotatedVar param = Term.mkVar(nameGenerator.freshName("x")).of(scalar.getArgSorts().get(0));
+        Seq<AnnotatedVar> paramList = CollectionConverters.asScala(Collections.singletonList(param)).toSeq();
+
+        String lastDefn = null;
+        for (int i = 1; i <= sortSize; i *= 2) {
+            Term body;
+            if (i == 1) {
+                body = scalar.getScalar(TermTuple.fromVars(param));
+            } else {
+                body = Term.mkApp(lastDefn, Term.mkApp(lastDefn, param.variable()));
+            }
+
+            String defnName = nameGenerator.freshName("closureNest" + i);
+            FunctionDefinition defn = new FunctionDefinition(defnName, paramList, scalar.getResultSort(), body);
+            context.addFunctionDefinition(defn);
+
+            defns.add(defnName);
+            lastDefn = defnName;
+        }
+
+        return defns;
     }
 
 }

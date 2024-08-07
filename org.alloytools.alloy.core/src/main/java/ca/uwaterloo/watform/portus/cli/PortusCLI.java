@@ -101,6 +101,7 @@ public final class PortusCLI {
                 && !cliOptions.useCardinalityScopeAxiomStrategy.active();
 
         options.enableOrderingDefinition = !cliOptions.disableOrderingDefinition.active();
+        options.enableClosureOptDefinition = !cliOptions.disableClosureOptDefinition.active();
         options.enableSumBalancing = cliOptions.enableSumBalancing.active();
 
         options.enableElementOfScalarOptimization = cliOptions.enableElementOfScalarOpt.active();

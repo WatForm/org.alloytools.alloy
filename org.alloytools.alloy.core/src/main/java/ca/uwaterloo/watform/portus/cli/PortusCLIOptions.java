@@ -80,6 +80,8 @@ final class PortusCLIOptions {
 
     public final Option disableOrderingDefinition = new Option(
             "-disable-ordering-defn", "Disable using definitions in the ordering module.");
+    public final Option disableClosureOptDefinition = new Option(
+            "-disable-closure-opt-defn", "Disable using definitions in the closure-of-scalars optimization.");
     public final Option enableSumBalancing = new Option(
             "-enable-sum-balancing",
             "Enable balanced sum definitions (experimental). Requires sum definitions optimization.");
@@ -108,7 +110,7 @@ final class PortusCLIOptions {
             disableClosureOfScalarOpt, disableIntsAsScalars, disableMembershipPredicateOpt, disablePartitionSortPolicy,
             disableSumDefinitionsOpt,
             useCardinalityScopeAxiomStrategy, disableFuncOpt, disableAllOpts,
-            disableOrderingDefinition, enableSumBalancing,
+            disableOrderingDefinition, disableClosureOptDefinition, enableSumBalancing,
             enableElementOfScalarOpt, enableCaching, enableKodkodIntCompatibility,
             enableFortressNonExactScopes,
     };
