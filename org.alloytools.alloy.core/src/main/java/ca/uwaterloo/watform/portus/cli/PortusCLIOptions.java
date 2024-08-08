@@ -15,6 +15,7 @@ final class PortusCLIOptions {
 
     // The Portus options available.
     public final Option help = new Option("-h", "Print this help.");
+    public final Option verbose = new Option("-v", "Enable verbose output.");
     public final Option adjustBitwidth = new Option(
             "-b", "Adjust bitwidths to be large enough for the cardinality scope axiom strategy.");
     public final Option noTimeout = new Option("-nt", "Disable the 20-minute SMT solver timeout.");
@@ -98,7 +99,7 @@ final class PortusCLIOptions {
             "-enable-fortress-nonexact-scopes", "Enable use of the Fortress-level non-exact scopes feature.");
 
     public final Option[] allOptions = new Option[] {
-            help, adjustBitwidth, noTimeout, pickCommandNumber,
+            help, verbose, adjustBitwidth, noTimeout, pickCommandNumber,
             fortressCompiler, fortressSolver,
             setAllScopes, setSigScope,
             useRunPortusProcessor, useRunKodkodProcessor,

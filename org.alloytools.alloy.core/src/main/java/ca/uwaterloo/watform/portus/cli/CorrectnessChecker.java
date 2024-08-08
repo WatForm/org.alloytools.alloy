@@ -248,7 +248,7 @@ final class CorrectnessChecker {
         AlloySolution fortressSol;
         try {
             fortressSol = fortressSolver.commandRunner().executeCommand(
-                    A4Reporter.NOP, statistics, world, command, options);
+                    new StdoutA4Reporter(options.portusOptions.verbose), statistics, world, command, options);
         } catch (Exception exception) {
             return new Result(Result.Kind.EXCEPTION, exception);
         }

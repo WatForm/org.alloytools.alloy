@@ -85,6 +85,8 @@ public final class PortusCLI {
                     + " disabled for correctness reasons.");
         }
 
+        options.verbose = cliOptions.verbose.active();
+
         boolean disableAllOpts = cliOptions.disableAllOpts.active();
         options.enableSimpleScalarOptimization = !disableAllOpts && !cliOptions.disableSimpleScalarOpt.active();
         options.enableOneSigOptimization = !disableAllOpts && !cliOptions.disableOneSigOpt.active();

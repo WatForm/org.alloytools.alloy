@@ -27,7 +27,7 @@ final class RunCommandProcessor implements CommandProcessor {
             AlloySolution solution;
             if (isPortus) {
                 solution = ((PortusOptions.FortressSmtSolver) solver).commandRunner().executeCommand(
-                        A4Reporter.NOP, statistics, world, command, options);
+                        new StdoutA4Reporter(options.portusOptions.verbose), statistics, world, command, options);
             } else {
                 solution = solver.commandRunner().executeCommand(A4Reporter.NOP, world, command, options);
             }
