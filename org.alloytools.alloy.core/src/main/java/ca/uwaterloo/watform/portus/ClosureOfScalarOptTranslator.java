@@ -1,6 +1,7 @@
 package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.ErrorSyntax;
+import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprUnary;
 import fortress.data.NameGenerator;
@@ -13,7 +14,6 @@ import scala.jdk.javaapi.CollectionConverters;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -35,7 +35,7 @@ final class ClosureOfScalarOptTranslator extends AbstractTranslator {
     private final ExprCache<String> closureDefnNameCache;
 
     // Cache for definitions of nested functions: the ith defn is 2^i applications of the function.
-    private final ExprCache<List<String>> nestedScalarDefnNameCache;
+    private final ExprCache<Pair<List<String>, List<Term>>> nestedScalarDefnNameCache;
 
     private final ScalarCaster scalarCaster;
     private final SortPolicy sortPolicy;
@@ -162,37 +162,55 @@ final class ClosureOfScalarOptTranslator extends AbstractTranslator {
 
     private AnnotatedTerm buildSquareDefnsNestedCall(
             Expr cacheKey, Scalar scalar, AnnotatedTerm arg, int numNestings, TranslationContext context) {
-        List<String> squareDefns = nestedScalarDefnNameCache.get(cacheKey, scalar.getResultSort(), context);
-        if (squareDefns == null) {
-            squareDefns = makeSquareDefns(scalar, context);
-            nestedScalarDefnNameCache.put(cacheKey, scalar.getResultSort(), squareDefns, context);
+        Pair<List<String>, List<Term>> squareDefnsAndFreeVars = nestedScalarDefnNameCache.get(
+                cacheKey, scalar.getResultSort(), context);
+        if (squareDefnsAndFreeVars == null) {
+            squareDefnsAndFreeVars = makeSquareDefns(scalar, context);
+            nestedScalarDefnNameCache.put(cacheKey, scalar.getResultSort(), squareDefnsAndFreeVars, context);
         }
+        List<String> squareDefns = squareDefnsAndFreeVars.a;
+        List<Term> freeVars = squareDefnsAndFreeVars.b;
 
         // Express numNestings in binary and apply each definition accordingly
         Term result = arg.getTerm();
         for (int i = 0; i < squareDefns.size(); i++) {
             if ((numNestings & (1 << i)) != 0) {
                 // numNestings has a 1 in this index in binary: apply the term
-                result = Term.mkApp(squareDefns.get(i), result);
+                result = Term.mkApp(squareDefns.get(i), SetOps.concatenate(result, freeVars));
             }
         }
         return new AnnotatedTerm(result, scalar.getResultSort());
     }
 
     // Make definitions expressing f, f^2, f^4, f^8, ..., f^|sort|
-    private List<String> makeSquareDefns(Scalar scalar, TranslationContext context) {
+    // Second element is the list of free variables to pass
+    private Pair<List<String>, List<Term>> makeSquareDefns(Scalar scalar, TranslationContext context) {
         int sortSize = sortPolicy.getSortScope(scalar.getResultSort());
         List<String> defns = new ArrayList<>();
         AnnotatedVar param = Term.mkVar(nameGenerator.freshName("x")).of(scalar.getArgSorts().get(0));
-        Seq<AnnotatedVar> paramList = CollectionConverters.asScala(Collections.singletonList(param)).toSeq();
+
+        Term scalarBody = scalar.getScalar(TermTuple.fromVars(param));
+        List<AnnotatedVar> freeAnnVars;
+        try {
+            context.addFortressVar(param);
+            freeAnnVars = PortusUtil.computeTermFreeVars(scalarBody, context).stream()
+                    .filter(avar -> !avar.equals(param)) // remove the param - we only want extra free vars
+                    .collect(Collectors.toList());
+        } finally {
+            context.removeFortressVar(param);
+        }
+        List<Term> freeVars = freeAnnVars.stream().map(AnnotatedVar::variable).collect(Collectors.toList());
+
+        Seq<AnnotatedVar> paramList = CollectionConverters.asScala(SetOps.concatenate(param, freeAnnVars)).toSeq();
 
         String lastDefn = null;
         for (int i = 1; i <= sortSize; i *= 2) {
             Term body;
             if (i == 1) {
-                body = scalar.getScalar(TermTuple.fromVars(param));
+                body = scalarBody;
             } else {
-                body = Term.mkApp(lastDefn, Term.mkApp(lastDefn, param.variable()));
+                Term innerCall = Term.mkApp(lastDefn, SetOps.concatenate(param.variable(), freeVars));
+                body = Term.mkApp(lastDefn, SetOps.concatenate(innerCall, freeVars));
             }
 
             String defnName = nameGenerator.freshName("closureNest" + i);
@@ -203,7 +221,7 @@ final class ClosureOfScalarOptTranslator extends AbstractTranslator {
             lastDefn = defnName;
         }
 
-        return defns;
+        return new Pair<>(defns, freeVars);
     }
 
 }
