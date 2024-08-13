@@ -5,6 +5,7 @@ import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprBinary;
 import edu.mit.csail.sdg.ast.ExprList;
+import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.Sig;
 import fortress.data.NameGenerator;
 import fortress.msfol.DomainElement;
@@ -32,6 +33,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
         private final Sig.Field first;
         private final Sig.Field next;
         private final String nextFuncName;
+        private final String prevFuncName;
 
         // The domain element corresponding to the one sig's only atom.
         private final DomainElement ordDE;
@@ -43,6 +45,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
             this.first = first;
             this.next = next;
             this.nextFuncName = generateNextFuncName();
+            this.prevFuncName = generatePrevFuncName();
             validate(context);
 
             this.ordDE = PortusUtil.getOneSigDomainElement((Sig.PrimSig) ordSig, sortPolicy, context);
@@ -51,6 +54,10 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
         private String generateNextFuncName() {
             // Ensure two orderings on the same sig get the same func name
             return "next_" + sig.label;
+        }
+
+        private String generatePrevFuncName() {
+            return "prev_" + sig.label;
         }
 
         private void validate(TranslationContext context) {
@@ -107,6 +114,13 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
             return nextField != null && matchesNextField(nextField);
         }
 
+        public boolean matchesPrevUsage(Expr candidatePrev) {
+            // prev is ~(Ord.Next)
+            if (!(candidatePrev instanceof ExprUnary)) return false;
+            ExprUnary candidatePrevUnary = (ExprUnary) candidatePrev;
+            return candidatePrevUnary.op == ExprUnary.Op.TRANSPOSE && matchesNextUsage(candidatePrevUnary.sub);
+        }
+
         public Expr getFirstUsage() {
             return ordSig.join(first);
         }
@@ -133,6 +147,21 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
                     tuple -> Term.mkAnd(
                             recursivelyTranslate(ExprElementOf.make(tuple, sig), context),
                             Term.mkNot(Term.mkEq(tuple.getTerm(0), lastDE))));
+        }
+
+        public Scalar getPrevScalar(TranslationContext context) {
+            // we translate prev = ~next as a scalar too because next is a bijection
+            addPrevPredicate(context);
+            context.rangeAssigner.addRangeAxiom(sig, topLevelTranslator, context); // ensure range is valid
+            Pair<Integer, Integer> range = context.rangeAssigner.getDomainElementRange(sig);
+            DomainElement firstDE = Term.mkDomainElement(range.a, sort);
+
+            // TODO: Short-circuit if it's a domain element?
+            return new Scalar(Collections.singletonList(sort), sort,
+                    tuple -> Term.mkApp(prevFuncName, tuple.getTerms()),
+                    tuple -> Term.mkAnd(
+                            recursivelyTranslate(ExprElementOf.make(tuple, sig), context),
+                            Term.mkNot(Term.mkEq(tuple.getTerm(0), firstDE))));
         }
 
         public void addNextPredicate(TranslationContext context) {
@@ -184,6 +213,59 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
                     Term axiom = Term.mkEq(
                             Term.mkApp(nextFuncName, Term.mkDomainElement(de, sort)),
                             Term.mkDomainElement(de + 1, sort));
+                    context.addAxiom(axiom);
+                }
+            }
+        }
+
+        public void addPrevPredicate(TranslationContext context) {
+            if (context.hasFunctionWithName(prevFuncName)) {
+                return;
+            }
+
+            Sort sort = sortPolicy.getSort(sig);
+            context.rangeAssigner.addRangeAxiom(sig, topLevelTranslator, context); // ensure range is valid
+
+            if (useDefinition) {
+                // Generate a lookup table for the definition body
+                List<Pair<Term, Term>> lookupTable = new ArrayList<>();
+                Pair<Integer, Integer> deRange = context.rangeAssigner.getDomainElementRange(sig);
+                for (int de = deRange.b; de > deRange.a; de--) {
+                    // "prev(_@de) = _@(de-1)"
+                    lookupTable.add(new Pair<>(Term.mkDomainElement(de, sort), Term.mkDomainElement(de - 1, sort)));
+                }
+
+                Var inputVar = Term.mkVar(nameGenerator.freshName("x"));
+                Term lookupTableTerm;
+                try {
+                    context.addFortressVar(inputVar.of(sort));
+                    if (lookupTable.isEmpty()) {
+                        // The ordered sig has a scope of 1, so every value of prev is ignored.
+                        // This is an edge case so don't bother optimizing specially - assign it arbitrarily.
+                        lookupTableTerm = Term.mkDomainElement(deRange.a, sort);
+                    } else {
+                        lookupTableTerm = PortusUtil.mkExhaustiveLookupTable(inputVar, lookupTable);
+                    }
+                } finally {
+                    context.removeFortressVar(inputVar.of(sort));
+                }
+                FunctionDefinition definition = FunctionDefinition.mkFunctionDefinition(
+                        prevFuncName, Collections.singletonList(inputVar.of(sort)), sort, lookupTableTerm);
+                context.addFunctionDefinition(definition);
+            } else {
+                // Generate the function (prev: sort->sort)
+                FuncDecl funcDecl = FuncDecl.mkFuncDecl(prevFuncName, sort, sort);
+                context.addFunctionDeclaration(funcDecl);
+
+                // Constrain it by hardcoding the order, leaving prev(first) undefined
+                // Note: deRange is inclusive, so we exclude the last element in the range
+                context.rangeAssigner.addRangeAxiom(sig, topLevelTranslator, context); // ensure range is valid
+                Pair<Integer, Integer> deRange = context.rangeAssigner.getDomainElementRange(sig);
+                for (int de = deRange.b; de > deRange.a; de--) {
+                    // "prev(_@de) = _@(de-1)"
+                    Term axiom = Term.mkEq(
+                            Term.mkApp(prevFuncName, Term.mkDomainElement(de, sort)),
+                            Term.mkDomainElement(de - 1, sort));
                     context.addAxiom(axiom);
                 }
             }
@@ -371,6 +453,8 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
                 return new Scalar(order.getFirstScalar(context), Term.mkTop());
             } else if (order.matchesNextUsage(expr)) {
                 return order.getNextScalar(context);
+            } else if (order.matchesPrevUsage(expr)) {
+                return order.getPrevScalar(context);
             }
         }
         return null;

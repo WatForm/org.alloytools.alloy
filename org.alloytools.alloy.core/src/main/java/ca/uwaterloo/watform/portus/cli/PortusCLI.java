@@ -85,6 +85,8 @@ public final class PortusCLI {
                     + " disabled for correctness reasons.");
         }
 
+        options.verbose = cliOptions.verbose.active();
+
         boolean disableAllOpts = cliOptions.disableAllOpts.active();
         options.enableSimpleScalarOptimization = !disableAllOpts && !cliOptions.disableSimpleScalarOpt.active();
         options.enableOneSigOptimization = !disableAllOpts && !cliOptions.disableOneSigOpt.active();
@@ -101,6 +103,7 @@ public final class PortusCLI {
                 && !cliOptions.useCardinalityScopeAxiomStrategy.active();
 
         options.enableOrderingDefinition = !cliOptions.disableOrderingDefinition.active();
+        options.enableClosureOptDefinition = !cliOptions.disableClosureOptDefinition.active();
         options.enableSumBalancing = cliOptions.enableSumBalancing.active();
 
         options.enableElementOfScalarOptimization = cliOptions.enableElementOfScalarOpt.active();

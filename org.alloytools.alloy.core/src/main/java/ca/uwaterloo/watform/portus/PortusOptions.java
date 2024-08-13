@@ -46,6 +46,9 @@ public final class PortusOptions implements Serializable {
     /** Ensure we can serialize correctly. */
     private static final long serialVersionUID = 0L;
 
+    // Print verbose output?
+    public boolean verbose = false;
+
     // The timeout for the SMT solver in milliseconds, by default 20 minutes.
     public int timeoutMillis = 20 * 60 * 1000;
 
@@ -77,7 +80,8 @@ public final class PortusOptions implements Serializable {
     public boolean enablePartitionSortPolicy = true;
     public boolean enableConstantsScopeAxiomStrategy = true; // alternative: cardinality; TODO: refactor this
 
-    public boolean enableOrderingDefinition = false;
+    public boolean enableOrderingDefinition = true;
+    public boolean enableClosureOptDefinition = true;
     public boolean enableSumBalancing = false;
 
     public boolean enableElementOfScalarOptimization = false;

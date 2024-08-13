@@ -15,6 +15,7 @@ final class PortusCLIOptions {
 
     // The Portus options available.
     public final Option help = new Option("-h", "Print this help.");
+    public final Option verbose = new Option("-v", "Enable verbose output.");
     public final Option adjustBitwidth = new Option(
             "-b", "Adjust bitwidths to be large enough for the cardinality scope axiom strategy.");
     public final Option noTimeout = new Option("-nt", "Disable the 20-minute SMT solver timeout.");
@@ -80,6 +81,8 @@ final class PortusCLIOptions {
 
     public final Option disableOrderingDefinition = new Option(
             "-disable-ordering-defn", "Disable using definitions in the ordering module.");
+    public final Option disableClosureOptDefinition = new Option(
+            "-disable-closure-opt-defn", "Disable using definitions in the closure-of-scalars optimization.");
     public final Option enableSumBalancing = new Option(
             "-enable-sum-balancing",
             "Enable balanced sum definitions (experimental). Requires sum definitions optimization.");
@@ -96,7 +99,7 @@ final class PortusCLIOptions {
             "-enable-fortress-nonexact-scopes", "Enable use of the Fortress-level non-exact scopes feature.");
 
     public final Option[] allOptions = new Option[] {
-            help, adjustBitwidth, noTimeout, pickCommandNumber,
+            help, verbose, adjustBitwidth, noTimeout, pickCommandNumber,
             fortressCompiler, fortressSolver,
             setAllScopes, setSigScope,
             useRunPortusProcessor, useRunKodkodProcessor,
@@ -108,7 +111,7 @@ final class PortusCLIOptions {
             disableClosureOfScalarOpt, disableIntsAsScalars, disableMembershipPredicateOpt, disablePartitionSortPolicy,
             disableSumDefinitionsOpt,
             useCardinalityScopeAxiomStrategy, disableFuncOpt, disableAllOpts,
-            disableOrderingDefinition, enableSumBalancing,
+            disableOrderingDefinition, disableClosureOptDefinition, enableSumBalancing,
             enableElementOfScalarOpt, enableCaching, enableKodkodIntCompatibility,
             enableFortressNonExactScopes,
     };
