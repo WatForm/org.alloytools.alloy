@@ -4497,6 +4497,7 @@ public class DefaultTranslatorTest {
     @Test
     public void testTranslate_int_literal() {
         // test [[2]] := 2 (as an integer literal)
+        when(mockScoper.getBitwidth()).thenReturn(4);
         Term result = translator.translate(ExprConstant.makeNUMBER(2), context);
         assertEquals(IntegerLiteral.apply(2), result);
         assertContextEmpty();
@@ -4506,10 +4507,18 @@ public class DefaultTranslatorTest {
     public void testTranslate_int_inIntLiteral() {
         // test [[x \in 2]] := [[x]] = 2
         delegateToRealTranslator();
+        when(mockScoper.getBitwidth()).thenReturn(4);
         Var x = Term.mkVar("x");
         Term result = translator.translate(ExprElementOf.make(x.of(Sort.Int()), ExprConstant.makeNUMBER(2)), context);
         assertEquals(Term.mkEq(x, IntegerLiteral.apply(2)), result);
         assertContextEmpty();
+    }
+
+    @Test
+    public void testTranslate_int_outsideRange() {
+        // test that we error on too-large integer constants
+        when(mockScoper.getBitwidth()).thenReturn(4);
+        assertThrows(ErrorNoPortusSupport.class, () -> translator.translate(ExprConstant.makeNUMBER(8), context));
     }
 
     @Test
@@ -4579,6 +4588,7 @@ public class DefaultTranslatorTest {
         Var x = Term.mkVar("x"), y = Term.mkVar("y");
 
         delegateToRealTranslator();
+        when(mockScoper.getBitwidth()).thenReturn(4);
         Term result = translator.translate(alloyX.get().equal(ExprConstant.makeNUMBER(2)).forSome(alloyX), context);
         Term expected = Term.mkExists(x.of(Sort.Int()),
                 Term.mkAnd(Term.mkTop(),
@@ -4608,6 +4618,7 @@ public class DefaultTranslatorTest {
                 new Pair<>(ExprBinary.Op.REM, Term::mkMod)); // %
 
         delegateToRealTranslator();
+        when(mockScoper.getBitwidth()).thenReturn(4);
         for (Pair<ExprBinary.Op, BiFunction<Term, Term, Term>> alloyToFortressOp : alloyToFortressOps) {
             ExprBinary.Op alloyOp = alloyToFortressOp.a;
             BiFunction<Term, Term, Term> fortressOp = alloyToFortressOp.b;
@@ -4624,6 +4635,7 @@ public class DefaultTranslatorTest {
     public void testTranslate_int_chainedPlus() {
         // test [[2.plus[1].plus[3]]] := (2+1)+3
         delegateToRealTranslator();
+        when(mockScoper.getBitwidth()).thenReturn(4);
         Term result = translator.translate(
                 ExprConstant.makeNUMBER(2).iplus(ExprConstant.makeNUMBER(1)).iplus(ExprConstant.makeNUMBER(3)),
                 context);
