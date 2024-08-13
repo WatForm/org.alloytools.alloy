@@ -3,6 +3,7 @@ package ca.uwaterloo.watform.portus;
 import edu.mit.csail.sdg.alloy4.Err;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.alloy4.Pair;
+import edu.mit.csail.sdg.alloy4.Util;
 import edu.mit.csail.sdg.ast.Assert;
 import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
@@ -108,6 +109,18 @@ final class PortusUtil {
         ExprBinary arrow = (ExprBinary) expr;
         // mult == 2 means "has an arrow multiplicity constraint"
         return arrow.op.isArrow && arrow.mult == 2;
+    }
+
+    /**
+     * Throw an error if the literal integer value is outside the valid integer range for the bitwidth.
+     * This is used because Fortress's OPFI enforces the integer range more strictly than Kodkod.
+     */
+    public static void checkLiteralIntWithinBitwidth(int literalValue, int bitwidth) {
+        if (literalValue < Util.min(bitwidth) || literalValue > Util.max(bitwidth)) {
+            throw new ErrorNoPortusSupport(
+                    "Integer literal " + literalValue + " is outside the valid integer range at bitwidth " + bitwidth
+                    + "! Please increase the bitwidth or modify your model.");
+        }
     }
 
     /**

@@ -146,7 +146,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
             statistics.onStartSmtSolver();
             ModelFinderResult result;
             try {
-                result = finder.checkSat(false);
+                result = finder.checkSat(false, false);
             } finally {
                 statistics.onSmtSolverFinished();
             }
@@ -245,7 +245,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
             }
 
             translated.configureModelFinder(finder);
-            finder.checkSat(false);
+            finder.checkSat(false, false);
             writer.flush();
         }
         logger.outputFilename(smtlibFile.getAbsolutePath());

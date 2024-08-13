@@ -1438,6 +1438,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
             case FALSE:
                 return Term.mkBottom();
             case NUMBER:
+                PortusUtil.checkLiteralIntWithinBitwidth(expr.num, context.getBitwidth());
                 return IntegerLiteral.apply(expr.num);
             case MIN:
                 return IntegerLiteral.apply(Util.min(context.getBitwidth()));
