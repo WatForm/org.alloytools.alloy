@@ -25,7 +25,11 @@ public final class SortResolvant {
         this.sortTuples = sortTuples;
     }
 
-    public static final SortResolvant NONE = new SortResolvant(TupleSet.empty(1));
+    public static final SortResolvant NONE = none(1);
+
+    public static SortResolvant none(int size) {
+        return new SortResolvant(TupleSet.empty(size));
+    }
 
     public static SortResolvant univ(SortPolicy sortPolicy) {
         return new SortResolvant(TupleSet.singletons(sortPolicy.getAllSorts()));
