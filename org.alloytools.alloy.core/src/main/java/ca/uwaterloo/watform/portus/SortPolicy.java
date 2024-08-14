@@ -361,6 +361,11 @@ public abstract class SortPolicy {
             } else {
                 // unknown variable
                 // try to get the sort from the type - TODO this probably isn't necessary (except for tests)
+                List<Sort> typeSorts = getTypeSorts(x.type());
+                if (typeSorts.stream().anyMatch(Objects::isNull)) {
+                    // Undefined - some edge cases end up here, e.g. {x: none | (all y: x | 1=1)}
+                    return SortResolvant.none(typeSorts.size());
+                }
                 return SortResolvant.definite(getTypeSorts(x.type()));
             }
         }
