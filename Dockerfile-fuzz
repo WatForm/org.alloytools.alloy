@@ -35,4 +35,4 @@ COPY org.alloytools.alloy.dist/target/org.alloytools.alloy.dist.jar /portus/port
 COPY --from=cifuzz/jazzer /app/* /jazzer/
 
 WORKDIR /portus
-ENTRYPOINT ["/jazzer/jazzer", "--cp=portus.jar", "--target_class=ca.uwaterloo.watform.portus.fuzz.ASTFuzzTarget"]
+ENTRYPOINT ["/jazzer/jazzer", "--cp=portus.jar", "--target_class=ca.uwaterloo.watform.portus.fuzz.ASTFuzzTarget", "--instrumentation_includes=ca.uwaterloo.watform.**", "--coverage_report=jazzer-coverage.txt", "--keep_going=10"]
