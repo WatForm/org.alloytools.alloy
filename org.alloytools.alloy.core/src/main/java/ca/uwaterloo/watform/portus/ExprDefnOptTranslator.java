@@ -13,6 +13,12 @@ import scala.jdk.javaapi.CollectionConverters;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * An optimization that factors out exprs that match a heuristic into definitions. The free variables are the parameters
+ * of the definition and definitions are reused if possible.
+ * Currently, this is function/predicate calls, which produces an effect somewhat like having definitions for
+ * functions/predicates.
+ */
 // TODO: revise the ignoring of constant definitions in the evaluator in fortress
 class ExprDefnOptTranslator implements Translator {
 
@@ -97,9 +103,6 @@ class ExprDefnOptTranslator implements Translator {
                     return null;
                 }
                 cache.put(expr, null, defnName, context);
-                System.out.println("New: " + expr);
-            } else {
-                System.out.println("HIT! " + expr);
             }
             return callDefinition(defnName, expr, context);
         } finally {
