@@ -97,6 +97,7 @@ public final class PortusCLI {
         options.enableIntsAsScalars = !disableAllOpts && !cliOptions.disableIntsAsScalars.active();
         options.enablePartitionSortPolicy = !disableAllOpts && !cliOptions.disablePartitionSortPolicy.active();
         options.enableSumDefinitionsOptimization = !disableAllOpts && !cliOptions.disableSumDefinitionsOpt.active();
+        options.enableExprDefnOptimization = !disableAllOpts && !cliOptions.disableExprDefnOpt.active();
         // specifically don't include the function optimization in disableAllOpts
         options.enableFuncOptimization = !cliOptions.disableFuncOpt.active();
         options.enableConstantsScopeAxiomStrategy = !disableAllOpts
