@@ -258,6 +258,30 @@ final class VarMappingContext {
     }
 
     /**
+     * Drop all let-mappings. Term mappings are kept intact.
+     * For use when lets have been expanded but term mappings are still important.
+     */
+    public void dropAllLets() {
+        Set<String> keys = new HashSet<>(alloyVarMapping.keySet());
+        Stack<AnnotatedTerm> termMappings = new Stack<>();
+        for (String key : keys) {
+            // Pop the env stack
+            while (alloyVarMapping.has(key)) {
+                if (hasTermMapping(key)) {
+                    // preserve the term mapping
+                    termMappings.push(getTermMapping(key));
+                }
+                removeMapping(key);
+            }
+
+            // Now put the term mappings back
+            while (!termMappings.empty()) {
+                addTermMapping(key, termMappings.pop());
+            }
+        }
+    }
+
+    /**
      * Represents the expression that an ExprVar is mapped to in "let" or a function/predicate call, as well as
      * some metadata.
      */

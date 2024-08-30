@@ -42,6 +42,7 @@ final class ExprCache<T> {
 
             this.extraSort = extraSort;
             this.frozenContext = new VarMappingContext(context.varMappingContext);
+            this.frozenContext.dropAllLets(); // all lets have been expanded, so they're not valid for here!
         }
 
         // Override equals() but not hashCode() because there's no obvious way to hash an expr
