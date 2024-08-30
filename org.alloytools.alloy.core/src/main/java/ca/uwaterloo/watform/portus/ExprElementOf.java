@@ -84,9 +84,7 @@ public final class ExprElementOf extends Expr {
         if (obj == this) return true;
         if (!(obj instanceof ExprElementOf)) return false;
         ExprElementOf x = (ExprElementOf) obj;
-        // Ignore the Fortress variable names!
-        // This is a hack for ExprDefnOptTranslator
-        return tuple.getSorts().equals(x.tuple.getSorts()) && sub.isSame(x.sub);
+        return tuple.equals(x.tuple) && sub.isSame(x.sub);
     }
 
     @Override

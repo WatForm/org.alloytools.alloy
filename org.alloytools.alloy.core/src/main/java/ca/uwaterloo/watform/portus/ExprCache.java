@@ -8,7 +8,6 @@ import fortress.msfol.Sort;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 /**
  * An imperfect cache for Alloy expressions.
@@ -26,7 +25,7 @@ final class ExprCache<T> {
     private static final class CacheKey {
 
         private final Expr expr;
-        private final List<Sort> freeVarSorts;
+        private final List<AnnotatedVar> freeVars;
         private final Sort extraSort; // nullable
 
         private CacheKey(Expr expr, Sort extraSort, TranslationContext context, SortPolicy sortPolicy) {
@@ -37,9 +36,7 @@ final class ExprCache<T> {
             this.expr = PortusUtil.expandLets(expr, context.varMappingContext, sortPolicy);
 
             // computeFreeVariables also recurses through lets
-            this.freeVarSorts = PortusUtil.computeFreeVariables(expr, context, sortPolicy).stream()
-                    .map(AnnotatedVar::sort)
-                    .collect(Collectors.toList());
+            this.freeVars = PortusUtil.computeFreeVariables(expr, context, sortPolicy);
 
             this.extraSort = extraSort;
         }
@@ -50,8 +47,8 @@ final class ExprCache<T> {
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;
             CacheKey cacheKey = (CacheKey) o;
-            return expr.isSame(cacheKey.expr)
-                    && Objects.equals(freeVarSorts, cacheKey.freeVarSorts)
+            // PseudoAlphaEquivalence.test will already test the free var sorts
+            return PseudoAlphaEquivalence.test(expr, cacheKey.expr, freeVars, cacheKey.freeVars)
                     && Objects.equals(extraSort, cacheKey.extraSort);
         }
 

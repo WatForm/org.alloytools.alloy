@@ -19,15 +19,12 @@ import java.util.stream.Collectors;
  * Currently, this is function/predicate calls, which produces an effect somewhat like having definitions for
  * functions/predicates.
  */
-// TODO: revise the ignoring of constant definitions in the evaluator in fortress
 class ExprDefnOptTranslator implements Translator {
 
     // Prevent re-entry in recursive calls.
     private Expr currentlyTranslating = null;
 
     // Cache for definition names.
-    // TODO: cache might be too restrictive; we want myfun[x] and myfun[y] to match when x and y are compatible
-    // TODO TODO: INSTEAD OF USING isSame, WRITE AN ALPHA EQUIVALENCE TESTER!
     private final ExprCache<String> cache;
 
     private final Translator rootTranslator;
@@ -103,6 +100,9 @@ class ExprDefnOptTranslator implements Translator {
                     return null;
                 }
                 cache.put(expr, null, defnName, context);
+                System.out.println("New: " + expr);
+            } else {
+                System.out.println("HIT! " + expr);
             }
             return callDefinition(defnName, expr, context);
         } finally {
