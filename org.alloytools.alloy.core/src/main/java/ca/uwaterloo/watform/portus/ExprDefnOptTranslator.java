@@ -88,7 +88,6 @@ class ExprDefnOptTranslator implements Translator {
     @Override
     public Term translate(Expr expr, TranslationContext context) {
         if (expr == currentlyTranslating || !shouldCache(expr)) return null;
-        System.out.println("Running: " + expr);
         Expr oldCurrent = currentlyTranslating;
         currentlyTranslating = expr;
         try {
@@ -100,9 +99,6 @@ class ExprDefnOptTranslator implements Translator {
                     return null;
                 }
                 cache.put(expr, null, defnName, context);
-                System.out.println("New: " + expr);
-            } else {
-                System.out.println("HIT! " + expr);
             }
             return callDefinition(defnName, expr, context);
         } finally {
