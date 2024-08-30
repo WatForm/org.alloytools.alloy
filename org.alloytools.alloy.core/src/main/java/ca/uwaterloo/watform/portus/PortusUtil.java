@@ -447,6 +447,7 @@ final class PortusUtil {
     /**
      * Get a list of the variables which are free in the translation of expr, with sorts determined by the context
      * (which should assign a Fortress var for each free Alloy var).
+     * Order is deterministic.
      */
     public static List<AnnotatedVar> computeFreeVariables(
             Expr expr, TranslationContext context, SortPolicy sortPolicy) {
@@ -554,7 +555,7 @@ final class PortusUtil {
 
             @Override
             public List<AnnotatedVar> visit(ExprElementOf x) throws Err {
-                return union(new ArrayList<>(x.tuple.getAllFreeVars(context)), visitThis(x.sub));
+                return union(x.tuple.getAllFreeVars(context), visitThis(x.sub));
             }
 
             @Override
