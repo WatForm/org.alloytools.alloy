@@ -245,6 +245,7 @@ final class PortusUtil {
             // Kodkod evaluates the decl expression once. To emulate this, only add the
             // variables to the context after evaluating the whole decl.
             List<Pair<String, AnnotatedTerm>> termMappingsToAdd = new ArrayList<>();
+            List<AnnotatedVar> fortressVarsToAdd = new ArrayList<>();
 
             // Alloy typechecked that it has arity 1
             for (ExprHasName name : decl.names) {
@@ -286,7 +287,7 @@ final class PortusUtil {
                 Sort varSort = exprSorts.get(0);
                 AnnotatedVar annotatedVar = var.of(varSort);
                 alloyVarNames.add(name.label);
-                fortressVars.add(annotatedVar);
+                fortressVarsToAdd.add(annotatedVar);
 
                 try {
                     // Add the condition "var \in declExpr" to restrict the domain of var
@@ -301,14 +302,13 @@ final class PortusUtil {
                 termMappingsToAdd.add(new Pair<>(name.label, new AnnotatedTerm(annotatedVar)));
             }
 
-            // Add the term mappings now, in order, after having translated the decl expression
+            // Add the term mappings and fortress vars now, in order, after having translated the decl expression
             for (Pair<String, AnnotatedTerm> mapping : termMappingsToAdd) {
                 context.addTermMapping(mapping.a, mapping.b);
             }
+            context.addFortressVars(fortressVarsToAdd);
+            fortressVars.addAll(fortressVarsToAdd);
         }
-
-        // Add all the fortress vars for translating the sub expression
-        context.addFortressVars(fortressVars);
 
         // All the conditions must be true for a set of variables to be used
         Term condition = conditions.isEmpty() ? Term.mkTop() : Term.mkAnd(conditions);
