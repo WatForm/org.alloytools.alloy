@@ -32,7 +32,7 @@ final class RunCommandProcessor implements CommandProcessor {
                 solution = solver.commandRunner().executeCommand(A4Reporter.NOP, world, command, options);
             }
             System.out.println("Result: " + (solution.satisfiable() ? "SAT" : "UNSAT"));
-            if (solution.satisfiable()) {
+            if (options.portusOptions.verbose && solution.satisfiable()) {
                 System.out.println("Interpretation:");
                 System.out.println(solution.format());
             }
@@ -43,7 +43,9 @@ final class RunCommandProcessor implements CommandProcessor {
             return false;
         }
 
-        statistics.printSummary(options.portusOptions);
+        if (options.portusOptions.verbose) {
+            statistics.printSummary(options.portusOptions);
+        }
         return true;
     }
 
