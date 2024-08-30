@@ -28,6 +28,8 @@ final class ExprCache<T> {
         private final List<AnnotatedVar> freeVars;
         private final Sort extraSort; // nullable
 
+        private final VarMappingContext frozenContext;
+
         private CacheKey(Expr expr, Sort extraSort, TranslationContext context, SortPolicy sortPolicy) {
             if (expr == null) throw new NullPointerException();
 
@@ -39,6 +41,7 @@ final class ExprCache<T> {
             this.freeVars = PortusUtil.computeFreeVariables(expr, context, sortPolicy);
 
             this.extraSort = extraSort;
+            this.frozenContext = new VarMappingContext(context.varMappingContext);
         }
 
         // Override equals() but not hashCode() because there's no obvious way to hash an expr
@@ -48,7 +51,8 @@ final class ExprCache<T> {
             if (o == null || getClass() != o.getClass()) return false;
             CacheKey cacheKey = (CacheKey) o;
             // PseudoAlphaEquivalence.test will already test the free var sorts
-            return PseudoAlphaEquivalence.test(expr, cacheKey.expr, freeVars, cacheKey.freeVars)
+            return PseudoAlphaEquivalence.test(
+                    expr, cacheKey.expr, freeVars, cacheKey.freeVars, frozenContext, cacheKey.frozenContext)
                     && Objects.equals(extraSort, cacheKey.extraSort);
         }
 
