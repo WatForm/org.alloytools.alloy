@@ -511,7 +511,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
     @Override
     public Term translate(ExprBinary expr, TranslationContext context) {
         if (PortusUtil.isDeclarationFormula(expr)) {
-            return translateDeclarationFormula(expr.left, (ExprBinary) expr.right, context);
+            return translateDeclarationFormula(expr.left, (ExprBinary) expr.right.deNOP(), context);
         }
 
         switch (expr.op) {
