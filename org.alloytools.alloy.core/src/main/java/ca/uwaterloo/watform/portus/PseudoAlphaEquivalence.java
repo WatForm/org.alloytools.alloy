@@ -185,8 +185,9 @@ class PseudoAlphaEquivalence {
             // That would be semantically wrong and also break ExprDefnOptTranslator
             if (!(other instanceof ExprCall)) return false;
             ExprCall otherCall = (ExprCall) other;
-            // assume labels are unique
-            if (!x.fun.label.equals(otherCall.fun.label)) return false;
+            // the only unique identifier for a fun/pred is its object, so compare that
+            // we can't compare just by label because the label might not be unique! e.g. see ertms_1A.als
+            if (x.fun != otherCall.fun) return false;
             return recurseList(x.args, otherCall.args);
         }
 
