@@ -12,10 +12,10 @@ import java.util.Objects;
 /**
  * An imperfect cache for Alloy expressions.
  * Two exprs are considered equal if both:
- *  1. they are the same according to isSame() after expanding lets
+ *  1. they are the same according to {@link PseudoAlphaEquivalence} after expanding lets
  *  2. in the current context, their free variables have the same Fortress sorts
- * This provides a one-sided guarantee: two expressions that compare equal are always equivalent, but two equivalent
- * expressions may not compare equal.
+ * This provides a one-sided guarantee: two expressions that compare equal are always alpha-equivalent, but two
+ * alpha-equivalent expressions may not compare equal.
  * Additionally an extra sort can optionally be associated with each expr (e.g. as a return type).
  * Operations are O(n) since we linear search the cache keys every time.
  * TODO: We're recomputing the free variables on every call - if this is an issue, refactor.
