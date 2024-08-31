@@ -642,7 +642,10 @@ final class PortusUtil {
                 // in recursion are in the context or not (if they aren't in let).
                 // TODO: Could we just not recurse here if anyArgNone is true?
                 // TODO: Possibility for bug due to conflict between let and none vars?
-                return x.op.make(x.pos, x.closingBracket, x.decls, visitThis(x.sub));
+                List<Decl> decls = x.decls.stream().map(decl -> new Decl(
+                        decl.isPrivate, decl.disjoint, decl.disjoint2, decl.isVar, decl.names, visitThis(decl.expr)))
+                        .collect(Collectors.toList());
+                return x.op.make(x.pos, x.closingBracket, decls, visitThis(x.sub));
             }
 
             @Override
