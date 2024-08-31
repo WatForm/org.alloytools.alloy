@@ -71,6 +71,8 @@ final class PortusCLIOptions {
             "-disable-partition-sp", "Disable the partition sort policy, use the univ sort policy.");
     public final Option disableSumDefinitionsOpt = new Option(
             "-disable-sum-defn-opt", "Disable sum definitions optimization.");
+    public final Option disableExprDefnOpt = new Option("-disable-expr-defn-opt",
+            "Disable fun/pred call definition optimization.");
     public final Option disableFuncOpt = new Option("-disable-func-opt",
             "Disable function optimization. WARNING: some models will fail to translate!");
     public final Option useCardinalityScopeAxiomStrategy = new Option(
@@ -109,7 +111,7 @@ final class PortusCLIOptions {
             alwaysShowKodkodTime,
             disableSimpleScalarOpt, disableOneSigOpt, disableJoinOpt, disableOrderingModuleOpt,
             disableClosureOfScalarOpt, disableIntsAsScalars, disableMembershipPredicateOpt, disablePartitionSortPolicy,
-            disableSumDefinitionsOpt,
+            disableSumDefinitionsOpt, disableExprDefnOpt,
             useCardinalityScopeAxiomStrategy, disableFuncOpt, disableAllOpts,
             disableOrderingDefinition, disableClosureOptDefinition, enableSumBalancing,
             enableElementOfScalarOpt, enableCaching, enableKodkodIntCompatibility,

@@ -99,6 +99,9 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
         if (options.enableOneSigOptimization) {
             translators.add(oneSigOpt);
         }
+        if (options.enableExprDefnOptimization) {
+            translators.add(new ExprDefnOptTranslator(this, sortPolicy, nameGenerator));
+        }
         if (options.enableFuncOptimization) {
             translators.add(functionOpt);
         }

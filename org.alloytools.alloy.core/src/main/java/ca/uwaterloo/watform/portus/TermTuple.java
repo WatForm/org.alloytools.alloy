@@ -1,14 +1,13 @@
 package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.ConstList;
-import edu.mit.csail.sdg.alloy4.ConstSet;
 import fortress.msfol.AnnotatedVar;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
+import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -69,15 +68,22 @@ final class TermTuple {
         return getAnnotatedTerm(idx).getSort();
     }
 
-    /** Compute the set of all free variables in all the terms in the tuple. */
-    public ConstSet<AnnotatedVar> getAllFreeVars(TranslationContext context) {
-        return ConstSet.make(terms.stream()
-                .map(term -> PortusUtil.computeTermFreeVars(term.getTerm(), context))
-                .map(HashSet::new) // make them mutable to union them
-                .reduce(new HashSet<>(), (set1, set2) -> {
-                    set1.addAll(set2);
-                    return set1;
-                }));
+    /**
+     * Compute the deduplicated list of all free variables in all the terms in the tuple.
+     * Order is deterministic.
+     */
+    public List<AnnotatedVar> getAllFreeVars(TranslationContext context) {
+        // O(n^2), but that shouldn't matter
+        List<AnnotatedVar> freeVars = new ArrayList<>();
+        for (AnnotatedTerm term : terms) {
+            List<AnnotatedVar> termFVs = PortusUtil.computeTermFreeVars(term.getTerm(), context);
+            for (AnnotatedVar fv : termFVs) {
+                if (!freeVars.contains(fv)) {
+                    freeVars.add(fv);
+                }
+            }
+        }
+        return freeVars;
     }
 
     public int size() {

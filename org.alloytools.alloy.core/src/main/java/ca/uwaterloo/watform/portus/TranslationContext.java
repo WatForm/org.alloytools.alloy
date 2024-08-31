@@ -7,6 +7,7 @@ import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.modelfinders.ModelFinder;
 import fortress.msfol.AnnotatedVar;
+import fortress.msfol.ConstantDefinition;
 import fortress.msfol.FuncDecl;
 import fortress.msfol.FunctionDefinition;
 import fortress.msfol.Sort;
@@ -103,6 +104,10 @@ final class TranslationContext {
 
     public void addConstant(AnnotatedVar constant) {
         theory = theory.withConstantDeclaration(constant);
+    }
+
+    public void addConstantDefinition(ConstantDefinition definition) {
+        theory = theory.withConstantDefinition(definition);
     }
 
     public void addFunctionDeclaration(FuncDecl funcDecl) {
