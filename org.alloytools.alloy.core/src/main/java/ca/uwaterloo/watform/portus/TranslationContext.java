@@ -110,6 +110,11 @@ final class TranslationContext {
         theory = theory.withConstantDefinition(definition);
     }
 
+    public boolean hasConstantWithName(String name) {
+        return theory.constantDeclarations().exists(cons -> cons.name().equals(name))
+                || theory.constantDefinitions().exists(cons -> cons.name().equals(name));
+    }
+
     public void addFunctionDeclaration(FuncDecl funcDecl) {
         theory = theory.withFunctionDeclaration(funcDecl);
     }

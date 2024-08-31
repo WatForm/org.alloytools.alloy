@@ -581,6 +581,10 @@ final class PortusUtil {
                 TermOps.wrapTerm(term).freeVars(context.getTheory().signature()).toList());
         List<AnnotatedVar> annotatedFreeVars = new ArrayList<>(freeVars.size());
         for (Var var : freeVars) {
+            if (context.hasConstantWithName(var.name())) {
+                // constants aren't free variables
+                continue;
+            }
             if (!context.isFortressVarKnown(var)) {
                 throw new ErrorFatal("Internal Portus error: sort of var " + var.name() + " unknown!");
             }
