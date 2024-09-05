@@ -337,6 +337,9 @@ public final class PortusCLI {
         if (options.useRunKodkodProcessor.active()) {
             processors.add(new RunCommandProcessor(A4Options.SatSolver.SAT4J));
         }
+        if (options.useRunKodkodMiniSatProcessor.active()) {
+            processors.add(new RunCommandProcessor(A4Options.SatSolver.MiniSatJNI));
+        }
         if (options.useCorrectnessProcessor.active()) {
             processors.add(new CorrectnessCommandProcessor(new CorrectnessChecker(
                     options.alwaysShowKodkodTime.active())));
