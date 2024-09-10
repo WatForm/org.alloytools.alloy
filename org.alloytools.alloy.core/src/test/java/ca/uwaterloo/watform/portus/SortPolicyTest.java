@@ -365,6 +365,37 @@ public class SortPolicyTest {
     }
 
     @Test
+    public void testGetMinimalExprSorts_comprehension() {
+        Sig sig1 = new Sig.PrimSig("S1");
+        Sig sig2 = new Sig.PrimSig("S2");
+        Sort sort1 = Sort.mkSortConst("sort1");
+        Sort sort2 = Sort.mkSortConst("sort2");
+        when(policy.getSort(sig1)).thenReturn(sort1);
+        when(policy.getSort(sig2)).thenReturn(sort2);
+        Expr comprehension = ExprConstant.TRUE.comprehensionOver(sig1.oneOf("x"), sig2.oneOf("y"));
+        assertEquals(SortResolvant.definite(sort1, sort2), policy.getMinimalExprSorts(comprehension, context));
+    }
+
+    @Test
+    public void testGetMinimalExprSorts_comprehension_shadowing() {
+        Sig sig1 = new Sig.PrimSig("S1");
+        Sort sort1 = Sort.mkSortConst("sort1");
+        when(policy.getSort(sig1)).thenReturn(sort1);
+        // recognizes x in second decl (i.e. doesn't error out with "unknown variable x")
+        Expr comprehension = ExprConstant.TRUE.comprehensionOver(sig1.oneOf("x"), ExprVar.make(null, "x").oneOf("y"));
+        assertEquals(SortResolvant.definite(sort1, sort1), policy.getMinimalExprSorts(comprehension, context));
+    }
+
+    @Test
+    public void testGetMinimalExprSorts_comprehension_shortCircuit() {
+        Sig sig1 = new Sig.PrimSig("S1");
+        Sort sort1 = Sort.mkSortConst("sort1");
+        when(policy.getSort(sig1)).thenReturn(sort1);
+        Expr comprehension = ExprConstant.TRUE.comprehensionOver(sig1.oneOf("x"), ExprConstant.EMPTYNESS.oneOf("y"));
+        assertEquals(SortResolvant.none(2), policy.getMinimalExprSorts(comprehension, context));
+    }
+
+    @Test
     public void testGetMinimalExprSorts_let() {
         Sig sig = new Sig.PrimSig("S");
         Sort sort = Sort.mkSortConst("sort");
