@@ -3,12 +3,10 @@ package ca.uwaterloo.watform.portus;
 import edu.mit.csail.sdg.alloy4.Err;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.ast.Assert;
-import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprBinary;
 import edu.mit.csail.sdg.ast.ExprCall;
 import edu.mit.csail.sdg.ast.ExprConstant;
-import edu.mit.csail.sdg.ast.ExprHasName;
 import edu.mit.csail.sdg.ast.ExprITE;
 import edu.mit.csail.sdg.ast.ExprLet;
 import edu.mit.csail.sdg.ast.ExprList;
@@ -288,29 +286,29 @@ public abstract class SortPolicy {
 
         @Override
         public SortResolvant visitQuantifier(
-                ExprQt x, List<SortResolvant> ignoredArgResults, boolean anyArgNone) throws Err {
+                ExprQt x, List<SortResolvant> argResults, boolean anyArgNone) throws Err {
             // We can ignore anyArgNone because we aren't recursing into the subexpression anyways
             // trust typechecking
             if (x.op == ExprQt.Op.SUM) {
                 return SortResolvant.definite(Sort.Int());
             } else if (x.op == ExprQt.Op.COMPREHENSION) {
-                // use the sorts from each declaration
-                SortResolvant result = null;
-                for (Decl decl : x.decls) {
-                    SortResolvant declResult = visitThis(decl.expr);
-                    for (ExprHasName ignored : decl.names) {
-                        if (result == null) {
-                            result = declResult;
-                        } else {
-                            result = result.cartesianProduct(declResult);
-                        }
-                    }
+                if (anyArgNone) {
+                    // the whole comprehension is none: short-circuit
+                    return SortResolvant.none(x.type().arity());
                 }
-                return result;
+                // use the sorts from each arg in order
+                //noinspection OptionalGetWithoutIsPresent - there's always at least one arg
+                return argResults.stream().reduce(SortResolvant::cartesianProduct).get();
             } else {
                 // every other op is a formula (all, no, some, etc)
                 return SortResolvant.definite(Sort.Bool());
             }
+        }
+
+        @Override
+        public SortResolvant visitQuantifierArg(Expr arg) throws Err {
+            // do this so that in case we have a comprehension, the args are bound in the context in the correct order
+            return visitThis(arg);
         }
 
         @Override
