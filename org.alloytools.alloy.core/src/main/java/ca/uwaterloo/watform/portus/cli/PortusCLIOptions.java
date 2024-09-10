@@ -37,6 +37,8 @@ final class PortusCLIOptions {
 
     public final Option useRunPortusProcessor = new Option("-r", "Run Portus on each command.");
     public final Option useRunKodkodProcessor = new Option("-rk", "Run Kodkod (Sat4j) on each command.");
+    public final Option useRunKodkodMiniSatProcessor = new Option("-rk-ms", "Run Kodkod (MiniSat) on each command.");
+
     public final Option useCorrectnessProcessor = new Option("-c", "Check Portus correctness on each command.");
     public final Option useDeltaDebugProcessor = new Option(
             "-dd", "Run delta debugging on each command to minimize the model (experimental).");
@@ -104,7 +106,7 @@ final class PortusCLIOptions {
             help, verbose, adjustBitwidth, noTimeout, pickCommandNumber,
             fortressCompiler, fortressSolver,
             setAllScopes, setSigScope,
-            useRunPortusProcessor, useRunKodkodProcessor,
+            useRunPortusProcessor, useRunKodkodProcessor, useRunKodkodMiniSatProcessor,
             useCorrectnessProcessor, useDeltaDebugProcessor,
             useOutputPreSmtlibProcessor, useOutputPostSmtlibProcessor,
             useStatisticsProcessor, useCountCommandsProcessor,

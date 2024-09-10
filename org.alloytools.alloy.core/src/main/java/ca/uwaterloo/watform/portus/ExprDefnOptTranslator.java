@@ -95,7 +95,6 @@ class ExprDefnOptTranslator implements Translator {
             if (defnName == null) {
                 defnName = generateDefinition(expr, context);
                 if (defnName == null) {
-                    System.out.println("Null generateDefinition: " + expr);
                     return null;
                 }
                 cache.put(expr, null, defnName, context);
