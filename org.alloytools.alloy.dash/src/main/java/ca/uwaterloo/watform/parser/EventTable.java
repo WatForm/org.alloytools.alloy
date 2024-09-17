@@ -1,6 +1,7 @@
 package ca.uwaterloo.watform.parser;
 
 import java.util.List;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -19,14 +20,14 @@ import ca.uwaterloo.watform.core.DashRef;
 import ca.uwaterloo.watform.alloyasthelper.ExprHelper;
 import ca.uwaterloo.watform.dashtoalloy.Common;
 
-public class EventTable {
+public class EventTable implements Serializable {
 
 	// stores Event Decls in a HashMap based on the event FQN
 
 	private LinkedHashMap<String,EventElement> table;
 
 
-	public class EventElement {
+	public class EventElement implements Serializable {
 		private IntEnvKind kind;
 		private List<String> params;
 		private List<Integer> paramsIdx;

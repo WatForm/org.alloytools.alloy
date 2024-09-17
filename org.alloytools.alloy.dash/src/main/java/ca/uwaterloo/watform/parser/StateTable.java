@@ -30,7 +30,7 @@ import ca.uwaterloo.watform.ast.*;
 import ca.uwaterloo.watform.parser.VarTable;
 import ca.uwaterloo.watform.dashtoalloy.Common;
 
-public class StateTable {
+public class StateTable implements Serializable {
 	private HashMap<String,StateElement> table;
 	private boolean isResolved;
 	private String root;
@@ -45,7 +45,7 @@ public class StateTable {
 	private String space = " ";
 
 	/* nested class for elementes in the state table */
-	public class StateElement {
+	public class StateElement implements Serializable {
 		// better than a tuple
 		private DashStrings.StateKind kind; // must exist AND/OR
 		private String param; // may be empty
