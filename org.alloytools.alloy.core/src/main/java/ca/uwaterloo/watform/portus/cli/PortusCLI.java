@@ -157,6 +157,14 @@ public final class PortusCLI {
         }
     }
 
+    private static Command setDefaultOverall(Command command) {
+        final int defaultOverall = 3;
+        return new Command(
+                command.pos, command.nameExpr, command.label, command.check, defaultOverall, command.bitwidth,
+                command.maxseq, command.minprefix, command.maxprefix, command.expects, command.scope,
+                command.additionalExactScopes, command.commandKeyword, command.formula, command.parent);
+    }
+
     // Implement the setAllScopes and setSigScope options
     private static Command performScopeOverrides(Module world, Command command, PortusCLIOptions options) {
         List<Sig> overridableSigs = world.getAllReachableUserDefinedSigs().stream()
@@ -174,6 +182,15 @@ public final class PortusCLI {
         }
 
         if (options.setSigScope.active()) {
+            // ScopeComputer will throw an error if command.overall < 0 (i.e. no overall scope specified) and not every
+            // top-level sig has a separate scope specified. Therefore, if we're adding a scope to a command with no
+            // overall scope specified and multiple top-level sigs, manually set the overall scope to the default (3) to
+            // preserve the previously-implied scopes.
+            if (command.overall < 0 && command.scope.isEmpty() && overridableSigs.size() > 1) {
+                System.out.println("NOTE: setting default overall for this command!");
+                command = setDefaultOverall(command);
+            }
+
             String error = "Error: " + options.setSigScope.name() + "arguments must be integers";
             int whichSig = parseInt(options.setSigScope.arguments().get(0), error, options);
             int scope = parseInt(options.setSigScope.arguments().get(1), error, options);
