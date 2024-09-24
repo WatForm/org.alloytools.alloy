@@ -5,6 +5,7 @@ import java.util.*;
 import java.io.FileReader;
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
+import java.io.Serializable;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -32,7 +33,7 @@ import ca.uwaterloo.watform.parser.CompModuleHelper;
 import ca.uwaterloo.watform.dashtoalloy.DashToAlloy;
 import ca.uwaterloo.watform.dashtoalloy.Common;
 
-public class DashModule extends CompModuleHelper {
+public class DashModule extends CompModuleHelper implements Serializable {
 
 	// let it be a list so we can have a good error message in wff checks (resolveAllDash)
 	private List<DashState> roots = new ArrayList<DashState>();

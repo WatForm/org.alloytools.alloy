@@ -8,6 +8,8 @@ import java.util.StringJoiner;
 import java.util.Collections;
 import java.util.stream.Collectors;
 
+import java.io.Serializable;
+
 
 import edu.mit.csail.sdg.alloy4.Pos;
 import edu.mit.csail.sdg.ast.Expr;
@@ -25,7 +27,7 @@ import static ca.uwaterloo.watform.parser.ResolveExpr.*;
 
 //import ca.uwaterloo.watform.parser.BufferTable;
 
-public class DashState  extends Dash {
+public class DashState  extends Dash implements Serializable {
 
 	// stuff from parsing
 	public String name;

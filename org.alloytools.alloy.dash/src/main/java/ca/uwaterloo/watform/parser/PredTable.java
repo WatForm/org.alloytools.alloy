@@ -8,6 +8,8 @@ import java.util.LinkedHashMap;
 import java.util.Collections;
 import java.util.stream.Collectors;
 
+import java.io.Serializable;
+
 
 import edu.mit.csail.sdg.ast.*;
 import edu.mit.csail.sdg.alloy4.ConstList;
@@ -23,7 +25,7 @@ import ca.uwaterloo.watform.dashtoalloy.Common;
 import ca.uwaterloo.watform.parser.StateTable;
 import ca.uwaterloo.watform.parser.VarTable;
 
-public class PredTable {
+public class PredTable implements Serializable {
 
 	private HashMap<String,PredElement> predTable;
 
@@ -31,7 +33,7 @@ public class PredTable {
 		this.predTable = new LinkedHashMap<String,PredElement>();
 	}
 
-	public class PredElement {
+	public class PredElement implements Serializable {
 
 		// this expression must be resolved in the context of the guard/action
 		// it is used in
