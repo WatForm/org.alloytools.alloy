@@ -7,6 +7,8 @@ import java.util.LinkedHashMap;
 import java.util.Collections;
 import java.util.stream.Collectors;
 
+import java.io.Serializable;
+
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprVar;
 
@@ -19,14 +21,14 @@ import ca.uwaterloo.watform.core.DashRef;
 import ca.uwaterloo.watform.alloyasthelper.ExprHelper;
 import ca.uwaterloo.watform.dashtoalloy.Common;
 
-public class EventTable {
+public class EventTable implements Serializable {
 
 	// stores Event Decls in a HashMap based on the event FQN
 
 	private LinkedHashMap<String,EventElement> table;
 
 
-	public class EventElement {
+	public class EventElement implements Serializable {
 		private IntEnvKind kind;
 		private List<String> params;
 		private List<Integer> paramsIdx;

@@ -8,6 +8,8 @@ import java.util.LinkedHashMap;
 import java.util.Collections;
 import java.util.stream.Collectors;
 
+import java.io.Serializable;
+
 
 import edu.mit.csail.sdg.ast.*;
 import edu.mit.csail.sdg.alloy4.ConstList;
@@ -24,7 +26,7 @@ import ca.uwaterloo.watform.parser.StateTable;
 import ca.uwaterloo.watform.parser.EventTable;
 import ca.uwaterloo.watform.parser.PredTable;
 
-public class VarTable {
+public class VarTable implements Serializable {
 
 	// stores Var, Buffer Decls in a HashMap based on the event FQN
 
@@ -38,7 +40,7 @@ public class VarTable {
 		this.bufferTable = new LinkedHashMap<String,BufferElement>();
 	}
 
-	public class VarElement {
+	public class VarElement implements Serializable {
 		private IntEnvKind kind;
 		private List<String> params;
 		private List<Integer> paramsIdx;
@@ -161,7 +163,7 @@ public class VarTable {
 		else { DashErrors.varBufferDoesNotExist("isInternal", fqn); return false; }
 	}
 
-	public class BufferElement {
+	public class BufferElement implements Serializable {
 		private IntEnvKind kind;
 		private List<String> params;
 		private List<Integer> paramsIdx;

@@ -46,6 +46,8 @@ import java.util.List;
 import java.util.ArrayList;
 //import java.util.JoinableList;
 
+import java.io.Serializable;
+
 import edu.mit.csail.sdg.alloy4.Pos;
 //import edu.mit.csail.sdg.alloy4.ErrorWarning;
 //import edu.mit.csail.sdg.alloy4.Err;
@@ -61,7 +63,7 @@ import ca.uwaterloo.watform.core.DashUtilFcns;
 import ca.uwaterloo.watform.core.DashErrors;
 import ca.uwaterloo.watform.core.DashRef;
 
-public class DashRef extends Expr {
+public class DashRef extends Expr implements Serializable {
 
 	//private Pos pos;
 	private DashRefKind kind;
