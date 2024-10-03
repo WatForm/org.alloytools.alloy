@@ -17,6 +17,7 @@ package edu.mit.csail.sdg.ast;
 
 import static edu.mit.csail.sdg.alloy4.TableView.clean;
 
+import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -443,7 +444,7 @@ public abstract class Sig extends Expr implements Clause {
      * B even if the caller later constructs more sigs or subsigs or subsetsigs...
      */
 
-    public static final class PrimSig extends Sig {
+    public static final class PrimSig extends Sig implements Serializable {
 
         /**
          * Stores its immediate children sigs (not including NONE)

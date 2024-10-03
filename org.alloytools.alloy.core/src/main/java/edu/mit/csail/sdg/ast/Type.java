@@ -18,6 +18,7 @@ package edu.mit.csail.sdg.ast;
 import static edu.mit.csail.sdg.ast.Sig.NONE;
 import static edu.mit.csail.sdg.ast.Sig.UNIV;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -42,7 +43,7 @@ import edu.mit.csail.sdg.ast.Sig.PrimSig;
  * B even if the caller later constructs more sigs or subsigs or subsetsigs...
  */
 
-public final class Type implements Iterable<Type.ProductType>, Clause {
+public final class Type implements Iterable<Type.ProductType>, Clause, Serializable {
 
     // [AM]
     // /** This configuration option is true if we want to automatically cast
@@ -64,7 +65,7 @@ public final class Type implements Iterable<Type.ProductType>, Clause {
      * result C will always be the intersection of A and B even if the caller later
      * constructs more sigs or subsigs or subsetsigs...
      */
-    public static final class ProductType {
+    public static final class ProductType implements Serializable {
 
         /** The array of PrimSig objects. */
         private final PrimSig[]          types;

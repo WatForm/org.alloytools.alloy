@@ -18,6 +18,7 @@ package edu.mit.csail.sdg.ast;
 import static edu.mit.csail.sdg.ast.ExprUnary.Op.NOOP;
 import static edu.mit.csail.sdg.ast.Type.EMPTY;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -48,7 +49,7 @@ import edu.mit.csail.sdg.ast.Sig.PrimSig;
  *           in this context
  */
 
-public abstract class Expr extends Browsable {
+public abstract class Expr extends Browsable implements Serializable {
 
     /**
      * The filename, line, and column position in the original Alloy model file
