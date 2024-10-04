@@ -22,6 +22,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
+import java.io.Serializable;
 
 import edu.mit.csail.sdg.alloy4.ConstList;
 import edu.mit.csail.sdg.alloy4.ConstList.TempList;
@@ -443,7 +444,7 @@ public abstract class Sig extends Expr implements Clause {
      * B even if the caller later constructs more sigs or subsigs or subsetsigs...
      */
 
-    public static final class PrimSig extends Sig {
+    public static final class PrimSig extends Sig implements Serializable {
 
         /**
          * Stores its immediate children sigs (not including NONE)
