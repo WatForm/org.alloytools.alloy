@@ -23,6 +23,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.io.Serializable;
 
 import edu.mit.csail.sdg.alloy4.Err;
 import edu.mit.csail.sdg.alloy4.ErrorType;
@@ -48,7 +49,7 @@ import edu.mit.csail.sdg.ast.Sig.PrimSig;
  *           in this context
  */
 
-public abstract class Expr extends Browsable {
+public abstract class Expr extends Browsable implements Serializable {
 
     /**
      * The filename, line, and column position in the original Alloy model file
