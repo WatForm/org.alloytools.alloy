@@ -29,6 +29,7 @@ public class DashStrings implements Serializable {
 	public static String asName = "as";
 
 	public static String noneName = "none";
+	public static String univName = "univ";
 	public static String intName = "int";
 	public static String sigName = "sig";
 	public static String predName = "pred";

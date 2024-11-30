@@ -76,13 +76,16 @@ public class AddTraces {
         args.add(curJoinExpr(snapShotNext));
 
         List<Decl> decls1 = new ArrayList<Decl>();
-        decls1.add((Decl) new DeclExt(curName, createVar(snapshotName)));
+        decls1.add(curDecl());
+        // below worked in places where curDecl did not
+        // work because curDecl had type rather than 
+        //decls1.add((Decl) new DeclExt(curName, createVar(snapshotName)));
 
         List<Decl> decls2 = new ArrayList<Decl>();
-        decls2.add((Decl) new DeclExt(curName, createOne(createDiff(createVar(snapshotName), snapShotLast))));
+        decls2.add((Decl) new DeclExt(curName, createDiff(createVar(snapshotName), snapShotLast)));
 
         body.add(createITE(
-        	createSomeOf(snapshotBack),
+        	createSome(snapshotBack),
         	createAll(decls1,createPredCall(smallStepName,args)),
         	createAll(decls2,createPredCall(smallStepName,args))
         ));

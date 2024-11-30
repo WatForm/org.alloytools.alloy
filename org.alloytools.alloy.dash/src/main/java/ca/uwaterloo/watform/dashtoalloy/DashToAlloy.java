@@ -19,8 +19,10 @@ public class DashToAlloy {
         for (String tfqn: d.getAllTransNames()) {
             AddTransPre.addTransPre(d,tfqn);
             AddTransPost.addTransPost(d,tfqn);
+            // TODO??
             //createTransSemantics(t);
-            if (d.hasConcurrency()) AddTransIsEnabledAfterStep.addTransIsEnabledAfterStep(d,tfqn);
+            if (d.hasConcurrency()) 
+                    AddTransIsEnabledAfterStep.addTransIsEnabledAfterStep(d,tfqn);
             AddTrans.addTrans(d,tfqn);
         }
         if (d.hasConcurrency())

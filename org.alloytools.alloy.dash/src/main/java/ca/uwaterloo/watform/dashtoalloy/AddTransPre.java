@@ -60,7 +60,7 @@ public class AddTransPre {
             // p3 -> p2 -> p1 -> src & s.confVar(i) != none
             // src does not have to be a basic state      
             body.add(
-                createSomeOf(
+                createSome(
                     createIntersect(
                         translateDashRefToArrow(d.getTransSrc(tfqn)),
                         curConf(prsIdx.size()))));

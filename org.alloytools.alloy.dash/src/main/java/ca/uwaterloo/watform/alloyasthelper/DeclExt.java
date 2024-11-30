@@ -30,7 +30,7 @@ public class DeclExt extends Decl {
     }
     // default is "one"
     public DeclExt(String v, String typ) {
-        super(null, null, null, null, new ArrayList<>(Arrays.asList(ExprHelper.createVar(v))), ExprHelper.createOne(ExprHelper.createVar(typ)));
+        super(null, null, null, null, new ArrayList<>(Arrays.asList(ExprHelper.createVar(v))), ExprHelper.createVar(typ));
     }
     public DeclExt(String v, Expr e, boolean isVar) {
         // not sure if mult is needed on last arg

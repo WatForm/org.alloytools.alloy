@@ -211,6 +211,9 @@ public class ExprHelper  {
     public static ExprVar createNone() {
         return ExprVar.make(Pos.UNKNOWN,  DashStrings.noneName);
     } 
+    public static ExprVar createUniv() {
+        return ExprVar.make(Pos.UNKNOWN,  DashStrings.univName);
+    }
     public static ExprVar createVar(String v) {
         return ExprVar.make(Pos.UNKNOWN, v);
     }
@@ -286,6 +289,9 @@ public class ExprHelper  {
     }
     public static Expr createSomeOf(Expr sub) {
         return (ExprUnary) ExprUnary.Op.SOMEOF.make(Pos.UNKNOWN, sub);
+    }
+    public static Expr createSome(Expr sub) {
+        return (ExprUnary) ExprUnary.Op.SOME.make(Pos.UNKNOWN, sub);
     }
     public static Expr createNo(Expr sub) {
         return (ExprUnary) ExprUnary.Op.NO.make(Pos.UNKNOWN, sub);
