@@ -145,4 +145,36 @@ public class MainFunctions {
         A4Solution ans = TranslateAlloyToKodkod.execute_command(rep, alloy.getAllReachableSigs(), cmd, options); 
         return ans;
     }
+
+    // creating a deep copy of a Dash+ model
+    public static DashModule copyDash(DashModule d) {
+        if(d == null){
+            DashErrors.emptyModule();
+            return d;
+        } 
+        else {
+
+            assert(d.hasRoot()); 
+            
+            try {
+
+                DashModule dcopy = new DashModule(d, "");
+                return dcopy;
+            } 
+            catch(Exception e) {
+                System.out.println("\nIn catch block of MainFunctions.copyDash() method\n");
+                e.printStackTrace(System.out);
+                return null;
+            }
+        }
+    }
 }
+
+
+
+
+
+
+
+
+

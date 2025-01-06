@@ -21,6 +21,17 @@ public class DashInv extends DashExpr {
         this.name = n;
     }
 
+    // copy cons for deep copy
+    public DashInv(DashInv other) {
+        super(other.pos, other.exp);
+        if(other.name == null) {
+            this.name = new String();
+        }
+        else {
+            this.name = new String(other.name);
+        }
+    }
+
     public String toString() {
         return super.toString(DashStrings.invName + " "+name);
     }

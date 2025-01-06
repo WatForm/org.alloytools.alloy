@@ -106,6 +106,30 @@ public class DashModule extends CompModuleHelper implements Serializable {
 		// this should be fine
 		initializeDashModule();
 	}
+
+	// Copy constructor to create deep copy
+	public DashModule(DashModule other, String filename) {
+
+		super(null, filename, "");
+
+		this.root = new DashState(other.root);
+
+		if(filename != null){
+			this.filename = new String(filename);
+		}
+		else {
+			this.filename = new String();
+		}
+
+		this.stateTable = new StateTable(other.stateTable);
+		this.transTable = new TransTable(other.transTable);
+		this.eventTable = new EventTable(other.eventTable);
+		this.varTable = new VarTable(other.varTable);
+		this.predTable = new PredTable(other.predTable);
+		
+		initializeDashModule();
+	}
+
 	private void initializeDashModule() {	
 		//assert (!DashOptions.isElectrum && (DashOptions.isTcmc || DashOptions.isTraces));
 		// do the open stmts for Dash after we know how many buffers
@@ -711,6 +735,31 @@ public class DashModule extends CompModuleHelper implements Serializable {
 		return eventTable.getAllEnvironmentalEvents();
 	}
 	
+	// for debugging
+	public String stateTableToString() {
+		return stateTable.toString();
+	}
 
+	public String transTableToString() {
+		return transTable.toString();
+	}
+
+	public String varTableToString() {
+		return varTable.toString();
+	}
+
+	public String predTableToString() {
+		return predTable.toString();
+	}
+
+	public String eventTableToString() {
+		return eventTable.toString();
+	}
 
 }
+
+
+
+
+
+

@@ -2,6 +2,7 @@ package ca.uwaterloo.watform.parser;
 
 import java.util.Set;
 import java.util.List;
+import java.util.Map;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -21,6 +22,7 @@ import static ca.uwaterloo.watform.core.DashUtilFcns.*;
 import static ca.uwaterloo.watform.core.DashStrings.*;
 import ca.uwaterloo.watform.core.DashRef;
 import ca.uwaterloo.watform.dashtoalloy.Common;
+import ca.uwaterloo.watform.alloyasthelper.ExprHelper;
 
 import ca.uwaterloo.watform.parser.StateTable;
 import ca.uwaterloo.watform.parser.VarTable;
@@ -31,6 +33,17 @@ public class PredTable implements Serializable {
 
 	public PredTable() {
 		this.predTable = new LinkedHashMap<String,PredElement>();
+	}
+
+	//copy constructor for deep copy
+	public PredTable(PredTable other) {
+		this.predTable = new LinkedHashMap<String,PredElement>();
+		
+		if(other.predTable != null){
+			for (Map.Entry<String, PredElement> entry : other.predTable.entrySet()) {
+            	this.predTable.put(new String(entry.getKey()), new PredElement(entry.getValue()));
+        	}
+        }
 	}
 
 	public class PredElement implements Serializable {
@@ -45,6 +58,12 @@ public class PredTable implements Serializable {
 			Expr e) {
 			this.exp = e;
 		}
+
+		//copy constructor
+		public PredElement(PredElement other) {
+			this.exp = ExprHelper.copyExpr(other.exp);
+		}
+
 		public String toString() {
 			String s = new String();
 			s += "exp: "+exp.toString() + "\n";

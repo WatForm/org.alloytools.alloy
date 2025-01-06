@@ -111,6 +111,85 @@ public class StateTable implements Serializable {
 			//this.conditions = condL;
 
 		}
+
+		// copy constructor to create a deep copy
+		public StateElement(StateElement other){
+			
+			this.kind = other.kind;
+			if(other.param != null) {
+				this.param = new String(other.param);
+			}
+			else {
+				this.param = null;
+			}
+
+			
+			if(other.params != null) {
+				this.params = new ArrayList<String>();
+				this.paramsIdx = new ArrayList<Integer>(other.paramsIdx);
+				for(String s: other.params) {
+					this.params.add(new String(s));
+				}
+			}
+			else {
+				this.params = null;
+				this.paramsIdx = null;
+			}
+			this.def = other.def;
+
+			if(other.parent == null) {
+				this.parent = null;
+			}
+			else { 
+				this.parent = new String(other.parent);
+			}
+
+			
+			if(other.immChildren != null) {
+				this.immChildren = new ArrayList<String>();
+				for(String s: other.immChildren){
+					this.immChildren.add(new String(s));
+				}
+			}
+			else {
+				this.immChildren = null;
+			}
+
+			if(other.origInvariants == null) {
+				this.origInvariants = null;
+			}
+			else {
+				this.origInvariants = new ArrayList<DashInv>(other.origInvariants);
+			}
+			if(other.origInits == null) {
+				this.origInits = null;
+			}
+			else {
+				this.origInits = new ArrayList<DashInit>(other.origInits);
+			}
+			
+			
+			if(other.entered != null) {
+				this.entered = new ArrayList<Expr>();
+				for(Expr e: other.entered){
+					this.entered.add(ExprHelper.copyExpr(e));
+				}
+			}
+			else {
+				this.entered = null;
+			}
+
+			if(this.exited != null) {
+				this.exited = new ArrayList<Expr>();
+				for(Expr e: other.exited){
+					this.exited.add(ExprHelper.copyExpr(e));
+				}
+			}
+			else {
+				this.exited = null;
+			}
+		}
+
 		public String toString() {
 			String s = new String();
 			s += "kind: "+kind +"\n";
@@ -131,6 +210,50 @@ public class StateTable implements Serializable {
 		this.table = new HashMap<String,StateElement>();
 		this.isResolved = false;
 	}
+
+	//copy constructor for deep copy 
+	public StateTable(StateTable other) {
+		this.isResolved = other.isResolved;
+		this.table = new HashMap<String,StateElement>();
+
+		if(other.table != null) {
+			for (HashMap.Entry<String, StateElement> entry : other.table.entrySet()) {
+            	this.table.put(new String(entry.getKey()), new StateElement(entry.getValue()));
+        	}
+        }
+        this.root = new String(other.root);
+
+        if(other.inits != null) {
+        	this.inits = new ArrayList<Expr>();
+        	for(Expr e: other.inits) {
+        		this.inits.add(ExprHelper.copyExpr(e));
+        	}        	
+        }
+        else {
+        	this.inits = null;
+        }
+
+        if(other.invs != null) {
+        	this.invs = new ArrayList<Expr>();
+        	for(Expr e: other.invs) {
+        		this.invs.add(ExprHelper.copyExpr(e));
+        	}        	
+        }
+        else {
+        	this.invs = null;
+        }
+
+        if(other.allParamsInOrder != null){
+        	this.allParamsInOrder = new ArrayList<String>();
+        	for(String s: other.allParamsInOrder) {
+        		this.allParamsInOrder.add(new String(s));
+        	}
+        }
+        else {
+        	this.allParamsInOrder = null;
+        }
+	}
+
 	public void setRoot(String s) {
 		root = s;
 	}

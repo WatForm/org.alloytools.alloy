@@ -557,4 +557,32 @@ public class ExprHelper  {
             return false;
         }        
     }
+
+
+    // implementing a copy constructor for Expr for deep copy
+
+    public static Expr copyExpr(Expr e) {
+        if(isExprVar(e)) {
+            return createVar(getVarName((ExprVar) e));
+        }
+        else if(isExprUnary(e)) {
+            return createUnaryExpr(getUnaryOp(e), getSub(e));
+        }
+        else if(isExprBinary(e)) {
+            return createBinaryExpr(getLeft(e), getBinaryOp(e), getRight(e));
+        }
+        else {
+            return e;
+        }
+    }
 }
+
+
+
+
+
+
+
+
+
+
