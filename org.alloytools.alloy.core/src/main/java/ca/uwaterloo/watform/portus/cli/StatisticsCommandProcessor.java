@@ -1,6 +1,6 @@
 package ca.uwaterloo.watform.portus.cli;
 
-import ca.uwaterloo.watform.portus.PortusOptions;
+import ca.uwaterloo.watform.portus.PortusSATFactory;
 import ca.uwaterloo.watform.portus.PortusStatistics;
 import edu.mit.csail.sdg.ast.Command;
 import edu.mit.csail.sdg.ast.Module;
@@ -12,9 +12,9 @@ import edu.mit.csail.sdg.translator.A4Options;
  */
 final class StatisticsCommandProcessor implements CommandProcessor {
 
-    private final PortusOptions.FortressSmtSolver solver;
+    private final PortusSATFactory solver;
 
-    public StatisticsCommandProcessor(PortusOptions.FortressSmtSolver solver) {
+    public StatisticsCommandProcessor(PortusSATFactory solver) {
         this.solver = solver;
     }
 
@@ -26,7 +26,7 @@ final class StatisticsCommandProcessor implements CommandProcessor {
     public boolean process(Module world, Command command, A4Options options) {
         PortusStatistics statistics = new PortusStatistics();
         try {
-            solver.commandRunner().translate(statistics, world, command, options); // ignore the result
+            solver.getCommandRunner().translate(statistics, world, command, options); // ignore the result
         } catch (Exception e) {
             System.err.println("Exception during translation!");
             e.printStackTrace();

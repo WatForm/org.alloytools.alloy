@@ -14,11 +14,14 @@
 - Added a `CommandRunner` interface that abstracts "something that can run an Alloy command",
   and added an adapter class `TranslateAlloyToKodkod.Runner` which adapts `TranslateAlloyToKodkod`
   to that interface.
-- Made `A4Options.SatSolver` not final and added a `commandRunner()` method that returns the
+~~- Made `A4Options.SatSolver` not final and added a `commandRunner()` method that returns the
   `CommandRunner` to use when running commands with the `SatSolver`. Added a subclass
   `FortressOptions.FortressSmtSolver` that uses `TranslateAlloyToFortress` instead and added
-  static `SatSolver` constants for it.
-- Added a `FortressOptions` field to `A4Options`.
+  static `SatSolver` constants for it.~~
+  - Hooked into the `SATFactory` system to direct Portus's solvers to the `TranslateAlloyToFortress`
+    command runner. Added `commandRunner()` to `A4Options` to this effect.
+  - Added a line in `AlloyDispatcher` to call `PortusSATFactory` to register Portus's solvers.
+- Added a `PortusOptions` field to `A4Options`.
 - Extracted `AlloySolution` interface from `A4Solution`, and used it instead of `A4Solution`
   outside the `edu.mit.csail.sdg.translator` package as much as possible, so that `FortressSolution`
   can implement it and allow the Alloy Analyzer to visualize Fortress solutions.
