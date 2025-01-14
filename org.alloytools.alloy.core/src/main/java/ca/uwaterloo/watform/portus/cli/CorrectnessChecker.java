@@ -39,6 +39,7 @@ import java.io.PrintWriter;
 import java.io.StringReader;
 import java.io.StringWriter;
 import java.io.UncheckedIOException;
+import java.util.Collections;
 import java.util.stream.Collectors;
 
 final class CorrectnessChecker {
@@ -82,7 +83,7 @@ final class CorrectnessChecker {
     }
 
     public static final PortusSATFactory DEFAULT_FORTRESS_SOLVER = new FortressRef();
-    public static final SATFactory DEFAULT_KODKOD_SOLVER = SAT4JRef.INSTANCE;
+    public static final SATFactory DEFAULT_KODKOD_SOLVER = SAT4JRef.getRefInstance();
 
     private final PortusSATFactory fortressSolver;
     private final SATFactory kodkodSolver;
@@ -109,7 +110,7 @@ final class CorrectnessChecker {
         // Output to XML (in-memory) and then read back
         StringWriter stringWriter = new StringWriter();
         PrintWriter printWriter = new PrintWriter(stringWriter);
-        solution.writeXML(printWriter, null, null);
+        solution.writeXML(printWriter, Collections.emptyList(), Collections.emptyMap());
         printWriter.flush();
         stringWriter.flush();
 

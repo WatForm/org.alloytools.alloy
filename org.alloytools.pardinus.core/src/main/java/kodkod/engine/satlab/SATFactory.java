@@ -84,7 +84,7 @@ public abstract class SATFactory implements Serializable, Comparable<SATFactory>
 	 * solvers.
 	 */
 	public static List<SATFactory> extensions = new ArrayList<>();
-	public static final SATFactory DEFAULT = SAT4JRef.INSTANCE;
+	public static final SATFactory DEFAULT = SAT4JRef.getRefInstance();
 
 	static {
 		extensions.add(DEFAULT);

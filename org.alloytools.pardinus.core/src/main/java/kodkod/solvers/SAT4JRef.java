@@ -9,7 +9,16 @@ import kodkod.engine.satlab.SATSolver;
 
 public class SAT4JRef extends SATFactory {
 	private static final long serialVersionUID = 1L;
-	public static SATFactory INSTANCE= new SAT4JRef();
+	private static SATFactory instance = null;
+
+	// [portus] Initialize lazily to avoid issues related to static load order when initializing SATFactory.DEFAULT
+	// which occur when running the Portus CLI
+	public static SATFactory getRefInstance() {
+		if (instance == null) {
+			instance = new SAT4JRef();
+		}
+		return instance;
+	}
 
 	@Override
 	public String id() {

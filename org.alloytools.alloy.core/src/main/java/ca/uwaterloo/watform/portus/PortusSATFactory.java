@@ -15,6 +15,7 @@ public abstract class PortusSATFactory extends SATFactory {
      */
     public static void addPortusExtensions(List<SATFactory> extensions) {
         extensions.add(new FortressRef());
+        extensions.add(new FortressMSFOLTransformer());
         extensions.add(new PreFortressSmtlibTransformer());
         extensions.add(new PostFortressSmtlibTransformer());
     }
@@ -27,6 +28,12 @@ public abstract class PortusSATFactory extends SATFactory {
     protected SATSolver createSolver() {
         throw new UnsupportedOperationException(this + " is an SMT solver and should be handled by Portus. It cannot " +
                 "create instances");
+    }
+
+    @Override
+    public boolean isPresent() {
+        // avoid trying to create an instance
+        return true;
     }
 
 }

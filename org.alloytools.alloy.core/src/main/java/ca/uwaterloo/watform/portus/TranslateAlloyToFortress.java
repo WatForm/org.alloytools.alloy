@@ -69,7 +69,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
             logger.translationFinished(translated.getTheory());
 
             // Write raw MSFOL or SMTLIB+ to file if the appropriate solver is chosen
-            if (options.solver.id().equals(FortressRef.ID)) {
+            if (options.solver.id().equals(FortressMSFOLTransformer.ID)) {
                 writeFortressToFile(logger, options, translated);
                 return null;
             }

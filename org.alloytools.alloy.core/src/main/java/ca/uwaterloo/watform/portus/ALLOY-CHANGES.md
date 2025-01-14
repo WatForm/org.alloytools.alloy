@@ -32,3 +32,5 @@
 - Small modifications in `SimpleCLI` to support dumping SMTLIB from the command line.
 - Added `keySet()` in `Env` so that `VarMappingContext` doesn't have to keep track of it itself.
 - Made `Err`'s constructor public so that `ErrorNoPortusSupport` can be defined in the Portus package.
+- Changed `SAT4JRef` to lazily load `INSTANCE` in order to avoid class loader issues since `SATFactory` loads its
+  field `DEFAULT` by referencing its subclass `SAT4JRef`, which was causing problems.
