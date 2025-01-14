@@ -373,9 +373,6 @@ public final class PortusCLI {
             processors.add(new CorrectnessCommandProcessor(new CorrectnessChecker(
                     options.alwaysShowKodkodTime.active())));
         }
-        if (options.useDeltaDebugProcessor.active()) {
-            processors.add(new DeltaDebugCommandProcessor());
-        }
         if (options.useOutputPreSmtlibProcessor.active()) {
             processors.add(new OutputSmtlibCommandProcessor(new PreFortressSmtlibTransformer()));
         } else if (options.useOutputPostSmtlibProcessor.active()) { // don't do both - confusing

@@ -40,8 +40,6 @@ final class PortusCLIOptions {
     public final Option useRunKodkodMiniSatProcessor = new Option("-rk-ms", "Run Kodkod (MiniSat) on each command.");
 
     public final Option useCorrectnessProcessor = new Option("-c", "Check Portus correctness on each command.");
-    public final Option useDeltaDebugProcessor = new Option(
-            "-dd", "Run delta debugging on each command to minimize the model (experimental).");
     public final Option useOutputPreSmtlibProcessor = new Option(
             "-smtlib-tc", "Output SMTLIB+ (typechecking only) for each command.");
     public final Option useOutputPostSmtlibProcessor = new Option(
@@ -107,7 +105,7 @@ final class PortusCLIOptions {
             fortressCompiler, fortressSolver,
             setAllScopes, setSigScope,
             useRunPortusProcessor, useRunKodkodProcessor, useRunKodkodMiniSatProcessor,
-            useCorrectnessProcessor, useDeltaDebugProcessor,
+            useCorrectnessProcessor,
             useOutputPreSmtlibProcessor, useOutputPostSmtlibProcessor,
             useStatisticsProcessor, useCountCommandsProcessor,
             alwaysShowKodkodTime,
