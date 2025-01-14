@@ -27,7 +27,9 @@ import java.awt.event.KeyListener;
 import java.awt.event.MouseEvent;
 import java.io.File;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
+import java.util.List;
 import java.util.Objects;
 
 import javax.swing.AbstractAction;
@@ -437,14 +439,14 @@ public final class OurSyntaxWidget {
         if (s != null && s.length() > 0) {
             StringBuilder sb = new StringBuilder(s);
             int i = 0;
-            while (i < sb.length() - 1) {
+            while (i < sb.length()) {
                 if (sb.charAt(i) == '/' && sb.charAt(i + 1) == '/') {
                     sb.delete(i, i + 2);
                 } else {
                     sb.insert(i, "//");
                     i += 2;
                 }
-                while (i < sb.length() - 1) {
+                while (i < sb.length()) {
                     if (sb.charAt(i) == '\n') {
                         i++;
                         break;
@@ -877,5 +879,50 @@ public final class OurSyntaxWidget {
         return null;
     }
 
+    public JTextPane getTextPane() {
+        return pane;
+    }
 
+    /**
+     * Expand the selection to the next block in the code.
+     */
+    public void doExpandSelection() {
+        JTextPane textPane = getTextPane();
+        String text = textPane.getText();
+        int start = Math.max(textPane.getSelectionStart(), 0);
+        int end = Math.min(textPane.getSelectionEnd(), text.length());
+        if (start == end) {
+            end++;
+        }
+        CompModule module = getModule();
+        if (module == null)
+            return;
+
+        Pos pos = Pos.toPos(text, start, end, 1 /* edu.mit.csail.sdg.alloy4.A4Preferences.TabSize.get() */);
+        System.out.println("looking for " + pos);
+        List<Expr> list = module.locate(pos);
+        Collections.reverse(list);
+        Expr found;
+        while (true) {
+            if (list.isEmpty())
+                return;
+
+            found = list.remove(0);
+            Pos span = found.span();
+            if (span.x == pos.x && span.y == pos.y && span.x2 == pos.x2 && span.y2 == pos.y2)
+                continue;
+
+            break;
+        }
+
+
+        int[] range = found.span().toStartEnd(text);
+        textPane.setSelectionStart(range[0]);
+        textPane.setSelectionEnd(range[1]);
+    }
+
+
+    private boolean isShifted(ActionEvent e) {
+        return (e.getModifiers() & ActionEvent.SHIFT_MASK) == ActionEvent.SHIFT_MASK;
+    }
 }

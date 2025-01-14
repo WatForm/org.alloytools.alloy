@@ -1,0 +1,15 @@
+
+
+-buildpath: \
+    slf4j.api,\
+	aQute.libg,\
+	org.alloytools.alloy.core,\
+	org.alloytools.alloy.application,\
+	org.alloytools.alloy.extra,\
+	jline,\
+	jline,\
+	org.alloytools.api,\
+	org.alloytools.pardinus.core
+	
+-includepackage org.alloytools.alloy.cli
+

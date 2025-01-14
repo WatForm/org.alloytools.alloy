@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import aQute.bnd.exceptions.Exceptions;
 import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.alloy4.ConstList;
 import edu.mit.csail.sdg.alloy4.ConstMap;
@@ -620,10 +621,7 @@ public final class TranslateAlloyToKodkod extends VisitReturn<Object> {
             Pos p = tr != null ? tr.frame.kv2typepos(ex.decl().variable()).b : Pos.UNKNOWN;
             throw new ErrorType(p, "Analysis cannot be performed since it requires higher-order quantification that could not be skolemized.");
         } catch (Throwable ex) {
-            if (ex instanceof Err)
-                throw (Err) ex;
-            else
-                throw new ErrorFatal("Unknown exception occurred: " + ex, ex);
+            throw Exceptions.duck(ex);
         }
     }
 
@@ -673,7 +671,7 @@ public final class TranslateAlloyToKodkod extends VisitReturn<Object> {
     // ==============================================================================================================//
 
     /**
-     * Convenience method that evalutes x and casts the result to be a Kodkod
+     * Convenience method that evaluates x and casts the result to be a Kodkod
      * Formula.
      *
      * @return the formula - if x evaluates to a Formula
@@ -689,7 +687,7 @@ public final class TranslateAlloyToKodkod extends VisitReturn<Object> {
     }
 
     /**
-     * Convenience method that evalutes x and cast the result to be a Kodkod
+     * Convenience method that evaluates x and cast the result to be a Kodkod
      * IntExpression.
      *
      * @return the integer expression - if x evaluates to an IntExpression

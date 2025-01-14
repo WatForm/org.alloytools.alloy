@@ -147,6 +147,7 @@ import edu.mit.csail.sdg.translator.A4Options;
 import edu.mit.csail.sdg.translator.A4Solution;
 import edu.mit.csail.sdg.translator.A4SolutionReader;
 
+@SuppressWarnings("restriction" )
 class AlloyTextDocumentService implements TextDocumentService, WorkspaceService, LanguageClientAware {
 
     public AlloyLanguageClient client;
@@ -457,7 +458,7 @@ class AlloyTextDocumentService implements TextDocumentService, WorkspaceService,
 
         Stream<SymbolInformation> fields = module.getAllSigs().makeConstList().stream().flatMap(sig -> sig.getFields().makeConstList().stream()).map(field -> {
             SymbolInformation symbolInfo = newSymbolInformation(field.label, posToLocation(field.pos), SymbolKind.Field);
-            symbolInfo.setContainerName(removeThisPrefix(field.sig.label));
+            symbolInfo.setContainerName(Util.tailThis(field.sig.label));
             return symbolInfo;
         });
 
@@ -468,7 +469,7 @@ class AlloyTextDocumentService implements TextDocumentService, WorkspaceService,
         Stream<SymbolInformation> assertions = module.getAllAssertions().stream().map(assertion -> newSymbolInformation(assertion.label, posToLocation(assertion.pos), SymbolKind.Property));
 
         return Stream.of(commands, sigs, fields, funcs, assertions, macros).flatMap(x -> x).map(x -> {
-            x.setName(removeThisPrefix(x.getName()));
+            x.setName(Util.tailThis(x.getName()));
             return x;
         })
                      //.sorted((sym1,sym2) -> positionCompare(sym1.getLocation().getRange().getStart(), sym2.getLocation().getRange().getStart()))
@@ -723,13 +724,6 @@ class AlloyTextDocumentService implements TextDocumentService, WorkspaceService,
     public void didChangeWatchedFiles(DidChangeWatchedFilesParams params) {
     }
 
-    static String removeThisPrefix(String name) {
-        if (name.startsWith("this/")) {
-            return name.substring("this/".length());
-        }
-        return name;
-    }
-
     private PublishDiagnosticsParams toPublishDiagnosticsParams(Err err) {
         return toPublishDiagnosticsParamsList(Arrays.asList(err)).get(0);
     }
@@ -811,10 +805,10 @@ class AlloyTextDocumentService implements TextDocumentService, WorkspaceService,
             WorkerCallback cb = getWorkerCallback();
 
             log("actually running the task");
-            // if (AlloyCore.isDebug() && VerbosityPref.get() == Verbosity.FULLDEBUG)
-            //WorkerEngine.runLocally(task, cb);
-            // else
-            WorkerEngine.run(task, newmem, newstack, SimpleGUI.alloyHome(null) + fs + "binary", "", cb);
+            if (AlloyCore.isDebug())
+                WorkerEngine.runLocally(task, cb);
+            else
+                WorkerEngine.run(task, newmem, newstack, "", cb);
             subMemoryNow = newmem;
             subStackNow = newstack;
         } catch (Throwable ex) {
@@ -951,7 +945,7 @@ class AlloyTextDocumentService implements TextDocumentService, WorkspaceService,
         List<AlloyLSMessage> resMsgs = new ArrayList<>();
         resMsgs.add(alloyMsg);
 
-        final int verbosity = 0;
+        int verbosity = 0;
         if (msg == null) {
             span.append("Done\n");
         } else if (msg instanceof String) {
@@ -1233,6 +1227,7 @@ class AlloyTextDocumentService implements TextDocumentService, WorkspaceService,
     // edu.mit.csail.sdg.alloy4whole.SimpleGUI.doVisualize(String) for handling
     // instance visualization links
 
+    @SuppressWarnings("unchecked" )
     private void doVisualize(String arg) {
         log("doVisualize() called with " + arg);
         if (arg.startsWith("CORE: ")) { // CORE: filename
@@ -1296,7 +1291,7 @@ class AlloyTextDocumentService implements TextDocumentService, WorkspaceService,
             // from SimpleGui
             // VizGUI viz = new VizGUI(false, "", windowmenu2, enumerator, evaluator);
             if (viz == null)
-                viz = new VizGUI(false, "", null, enumerator, evaluator, 1);
+                viz = new VizGUI(false, "", null, enumerator, evaluator, 2);
             viz.loadXML(Util.canon(arg.substring(5)), false);
         }
     }
@@ -1319,7 +1314,7 @@ class AlloyTextDocumentService implements TextDocumentService, WorkspaceService,
                                                    if (AlloyCore.isDebug())
                                                        WorkerEngine.runLocally(task, cb);
                                                    else
-                                                       WorkerEngine.run(task, SubMemory.get(), SubStack.get(), SimpleGUI.alloyHome(null) + fs + "binary", "", cb);
+                                                       WorkerEngine.run(task, SubMemory.get(), SubStack.get(), "", cb);
                                                    // task.run(cb);
                                                } catch (Throwable ex) {
                                                    WorkerEngine.stop();
@@ -1330,39 +1325,39 @@ class AlloyTextDocumentService implements TextDocumentService, WorkspaceService,
                                                    doStop(2);
                                                    return arg[0];
                                                }
-                                                                                                                                                                                                                                                                                                                                     /*
-                                                                                                                                                                                                                                                                                                                                      * subrunningTask
-                                                                                                                                                                                                                                                                                                                                      * =
-                                                                                                                                                                                                                                                                                                                                      * 2;
-                                                                                                                                                                                                                                                                                                                                      * runmenu
-                                                                                                                                                                                                                                                                                                                                      * .
-                                                                                                                                                                                                                                                                                                                                      * setEnabled
-                                                                                                                                                                                                                                                                                                                                      * (
-                                                                                                                                                                                                                                                                                                                                      * false
-                                                                                                                                                                                                                                                                                                                                      * )
-                                                                                                                                                                                                                                                                                                                                      * ;
-                                                                                                                                                                                                                                                                                                                                      * runbutton
-                                                                                                                                                                                                                                                                                                                                      * .
-                                                                                                                                                                                                                                                                                                                                      * setVisible
-                                                                                                                                                                                                                                                                                                                                      * (
-                                                                                                                                                                                                                                                                                                                                      * false
-                                                                                                                                                                                                                                                                                                                                      * )
-                                                                                                                                                                                                                                                                                                                                      * ;
-                                                                                                                                                                                                                                                                                                                                      * showbutton
-                                                                                                                                                                                                                                                                                                                                      * .
-                                                                                                                                                                                                                                                                                                                                      * setEnabled
-                                                                                                                                                                                                                                                                                                                                      * (
-                                                                                                                                                                                                                                                                                                                                      * false
-                                                                                                                                                                                                                                                                                                                                      * )
-                                                                                                                                                                                                                                                                                                                                      * ;
-                                                                                                                                                                                                                                                                                                                                      * stopbutton
-                                                                                                                                                                                                                                                                                                                                      * .
-                                                                                                                                                                                                                                                                                                                                      * setVisible
-                                                                                                                                                                                                                                                                                                                                      * (
-                                                                                                                                                                                                                                                                                                                                      * true
-                                                                                                                                                                                                                                                                                                                                      * )
-                                                                                                                                                                                                                                                                                                                                      * ;
-                                                                                                                                                                                                                                                                                                                                      */
+                                                                                                                                                                                                                                                                                                                                           /*
+                                                                                                                                                                                                                                                                                                                                            * subrunningTask
+                                                                                                                                                                                                                                                                                                                                            * =
+                                                                                                                                                                                                                                                                                                                                            * 2;
+                                                                                                                                                                                                                                                                                                                                            * runmenu
+                                                                                                                                                                                                                                                                                                                                            * .
+                                                                                                                                                                                                                                                                                                                                            * setEnabled
+                                                                                                                                                                                                                                                                                                                                            * (
+                                                                                                                                                                                                                                                                                                                                            * false
+                                                                                                                                                                                                                                                                                                                                            * )
+                                                                                                                                                                                                                                                                                                                                            * ;
+                                                                                                                                                                                                                                                                                                                                            * runbutton
+                                                                                                                                                                                                                                                                                                                                            * .
+                                                                                                                                                                                                                                                                                                                                            * setVisible
+                                                                                                                                                                                                                                                                                                                                            * (
+                                                                                                                                                                                                                                                                                                                                            * false
+                                                                                                                                                                                                                                                                                                                                            * )
+                                                                                                                                                                                                                                                                                                                                            * ;
+                                                                                                                                                                                                                                                                                                                                            * showbutton
+                                                                                                                                                                                                                                                                                                                                            * .
+                                                                                                                                                                                                                                                                                                                                            * setEnabled
+                                                                                                                                                                                                                                                                                                                                            * (
+                                                                                                                                                                                                                                                                                                                                            * false
+                                                                                                                                                                                                                                                                                                                                            * )
+                                                                                                                                                                                                                                                                                                                                            * ;
+                                                                                                                                                                                                                                                                                                                                            * stopbutton
+                                                                                                                                                                                                                                                                                                                                            * .
+                                                                                                                                                                                                                                                                                                                                            * setVisible
+                                                                                                                                                                                                                                                                                                                                            * (
+                                                                                                                                                                                                                                                                                                                                            * true
+                                                                                                                                                                                                                                                                                                                                            * )
+                                                                                                                                                                                                                                                                                                                                            * ;
+                                                                                                                                                                                                                                                                                                                                            */
                                                return arg[0];
                                            }
                                        };
@@ -1588,7 +1583,7 @@ class AlloyTextDocumentService implements TextDocumentService, WorkspaceService,
         if (FilenameUtils.isExtension(filename, new String[] {
                                                               "als"
         }) || (FilenameUtils.isExtension(filename, new String[] {
-                                                              "md"
+                                                                 "md"
         }) && contents.startsWith("---")))
             return true;
 

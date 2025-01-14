@@ -1,11 +1,12 @@
 
 Main-Class: org.alloytools.alloy.core.infra.Alloy
 JPM-Command: alloy
-
 -buildpath: \
 	org.alloytools.alloy.application,\
 	org.alloytools.alloy.core,\
 	org.alloytools.alloy.extra,\
+    org.alloytools.alloy.lsp,\
+    org.alloytools.alloy.cli,\
     org.alloytools.api,\
 	aQute.libg, \
     slf4j.api, \
@@ -21,8 +22,10 @@ JPM-Command: alloy
 	@${repo;org.alloytools.alloy.core}, \
 	@${repo;org.alloytools.alloy.extra}, \
     @${repo;org.alloytools.alloy.lsp}, \
-	@${repo;org.alloytools:pardinus.core}, \
-	@${repo;org.alloytools:pardinus.nativesat}, \
+    @${repo;org.alloytools.alloy.cli}, \
+	@${repo;org.alloytools.pardinus.core}, \
+	@${repo;org.alloytools.pardinus.native}, \
+	@${repo;jline}, \
 	@${repo;org.sat4j.core}, \
 	@${repo;org.sat4j.maxsat}, \
 	@${repo;org.sat4j.pb}, \

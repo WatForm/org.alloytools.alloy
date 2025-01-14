@@ -183,7 +183,7 @@ class OurSyntaxDocument extends DefaultStyledDocument {
      * This stores the currently recognized set of reserved keywords.
      */
     private static final String[]     keywords = new String[] {
-                                                               "abstract", "var", "all", "and", "as", "assert", "but", "check", "disj", "disjoint", "else", "enum", "exactly", "exh", "exhaustive", "expect", "extends", "fact", "for", "fun", "iden", "iff", "implies", "in", "Int", "int", "let", "lone", "module", "no", "none", "not", "one", "open", "or", "part", "partition", "pred", "private", "run", "seq", "set", "sig", "some", "String", "sum", "this", "univ", "eventually", "always", "after", "once", "historically", "since", "triggered", "before", "until", "releases", "steps"
+                                                               "abstract", "var", "all", "and", "as", "assert", "but", "check", "disj", "else", "enum", "exactly", "expect", "extends", "fact", "for", "fun", "iden", "iff", "implies", "in", "Int", "int", "let", "lone", "module", "no", "none", "not", "one", "open", "or", "pred", "private", "run", "seq", "set", "sig", "some", "String", "sum", "this", "univ", "eventually", "always", "after", "once", "historically", "since", "triggered", "before", "until", "releases", "steps"
     };
 
     /**
@@ -577,7 +577,7 @@ class OurSyntaxDocument extends DefaultStyledDocument {
     }
 
     /**
-     * Overriden to return the full text of the document.
+     * Overridden to return the full text of the document.
      *
      * @return the entire text
      */

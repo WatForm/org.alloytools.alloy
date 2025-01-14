@@ -22,13 +22,13 @@ import java.util.List;
 import java.util.Map;
 
 import edu.mit.csail.sdg.alloy4.A4Reporter;
-import edu.mit.csail.sdg.alloy4.ConstList;
 import edu.mit.csail.sdg.alloy4.Err;
 import edu.mit.csail.sdg.alloy4.ErrorAPI;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.alloy4.Util;
 import edu.mit.csail.sdg.alloy4.Version;
 import edu.mit.csail.sdg.ast.Expr;
+import edu.mit.csail.sdg.ast.ExprCall;
 import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Func;
 import edu.mit.csail.sdg.ast.Sig;
@@ -116,7 +116,8 @@ public final class A4SolutionWriter {
             while (true) {
                 A4TupleSet ts = (A4TupleSet) (sol.eval(expr.minus(sum), state));
                 int n = ts.size();
-                if (n <= 0 || expr instanceof ExprVar) // [electrum] static skolem vars (from quantifications) may not be part of the sig in other states
+                // [electrum] the value of mutable skolem vars may use atoms not present in the current state (from quantifications and auxiliary functions)
+                if (n <= 0 || expr instanceof ExprVar || expr instanceof ExprCall)
                     break;
                 if (lastSize > 0 && lastSize <= n)
                     throw new ErrorFatal("An internal error occurred in the evaluator.");
@@ -280,8 +281,8 @@ public final class A4SolutionWriter {
         Util.encodeXML(out, originalFileName);
         out.print("\" tracelength=\"");
         out.print(tracelength);
-        out.print("\" backloop=\"");
-        out.print(backloop);
+        out.print("\" looplength=\"");
+        out.print((tracelength-backloop));
         if (sol == null)
             out.print("\" metamodel=\"yes");
         out.print("\">\n");
@@ -307,7 +308,10 @@ public final class A4SolutionWriter {
                         if (rep != null)
                             rep.write(f.call());
                         StringBuilder sb = new StringBuilder();
-                        Util.encodeXMLs(sb, "\n<skolem label=\"", label, "\" ID=\"m" + m + "\">\n");
+                        Util.encodeXMLs(sb, "\n<skolem label=\"", label, "\" ID=\"m" + m);
+                        if (f.isPrivate != null)
+                            sb.append("\" private=\"yes");
+                        sb.append("\">\n");
                         if (writeExpr(sb.toString(), f.call(), state)) {
                             out.print("</skolem>\n");
                         }
@@ -331,8 +335,17 @@ public final class A4SolutionWriter {
         try {
             Util.encodeXMLs(out, "<alloy builddate=\"", Version.buildDate(), "\">\n\n");
 
+            int unrolls = 0;
+            for (Func f : extraSkolems) {
+                if (f.count() == 0 && f.call().type().hasTuple()) {
+                    int dpt = f.getBody().pastDepth();
+                    if (dpt > 0)
+                        unrolls = Math.max(unrolls, dpt);
+                }
+            }
+
             // [electrum] write all instances of the trace
-            for (int i = 0; i < sol.getTraceLength(); i++)
+            for (int i = 0; i < sol.getTraceLength()+unrolls*(sol.getTraceLength()-sol.getLoopState()); i++)
                 new A4SolutionWriter(rep, sol, sol.getAllReachableSigs(), sol.getBitwidth(), sol.getMaxSeq(), sol.getMinTrace(), sol.getMaxTrace(), sol.getTraceLength(), sol.getLoopState(), sol.getOriginalCommand(), sol.getOriginalFilename(), out, extraSkolems, i);
             if (sources != null)
                 for (Map.Entry<String,String> e : sources.entrySet()) {
@@ -352,7 +365,7 @@ public final class A4SolutionWriter {
     /**
      * Write the metamodel as &lt;instance&gt;..&lt;/instance&gt; in XML format.
      */
-    public static void writeMetamodel(ConstList<Sig> sigs, String originalFilename, PrintWriter out) throws Err {
+    public static void writeMetamodel(List<Sig> sigs, String originalFilename, PrintWriter out) throws Err {
         try {
             new A4SolutionWriter(null, null, sigs, 4, 4, 1, 1, 1, 0, "show metamodel", originalFilename, out, null, 0);
         } catch (Throwable ex) {

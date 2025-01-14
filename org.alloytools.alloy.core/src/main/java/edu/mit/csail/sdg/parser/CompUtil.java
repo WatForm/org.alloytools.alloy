@@ -40,7 +40,6 @@ import edu.mit.csail.sdg.alloy4.Util;
 import edu.mit.csail.sdg.ast.Command;
 import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
-import edu.mit.csail.sdg.ast.ExprBinary;
 import edu.mit.csail.sdg.ast.ExprCall;
 import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.ExprUnary.Op;
@@ -70,7 +69,7 @@ public final class CompUtil {
     // =============================================================================================================//
 
     /**
-     * Go up the directory hierachy 0 or more times. <br>
+     * Go up the directory hierarchy 0 or more times. <br>
      * For example, on a UNIX machine, goUp("/home/abc/def",1) will return
      * "/home/abc" <br>
      * For example, on a UNIX machine, goUp("/home/abc/def",2) will return "/home"
@@ -198,27 +197,7 @@ public final class CompUtil {
                 }
             }
         }
-        Object varTriggerNode;
-        varTriggerNode = cmd.formula.accept(new VisitQueryOnce<Object>() {
-
-            @Override
-            public Object visit(ExprUnary x) throws Err {
-                if (x.op == Op.AFTER || x.op == Op.BEFORE || x.op == Op.PRIME || x.op == Op.HISTORICALLY || x.op == Op.ALWAYS || x.op == Op.ONCE || x.op == Op.EVENTUALLY)
-                    return x;
-                return super.visit(x);
-            }
-
-            @Override
-            public Object visit(ExprBinary x) throws Err {
-                if (x.op == ExprBinary.Op.UNTIL || x.op == ExprBinary.Op.SINCE || x.op == ExprBinary.Op.TRIGGERED || x.op == ExprBinary.Op.RELEASES)
-                    return x;
-                return super.visit(x);
-            }
-        });
-        if (varTriggerNode != null)
-            return true;
-
-        return false;
+        return cmd.formula.hasTemporal();
     }
 
     // =============================================================================================================//
@@ -262,7 +241,7 @@ public final class CompUtil {
 
         // Here, we recursively open the included files
         for (Open x : u.getOpens()) {
-            String cp = Util.canon(computeModulePath(u.getModelName(), filename, x.filename)), content = fc.get(cp);
+            String cp = Util.canon(computeModulePath(u.getModuleName(), filename, x.filename)), content = fc.get(cp);
             try {
                 if (content == null) {
                     content = loaded.get(cp);

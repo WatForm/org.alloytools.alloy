@@ -84,6 +84,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Scanner;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import javax.swing.Action;
 import javax.swing.Box;
@@ -175,12 +176,12 @@ import edu.mit.csail.sdg.sim.SimInstance;
 import edu.mit.csail.sdg.sim.SimTuple;
 import edu.mit.csail.sdg.sim.SimTupleset;
 import edu.mit.csail.sdg.translator.A4Options;
-import edu.mit.csail.sdg.translator.A4Options.SatSolver;
 import edu.mit.csail.sdg.translator.A4Solution;
 import edu.mit.csail.sdg.translator.A4SolutionReader;
 import edu.mit.csail.sdg.translator.A4Tuple;
 import edu.mit.csail.sdg.translator.A4TupleSet;
 import kodkod.engine.fol2sat.HigherOrderDeclException;
+import kodkod.engine.satlab.SATFactory;
 
 /**
  * Simple graphical interface for accessing various features of the analyzer.
@@ -203,7 +204,7 @@ import kodkod.engine.fol2sat.HigherOrderDeclException;
  */
 public final class SimpleGUI implements ComponentListener, Listener {
 
-    MacUtil macUtil;
+    final static Pattern TYPED_P = Pattern.compile("([A-Z]{3,6}):");
 
     /**
      * The latest welcome screen; each time we update the welcome screen, we
@@ -266,14 +267,7 @@ public final class SimpleGUI implements ComponentListener, Listener {
     /** The scrollpane containing the "message panel". */
     private JScrollPane           logpane;
 
-    /** The last "find" that the user issued. */
-    private String                lastFind               = "";
-
-    /** The last find is case-sensitive or not. */
-    private boolean               lastFindCaseSensitive  = true;
-
-    /** The last find is forward or not. */
-    private boolean               lastFindForward        = true;
+    final FindReplace             findReplace;
 
     /** The icon for a "checked" menu item. */
     private static final Icon     iconYes                = OurUtil.loadIcon("images/menu1.gif");
@@ -285,7 +279,7 @@ public final class SimpleGUI implements ComponentListener, Listener {
      * The system-specific file separator (forward-slash on UNIX, back-slash on
      * Windows, etc.)
      */
-    private static final String   fs                     = System.getProperty("file.separator");
+    private static final String   fs                     = File.separator;
 
     /**
      * The darker background color (for the MessageLog window and the Toolbar and
@@ -446,21 +440,6 @@ public final class SimpleGUI implements ComponentListener, Listener {
      * Copy the required files from the JAR into a temporary directory.
      */
     private void copyFromJAR() {
-        // Compute the appropriate platform
-        String os = System.getProperty("os.name").toLowerCase(Locale.US).replace(' ', '-');
-        if (os.startsWith("mac-"))
-            os = "mac";
-        else if (os.startsWith("windows-"))
-            os = "windows";
-        String arch = System.getProperty("os.arch").toLowerCase(Locale.US).replace(' ', '-');
-        if (arch.equals("powerpc"))
-            arch = "ppc-" + os;
-        else
-            arch = arch.replaceAll("\\Ai[3456]86\\z", "x86") + "-" + os;
-        if (os.equals("mac"))
-            arch = "x86-mac"; // our pre-compiled binaries are all universal
-                             // binaries
-                             // Find out the appropriate Alloy directory
         final String platformBinary = alloyHome(frame) + fs + "binary";
         System.setProperty("alloy.binary", platformBinary);
         // Write a few test files
@@ -470,12 +449,8 @@ public final class SimpleGUI implements ComponentListener, Listener {
         } catch (Err er) {
             // The error will be caught later by the "berkmin" or "spear" test
         }
-        // Copy the platform-dependent binaries
-        Util.copy(frame, true, false, platformBinary, arch + "/libminisat.so", arch + "/libminisatx1.so", arch + "/libminisat.jnilib", arch + "/libminisat.dylib", arch + "/libminisatprover.so", arch + "/libminisatproverx1.so", arch + "/libminisatprover.jnilib", arch + "/libminisatprover.dylib", arch + "/libzchaff.so", arch + "/libzchaffmincost.so", arch + "/libzchaffx1.so", arch + "/libzchaff.jnilib", arch + "/liblingeling.so", arch + "/liblingeling.dylib", arch + "/liblingeling.jnilib", arch + "/plingeling", arch + "/libglucose.so", arch + "/libglucose.dylib", arch + "/libglucose.jnilib", arch + "/libcryptominisat.so", arch + "/libcryptominisat.la", arch + "/libcryptominisat.dylib", arch + "/libcryptominisat.jnilib", arch + "/berkmin", arch + "/spear", arch + "/cryptominisat", arch + "/electrod");
-        Util.copy(frame, false, false, platformBinary, arch + "/minisat.dll", arch + "/cygminisat.dll", arch + "/libminisat.dll.a", arch + "/minisatprover.dll", arch + "/cygminisatprover.dll", arch + "/libminisatprover.dll.a", arch + "/glucose.dll", arch + "/cygglucose.dll", arch + "/libglucose.dll.a", arch + "/zchaff.dll", arch + "/berkmin.exe", arch + "/spear.exe", arch + "/electrod.exe");
-        // Copy the model files
+
         Util.copy(frame, false, true, alloyHome(frame), "models/book/appendixA/addressBook1.als", "models/book/appendixA/addressBook2.als", "models/book/appendixA/barbers.als", "models/book/appendixA/closure.als", "models/book/appendixA/distribution.als", "models/book/appendixA/phones.als", "models/book/appendixA/prison.als", "models/book/appendixA/properties.als", "models/book/appendixA/ring.als", "models/book/appendixA/spanning.als", "models/book/appendixA/tree.als", "models/book/appendixA/tube.als", "models/book/appendixA/undirected.als", "models/book/appendixE/hotel.thm", "models/book/appendixE/p300-hotel.als", "models/book/appendixE/p303-hotel.als", "models/book/appendixE/p306-hotel.als", "models/book/chapter2/addressBook1a.als", "models/book/chapter2/addressBook1b.als", "models/book/chapter2/addressBook1c.als", "models/book/chapter2/addressBook1d.als", "models/book/chapter2/addressBook1e.als", "models/book/chapter2/addressBook1f.als", "models/book/chapter2/addressBook1g.als", "models/book/chapter2/addressBook1h.als", "models/book/chapter2/addressBook2a.als", "models/book/chapter2/addressBook2b.als", "models/book/chapter2/addressBook2c.als", "models/book/chapter2/addressBook2d.als", "models/book/chapter2/addressBook2e.als", "models/book/chapter2/addressBook3a.als", "models/book/chapter2/addressBook3b.als", "models/book/chapter2/addressBook3c.als", "models/book/chapter2/addressBook3d.als", "models/book/chapter2/theme.thm", "models/book/chapter4/filesystem.als", "models/book/chapter4/grandpa1.als", "models/book/chapter4/grandpa2.als", "models/book/chapter4/grandpa3.als", "models/book/chapter4/lights.als", "models/book/chapter5/addressBook.als", "models/book/chapter5/lists.als", "models/book/chapter5/sets1.als", "models/book/chapter5/sets2.als", "models/book/chapter6/hotel.thm", "models/book/chapter6/hotel1.als", "models/book/chapter6/hotel2.als", "models/book/chapter6/hotel3.als", "models/book/chapter6/hotel4.als", "models/book/chapter6/mediaAssets.als", "models/book/chapter6/memory/abstractMemory.als", "models/book/chapter6/memory/cacheMemory.als", "models/book/chapter6/memory/checkCache.als", "models/book/chapter6/memory/checkFixedSize.als", "models/book/chapter6/memory/fixedSizeMemory.als", "models/book/chapter6/memory/fixedSizeMemory_H.als", "models/book/chapter6/ringElection.thm", "models/book/chapter6/ringElection1.als", "models/book/chapter6/ringElection2.als", "models/examples/algorithms/dijkstra.als", "models/examples/algorithms/dijkstra.thm", "models/examples/algorithms/messaging.als", "models/examples/algorithms/messaging.thm", "models/examples/algorithms/opt_spantree.als", "models/examples/algorithms/opt_spantree.thm", "models/examples/algorithms/peterson.als", "models/examples/algorithms/ringlead.als", "models/examples/algorithms/ringlead.thm", "models/examples/algorithms/s_ringlead.als", "models/examples/algorithms/stable_mutex_ring.als", "models/examples/algorithms/stable_mutex_ring.thm", "models/examples/algorithms/stable_orient_ring.als", "models/examples/algorithms/stable_orient_ring.thm", "models/examples/algorithms/stable_ringlead.als", "models/examples/algorithms/stable_ringlead.thm", "models/examples/case_studies/INSLabel.als", "models/examples/case_studies/chord.als", "models/examples/case_studies/chord2.als", "models/examples/case_studies/chordbugmodel.als", "models/examples/case_studies/com.als", "models/examples/case_studies/firewire.als", "models/examples/case_studies/firewire.thm", "models/examples/case_studies/ins.als", "models/examples/case_studies/iolus.als", "models/examples/case_studies/sync.als", "models/examples/case_studies/syncimpl.als", "models/examples/puzzles/farmer.als", "models/examples/puzzles/farmer.thm", "models/examples/puzzles/handshake.als", "models/examples/puzzles/handshake.thm", "models/examples/puzzles/hanoi.als", "models/examples/puzzles/hanoi.thm", "models/examples/systems/file_system.als", "models/examples/systems/file_system.thm", "models/examples/systems/javatypes_soundness.als", "models/examples/systems/lists.als", "models/examples/systems/lists.thm", "models/examples/systems/marksweepgc.als", "models/examples/systems/views.als", "models/examples/toys/birthday.als", "models/examples/toys/birthday.thm", "models/examples/toys/ceilingsAndFloors.als", "models/examples/toys/ceilingsAndFloors.thm", "models/examples/toys/genealogy.als", "models/examples/toys/genealogy.thm", "models/examples/toys/grandpa.als", "models/examples/toys/grandpa.thm", "models/examples/toys/javatypes.als", "models/examples/toys/life.als", "models/examples/toys/life.thm", "models/examples/toys/numbering.als", "models/examples/toys/railway.als", "models/examples/toys/railway.thm", "models/examples/toys/trivial.als", "models/examples/tutorial/farmer.als", "models/util/boolean.als", "models/util/graph.als", "models/util/integer.als", "models/util/natural.als", "models/util/ordering.als", "models/util/relation.als", "models/util/seqrel.als", "models/util/sequence.als", "models/util/sequniv.als", "models/util/ternary.als", "models/util/time.als", "models/examples/temporal/buffer.als", "models/examples/temporal/leader.als", "models/examples/temporal/leader_events.als", "models/examples/temporal/trash.als");
-        // Record the locations
         System.setProperty("alloy.theme0", alloyHome(frame) + fs + "models");
         System.setProperty("alloy.home", alloyHome(frame));
     }
@@ -607,7 +582,7 @@ public final class SimpleGUI implements ComponentListener, Listener {
         if (temp == null || temp.length() == 0)
             OurDialog.fatal(parent, "Error. JVM need to specify a temporary directory using java.io.tmpdir property.");
         String username = System.getProperty("user.name");
-        File tempfile = new File(temp + File.separatorChar + "alloy4tmp40-" + (username == null ? "" : username));
+        File tempfile = new File(temp + File.separatorChar + "alloy-tmp-" + (username == null ? "" : username));
         tempfile.mkdirs();
         String ans = Util.canon(tempfile.getPath());
         if (!tempfile.isDirectory()) {
@@ -882,11 +857,15 @@ public final class SimpleGUI implements ComponentListener, Listener {
             menuItem(editmenu, "Previous File", VK_PAGE_UP, VK_PAGE_UP, doGotoPrevFile(), text.count() > 1);
             menuItem(editmenu, "Next File", VK_PAGE_DOWN, VK_PAGE_DOWN, doGotoNextFile(), text.count() > 1);
             editmenu.addSeparator();
-            menuItem(editmenu, "Find...", 'F', 'F', doFind());
-            menuItem(editmenu, "Find Next", 'G', 'G', doFindNext());
+            menuItem(editmenu, "Select All", 'A', () -> text.get().getTextPane().selectAll());
+            menuItem(editmenu, "Expand Selection", 'D', () -> text.get().doExpandSelection());
             editmenu.addSeparator();
-            if (!Util.onMac())
+            menuItem(editmenu, "Find/Replace...", 'F', findReplace::find);
+            menuItem(editmenu, "Find Next", 'G', findReplace::findNext);
+            if (!Util.onMac()) {
+                editmenu.addSeparator();
                 menuItem(editmenu, "Preferences", 'P', 'P', doPreferences());
+            }
         } finally {
             wrap = false;
         }
@@ -932,54 +911,6 @@ public final class SimpleGUI implements ComponentListener, Listener {
         return wrapMe();
     }
 
-    /** This method performs Edit->Find. */
-    private Runner doFind() {
-        if (wrap)
-            return wrapMe();
-        JTextField x = OurUtil.textfield(lastFind, 30);
-        x.selectAll();
-        JCheckBox c = new JCheckBox("Case Sensitive?", lastFindCaseSensitive);
-        c.setMnemonic('c');
-        JCheckBox b = new JCheckBox("Search Backward?", !lastFindForward);
-        b.setMnemonic('b');
-        if (!OurDialog.getInput(frame, "Find", "Text:", x, " ", c, b))
-            return null;
-        if (x.getText().length() == 0)
-            return null;
-        lastFind = x.getText();
-        lastFindCaseSensitive = c.getModel().isSelected();
-        lastFindForward = !b.getModel().isSelected();
-        doFindNext();
-        return null;
-    }
-
-    /** This method performs Edit->FindNext. */
-    private Runner doFindNext() {
-        if (wrap)
-            return wrapMe();
-        if (lastFind.length() == 0)
-            return null;
-        OurSyntaxWidget t = text.get();
-        String all = t.getText();
-        int i = Util.indexOf(all, lastFind, t.getCaret() + (lastFindForward ? 0 : -1), lastFindForward, lastFindCaseSensitive);
-        if (i < 0) {
-            i = Util.indexOf(all, lastFind, lastFindForward ? 0 : (all.length() - 1), lastFindForward, lastFindCaseSensitive);
-            if (i < 0) {
-                log.logRed("The specified search string cannot be found.");
-                return null;
-            }
-            log.logRed("Search wrapped.");
-        } else {
-            log.clearError();
-        }
-        if (lastFindForward)
-            t.moveCaret(i, i + lastFind.length());
-        else
-            t.moveCaret(i + lastFind.length(), i);
-        t.requestFocusInWindow();
-        return null;
-    }
-
     /** This method performs Edit->Preferences. */
     public Runner doPreferences() {
         if (wrap)
@@ -1002,9 +933,11 @@ public final class SimpleGUI implements ComponentListener, Listener {
             } else {
                 UIManager.setLookAndFeel(UIManager.getCrossPlatformLookAndFeelClassName());
             }
-            SwingUtilities.updateComponentTreeUI(frame);
-            SwingUtilities.updateComponentTreeUI(prefDialog);
-            SwingUtilities.updateComponentTreeUI(viz.getFrame());
+            if (frame != null) {
+                SwingUtilities.updateComponentTreeUI(frame);
+                SwingUtilities.updateComponentTreeUI(prefDialog);
+                SwingUtilities.updateComponentTreeUI(viz.getFrame());
+            }
         } catch (Throwable e) {
         }
         return null;
@@ -1084,7 +1017,6 @@ public final class SimpleGUI implements ComponentListener, Listener {
             menuItem(runmenu, "Show Metamodel", 'M', 'M', doShowMetaModel());
             if (Version.experimental)
                 menuItem(runmenu, "Show Parse Tree", 'P', doShowParseTree());
-            menuItem(runmenu, "Open Evaluator", 'V', doLoadEvaluator());
         } finally {
             wrap = false;
         }
@@ -1215,10 +1147,10 @@ public final class SimpleGUI implements ComponentListener, Listener {
             int newmem = SubMemory.get(), newstack = SubStack.get();
             if (newmem != subMemoryNow || newstack != subStackNow)
                 WorkerEngine.stop();
-            if (AlloyCore.isDebug() && VerbosityPref.get() == Verbosity.FULLDEBUG)
+            if (AlloyCore.isDebug())
                 WorkerEngine.runLocally(task, cb);
             else
-                WorkerEngine.run(task, newmem, newstack, alloyHome(frame) + fs + "binary", "", cb);
+                WorkerEngine.run(task, newmem, newstack, "", cb);
             subMemoryNow = newmem;
             subStackNow = newstack;
         } catch (Throwable ex) {
@@ -1235,6 +1167,7 @@ public final class SimpleGUI implements ComponentListener, Listener {
      * This method stops the current run or check (how==0 means DONE, how==1 means
      * FAIL, how==2 means STOP).
      */
+
     Runner doStop(Integer how) {
         if (wrap)
             return wrapMe(how);
@@ -1259,8 +1192,11 @@ public final class SimpleGUI implements ComponentListener, Listener {
                 viz.loadXML(f, true, 0);
             else if (subrunningTask == 3)
                 viz.loadXML(f, true);
-            else if (AutoVisualize.get() || subrunningTask == 1)
-                doVisualize("XML: " + f);
+            else if (AutoVisualize.get() || subrunningTask == 1) {
+                doVisualize(f);
+            }
+        } else {
+            viz.noNewInstance();
         }
         return null;
     }
@@ -1327,20 +1263,9 @@ public final class SimpleGUI implements ComponentListener, Listener {
             return wrapMe();
         if (latestInstance.length() == 0)
             log.logRed("No previous instances are available for viewing.\n\n");
-        else
-            doVisualize("XML: " + latestInstance);
-        return null;
-    }
-
-    /**
-     * This method happens when the user tries to load the evaluator from the main
-     * GUI.
-     */
-    private Runner doLoadEvaluator() {
-        if (wrap)
-            return wrapMe();
-        log.logRed("Note: the evaluator is now in the visualizer.\n" + "Just click the \"Evaluator\" toolbar button\n" + "when an instance is shown in the visualizer.\n");
-        log.flush();
+        else {
+            doVisualize(latestInstance);
+        }
         return null;
     }
 
@@ -1376,7 +1301,7 @@ public final class SimpleGUI implements ComponentListener, Listener {
                 for (String f : viz.getInstances()) {
                     JMenuItem it = new JMenuItem("Instance: " + viz.getInstanceTitle(f), null);
                     it.setIcon((isViz && f.equals(viz.getXMLfilename())) ? iconYes : iconNo);
-                    it.addActionListener(doVisualize("XML: " + f));
+                    it.addActionListener(doVisualize(f));
                     w.add(it);
                 }
         } finally {
@@ -1450,9 +1375,9 @@ public final class SimpleGUI implements ComponentListener, Listener {
             addToMenu(optmenu, Solver);
             addToMenu(optmenu, SkolemDepth);
             JMenu cmMenu = addToMenu(optmenu, CoreMinimization);
-            cmMenu.setEnabled(Solver.get() == SatSolver.MiniSatProverJNI);
+            cmMenu.setEnabled(Solver.get().prover());
             JMenu cgMenu = addToMenu(optmenu, CoreGranularity);
-            cgMenu.setEnabled(Solver.get() == SatSolver.MiniSatProverJNI);
+            cgMenu.setEnabled(Solver.get().prover());
 
             addToMenu(optmenu, AutoVisualize, RecordKodkod);
 
@@ -1498,7 +1423,7 @@ public final class SimpleGUI implements ComponentListener, Listener {
     }
 
     private Runner doOptRefreshLineNumbers() {
-        if ( wrap ) {
+        if (wrap) {
             return wrapMe();
         }
         text.enableLineNumbers(LineNumbers.get());
@@ -1722,6 +1647,11 @@ public final class SimpleGUI implements ComponentListener, Listener {
     Runner doVisualize(String arg) {
         if (wrap)
             return wrapMe(arg);
+
+        if (!TYPED_P.matcher(arg).lookingAt()) {
+            arg = "XML: " + arg;
+        }
+
         text.clearShade();
         if (arg.startsWith("MSG: ")) { // MSG: message
             OurDialog.showtext("Detailed Message", arg.substring(5));
@@ -1761,7 +1691,7 @@ public final class SimpleGUI implements ComponentListener, Listener {
             Pos p = new Pos(Util.canon(f), x1, y1, x2, y2);
             text.shade(p);
         }
-        if (arg.startsWith("CNF: ")) { // CNF: filename
+        if (arg.startsWith("CNF: ") || arg.startsWith("file:")) { // CNF: filename
             String filename = Util.canon(arg.substring(5));
             try {
                 String text = Util.readAll(filename);
@@ -1769,17 +1699,16 @@ public final class SimpleGUI implements ComponentListener, Listener {
             } catch (IOException ex) {
                 log.logRed("Error reading the file \"" + filename + "\"\n");
             }
-        }
-        if (arg.startsWith("XML: ")) { // XML: filename
+        } else if (arg.startsWith("XML: ")) { // XML: filename
             viz.loadXML(Util.canon(arg.substring(5)), false, 0);
-        }
-        try {
-            Desktop desktop = java.awt.Desktop.getDesktop();
-            URI oURL = new URI(arg);
-            desktop.browse(oURL);
-        } catch (Exception e) {
-            // ignore
-        }
+        } else
+            try {
+                Desktop desktop = java.awt.Desktop.getDesktop();
+                URI oURL = new URI(arg);
+                desktop.browse(oURL);
+            } catch (Exception e) {
+                // ignore
+            }
         return null;
     }
 
@@ -1815,7 +1744,7 @@ public final class SimpleGUI implements ComponentListener, Listener {
                 if (AlloyCore.isDebug())
                     WorkerEngine.runLocally(task, cb);
                 else
-                    WorkerEngine.run(task, SubMemory.get(), SubStack.get(), alloyHome(frame) + fs + "binary", "", cb);
+                    WorkerEngine.run(task, SubMemory.get(), SubStack.get(), "", cb);
                 // task.run(cb);
             } catch (Throwable ex) {
                 WorkerEngine.stop();
@@ -2019,9 +1948,6 @@ public final class SimpleGUI implements ComponentListener, Listener {
 
         UIManager.put("ToolTip.font", new FontUIResource("Courier New", Font.PLAIN, 14));
 
-        // Register an exception handler for uncaught exceptions
-        MailBug.setup(frame);
-
         // Enable better look-and-feel
         if (Util.onMac() || Util.onWindows()) {
             System.setProperty("com.apple.mrj.application.apple.menu.about.name", "Alloy");
@@ -2029,14 +1955,6 @@ public final class SimpleGUI implements ComponentListener, Listener {
             System.setProperty("com.apple.mrj.application.live-resize", "true");
             System.setProperty("com.apple.macos.useScreenMenuBar", "true");
             System.setProperty("apple.laf.useScreenMenuBar", "true");
-        }
-        if (Util.onMac()) {
-            try {
-                macUtil = new MacUtil();
-                macUtil.addMenus(this);
-            } catch (NoClassDefFoundError e) {
-                // ignore
-            }
         }
 
         doLookAndFeel();
@@ -2091,7 +2009,9 @@ public final class SimpleGUI implements ComponentListener, Listener {
                 }
             }
         }
-
+        findReplace = new FindReplace(frame, n -> text.selectModulo(n).map(w -> w.getTextPane()), pane -> {
+            text.select(pane);
+        });
         if (width < 500)
             width = 500;
         if (height < 500)
@@ -2176,7 +2096,6 @@ public final class SimpleGUI implements ComponentListener, Listener {
 
         // Copy required files from the JAR
         copyFromJAR();
-        final String binary = alloyHome(frame) + fs + "binary";
 
         // Create the menu bar
         JMenuBar bar = new JMenuBar();
@@ -2256,37 +2175,14 @@ public final class SimpleGUI implements ComponentListener, Listener {
         log.logLink("[what is new]", "https://alloytools.org/alloy6.html");
         log.log(" ");
         log.logLink("[spec]", "https://alloytools.org/spec.html");
-        log.log(" " + Version.getShortversion() + " built " + Version.buildDate() + "\n\n");
-
-        // If on Mac, then register an application listener
-        try {
-            wrap = true;
-            if (Util.onMac()) {
-                macUtil.registerApplicationListener(doShow(), doAbout(), doOpenFile(""), doQuit());
-            }
-        } catch (Throwable t) {
-        } finally {
-            wrap = false;
+        log.log(" " + Version.getShortversion() + " built " + Version.buildDate());
+        if (AlloyCore.isDebug()) {
+            log.log(" [in debug mode]");
         }
-
-        // Add the new JNI location to the java.library.path
-        try {
-            System.setProperty("java.library.path", binary);
-            // The above line is actually useless on Sun JDK/JRE (see Sun's bug
-            // ID 4280189)
-            // The following 4 lines should work for Sun's JDK/JRE (though they
-            // probably won't work for others)
-            String[] newarray = new String[] {
-                                              binary
-            };
-            java.lang.reflect.Field old = ClassLoader.class.getDeclaredField("usr_paths");
-            old.setAccessible(true);
-            old.set(null, newarray);
-        } catch (Throwable ex) {
-        }
+        log.log("\n\n");
 
         // Pre-load the preferences dialog
-        prefDialog = new PreferencesDialog(log, binary);
+        prefDialog = new PreferencesDialog(log);
         prefDialog.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
         try {
             wrap = true;
@@ -2442,7 +2338,12 @@ public final class SimpleGUI implements ComponentListener, Listener {
         Object selected = pref.get();
         for (Object item : pref.validChoices()) {
             Action action = pref.getAction(item);
-            menuItem(parent, pref.renderValueLong(item).toString(), action, item == selected ? iconYes : iconNo);
+            JMenuItem submenu = menuItem(parent, pref.renderValueLong(item).toString(), action, item == selected ? iconYes : iconNo);
+
+            if (item instanceof SATFactory) {
+                SATFactory i = (SATFactory) item;
+                i.getDescription().ifPresent(d -> submenu.setToolTipText(d));
+            }
         }
     }
 

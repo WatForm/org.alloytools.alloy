@@ -26,9 +26,17 @@ import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.io.Serializable;
+import java.lang.ProcessHandle.Info;
 import java.lang.Thread.UncaughtExceptionHandler;
 
 import org.alloytools.alloy.core.AlloyCore;
+import org.alloytools.alloy.core.infra.Alloy;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import aQute.lib.io.IO;
+import kodkod.engine.satlab.SATFactory;
+import kodkod.solvers.api.NativeCode;
 
 /**
  * This class allows you to execute tasks in a subprocess, and receive its
@@ -51,6 +59,8 @@ import org.alloytools.alloy.core.AlloyCore;
  * @modified [electrum] handle external executables
  */
 public final class WorkerEngine {
+
+    final static Logger logger = LoggerFactory.getLogger(WorkerEngine.class);
 
     /**
      * This defines an interface for performing tasks in a subprocess.
@@ -122,6 +132,7 @@ public final class WorkerEngine {
             }
         };
     }
+
 
     /**
      * This wraps the given OutputStream such that the resulting object's "close()"
@@ -248,8 +259,6 @@ public final class WorkerEngine {
      * @param newstack - the amount of stack (in kilobytes) we want the subprocess
      *            to have (if the subproces has not terminated, then this parameter
      *            is ignored)
-     * @param jniPath - if nonnull and nonempty, then it specifies the subprocess's
-     *            default JNI library location
      * @param classPath - if nonnull and nonempty, then it specifies the
      *            subprocess's default CLASSPATH, else we'll use
      *            System.getProperty("java.class.path")
@@ -258,30 +267,25 @@ public final class WorkerEngine {
      * @throws IOException - if an error occurred in launching a sub JVM or talking
      *             to it
      */
-    public static void run(final WorkerTask task, int newmem, int newstack, String jniPath, String classPath, final WorkerCallback callback) throws IOException {
-        String java = "java";
-        String javahome = System.getProperty("java.home");
-        if (javahome == null)
-            throw new IllegalArgumentException("java.home not set");
 
-        File jhome = new File(javahome);
 
-        if (classPath == null || classPath.isEmpty())
-            classPath = System.getProperty("java.class.path");
+    public static void run(final WorkerTask task, int newmem, int newstack, String classPath, final WorkerCallback callback) throws IOException {
+        SATFactory.getSolvers(); // init native code
 
-        if (classPath == null || classPath.isEmpty()) {
-            File dist = findInAncestors(jhome, "org.alloytools.alloy.dist.jar");
-            if (dist == null) {
-                throw new IllegalArgumentException("cannot establish classpath. Neither set for this java nor \"org.alloytools.alloy.dist.jar\" in an ancestor directory of $JAVA_HOME (" + jhome + ")");
-            }
-            System.out.println("Found jar in ancestors java_home " + dist);
-            classPath = dist.getAbsolutePath();
+        String cmdline[];
+        boolean fork = Boolean.getBoolean("alloy.fork");
+        if (fork) {
+            cmdline = getForkCommandLine();
+        } else {
+            cmdline = getJarCommandLine(classPath, newmem, newstack);
         }
+
 
         synchronized (WorkerEngine.class) {
             final Process sub;
             if (latest_manager != null && latest_manager.isAlive())
                 throw new IOException("Subprocess still performing the last task.");
+
             try {
                 if (latest_sub != null)
                     latest_sub.exitValue();
@@ -289,29 +293,16 @@ public final class WorkerEngine {
                 latest_sub = null;
             } catch (IllegalThreadStateException ex) {
             }
+
             if (latest_sub == null) {
-                File f = new File(javahome + File.separatorChar + "bin" + File.separatorChar + "java");
-
-                if (!f.isFile())
-                    f = new File(javahome + File.separatorChar + "java");
-
-                if (f.isFile())
-                    java = f.getAbsolutePath();
-
-                String debug = AlloyCore.isDebug() ? "yes" : "no";
-
-                if (jniPath != null && jniPath.length() > 0)
-                    sub = Runtime.getRuntime().exec(new String[] {
-                                                                  java, "-Xmx" + newmem + "m", "-Xss" + newstack + "k", "-Djava.library.path=" + jniPath, "-Ddebug=" + debug, "-cp", classPath, WorkerEngine.class.getName(), Version.buildDate(), "" + Version.buildNumber()
-                    });
-                else
-                    sub = Runtime.getRuntime().exec(new String[] {
-                                                                  java, "-Xmx" + newmem + "m", "-Xss" + newstack + "k", "-Ddebug=" + debug, "-cp", classPath, WorkerEngine.class.getName(), Version.buildDate(), "" + Version.buildNumber()
-                    });
+                sub = Runtime.getRuntime().exec(cmdline);
                 latest_sub = sub;
             } else {
                 sub = latest_sub;
             }
+
+            copyStderr(sub);
+
             latest_manager = new Thread(new Runnable() {
 
                 @Override
@@ -368,6 +359,72 @@ public final class WorkerEngine {
         }
     }
 
+
+    private static void copyStderr(final Process sub) {
+        new Thread(() -> {
+            try {
+                IO.copy(sub.getErrorStream(), System.err);
+            } catch (IOException e) {
+                // ignore, best effort
+            }
+        }, "copy-stderr").start();
+    }
+
+    private static String[] getForkCommandLine() {
+        ProcessHandle current = ProcessHandle.current();
+        Info info = current.info();
+        String commandPath = info.command().orElseThrow(() -> new IllegalStateException("cannot fork the command because the path to the executable is unknown"));
+        return new String[] {
+                             commandPath, "_worker", Version.buildDate(), "" + Version.buildNumber()
+        };
+    }
+
+    private static String[] getJarCommandLine(String classPath, int newmem, int newstack) {
+        String java = "java";
+        String javahome = System.getProperty("java.home");
+        if (javahome == null)
+            throw new IllegalArgumentException("java.home not set");
+
+        File jhome = new File(javahome);
+
+        if (classPath == null || classPath.isEmpty())
+            classPath = System.getProperty("java.class.path");
+
+        if (classPath == null || classPath.isEmpty()) {
+            File dist = findInAncestors(jhome, "org.alloytools.alloy.dist.jar");
+            if (dist == null) {
+                throw new IllegalArgumentException("cannot establish classpath. Neither set for this java nor \"org.alloytools.alloy.dist.jar\" in an ancestor directory of $JAVA_HOME (" + jhome + ")");
+            }
+            System.out.println("Found jar in ancestors java_home " + dist);
+            classPath = dist.getAbsolutePath();
+        }
+        File f = new File(javahome + File.separatorChar + "bin" + File.separatorChar + "java");
+
+        if (!f.isFile())
+            f = new File(javahome + File.separatorChar + "java");
+
+        if (f.isFile())
+            java = f.getAbsolutePath();
+
+        String debug = AlloyCore.isDebug() ? "yes" : "no";
+        String main = Alloy.class.getName();
+
+        // @formatter:off
+        return new String[] {
+                             java,
+                            // "-agentlib:jdwp=transport=dt_socket,server=n,suspend=n,address=5006",
+                             "-Xmx" + newmem + "m",
+                             "-Xss" + newstack + "k",
+                             "-Djava.library.path=" + NativeCode.getLibraryPath(),
+                             "-Dorg.slf4j.simpleLogger.defaultLogLevel=" + System.getProperty("org.slf4j.simpleLogger.defaultLogLevel", "INFO"),
+                             "-Ddebug=" + debug,
+                             "-cp", classPath,
+                             WorkerEngine.class.getName(),
+                             Version.buildDate(), "" + Version.buildNumber()
+        };
+        // @formatter:on
+    }
+
     /**
      * This is the entry point for the sub JVM.
      * <p>
@@ -377,157 +434,154 @@ public final class WorkerEngine {
      * we assume the parent process will notice it and react accordingly)
      */
     public static void main(String[] args) {
-        // To prevent people from accidentally invoking this class, or invoking
-        // it from an incompatible version,
-        // we add a simple sanity check on the command line arguments
-        if (args.length != 2)
-            halt("#args should be 2 but instead is " + args.length, 1);
-        if (!args[0].equals(Version.buildDate()))
-            halt("BuildDate mismatch: " + args[0] + " != " + Version.buildDate(), 1);
-        if (!args[1].equals("" + Version.buildNumber()))
-            halt("BuildNumber mismatch: " + args[1] + " != " + Version.buildNumber(), 1);
-        // To prevent a zombie process, we set a default handler to terminate
-        // itself if something does slip through our detection
-        Thread.setDefaultUncaughtExceptionHandler(new UncaughtExceptionHandler() {
-
-            @Override
-            public void uncaughtException(Thread t, Throwable e) {
-                halt("UncaughtException: " + e, 1);
-            }
-        });
-        // Redirect System.in, System.out, System.err to no-op (so that if a
-        // task tries to read/write to System.in/out/err,
-        // those reads and writes won't mess up the
-        // ObjectInputStream/ObjectOutputStream)
-        System.setIn(wrap((InputStream) null));
-        System.setOut(new PrintStream(wrap((OutputStream) null)));
-        System.setErr(new PrintStream(wrap((OutputStream) null)));
-        final FileInputStream in = new FileInputStream(FileDescriptor.in);
-        final FileOutputStream out = new FileOutputStream(FileDescriptor.out);
-        // Preload these 3 libraries; on MS Windows with JDK 1.6 this seems to
-        // prevent freezes
+        logger.info("arrived");
         try {
-            System.loadLibrary("minisat");
-        } catch (Throwable ex) {
-        }
-        try {
-            System.loadLibrary("minisatprover");
-        } catch (Throwable ex) {
-        }
-        try {
-            System.loadLibrary("zchaff");
-        } catch (Throwable ex) {
-        }
-        // Now we repeat the following read-then-execute loop
-        Thread t = null;
-        while (true) {
-            final WorkerTask task;
-            try {
-                System.gc(); // while we're waiting for the next task, we might
-                            // as well encourage garbage collection
-                ObjectInputStream oin = new ObjectInputStream(wrap(in));
-                task = (WorkerTask) oin.readObject();
-                oin.close();
-            } catch (Throwable ex) {
-                halt("Can't read task: " + ex, 1);
-                return;
-            }
-            // Our main thread has a loop that keeps "attempting" to read bytes
-            // from System.in,
-            // and delegate the actual task to a separate "worker thread".
-            // This way, if the parent process terminates, then this subprocess
-            // should see it almost immediately
-            // (since the inter-process pipe will be broken) and will terminate
-            // (regardless of the status of the worker thread)
-            if (t != null && t.isAlive()) {
-                // We only get here if the previous subtask has informed the
-                // parent that the job is done, and that the parent
-                // then issued another job. So we wait up to 5 seconds for the
-                // worker thread to confirm its termination.
-                // If 5 seconds is up, then we assume something terrible has
-                // happened.
-                try {
-                    t.join(5000);
-                    if (t.isAlive())
-                        halt("Timeout", 1);
-                } catch (Throwable ex) {
-                    halt("Timeout: " + ex, 1);
-                }
-            }
-            t = new Thread(new Runnable() {
+            // To prevent people from accidentally invoking this class, or invoking
+            // it from an incompatible version,
+            // we add a simple sanity check on the command line arguments
+            if (args.length != 2)
+                halt("#args should be 2 but instead is " + args.length, 1);
+            if (!args[0].equals(Version.buildDate()))
+                halt("BuildDate mismatch: " + args[0] + " != " + Version.buildDate(), 1);
+            if (!args[1].equals("" + Version.buildNumber()))
+                halt("BuildNumber mismatch: " + args[1] + " != " + Version.buildNumber(), 1);
+            // To prevent a zombie process, we set a default handler to terminate
+            // itself if something does slip through our detection
+            Thread.setDefaultUncaughtExceptionHandler(new UncaughtExceptionHandler() {
 
                 @Override
-                public void run() {
-                    ObjectOutputStream x = null;
-                    Throwable e = null;
-                    try {
-                        x = new ObjectOutputStream(wrap(out));
-                        final ObjectOutputStream xx = x;
-                        WorkerCallback y = new WorkerCallback() {
-
-                            @Override
-                            public void callback(Object x) {
-                                try {
-                                    xx.writeObject(x);
-                                } catch (IOException ex) {
-                                    halt("Callback: " + ex, 1);
-                                }
-                            }
-
-                            @Override
-                            public void done() {
-                            }
-
-                            @Override
-                            public void fail() {
-                            }
-                        };
-                        task.run(y);
-                        x.writeObject(null);
-                        x.flush();
-                    } catch (Throwable ex) {
-                        e = ex;
-                    }
-                    for (Throwable t = e; t != null; t = t.getCause())
-                        if (t instanceof OutOfMemoryError || t instanceof StackOverflowError) {
-                            try {
-                                System.gc();
-                                x.writeObject(t);
-                                x.flush();
-                            } catch (Throwable ex2) {
-                            } finally {
-                                halt("Error: " + e, 2);
-                            }
-                        }
-                    if (e instanceof Err) {
-                        try {
-                            System.gc();
-                            x.writeObject(e);
-                            x.writeObject(null);
-                            x.flush();
-                        } catch (Throwable t) {
-                            halt("Error: " + e, 1);
-                        }
-                    }
-                    if (e != null) {
-                        try {
-                            System.gc();
-                            x.writeObject(e);
-                            x.flush();
-                        } catch (Throwable t) {
-                        } finally {
-                            halt("Error: " + e, 1);
-                        }
-                    }
-                    Util.close(x); // avoid memory leaks
+                public void uncaughtException(Thread t, Throwable e) {
+                    halt("UncaughtException: " + e, 1);
                 }
             });
-            t.start();
+            // Redirect System.in, System.out, System.err to no-op (so that if a
+            // task tries to read/write to System.in/out/err,
+            // those reads and writes won't mess up the
+            // ObjectInputStream/ObjectOutputStream)
+            System.setIn(wrap((InputStream) null));
+            System.setOut(new PrintStream(wrap((OutputStream) null)));
+            System.setErr(new PrintStream(wrap((OutputStream) null)));
+            final FileInputStream in = new FileInputStream(FileDescriptor.in);
+            final FileOutputStream out = new FileOutputStream(FileDescriptor.out);
+
+            // Now we repeat the following read-then-execute loop
+            Thread t = null;
+            while (true) {
+                final WorkerTask task;
+                try {
+                    System.gc(); // while we're waiting for the next task, we might
+                                // as well encourage garbage collection
+                    ObjectInputStream oin = new ObjectInputStream(wrap(in));
+                    task = (WorkerTask) oin.readObject();
+                    oin.close();
+                } catch (Throwable ex) {
+                    halt("Can't read task: " + ex, 1);
+                    return;
+                }
+                // Our main thread has a loop that keeps "attempting" to read bytes
+                // from System.in,
+                // and delegate the actual task to a separate "worker thread".
+                // This way, if the parent process terminates, then this subprocess
+                // should see it almost immediately
+                // (since the inter-process pipe will be broken) and will terminate
+                // (regardless of the status of the worker thread)
+                if (t != null && t.isAlive()) {
+                    // We only get here if the previous subtask has informed the
+                    // parent that the job is done, and that the parent
+                    // then issued another job. So we wait up to 5 seconds for the
+                    // worker thread to confirm its termination.
+                    // If 5 seconds is up, then we assume something terrible has
+                    // happened.
+                    try {
+                        t.join(5000);
+                        if (t.isAlive())
+                            halt("Timeout", 1);
+                    } catch (Throwable ex) {
+                        halt("Timeout: " + ex, 1);
+                    }
+                }
+                t = new Thread(new Runnable() {
+
+                    @Override
+                    public void run() {
+                        logger.debug("in run");
+
+                        ObjectOutputStream x = null;
+                        Throwable e = null;
+                        try {
+                            x = new ObjectOutputStream(wrap(out));
+                            final ObjectOutputStream xx = x;
+                            WorkerCallback y = new WorkerCallback() {
+
+                                @Override
+                                public void callback(Object x) {
+                                    try {
+                                        xx.writeObject(x);
+                                    } catch (IOException ex) {
+                                        halt("Callback: " + ex, 1);
+                                    }
+                                }
+
+                                @Override
+                                public void done() {
+                                }
+
+                                @Override
+                                public void fail() {
+                                }
+                            };
+                            task.run(y);
+                            x.writeObject(null);
+                            x.flush();
+                        } catch (Throwable ex) {
+                            e = ex;
+                        }
+                        for (Throwable t = e; t != null; t = t.getCause())
+                            if (t instanceof OutOfMemoryError || t instanceof StackOverflowError) {
+                                try {
+                                    System.gc();
+                                    x.writeObject(t);
+                                    x.flush();
+                                } catch (Throwable ex2) {
+                                } finally {
+                                    halt("Error: " + e, 2);
+                                }
+                            }
+                        if (e instanceof Err) {
+                            try {
+                                System.gc();
+                                x.writeObject(e);
+                                x.writeObject(null);
+                                x.flush();
+                            } catch (Throwable t) {
+                                halt("Error: " + e, 1);
+                            }
+                        }
+                        if (e != null) {
+                            try {
+                                System.gc();
+                                x.writeObject(e);
+                                x.flush();
+                            } catch (Throwable t) {
+                            } finally {
+                                halt("Error: " + e, 1);
+                            }
+                        }
+                        logger.info("closing");
+                        Util.close(x); // avoid memory leaks
+                    }
+                });
+                t.start();
+            }
+        } finally {
+            logger.info("exited main");
         }
     }
 
     /** This method terminates the caller's process. */
     private static void halt(String reason, int exitCode) {
+        logger.info("exit {}", exitCode);
+
         Runtime.getRuntime().halt(exitCode);
     }
 

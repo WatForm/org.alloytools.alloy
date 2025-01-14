@@ -18,7 +18,6 @@ package edu.mit.csail.sdg.alloy4viz;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
-import java.awt.Graphics;
 import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -269,7 +268,7 @@ public final class VizGraphPanel extends JPanel {
         setMaximumSize(new Dimension(Short.MAX_VALUE, Short.MAX_VALUE));
         navPanel = new JPanel();
         JScrollPane navscroll = OurUtil.scrollpane(navPanel);
-
+        navscroll.setMinimumSize(new Dimension(0, 0));
         // [electrum] container for all (diagram scroll) graph panels
         JPanel diagramsScrollPanels = new JPanel();
         diagramsScrollPanels.setLayout(new BoxLayout(diagramsScrollPanels, BoxLayout.LINE_AXIS));
@@ -370,7 +369,7 @@ public final class VizGraphPanel extends JPanel {
                 if (graph instanceof GraphViewer) {
                     viewer.add((GraphViewer) graph);
                     if (prevsv != null && i <= prevsv.size())
-                        viewer.get(i).setScale(prevsv.get(i).getScale());
+                        viewer.get(i).setScale(((GraphViewer) graph).getScale());
                 } else
                     viewer = null;
                 graphPanels.get(i).removeAll();
@@ -382,6 +381,7 @@ public final class VizGraphPanel extends JPanel {
                 diagramScrollPanels.get(i).validate();
             }
         }
+        split.setDividerLocation(split.getSize().height - split.getInsets().bottom - split.getDividerSize() - split.getRightComponent().getPreferredSize().height);
     }
 
     /** Changes the font. */
@@ -414,15 +414,6 @@ public final class VizGraphPanel extends JPanel {
         return viewer.get(0);
     }
 
-    /**
-     * We override the paint method to auto-resize the divider.
-     */
-    @Override
-    public void paint(Graphics g) {
-        super.paint(g);
-        split.setDividerLocation(split.getSize().height - split.getInsets().bottom - split.getDividerSize() - split.getRightComponent().getPreferredSize().height);
-    }
-
     public void resetProjectionAtomCombos() {
         for (Entry<AlloyType,TypePanel> e : type2panel.entrySet()) {
             if (e.getValue().atomCombo != null)
@@ -436,6 +427,7 @@ public final class VizGraphPanel extends JPanel {
      * @return the number of graph panels
      */
     public int numPanels() {
-        return vizState.size();
+        return graphPanels.size();
     }
+
 }

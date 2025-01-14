@@ -27,6 +27,8 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -38,9 +40,14 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import org.alloytools.alloy.core.AlloyCore;
+import org.alloytools.alloy.dto.InstanceDTO;
+import org.alloytools.alloy.dto.SolutionDTO;
 import org.alloytools.util.table.Table;
 
 import edu.mit.csail.sdg.alloy4.A4Preferences;
@@ -69,7 +76,10 @@ import edu.mit.csail.sdg.ast.Sig.Field;
 import edu.mit.csail.sdg.ast.Sig.PrimSig;
 import edu.mit.csail.sdg.ast.Sig.SubsetSig;
 import edu.mit.csail.sdg.ast.Type;
-import edu.mit.csail.sdg.translator.A4Options.SatSolver;
+import edu.mit.csail.sdg.parser.CompModule;
+import edu.mit.csail.sdg.sim.SimAtom;
+import edu.mit.csail.sdg.sim.SimTuple;
+import edu.mit.csail.sdg.sim.SimTupleset;
 import kodkod.ast.BinaryExpression;
 import kodkod.ast.BinaryFormula;
 import kodkod.ast.Decl;
@@ -111,7 +121,6 @@ import kodkod.instance.Tuple;
 import kodkod.instance.TupleFactory;
 import kodkod.instance.TupleSet;
 import kodkod.instance.Universe;
-import kodkod.util.ints.IndexedEntry;
 
 /**
  * This class stores a SATISFIABLE or UNSATISFIABLE solution. It is also used as
@@ -302,6 +311,9 @@ public final class A4Solution implements AlloySolution {
      */
     private Map<Variable,Pair<Type,Pos>>      decl2type;
 
+    public final A4Options                    opt;
+
+
     // ===================================================================================================//
 
     /**
@@ -319,8 +331,8 @@ public final class A4Solution implements AlloySolution {
      * @param expected - whether the user expected an instance or not (1 means yes,
      *            0 means no, -1 means the user did not express an expectation)
      */
-    A4Solution(String originalCommand, int bitwidth, int mintrace, int maxtrace, int maxseq, Set<String> stringAtoms, Collection<String> atoms, final A4Reporter rep, A4Options opt, int expected) throws Err {
-        opt = opt.dup();
+    A4Solution(String originalCommand, int bitwidth, int mintrace, int maxtrace, int maxseq, Set<String> stringAtoms, Collection<String> atoms, final A4Reporter rep, A4Options optin, int expected) throws Err {
+        this.opt = optin.dup();
         this.unrolls = opt.unrolls;
         this.sigs = new SafeList<Sig>(Arrays.asList(UNIV, SIGINT, SEQIDX, STRING, NONE));
         this.a2k = Util.asMap(new Expr[] {
@@ -335,9 +347,6 @@ public final class A4Solution implements AlloySolution {
         this.maxseq = maxseq;
         this.maxtrace = maxtrace;
         this.mintrace = mintrace;
-        // [electrum] test whether unbounded solver
-        if (maxtrace == Integer.MAX_VALUE && !(opt.solver.external() != null && opt.solver.external().equals("electrod")))
-            throw new ErrorAPI("Bounded engines do not support open bounds on steps.");
         if (bitwidth < 0)
             throw new ErrorSyntax("Cannot specify a bitwidth less than 0.");
         if (bitwidth > 30)
@@ -411,59 +420,15 @@ public final class A4Solution implements AlloySolution {
         } else {
             solver_opts.setRunDecomposed(false);
         }
-        // solver.options().setFlatten(false); // added for now, since
-        // multiplication and division circuit takes forever to flatten
-        // [electrum] pushed solver creation further below as solver choice is needed for initialization
-        if (opt.solver.id().equals(A4Options.SatSolver.ElectrodS.id())) {
-            String[] nopts = new String[opt.solver.options().length + 2];
-            System.arraycopy(opt.solver.options(), 0, nopts, 2, opt.solver.options().length);
-            nopts[0] = "-t";
-            nopts[1] = "NuSMV";
-            solver_opts.setSolver(SATFactory.electrod(nopts));
-        } else if (opt.solver.id().equals(A4Options.SatSolver.ElectrodX.id())) {
-            String[] nopts = new String[opt.solver.options().length + 2];
-            System.arraycopy(opt.solver.options(), 0, nopts, 2, opt.solver.options().length);
-            nopts[0] = "-t";
-            nopts[1] = "nuXmv";
-            solver_opts.setSolver(SATFactory.electrod(nopts));
-        } else if (opt.solver.external() != null) {
-            String ext = opt.solver.external();
-            if (opt.solverDirectory.length() > 0 && ext.indexOf(File.separatorChar) < 0)
-                ext = opt.solverDirectory + File.separatorChar + ext;
-            try {
-                File tmp = File.createTempFile("tmp", ".cnf", new File(opt.tempDirectory));
-                tmp.deleteOnExit();
-                solver_opts.setSolver(SATFactory.externalFactory(ext, tmp.getAbsolutePath(), false, false, opt.solver.options()));
-                // solver.options().setSolver(SATFactory.externalFactory(ext,
-                // tmp.getAbsolutePath(), opt.solver.options()));
-            } catch (IOException ex) {
-                throw new ErrorFatal("Cannot create temporary directory.", ex);
-            }
-        } else if (opt.solver.equals(A4Options.SatSolver.LingelingJNI)) {
-            solver_opts.setSolver(SATFactory.Lingeling);
-        } else if (opt.solver.equals(A4Options.SatSolver.PLingelingJNI)) {
-            solver_opts.setSolver(SATFactory.plingeling(4, null));
-        } else if (opt.solver.equals(A4Options.SatSolver.GlucoseJNI)) {
-            solver_opts.setSolver(SATFactory.Glucose);
-        } else if (opt.solver.equals(A4Options.SatSolver.Glucose41JNI)) {
-            solver_opts.setSolver(SATFactory.Glucose41);
-        } else if (opt.solver.equals(A4Options.SatSolver.CryptoMiniSatJNI)) {
-            solver_opts.setSolver(SATFactory.CryptoMiniSat);
-        } else if (opt.solver.equals(A4Options.SatSolver.MiniSatJNI)) {
-            solver_opts.setSolver(SATFactory.MiniSat);
-        } else if (opt.solver.equals(A4Options.SatSolver.MiniSatProverJNI)) {
-            sym = 20;
-            solver_opts.setSolver(SATFactory.MiniSatProver);
-            solver_opts.setLogTranslation(2);
-            solver_opts.setCoreGranularity(opt.coreGranularity);
-        } else {
-            // Even for "KK" and "CNF", we choose SAT4J here; later, just before solving, we'll change it to a Write2CNF solver
-            solver_opts.setSolver(SATFactory.DefaultSAT4J);
-        }
+
+        solver_opts.setCoreGranularity(opt.coreGranularity);
         solver_opts.setSymmetryBreaking(sym);
         solver_opts.setSkolemDepth(opt.skolemDepth);
-        solver_opts.setBitwidth(bitwidth > 0 ? bitwidth : (int) Math.ceil(Math.log(atoms.size())) + 1);
+        solver_opts.setBitwidth(bitwidth > 0 ? bitwidth : (int) Math.ceil(Math.log(atoms.size()+1) / Math.log(2)) + 1);
         solver_opts.setIntEncoding(Options.IntEncoding.TWOSCOMPLEMENT);
+
+        solver_opts.setSolver(opt.solver.doOptions(solver_opts));
+
         // [electrum] create unique readable name, allows some traceability at backend level
         DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd-HH-mm");
         String file = "untitled";
@@ -473,7 +438,11 @@ public final class A4Solution implements AlloySolution {
         }
         String check = getOriginalCommand().replace(' ', '_').replace('$', '-');
         solver_opts.setUniqueName(file + "-" + check + "-" + dateFormat.format(new Date()) + "-" + this.hashCode());
-        solver = new PardinusSolver(solver_opts);
+        try {
+            solver = new PardinusSolver(solver_opts);
+        } catch (InvalidSolverParamException e) {
+            throw new ErrorAPI(e.getMessage(),e);
+        }
     }
 
     /**
@@ -488,6 +457,8 @@ public final class A4Solution implements AlloySolution {
             throw new ErrorAPI("This solution was not generated by an incremental SAT solver.\n" + "Solution enumeration is currently only implemented for MiniSat and SAT4J.");
         if (old.eval == null)
             throw new ErrorAPI("This solution is already unsatisfiable, so you cannot call next() to get the next solution.");
+
+        this.opt = old.opt;
         Instance inst;
         // [electrum] better reporting of unsupported iterations
         try {
@@ -971,8 +942,8 @@ public final class A4Solution implements AlloySolution {
      * solved and is satisfiable; else returns an empty list.
      */
     @Override
-    public Iterable<ExprVar> getAllSkolems() {
-        return skolems.dup();
+    public List<ExprVar> getAllSkolems() {
+        return skolems.toList();
     }
 
     /**
@@ -994,6 +965,10 @@ public final class A4Solution implements AlloySolution {
     @Override
     public int getTraceLength() {
         return ((TemporalInstance) eval.instance()).prefixLength();
+    }
+
+    public boolean isTemporal() {
+        return eval.instance() instanceof TemporalInstance;
     }
 
     /**
@@ -1214,6 +1189,13 @@ public final class A4Solution implements AlloySolution {
     /** Caches a constant pair of Type.EMPTY and Pos.UNKNOWN */
     private Pair<Type,Pos> cachedPAIR = null;
 
+    private Formula        fgoal;
+
+    /**
+     * The duration in nanoseconds of the resolving
+     */
+    private long           duration;
+
     /**
      * Maps a Kodkod variable to an Alloy Type and Alloy Pos (if no association
      * exists, it will return (Type.EMPTY , Pos.UNKNOWN)
@@ -1422,7 +1404,7 @@ public final class A4Solution implements AlloySolution {
                     continue; // Something is wrong; let's skip it
                 while (t.arity() < r.arity())
                     t = UNIV.type().product(t);
-                String n = Util.tail(r.name());
+                String n = Util.tailThis(r.name());
                 while (n.length() > 0 && n.charAt(0) == '$')
                     n = n.substring(1);
                 skolems.add(n);
@@ -1517,7 +1499,7 @@ public final class A4Solution implements AlloySolution {
         }
         for (PrimSig c : s.children())
             rename(frame, c, nexts, un);
-        String signame = un.make(s.label.startsWith("this/") ? s.label.substring(5) : s.label);
+        String signame = un.make(Util.tailThis(s.label));
         // [electrum] collect atoms from every state
         List<Tuple> list = new ArrayList<Tuple>();
         for (int i = 0; i < frame.getTraceLength(); i++)
@@ -1554,7 +1536,7 @@ public final class A4Solution implements AlloySolution {
      */
     // [electrum] this is the method now called, iteratively, by the static reader;
     // it reads a state at a time, and the solution is built incrementally
-    A4Solution solve(final A4Reporter rep, A4Solution pre_sol, int loop) throws Err, IOException {
+    A4Solution solve(final A4Reporter rep, A4Solution pre_sol, int looplen) throws Err, IOException {
         // construct the instance from the current state
         Universe static_uni;
         if (pre_sol != null)
@@ -1577,8 +1559,10 @@ public final class A4Solution implements AlloySolution {
         }
         instances.add(inst);
 
-        if (loop >= instances.size())
-            loop = instances.size() - 1;
+        int loop = (instances.size()-looplen);
+        // loop may be invalid until trace is complete
+        if (loop < 0)
+            loop = instances.size()-1;
 
         // create temporal instance
         TemporalInstance prev = new TemporalInstance(instances, loop, 1);
@@ -1610,11 +1594,10 @@ public final class A4Solution implements AlloySolution {
         rep.debug("Simplifying the bounds...\n");
         if (opt.inferPartialInstance && simp != null && formulas.size() > 0 && !simp.simplify(rep, this, formulas))
             addFormula(Formula.FALSE, Pos.UNKNOWN);
-        rep.translate(opt.solver.id(), bitwidth, maxseq, mintrace, maxtrace, solver.options().skolemDepth(), solver.options().symmetryBreaking(), A4Preferences.Decompose.values()[opt.decompose_mode].toString());
-        Formula fgoal = Formula.and(formulas);
+        rep.translate(opt.solver.id(), solver.options().bitwidth(), maxseq, mintrace, maxtrace, solver.options().skolemDepth(), solver.options().symmetryBreaking(), A4Preferences.Decompose.values()[opt.decompose_mode].toString());
+        fgoal = Formula.and(formulas);
         rep.debug("Generating the solution...\n");
         kEnumerator = null;
-        Solution sol = null;
         final Reporter oldReporter = solver.options().reporter();
         final boolean solved[] = new boolean[] {
                                                 true
@@ -1653,56 +1636,35 @@ public final class A4Solution implements AlloySolution {
             }
 
         });
-        if (!opt.solver.equals(SatSolver.CNF) && !opt.solver.equals(SatSolver.KK) && tryBookExamples) { // try book examples
-            A4Reporter r = "yes".equals(System.getProperty("debug")) ? rep : null;
-            try {
-                sol = BookExamples.trial(r, this, fgoal, (AbstractKodkodSolver) solver.solver, cmd.check);
-            } catch (Throwable ex) {
-                sol = null;
-            }
-        }
 
         solved[0] = false; // this allows the reporter to report the # of
-                          // vars/clauses
+        // vars/clauses
         for (Relation r : bounds.relations()) {
             formulas.add(r.eq(r));
         } // Without this, kodkod refuses to grow unmentioned relations
+
         fgoal = Formula.and(formulas);
-        // Now pick the solver and solve it!
-        if (opt.solver.equals(SatSolver.KK)) {
-            File tmpCNF = File.createTempFile("tmp", ".java", new File(opt.tempDirectory));
-            String out = tmpCNF.getAbsolutePath();
-            Util.writeAll(out, debugExtractKInput());
-            rep.resultCNF(out);
-            return null;
-        }
-        if (opt.solver.equals(SatSolver.CNF)) {
-            File tmpCNF = File.createTempFile("tmp", ".cnf", new File(opt.tempDirectory));
-            String out = tmpCNF.getAbsolutePath();
-            solver.options().setSolver(WriteCNF.factory(out));
-            try {
-                sol = solver.solve(fgoal, bounds);
-            } catch (WriteCNF.WriteCNFCompleted ex) {
-                rep.resultCNF(out);
-                return null;
-            }
-            // The formula is trivial (otherwise, it would have thrown an
-            // exception)
-            // Since the user wants it in CNF format, we manually generate a
-            // trivially satisfiable (or unsatisfiable) CNF file.
-            Util.writeAll(out, sol.instance() != null ? "p cnf 1 1\n1 0\n" : "p cnf 1 2\n1 0\n-1 0\n");
-            rep.resultCNF(out);
-            return null;
-        }
-        if (/* solver.options().solver()==SATFactory.ZChaffMincost || */ !solver.options().solver().incremental()) {
-            sol = solver.solve(fgoal, bounds);
-        } else {
-            PardinusBounds b;
-            if (solver.options().decomposed())
-                b = PardinusBounds.splitAtTemporal(bounds); // [electrum] split bounds on temporal
-            else
-                b = bounds;
-            // [electrum] better handling of solving runtime errors
+
+        PardinusBounds b;
+        if (solver.options().decomposed())
+            b = PardinusBounds.splitAtTemporal(bounds);
+        else
+            b = bounds;
+
+        Solution sol;
+        if (opt.solver instanceof KKTransformer) {
+            sol = doKK(rep, opt);
+        } else if (opt.solver instanceof CNFTransformer) {
+            sol = doCNF(rep, opt);
+        } else if (tryBookExamples && solver.solver instanceof AbstractKodkodSolver) {
+            sol = tryBook(rep, cmd);
+        } else if (!solver.options().solver().incremental()) {
+            sol = solver.solve(fgoal, b);
+        } else
+            sol = null;
+
+        if (sol == null) {
+            final long start = System.nanoTime();
             try {
                 kEnumerator = new Peeker<Solution>(solver.solveAll(fgoal, b));
             } catch (InvalidMutableExpressionException e) {
@@ -1713,19 +1675,28 @@ public final class A4Solution implements AlloySolution {
             } catch (InvalidUnboundedProblem e) {
                 Pos p = ((Expr) k2pos(e.node())).pos;
                 throw new ErrorAPI(p, "Invalid specification for complete backend.\n" + e.getMessage());
+            } catch (CapacityExceededException ex) {
+                throw TranslateAlloyToKodkod.rethrow(ex);
             }
-            if (sol == null)
-                sol = kEnumerator.next();
+            sol = kEnumerator.next();
+            this.duration = System.nanoTime() - start;
         }
+
+        if (sol.getOutput().isPresent()) {
+            rep.resultCNF(sol.getOutput().get().getAbsolutePath());
+            return this;
+        }
+
         if (!solved[0])
             rep.solve(0, 0, 0, 0);
+
         Instance inst = sol.instance();
         if (inst != null && !(inst instanceof TemporalInstance))
             inst = new TemporalInstance(Arrays.asList(inst), 0, 1);
         // To ensure no more output during SolutionEnumeration
         solver.options().setReporter(oldReporter);
-        // If unsatisfiable, then retreive the unsat core if desired
-        if (inst == null && solver.options().solver() == SATFactory.MiniSatProver) {
+        // If unsatisfiable, then retrieve the unsat core if desired
+        if (inst == null && solver.options().solver().prover()) {
             try {
                 lCore = new LinkedHashSet<Node>();
                 Proof p = sol.proof();
@@ -1773,6 +1744,39 @@ public final class A4Solution implements AlloySolution {
         return this;
     }
 
+    @SuppressWarnings({
+                       "rawtypes", "unchecked"
+    } )
+    private Solution tryBook(final A4Reporter rep, Command cmd) {
+        Solution sol;
+        A4Reporter r = AlloyCore.isDebug() ? rep : null;
+        try {
+            sol = BookExamples.trial(r, this, fgoal, (AbstractKodkodSolver) solver.solver, cmd.check);
+        } catch (Throwable ex) {
+            rep.debug("" + ex);
+            sol = null;
+        }
+        return sol;
+    }
+
+    private Solution doCNF(final A4Reporter rep, final A4Options opt) throws IOException {
+        File tmpCNF = opt.tempFile(".cnf");
+        String out = tmpCNF.getAbsolutePath();
+        solver.options().setSolver(WriteCNF.factory(out));
+        Solution solve = solver.solve(fgoal, bounds);
+        solve.setOutput(tmpCNF);
+        return solve;
+    }
+
+    private Solution doKK(final A4Reporter rep, final A4Options opt) throws IOException {
+        File tmpKK = opt.tempFile(".java");
+        String out = tmpKK.getAbsolutePath();
+        Util.writeAll(out, debugExtractKInput());
+        Solution s = Solution.unsatisfiable(null, null);
+        s.setOutput(tmpKK);
+        return s;
+    }
+
     // ===================================================================================================//
 
     /** This caches the toString() output. */
@@ -1797,30 +1801,11 @@ public final class A4Solution implements AlloySolution {
             return answer;
         Instance sol = eval.instance();
         StringBuilder sb = new StringBuilder();
-        sb.append("---INSTANCE---");
-        if (sol instanceof TemporalInstance) {
-            sb.append("\nloop=");
-            sb.append(getLoopState());
-            sb.append("\nend=");
-            sb.append(getTraceLength() - 1);
-        }
-        sb.append("\nintegers={");
-        boolean firstTuple = true;
-        for (IndexedEntry<TupleSet> e : sol.intTuples()) {
-            if (firstTuple)
-                firstTuple = false;
-            else
-                sb.append(", ");
-            // No need to print e.index() since we've ensured the Int atom's
-            // String representation is always equal to ""+e.index()
-            Object atom = e.value().iterator().next().atom(0);
-            sb.append(atom2name(atom));
-        }
-        sb.append("}\n");
         try {
             if (sol instanceof TemporalInstance && state < 0) {
+                sb.append("---Trace---\n");
                 for (int i = 0; i < getTraceLength(); i++) {
-                    sb.append("------State " + i + "-------\n");
+                    sb.append("------State " + i + (i == getLoopState() ? " (loop)" : "") + "-------\n");
                     for (Sig s : sigs) {
                         sb.append(s.label).append("=").append(eval(s, i)).append("\n");
                         for (Field f : s.getFields())
@@ -1832,6 +1817,13 @@ public final class A4Solution implements AlloySolution {
                 }
             } else {
                 state = Math.max(0, state);
+
+                int lln = getTraceLength() - getLoopState();
+                state = state > getLoopState() ? (((state - getLoopState()) % lln) + getLoopState()) : state;
+
+                if (!eval.options().temporal())
+                    sb.append("---Instance---\n");
+
                 for (Sig s : sigs) {
                     sb.append(s.label).append("=").append(eval(s, state)).append("\n");
                     for (Field f : s.getFields())
@@ -1863,12 +1855,16 @@ public final class A4Solution implements AlloySolution {
      */
     @Override
     public A4Solution next() throws Err {
-        return fork(-3);
+        long start = System.nanoTime();
+        A4Solution sol = fork(-3);
+        sol.duration = System.nanoTime() - start;
+        return sol;
     }
 
     /**
-     * If this solution is UNSAT, return itself; else return the next solution
-     * according to the selected operation (which could be SAT or UNSAT).
+     * If this solution is UNSAT as a result of a next/next config, return itself;
+     * else return the next solution according to the selected operation (which
+     * could be SAT or UNSAT).
      *
      * @throws ErrorAPI if the solver was not an incremental solver
      */
@@ -1878,11 +1874,11 @@ public final class A4Solution implements AlloySolution {
             throw new ErrorAPI("This solution is not yet solved, so next() is not allowed.");
         if (eval == null)
             return this;
-        if (p == -3) {
-            if (nextCache == null)
-                nextCache = new A4Solution(this, -3);
+        if (nextCache == null && (p == -3 || p == -1))
+            nextCache = new A4Solution(this, p);
+
+        if (nextCache != null)
             return nextCache;
-        }
 
         return new A4Solution(this, p); // [electrum] do not cache, may have different arguments
     }
@@ -1934,6 +1930,8 @@ public final class A4Solution implements AlloySolution {
 
     /** This caches the result of highLevelCore(). */
     private Pair<Set<Pos>,Set<Pos>> hCoreCache = null;
+
+    CompModule                      module;
 
     /**
      * If this solution is unsatisfiable and its unsat core is available, then
@@ -2029,8 +2027,46 @@ public final class A4Solution implements AlloySolution {
         if (eval == null)
             return "---OUTCOME---\nUnsatisfiable.\n";
 
-        Map<String,Table> table = TableView.toTable(this, eval.instance(), sigs, state);
-        return String.join("\n", table.values().stream().map(x -> x.toString()).collect(Collectors.toSet()));
+        Map<String,Table> table = TableView.toTable(this, eval.instance(), sigs, skolems, state);
+        return String.join("\n", table.values().stream().map(x -> x.toString()).collect(Collectors.toList()));
+    }
+
+    public Table toTable(int state) {
+        if (!satisfiable())
+            return new Table(0, 0, 0);
+
+        Map<String,Table> table = TableView.toTable(this, eval.instance(), sigs, skolems, state);
+
+        Table result = new Table(table.size() + 1, 2, 1);
+        result.set(0, 0, "sig");
+        result.set(0, 1, "fields");
+
+        int r = 1;
+        for (Map.Entry<String,Table> e : table.entrySet()) {
+            result.set(r, 0, e.getKey());
+            result.set(r, 1, e.getValue());
+        }
+        return result;
+    }
+
+    public List<Table> toTable() {
+        if (!satisfiable())
+            return Collections.emptyList();
+
+        if (!isIncremental()) {
+            return Collections.singletonList(toTable(0));
+        }
+
+        List<Table> result = new ArrayList<>();
+        A4Solution s = this;
+
+        for (int i = 0; i < getTraceLength(); i++) {
+            Table table = toTable(i);
+            result.add(table);
+            s = s.next();
+        }
+
+        return result;
     }
 
     /**
@@ -2096,6 +2132,114 @@ public final class A4Solution implements AlloySolution {
         }
         bounds.relations().remove(r);
         bounds.bound(r, ub);
+    }
+
+
+    public void setModule(CompModule module) {
+        this.module = module;
+    }
+
+    public Optional<CompModule> getModule() {
+        return Optional.ofNullable(this.module);
+    }
+
+    public SolutionDTO toDTO() {
+        assert module != null : "the module must be set for the dto to be calculated";
+        String cmd = getOriginalCommand();
+
+        SolutionDTO sol = new SolutionDTO();
+        sol.utctime = System.currentTimeMillis();
+        sol.localtime = LocalDateTime.now(ZoneId.systemDefault()).toString();
+        sol.timezone = ZoneId.systemDefault().getId();
+        sol.incremental = isIncremental();
+        sol.duration = TimeUnit.NANOSECONDS.toMillis(duration);
+
+        if (satisfiable()) {
+
+            A4Solution s = this;
+
+            int loopstate = getLoopState();
+
+            for (int state = 0; state < getTraceLength(); state++) {
+                sol.instances.add(toDTO(state));
+                if (!s.isIncremental())
+                    break;
+                s = s.next();
+            }
+        }
+        return sol;
+    }
+
+    /**
+     * Map a state instance of this solution to an InstanceDTO. Requires that
+     * {@link #satisfiable()} is true.
+     *
+     * @param state the state to get or -1 if static
+     * @return an InstanceDTO
+     */
+    public InstanceDTO toDTO(int state) {
+
+        Instance instance = eval.instance();
+        if (state >= 0) {
+            TemporalInstance temporalInstance = (TemporalInstance) instance;
+            instance = temporalInstance.state(state);
+        } else
+            state = 0;
+
+        InstanceDTO instanceDTO = new InstanceDTO();
+        instanceDTO.state = state;
+
+        for (Sig s : sigs) {
+            TupleSet sigAtoms = instance.tuples(s.label);
+            if (sigAtoms != null) {
+                List<SimTuple> sortedSigAtoms = Util.toList(sigAtoms);
+                Collections.sort(sortedSigAtoms);
+
+                for (SimTuple sigAtom : sortedSigAtoms) {
+                    assert sigAtom.arity() == 1;
+
+                    SimAtom atom = sigAtom.get(0);
+                    String name = atom.toString();
+
+                    Map<String,String[][]> fields = new HashMap<>();
+                    instanceDTO.values.put(name, fields);
+                    SimTupleset singeAtomRelation = SimTupleset.make(sigAtom);
+
+                    for (Field field : s.getFields()) {
+                        A4TupleSet eval = eval(field, state);
+                        SimTupleset fieldRelation = Util.toSimTupleset(eval);
+                        SimTupleset fieldValues = singeAtomRelation.join(fieldRelation);
+                        String[][] old = fields.put(field.label, Util.toArraySet(fieldValues));
+                        assert old == null;
+                    }
+                }
+            }
+        }
+
+        for (ExprVar v : getAllSkolems()) {
+            Object vv = eval(v, state);
+            if (vv instanceof A4TupleSet) {
+                SimTupleset relation = Util.toSimTupleset((A4TupleSet) vv);
+                instanceDTO.skolems.put(v.label, Util.toDTO(relation, v.type()));
+            } else {
+                instanceDTO.messages.add("skolem variable " + v.label + " evaluates not to a tuple set but to " + vv);
+            }
+        }
+        return instanceDTO;
+    }
+
+    public A4Reporter getReporter() {
+        return null;
+    }
+
+    /**
+     * Add default transformers
+     *
+     * @param extensions
+     */
+    public static void addTransformers(List<SATFactory> extensions) {
+        extensions.add(new KKTransformer());
+        extensions.add(new CNFTransformer());
     }
 
 }

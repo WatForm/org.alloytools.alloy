@@ -15,7 +15,12 @@
 
 package edu.mit.csail.sdg.translator;
 
+import java.io.File;
+import java.io.IOException;
 import java.io.Serializable;
+import java.nio.file.Files;
+
+import kodkod.engine.satlab.SATFactory;
 
 import ca.uwaterloo.watform.portus.PortusOptions;
 import edu.mit.csail.sdg.alloy4.ErrorAPI;
@@ -33,6 +38,7 @@ import edu.mit.csail.sdg.alloy4.SafeList;
 
 public final class A4Options implements Serializable {
 
+//<<<<<<< HEAD
     /** This enum defines the set of possible SAT solvers. */
     public static class SatSolver implements Serializable {
 
@@ -234,6 +240,8 @@ public final class A4Options implements Serializable {
 
     }
 
+//=======
+//>>>>>>> upstream/master
     /** This ensures the class can be serialized reliably. */
     private static final long serialVersionUID = 0;
 
@@ -243,7 +251,7 @@ public final class A4Options implements Serializable {
     public A4Options() {
     }
 
-    public boolean   inferPartialInstance = true;
+    public boolean    inferPartialInstance = true;
 
     /**
      * This option specifies the amount of symmetry breaking to do (when symmetry
@@ -259,7 +267,7 @@ public final class A4Options implements Serializable {
      * <p>
      * Default value is 20.
      */
-    public int       symmetry             = 20;
+    public int        symmetry             = 20;
 
     /**
      * This option specifies the maximum skolem-function depth.
@@ -267,7 +275,7 @@ public final class A4Options implements Serializable {
      * Default value is 0, which means it will only generate skolem constants, and
      * will not generate skolem functions.
      */
-    public int       skolemDepth          = 0;
+    public int        skolemDepth          = 0;
 
     /**
      * This option specifies the unsat core minimization strategy
@@ -275,13 +283,13 @@ public final class A4Options implements Serializable {
      * <p>
      * Default value is set to the fastest current strategy.
      */
-    public int       coreMinimization     = 2;
+    public int        coreMinimization     = 2;
 
     /**
      * Unsat core granularity, default is 0 (only top-level conjuncts are
      * considered), 3 expands all quantifiers
      */
-    public int       coreGranularity      = 0;
+    public int        coreGranularity      = 0;
 
     /**
      * This option specifies the SAT solver to use (SAT4J, MiniSatJNI,
@@ -289,19 +297,19 @@ public final class A4Options implements Serializable {
      * <p>
      * Default value is SAT4J.
      */
-    public SatSolver solver               = SatSolver.SAT4J;
+    public SATFactory solver               = SATFactory.DEFAULT;
 
     /**
      * When this.solver is external, and the solver filename is a relative filename,
      * then this option specifies the directory that the solver filename is relative
      * to.
      */
-    public String    solverDirectory      = "";
+    public String     solverDirectory      = "";
 
     /**
      * This specifies the directory where we may write temporary files to.
      */
-    public String    tempDirectory        = System.getProperty("java.io.tmpdir");
+    public String     tempDirectory        = System.getProperty("java.io.tmpdir");
 
     /**
      * This option tells the compiler the "original filename" that these AST nodes
@@ -310,7 +318,7 @@ public final class A4Options implements Serializable {
      * <p>
      * Default value is "".
      */
-    public String    originalFilename     = "";
+    public String     originalFilename     = "";
 
     /**
      * This option specifies whether the compiler should record the original Kodkod
@@ -318,26 +326,26 @@ public final class A4Options implements Serializable {
      * <p>
      * Default value is false.
      */
-    public boolean   recordKodkod         = false;
+    public boolean    recordKodkod         = false;
 
     /**
      * This option specifies whether the solver should report only solutions that
      * don't cause any overflows.
      */
-    public boolean   noOverflow           = false;
+    public boolean    noOverflow           = false;
 
     /**
      * This option constrols how deep we unroll loops and unroll recursive
      * predicate/function/macros (negative means it's disallowed)
      */
-    public int       unrolls              = (-1);
+    public int        unrolls              = (-1);
 
     /**
      * This option specifies the decompose strategy (0=Off 1=Hybrid 2=Parallel)
      * <p>
      * Default value is off.
      */
-    public int       decompose_mode       = 0;
+    public int        decompose_mode       = 0;
 
     /**
      * This option specifies the number of threads when following a decompose
@@ -345,7 +353,7 @@ public final class A4Options implements Serializable {
      * <p>
      * Default value is 4.
      */
-    public int       decompose_threads    = 4;
+    public int        decompose_threads    = 4;
 
     /**
      * Options specific to the Portus/Fortress backend.
@@ -372,4 +380,10 @@ public final class A4Options implements Serializable {
         x.portusOptions = portusOptions;
         return x;
     }
+
+    public File tempFile(String extension) throws IOException {
+        File f = new File(tempDirectory);
+        return Files.createTempFile(f.toPath(), "alloy", extension).toFile();
+    }
+
 }

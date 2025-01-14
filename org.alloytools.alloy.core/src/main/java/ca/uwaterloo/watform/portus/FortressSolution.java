@@ -198,7 +198,7 @@ public class FortressSolution implements AlloySolution {
     }
 
     @Override
-    public Iterable<ExprVar> getAllSkolems() {
+    public List<ExprVar> getAllSkolems() {
         // TODO - skolemization
         return new ArrayList<>();
     }

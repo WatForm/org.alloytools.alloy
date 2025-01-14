@@ -12,6 +12,7 @@ import edu.mit.csail.sdg.ast.Func;
 import edu.mit.csail.sdg.ast.Sig;
 
 import java.io.PrintWriter;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -101,7 +102,7 @@ public interface AlloySolution {
      * Returns an unmodifiable copy of the list of all skolems if the problem is
      * solved and is satisfiable; else returns an empty list.
      */
-    Iterable<ExprVar> getAllSkolems();
+    List<ExprVar> getAllSkolems();
 
     /**
      * Returns an unmodifiable copy of the list of all atoms if the problem is

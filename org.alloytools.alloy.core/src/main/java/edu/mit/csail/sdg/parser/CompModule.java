@@ -39,6 +39,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -156,7 +157,7 @@ public final class CompModule extends Browsable implements Module {
     /** This stores the meta signature "sig$" */
     private final PrimSig                       metaSig;
 
-    /** This stores the meta signature "field$" */
+    /** This stores the meta signature "field" */
     private final PrimSig                       metaField;
 
     // ============================================================================================================================//
@@ -246,7 +247,7 @@ public final class CompModule extends Browsable implements Module {
     private final Map<String,Macro>           macros      = new LinkedHashMap<String,Macro>();
 
     /** Each assertion name is mapped to its Expr. */
-    private final Map<String,Assert>            asserts     = new LinkedHashMap<String,Assert>();
+    private final Map<String,Assert>          asserts     = new LinkedHashMap<String,Assert>();
 
     /**
      * The list of facts; each fact is either an untypechecked Exp or a typechecked
@@ -347,7 +348,7 @@ public final class CompModule extends Browsable implements Module {
          */
         public Expr resolve(final Pos pos, final String name) {
             if (name.indexOf('/') >= 0) {
-                String n = name.startsWith("this/") ? name.substring(5) : name;
+                String n = Util.tailThis(name);
                 CompModule mod = rootmodule;
                 while (true) {
                     int i = n.indexOf('/');
@@ -469,6 +470,9 @@ public final class CompModule extends Browsable implements Module {
         /** {@inheritDoc} */
         @Override
         public Expr visit(ExprList x) throws Err {
+            for (Entry<Pos,String> p : x.implicits.entrySet())
+                warns.add(new ErrorWarning(p.getKey(), "Implicit in-line conjunction between two formulas:\n" + p.getValue()));
+
             TempList<Expr> temp = new TempList<Expr>(x.args.size());
             for (int i = 0; i < x.args.size(); i++)
                 temp.add(visitThis(x.args.get(i)));
@@ -491,7 +495,7 @@ public final class CompModule extends Browsable implements Module {
             Expr right = visitThis(x.right);
             Expr rightInner = ignoreNoops(right);
             // If it's a macro invocation, instantiate it
-            if (rightInner instanceof Macro){
+            if (rightInner instanceof Macro) {
                 Expr instantiated = ((Macro) rightInner).addArg(left).instantiate(this, warns);
                 Expr res = ExprUnary.Op.NOOP.make(right.pos, instantiated);
                 res.setReferenced(right.referenced());
@@ -507,15 +511,16 @@ public final class CompModule extends Browsable implements Module {
             return process(x.pos, x.closingBracket, right.pos, ((ExprChoice) right).choices, ((ExprChoice) right).reasons, left);
         }
 
-        public static Expr ignoreNoops(Expr e){
-            if (e instanceof ExprUnary){
+        public static Expr ignoreNoops(Expr e) {
+            if (e instanceof ExprUnary) {
                 ExprUnary eu = (ExprUnary) e;
-                if( eu.op == Op.NOOP){
+                if (eu.op == Op.NOOP) {
                     return ignoreNoops(eu.sub);
                 }
             }
             return e;
         }
+
         /** {@inheritDoc} */
         @Override
         public Expr visit(ExprBinary x) throws Err {
@@ -524,7 +529,7 @@ public final class CompModule extends Browsable implements Module {
             if (x.op == ExprBinary.Op.JOIN) {
                 // If it's a macro invocation, instantiate it
                 Expr rightInner = ignoreNoops(right);
-                if (rightInner instanceof Macro){
+                if (rightInner instanceof Macro) {
                     Expr instantiated = ((Macro) rightInner).addArg(left).instantiate(this, warns);
                     Expr res = ExprUnary.Op.NOOP.make(right.pos, instantiated);
                     res.setReferenced(right.referenced());
@@ -572,9 +577,9 @@ public final class CompModule extends Browsable implements Module {
                 if (exp.mult == 0 && exp.type().arity() == 1)
                     exp = ExprUnary.Op.ONEOF.make(null, exp);
                 if (exp.errors.isEmpty()) {
-                    if (exp.type().isSubtypeOf(rootmodule.metaSig().plus(rootmodule.metaField()).type())) {
-                        isMetaSig = exp.type().intersects(rootmodule.metaSig().type());
-                        isMetaField = exp.type().intersects(rootmodule.metaField().type());
+                    if (exp.type().isSubtypeOf((rootmodule.metaSig.plus(rootmodule.metaField)).type())) {
+                        isMetaSig = exp.type().intersects(rootmodule.metaSig.type());
+                        isMetaField = exp.type().intersects(rootmodule.metaField.type());
                     }
                 }
                 // Below is a special case to allow more fine-grained
@@ -589,7 +594,7 @@ public final class CompModule extends Browsable implements Module {
                     // binding
                     Expr answer = null;
                     if (isMetaSig)
-                        for (PrimSig child : rootmodule.metaSig().children())
+                        for (PrimSig child : rootmodule.metaSigAtoms())
                             if (child.type().intersects(exp.type())) {
                                 put(v.label, child);
                                 Expr sub = visitThis(x.sub);
@@ -602,7 +607,7 @@ public final class CompModule extends Browsable implements Module {
                                     answer = child.in(exp).implies(sub).and(answer);
                             }
                     if (isMetaField)
-                        for (PrimSig child : rootmodule.metaField().children())
+                        for (PrimSig child : rootmodule.metaFieldAtoms())
                             if (child.type().intersects(exp.type())) {
                                 put(v.label, child);
                                 Expr sub = visitThis(x.sub);
@@ -928,8 +933,22 @@ public final class CompModule extends Browsable implements Module {
     /**
      * Returns the meta signature "sig$" (or null if such a sig does not exist)
      */
+    public List<PrimSig> metaSigAtoms() {
+        return world.metaSig.children().makeCopy();
+    }
+
+    /**
+     * Returns the meta signature "sig$" (or null if such a sig does not exist)
+     */
     public PrimSig metaSig() {
         return world.metaSig;
+    }
+
+    /**
+     * Returns the meta signature "field$" (or null if such a sig does not exist)
+     */
+    public List<PrimSig> metaFieldAtoms() {
+        return world.metaField.children().makeCopy();
     }
 
     /**
@@ -953,8 +972,6 @@ public final class CompModule extends Browsable implements Module {
      */
     static ErrorSyntax hint(Pos pos, String name) {
         String msg = "The name \"" + name + "\" cannot be found.";
-        if ("exh".equals(name) || "exhaustive".equals(name) || "part".equals(name) || "partition".equals(name))
-            msg = msg + " If you are migrating from Alloy 3, please see Help->QuickGuide on how to translate models that use the \"" + name + "\" keyword.";
         return new ErrorSyntax(pos, msg);
     }
 
@@ -1144,8 +1161,7 @@ public final class CompModule extends Browsable implements Module {
         // (r&1)!=0 => Sig, (r&2) != 0 => assertion, (r&4)!=0 => Func
         List<Object> ans = new ArrayList<Object>();
         CompModule u = this;
-        if (name.startsWith("this/"))
-            name = name.substring(5);
+        name = Util.tailThis(name);
         for (int level = 0;; level++) {
             int i = name.indexOf('/');
             if (i < 0) {
@@ -1212,7 +1228,7 @@ public final class CompModule extends Browsable implements Module {
             s2 = params.get(name);
         } else {
             if (name.startsWith("this/")) {
-                name = name.substring(5);
+                name = Util.tailThis(name);
                 s2 = params.get(name);
             }
             s = getRawQS(1, name);
@@ -1240,7 +1256,7 @@ public final class CompModule extends Browsable implements Module {
      * the line has not be parsed from the file yet.
      */
     @Override
-    public String getModelName() {
+    public String getModuleName() {
         return moduleName;
     }
 
@@ -1330,7 +1346,7 @@ public final class CompModule extends Browsable implements Module {
                 if (arg.label.length() == 0)
                     throw new ErrorSyntax(arg.span(), "Argument cannot be empty.");
                 if (arg.label.indexOf('@') >= 0)
-                    throw new ErrorSyntax(arg.span(), "Argument cannot contain the \'@\' chracter.");
+                    throw new ErrorSyntax(arg.span(), "Argument cannot contain the \'@\' character.");
                 newlist.add(arg.label);
             }
         Open x = opens.get(as);
@@ -1347,7 +1363,7 @@ public final class CompModule extends Browsable implements Module {
         opens.put(as, x);
     }
 
-    /** Do any post-parsing processig. */
+    /** Do any post-parsing processing. */
     void doneParsing() {
         status = 3;
         LinkedHashMap<String,Open> copy = new LinkedHashMap<String,Open>(opens);
@@ -1496,7 +1512,8 @@ public final class CompModule extends Browsable implements Module {
         if (subset != null) {
             attributes = Util.append(attributes, SUBSET.makenull(subset));
             List<Sig> newParents = new ArrayList<Sig>(parents == null ? 0 : parents.size());
-            if (parents == null) parents = Arrays.asList();
+            if (parents == null)
+                parents = Arrays.asList();
             for (ExprVar p : parents)
                 newParents.add(new PrimSig(p.label, WHERE.make(p.pos)));
             obj = new SubsetSig(namePos, full, parents.stream().map(p -> p.pos).collect(Collectors.toList()), newParents, attributes);
@@ -1758,6 +1775,19 @@ public final class CompModule extends Browsable implements Module {
         return ans.dup();
     }
 
+    /**
+     * Return an unmodifiable list containing all functions defined in this module or a reachable submodule.
+     */
+    @Override
+    public SafeList<Func> getAllReachableUserDefinedFunc() {
+        SafeList<Func> ans = new SafeList<Func>();
+        for (CompModule m : world.getAllReachableModules())
+            if (!m.moduleName.equals("util/integer"))
+                for (ArrayList<Func> e : m.funcs.values())
+                    ans.addAll(e);
+        return ans.dup();
+    }
+
     // ============================================================================================================================//
 
     /** Add an ASSERT declaration. */
@@ -1920,7 +1950,7 @@ public final class CompModule extends Browsable implements Module {
         if (check)
             n = addAssertion(pos, null, "check$" + (1 + commands.size()), e);
         else
-            addFunc(e.span().merge(pos), Pos.UNKNOWN, ExprVar.make( Pos.UNKNOWN, n = "run$" + (1 + commands.size())), null, new ArrayList<Decl>(), null, e);
+            addFunc(e.span().merge(pos), Pos.UNKNOWN, ExprVar.make(Pos.UNKNOWN, n = "run$" + (1 + commands.size())), null, new ArrayList<Decl>(), null, e);
         String labelName = (label == null || label.label.length() == 0) ? n : label.label;
         Command parent = followUp ? commands.get(commands.size() - 1) : null;
         Command newcommand = new Command(e.span().merge(pos), e, labelName, check, overall, bitwidth, seq, tmn, tmx, expects, scopes, null, commandKeyword, ExprVar.make(null, n), parent);
@@ -1934,7 +1964,7 @@ public final class CompModule extends Browsable implements Module {
         if (commands.isEmpty()) {
             addFunc(Pos.UNKNOWN, Pos.UNKNOWN, ExprVar.make(Pos.UNKNOWN, "$$Default"), null, new ArrayList<Decl>(), null, ExprConstant.TRUE);
             ExprVar check = ExprVar.make(Pos.UNKNOWN, "check");
-            commands.add(new Command(Pos.UNKNOWN, ExprConstant.TRUE, "Default", false, 4, 4, 4, -1, -1, 1, null, null, check, ExprVar.make(null, "$$Default"), null));
+            commands.add(new Command(Pos.UNKNOWN, ExprConstant.TRUE, "Default", false, -1, -1, -1, -1, -1, -1, null, null, check, ExprVar.make(null, "$$Default"), null));
         }
     }
 
@@ -1955,11 +1985,11 @@ public final class CompModule extends Browsable implements Module {
                 throw new ErrorSyntax(cmd.pos, "The assertion \"" + cname + "\" cannot be found.");
 
             Expr expr;
-            if (m.get(0) instanceof Assert){
+            if (m.get(0) instanceof Assert) {
                 Assert _assert = (Assert) m.get(0);
                 expr = _assert.expr;
                 declaringClause = _assert;
-            }else{
+            } else {
                 expr = (Expr) m.get(0);
             }
             e = expr.not();
@@ -2083,9 +2113,9 @@ public final class CompModule extends Browsable implements Module {
                 }
             };
             Sig qr = q.visitThis(bound);
-            if (d.isVar == null && qr != null) 
+            if (d.isVar == null && qr != null)
                 warns.add(new ErrorWarning(d.span(), "Static field types with variable bound.\n" + "Field " + d.names.get(0) + " is static but " + qr.label + " is variable."));
-            if (d.isVar == null && s.isVariable != null) 
+            if (d.isVar == null && s.isVariable != null)
                 warns.add(new ErrorWarning(d.span(), "Static field inside variable sig.\n" + "Field " + d.names.get(0) + " is static but " + s.label + " is variable."));
             for (Field f : fields) {
                 rep.typecheck("Sig " + s + ", Field " + f.label + ": " + f.type() + "\n");
@@ -2129,12 +2159,15 @@ public final class CompModule extends Browsable implements Module {
         root.sigs.put(base(root.metaSig), root.metaSig);
         root.new2old.put(root.metaField, root.metaField);
         root.sigs.put(base(root.metaField), root.metaField);
+        List<Sig> staticSigs = new ArrayList<Sig>();
+        List<Sig> varSigs = new ArrayList<Sig>();
         for (CompModule m : root.allModules)
             for (Sig s : new ArrayList<Sig>(m.sigs.values()))
                 if (m != root || (s != root.metaSig && s != root.metaField)) {
                     PrimSig ka = new PrimSig(Pos.UNKNOWN, s.label + "$", Pos.UNKNOWN, root.metaSig, Attr.ONE, PRIVATE.makenull(s.isPrivate), Attr.META);
+                    (s.isVariable != null ? varSigs : staticSigs).add(ka);
                     sig2meta.put(s, ka);
-                    ka.addDefinedField(Pos.UNKNOWN, null, Pos.UNKNOWN, "value", s);
+                    ka.addDefinedField(Pos.UNKNOWN, null, Pos.UNKNOWN, s.isVariable, "value", s);
                     m.new2old.put(ka, ka);
                     m.sigs.put(base(ka), ka);
                     hasMetaSig = true;
@@ -2144,18 +2177,25 @@ public final class CompModule extends Browsable implements Module {
                         if (priv == null)
                             priv = s.isPrivate;
                         PrimSig kb = new PrimSig(Pos.UNKNOWN, s.label + "$" + field.label, Pos.UNKNOWN, root.metaField, Attr.ONE, PRIVATE.makenull(priv), Attr.META);
+                        (field.isVariable != null ? varSigs : staticSigs).add(kb);
                         field2meta.put(field, kb);
                         m.new2old.put(kb, kb);
                         m.sigs.put(base(kb), kb);
                         hasMetaField = true;
-                        kb.addDefinedField(Pos.UNKNOWN, null, Pos.UNKNOWN, "value", field);
+                        kb.addDefinedField(Pos.UNKNOWN, null, Pos.UNKNOWN, s.isVariable, "value", field);
                         if (allfields == ExprConstant.EMPTYNESS)
                             allfields = kb;
                         else
                             allfields = allfields.plus(kb);
                     }
-                    ka.addDefinedField(Pos.UNKNOWN, null, Pos.UNKNOWN, "fields", allfields);
+                    ka.addDefinedField(Pos.UNKNOWN, null, Pos.UNKNOWN, null, "fields", allfields);
                 }
+        SubsetSig st = new SubsetSig(null, "this/static$", null, staticSigs, Attr.META, staticSigs.isEmpty() ? null : Attr.EXACT);
+        root.new2old.put(st, st);
+        root.sigs.put(base(st), st);
+        SubsetSig vr = new SubsetSig(null, "this/var$", null, varSigs, Attr.META, varSigs.isEmpty() ? null : Attr.EXACT);
+        root.new2old.put(vr, vr);
+        root.sigs.put(base(vr), vr);
         for (Map.Entry<Sig,PrimSig> e : sig2meta.entrySet()) {
             Expr expr = null;
             if ((e.getKey()) instanceof PrimSig) {
@@ -2163,7 +2203,7 @@ public final class CompModule extends Browsable implements Module {
                 if (a.parent != null && a.parent != UNIV)
                     expr = sig2meta.get(a.parent);
             }
-            e.getValue().addDefinedField(Pos.UNKNOWN, null, Pos.UNKNOWN, "parent", (expr == null ? ExprConstant.EMPTYNESS : expr));
+            e.getValue().addDefinedField(Pos.UNKNOWN, null, Pos.UNKNOWN, null, "parent", (expr == null ? ExprConstant.EMPTYNESS : expr));
         }
         for (Map.Entry<Sig,PrimSig> e : sig2meta.entrySet()) {
             Sig s = e.getKey();
@@ -2185,12 +2225,19 @@ public final class CompModule extends Browsable implements Module {
                         else
                             allfields = allfields.plus(metaF);
                     }
-            s2.addDefinedField(Pos.UNKNOWN, null, Pos.UNKNOWN, "subfields", allfields);
+            s2.addDefinedField(Pos.UNKNOWN, null, Pos.UNKNOWN, null, "subfields", allfields);
         }
         if (hasMetaSig == false)
             root.facts.add(new Pair<String,Expr>("sig$fact", root.metaSig.no().and(root.metaField.no())));
         else if (hasMetaField == false)
             root.facts.add(new Pair<String,Expr>("sig$fact", root.metaField.no()));
+        if (staticSigs.isEmpty())
+            root.facts.add(new Pair<String,Expr>("static$fact", st.no()));
+        if (varSigs.isEmpty())
+            root.facts.add(new Pair<String,Expr>("var$fact", vr.no()));
+
+        root.addMacro(Pos.UNKNOWN, Pos.UNKNOWN, Pos.UNKNOWN, "sig$", null, root.metaSig);
+        root.addMacro(Pos.UNKNOWN, Pos.UNKNOWN, Pos.UNKNOWN, "field$", null, root.metaField);
     }
 
     // ============================================================================================================================//
@@ -2275,6 +2322,15 @@ public final class CompModule extends Browsable implements Module {
     @Override
     public void addGlobal(String name, Expr value) {
         globals.put(name, value);
+    }
+
+    /**
+     * Clear the globals. This can be useful when the same module is used between
+     * different runs.
+     */
+
+    public void clearGlobals() {
+        globals.clear();
     }
 
     /**
@@ -2387,10 +2443,10 @@ public final class CompModule extends Browsable implements Module {
                                 ch.add(x0);
                                 re.add("field " + f.sig.label + " <: " + f.label);
                             }
-        if (metaSig() != null && (rootsig == null || rootfield == null)) {
-            SafeList<PrimSig> children = null;
+        if (rootsig == null || rootfield == null) {
+            List<PrimSig> children = null;
             try {
-                children = metaSig().children();
+                children = metaSigAtoms();
             } catch (Err err) {
                 return null;
             } // exception NOT possible
@@ -2402,10 +2458,10 @@ public final class CompModule extends Browsable implements Module {
                         re.add("field " + f.sig.label + " <: " + f.label);
                     }
         }
-        if (metaField() != null && (rootsig == null || rootfield == null)) {
-            SafeList<PrimSig> children = null;
+        if (rootsig == null || rootfield == null) {
+            List<PrimSig> children = null;
             try {
-                children = metaField().children();
+                children = metaFieldAtoms();
             } catch (Err err) {
                 return null;
             } // exception NOT possible
@@ -2458,10 +2514,10 @@ public final class CompModule extends Browsable implements Module {
             });
             s.getFacts().forEach(f -> f.accept(visitor));
 
-            if(s instanceof SubsetSig){
+            if (s instanceof SubsetSig) {
                 SubsetSig ss = (SubsetSig) s;
-                ss.parentRefs().forEach( p -> p.accept(visitor));
-            }else{
+                ss.parentRefs().forEach(p -> p.accept(visitor));
+            } else {
                 PrimSig ps = (PrimSig) s;
                 ps.parentRef().accept(visitor);
             }
@@ -2501,30 +2557,39 @@ public final class CompModule extends Browsable implements Module {
 
         // macros are not visitable for now ( accept() throws an exception)
         macros.values().forEach(macro -> {
-           macro.accept(visitor);
+            macro.accept(visitor);
         });
         params.values().forEach(x -> x.accept(visitor));
         return null;
     }
 
-    interface Action{ void call();}
-    private void tryIgnore(Action action) {try { action.call();} catch(Exception ex) {}}
+    interface Action {
+
+        void call();
+    }
+
+    private void tryIgnore(Action action) {
+        try {
+            action.call();
+        } catch (Exception ex) {
+        }
+    }
 
     public <T> void visitExpressionsResilient(VisitReturn<T> visitor) {
         sigs.values().forEach(s -> {
             s.accept(visitor);
             s.getFieldDecls().forEach(d -> {
                 d.names.forEach(x -> tryIgnore(() -> x.accept(visitor)));
-                tryIgnore( () -> d.expr.accept(visitor));
+                tryIgnore(() -> d.expr.accept(visitor));
             });
             s.getFacts().forEach(f -> tryIgnore(() -> f.accept(visitor)));
 
-            if(s instanceof SubsetSig){
+            if (s instanceof SubsetSig) {
                 SubsetSig ss = (SubsetSig) s;
-                ss.parentRefs().forEach( p -> tryIgnore( () -> p.accept(visitor)));
-            }else {
+                ss.parentRefs().forEach(p -> tryIgnore(() -> p.accept(visitor)));
+            } else {
                 PrimSig ps = (PrimSig) s;
-                tryIgnore ( () -> ps.parentRef().accept(visitor));
+                tryIgnore(() -> ps.parentRef().accept(visitor));
             }
 
         });
@@ -2537,42 +2602,48 @@ public final class CompModule extends Browsable implements Module {
                 fun.accept(visitor);
                 fun.getBody().accept(visitor);
                 fun.decls.forEach(d -> {
-                    tryIgnore( () -> d.expr.accept(visitor));
-                    d.names.forEach(n -> tryIgnore ( () -> n.accept(visitor)));
+                    tryIgnore(() -> d.expr.accept(visitor));
+                    d.names.forEach(n -> tryIgnore(() -> n.accept(visitor)));
                 });
-                tryIgnore( () -> fun.returnDecl.accept(visitor));
+                tryIgnore(() -> fun.returnDecl.accept(visitor));
             });
         });
         facts.forEach(fact -> {
-            tryIgnore ( () -> fact.b.accept(visitor));
+            tryIgnore(() -> fact.b.accept(visitor));
         });
         asserts.values().forEach(assrt -> {
-            tryIgnore ( () -> assrt.accept(visitor));
-            tryIgnore ( () -> assrt.expr.accept(visitor));
+            tryIgnore(() -> assrt.accept(visitor));
+            tryIgnore(() -> assrt.expr.accept(visitor));
         });
         commands.forEach(cmd -> {
             if (cmd.nameExpr != null)
-                tryIgnore ( () -> cmd.nameExpr.accept(visitor));
+                tryIgnore(() -> cmd.nameExpr.accept(visitor));
 
-            cmd.additionalExactScopes.forEach(sig -> tryIgnore( () -> sig.accept(visitor)));
-            tryIgnore( () -> cmd.formula.accept(visitor));
+            cmd.additionalExactScopes.forEach(sig -> tryIgnore(() -> sig.accept(visitor)));
+            tryIgnore(() -> cmd.formula.accept(visitor));
             cmd.scope.forEach(scope -> {
-                tryIgnore( () -> scope.sigRef().accept(visitor));
+                tryIgnore(() -> scope.sigRef().accept(visitor));
             });
         });
         opens.values().forEach(open -> {
             if (open.expressions != null)
-                open.expressions.stream().filter(x -> x != null).forEach(ex -> tryIgnore( () -> ex.accept(visitor)));
+                open.expressions.stream().filter(x -> x != null).forEach(ex -> tryIgnore(() -> ex.accept(visitor)));
         });
 
         // macros are not visitable for now ( accept() throws an exception)
         macros.values().forEach(macro -> {
-            tryIgnore( () -> macro.accept(visitor));
+            tryIgnore(() -> macro.accept(visitor));
         });
-        params.values().forEach(x -> tryIgnore( () -> x.accept(visitor)));
+        params.values().forEach(x -> tryIgnore(() -> x.accept(visitor)));
     }
 
 
+    /**
+     * Find the lowest level expr that encompasses pos and that has a reference
+     *
+     * @param pos the position
+     * @return the matchin expr or null
+     */
     public Expr find(Pos pos) {
         if (pos == null)
             return null;
@@ -2610,6 +2681,36 @@ public final class CompModule extends Browsable implements Module {
         });
 
         return holder.expr;
+    }
+
+    public List<Expr> locate(Pos target) {
+        List<Expr> list = new ArrayList<>();
+        if (target == null)
+            return list;
+
+        visitExpressionsResilient(new VisitQueryOnce<Object>() {
+
+            @Override
+            public boolean visited(Expr expr) {
+                boolean visited = super.visited(expr);
+                if (visited)
+                    return visited;
+
+                Pos span = expr.span();
+                if (span == null || span == Pos.UNKNOWN)
+                    return visited;
+
+
+
+                if (span.includes(target)) {
+                    list.add(expr);
+                    return false;
+                } else
+                    return true;
+            }
+        });
+
+        return list;
     }
 
     @Override

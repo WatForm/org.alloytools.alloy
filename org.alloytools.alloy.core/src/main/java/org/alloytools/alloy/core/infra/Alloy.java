@@ -5,6 +5,8 @@ import java.io.IOException;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.Enumeration;
+import java.util.Optional;
+import java.util.function.Function;
 
 import aQute.lib.io.IO;
 
@@ -14,15 +16,16 @@ import aQute.lib.io.IO;
  * <p>
  * This class is an entry point and should not be renamed. It should also _NOT_
  * touch any other classes. We're creating a special class loader to allow the
- * dynamic libraries to be found. If you link this class to any othe class
+ * dynamic libraries to be found. If you link this class to any other class
  * you're bound to create trouble.
  *
  */
 public class Alloy {
 
-    static ClassLoader old = Alloy.class.getClassLoader();
+    static ClassLoader                     old = Alloy.class.getClassLoader();
+    static Function<String,Optional<File>> getLibrary;
 
-    static class AlloyClassLoader extends ClassLoader {
+    static class AlloyClassLoader extends ClassLoader implements AutoCloseable {
 
         AlloyClassLoader() {
             super(null);
@@ -40,8 +43,8 @@ public class Alloy {
 
         @Override
         protected String findLibrary(String libname) {
-            String mapped = System.mapLibraryName(libname);
-            String path = System.getProperty("alloy.binary") + File.separator + mapped;
+            Optional<File> f = getLibrary.apply(libname);
+            String path = f.map(File::getAbsolutePath).orElse(null);
             return path;
         }
 
@@ -59,13 +62,27 @@ public class Alloy {
             }
         }
 
+        @Override
+        public void close() throws Exception {
+        }
+
     }
 
+    @SuppressWarnings("unchecked" )
     public static void main(String args[]) throws Exception {
-        AlloyClassLoader l1 = new AlloyClassLoader();
-
-        Class< ? > dispatcher = l1.loadClass("org.alloytools.alloy.core.infra.AlloyDispatcher");
-        Method main = dispatcher.getMethod("main", String[].class);
-        main.invoke(null, (Object) args);
+        try (AlloyClassLoader l1 = new AlloyClassLoader()) {
+            Class< ? > nativeCode = l1.loadClass("kodkod.solvers.api.NativeCode");
+            Method method = nativeCode.getMethod("getLibrary", String.class);
+            getLibrary = name -> {
+                try {
+                    return (Optional<File>) method.invoke(null, name);
+                } catch (Throwable t) {
+                    throw new RuntimeException(t);
+                }
+            };
+            Class< ? > dispatcher = l1.loadClass("org.alloytools.alloy.core.infra.AlloyDispatcher");
+            Method main = dispatcher.getMethod("main", String[].class);
+            main.invoke(null, (Object) args);
+        }
     }
 }

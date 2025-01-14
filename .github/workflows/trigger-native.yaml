@@ -1,0 +1,54 @@
+name: trigger-native
+
+on:
+  workflow_dispatch:
+  
+#  push:
+#    branches: master
+#    paths:
+#      - 'org.alloytools.pardinus.native/native-code/**'
+#      - '.github/workflows/trigger-native.yaml'
+#      - '.github/workflows/subflow-*.yaml'
+
+jobs:
+  electrod:
+    uses: ./.github/workflows/subflow-electrod.yaml
+
+  native:
+    uses: ./.github/workflows/subflow-native.yaml
+
+  merge-natives:
+    needs: [electrod,native]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: temp_native
+
+      - run: |
+          echo "Show what is downloaded"
+          find temp_native -type f -name "electrod*" -exec git hash-object -w {} \; -print
+          echo "Copy downloaded to native"
+          cp -rfv temp_native/*/* org.alloytools.pardinus.native/native/
+          echo "Show new native"
+          find org.alloytools.pardinus.native/native/ -type f -name "electrod*" -exec git hash-object -w {} \; -print
+          echo "Remove temp"
+          rm -rf temp_native
+          git config user.name github-actions
+          git config user.email github-actions@galloytools.org
+
+      - uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "Native code update request"
+          title: "Native code update"
+          delete-branch: true
+          branch: native
+          base: master
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native
+          path: org.alloytools.pardinus.native/native/
