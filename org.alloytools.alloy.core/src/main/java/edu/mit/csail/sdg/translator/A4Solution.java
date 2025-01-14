@@ -613,6 +613,11 @@ public final class A4Solution implements AlloySolution {
         return originalCommand;
     }
 
+    @Override
+    public A4Options getOptions() {
+        return opt;
+    }
+
     // ===================================================================================================//
 
     /**

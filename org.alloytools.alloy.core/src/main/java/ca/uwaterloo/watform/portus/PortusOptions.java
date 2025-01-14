@@ -2,8 +2,6 @@ package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.ast.Command;
 import edu.mit.csail.sdg.ast.Sig;
-import edu.mit.csail.sdg.translator.A4Options.SatSolver;
-import edu.mit.csail.sdg.translator.CommandRunner;
 import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.data.NameGenerator;
 
@@ -19,29 +17,6 @@ public final class PortusOptions implements Serializable {
     // File extensions used by some outputting solvers.
     public static final String SMTLIBPLUS_EXTENSION = ".smttc";
     public static final String MSFOL_EXTENSION = ".msfol";
-
-    /**
-     * A {@link SatSolver} that uses Fortress as its {@link CommandRunner}.
-     * Actually an SMT solver, not a SAT solver.
-     */
-    public static final class FortressSmtSolver extends SatSolver implements Serializable {
-
-        /** Ensure we can serialize correctly. */
-        private static final long serialVersionUID = 0L;
-
-        // TODO: I'd prefer this to be private...
-        public FortressSmtSolver(String id, String toString) {
-            // No Fortress solver is an external command and we always want to add to the solver list,
-            // so pass null for the external command and options and true for whether to add.
-            super(id, toString, null, null, true);
-        }
-
-        @Override
-        public TranslateAlloyToFortress commandRunner() {
-            return new TranslateAlloyToFortress();
-        }
-
-    }
 
     /** Ensure we can serialize correctly. */
     private static final long serialVersionUID = 0L;

@@ -24,6 +24,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import ca.uwaterloo.watform.portus.PortusSATFactory;
 import org.alloytools.alloy.context.api.AlloyContext;
 import org.alloytools.alloy.infrastructure.api.AlloyMain;
 import org.alloytools.util.table.Table;
@@ -551,6 +552,7 @@ public class AlloyDispatcher extends Env {
 
     void loadExtensions(File extensions) {
         A4Solution.addTransformers(SATFactory.extensions);
+        PortusSATFactory.addPortusExtensions(SATFactory.extensions);
         if (!extensions.isDirectory())
             return;
 

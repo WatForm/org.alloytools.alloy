@@ -1,8 +1,9 @@
 package ca.uwaterloo.watform.portus.cli;
 
 import ca.uwaterloo.watform.portus.ExprElementOf;
+import ca.uwaterloo.watform.portus.FortressRef;
 import ca.uwaterloo.watform.portus.FortressVisitReturn;
-import ca.uwaterloo.watform.portus.PortusOptions;
+import ca.uwaterloo.watform.portus.PortusSATFactory;
 import ca.uwaterloo.watform.portus.PortusStatistics;
 import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.alloy4.Err;
@@ -30,6 +31,8 @@ import edu.mit.csail.sdg.translator.A4Options;
 import edu.mit.csail.sdg.translator.A4Solution;
 import edu.mit.csail.sdg.translator.A4SolutionReader;
 import edu.mit.csail.sdg.translator.AlloySolution;
+import kodkod.engine.satlab.SATFactory;
+import kodkod.solvers.SAT4JRef;
 
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -78,16 +81,16 @@ final class CorrectnessChecker {
         }
     }
 
-    public static final PortusOptions.FortressSmtSolver DEFAULT_FORTRESS_SOLVER = A4Options.SatSolver.Z3;
-    public static final A4Options.SatSolver DEFAULT_KODKOD_SOLVER = A4Options.SatSolver.SAT4J;
+    public static final PortusSATFactory DEFAULT_FORTRESS_SOLVER = new FortressRef();
+    public static final SATFactory DEFAULT_KODKOD_SOLVER = SAT4JRef.INSTANCE;
 
-    private final PortusOptions.FortressSmtSolver fortressSolver;
-    private final A4Options.SatSolver kodkodSolver;
+    private final PortusSATFactory fortressSolver;
+    private final SATFactory kodkodSolver;
 
     // Should we always eval + record the Kodkod solver's time, even if not necessary?
     private final boolean alwaysRecordKodkodTime;
 
-    public CorrectnessChecker(PortusOptions.FortressSmtSolver fortressSolver, A4Options.SatSolver kodkodSolver,
+    public CorrectnessChecker(PortusSATFactory fortressSolver, SATFactory kodkodSolver,
                               boolean alwaysRecordKodkodTime) {
         this.fortressSolver = fortressSolver;
         this.kodkodSolver = kodkodSolver;
@@ -247,7 +250,8 @@ final class CorrectnessChecker {
         // Run through Portus and get a solution using Fortress
         AlloySolution fortressSol;
         try {
-            fortressSol = fortressSolver.commandRunner().executeCommand(
+            options.solver = fortressSolver;
+            fortressSol = fortressSolver.getCommandRunner().executeCommand(
                     new StdoutA4Reporter(options.portusOptions.verbose), statistics, world, command, options);
         } catch (Exception exception) {
             return new Result(Result.Kind.EXCEPTION, exception);
@@ -255,8 +259,9 @@ final class CorrectnessChecker {
 
         if (!fortressSol.satisfiable() || alwaysRecordKodkodTime) {
             // If Fortress reports UNSAT, evaluate for correctness reasons; otherwise evaluate if the user requests it.
+            options.solver = kodkodSolver;
             statistics.onStartKodkod();
-            AlloySolution kodkodSol = kodkodSolver.commandRunner().executeCommand(
+            AlloySolution kodkodSol = options.commandRunner().executeCommand(
                     A4Reporter.NOP, world, command, options);
             statistics.onKodkodFinished();
 

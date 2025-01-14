@@ -69,12 +69,12 @@ public final class TranslateAlloyToFortress implements CommandRunner {
             logger.translationFinished(translated.getTheory());
 
             // Write raw MSFOL or SMTLIB+ to file if the appropriate solver is chosen
-            if (options.solver.id().equals(A4Options.SatSolver.FORTRESS_MSFOL.id())) {
+            if (options.solver.id().equals(FortressRef.ID)) {
                 writeFortressToFile(logger, options, translated);
                 return null;
             }
-            if (options.solver.id().equals(A4Options.SatSolver.POST_FORTRESS_SMTLIB.id())
-                    || options.solver.id().equals(A4Options.SatSolver.PRE_FORTRESS_SMTLIB.id())) {
+            if (options.solver.id().equals(PreFortressSmtlibTransformer.ID)
+                    || options.solver.id().equals(PostFortressSmtlibTransformer.ID)) {
                 writeSmtlibToFile(logger, options, translated);
                 return null;
             }
@@ -82,7 +82,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
             Interpretation interpretation = solve(logger, statistics, translated, options);
             AlloySolution solution = new FortressSolution(
                     interpretation, translated.getEvaluator(), translated.getContext(),
-                    world.getAllReachableSigs(), options.originalFilename, command.toString());
+                    world.getAllReachableSigs(), options.originalFilename, command.toString(), options);
 
             logger.outputResult(command, solution);
             return solution;
@@ -164,7 +164,6 @@ public final class TranslateAlloyToFortress implements CommandRunner {
 
     private Interpretation postprocessInterp(Interpretation interpretation, TranslationResult translated) {
         // Add the function definitions from the theory because they aren't returned from Fortress.
-        //noinspection unchecked
         return new BasicInterpretation(
                 interpretation.sortInterpretations(),
                 interpretation.constantInterpretations(),
@@ -236,7 +235,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
 
             ModelFinder finder = new StandardModelFinder();
             finder.setSolver(solver);
-            if (options.solver.id().equals(A4Options.SatSolver.POST_FORTRESS_SMTLIB.id())) {
+            if (options.solver.id().equals(PostFortressSmtlibTransformer.ID)) {
                 // Use all the standard transformers
                 finder.setCompiler(options.portusOptions.fortressCompiler);
             } else { // PRE_FORTRESS_SMTLIB

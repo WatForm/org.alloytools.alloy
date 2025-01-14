@@ -12,6 +12,7 @@ import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Func;
 import edu.mit.csail.sdg.ast.Sig;
+import edu.mit.csail.sdg.translator.A4Options;
 import edu.mit.csail.sdg.translator.A4Solution;
 import edu.mit.csail.sdg.translator.A4SolutionWriter;
 import edu.mit.csail.sdg.translator.A4Tuple;
@@ -59,6 +60,7 @@ public class FortressSolution implements AlloySolution {
 
     private final String originalFilename;
     private final String originalCommand;
+    private final A4Options originalOptions;
 
     /** Map atoms from Fortress to Alloy. */
     private final Map<Value, ExprVar> fortressToAlloyAtoms = new HashMap<>();
@@ -70,13 +72,14 @@ public class FortressSolution implements AlloySolution {
     private final Universe universe;
 
     FortressSolution(Interpretation interpretation, Evaluator evaluator, TranslationContext context, Iterable<Sig> sigs,
-                     String originalFilename, String originalCommand) {
+                     String originalFilename, String originalCommand, A4Options originalOptions) {
         this.interpretation = interpretation;
         this.evaluator = evaluator;
         this.context = context;
         this.sigs = new SafeList<>(sigs);
         this.originalFilename = originalFilename;
         this.originalCommand = originalCommand;
+        this.originalOptions = originalOptions;
 
         if (interpretation != null) {
             // Generate Alloy atoms (ExprVars) for each Fortress atom
@@ -184,6 +187,11 @@ public class FortressSolution implements AlloySolution {
     @Override
     public String getOriginalCommand() {
         return originalCommand;
+    }
+
+    @Override
+    public A4Options getOptions() {
+        return originalOptions;
     }
 
     @Override

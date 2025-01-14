@@ -84,6 +84,11 @@ public interface AlloySolution {
     String getOriginalCommand();
 
     /**
+     * Returns the options used to generate this solution.
+     */
+    A4Options getOptions();
+
+    /**
      * Returns true iff the problem has been solved and the result is satisfiable.
      */
     boolean satisfiable();

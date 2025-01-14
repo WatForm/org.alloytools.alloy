@@ -2,6 +2,7 @@ package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.ast.ExprConstant;
 import edu.mit.csail.sdg.ast.Sig;
+import edu.mit.csail.sdg.translator.A4Options;
 import edu.mit.csail.sdg.translator.A4TupleSet;
 import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.data.NameGenerator;
@@ -78,7 +79,7 @@ public class FortressSolutionTest {
                 context.options, new PortusStatistics(), sortPolicy, nameGenerator);
         solution = new FortressSolution(
                 interpretation, manager, context,
-                Collections.singletonList(Sig.UNIV), "", "");
+                Collections.singletonList(Sig.UNIV), "", "", new A4Options());
     }
 
     @Test

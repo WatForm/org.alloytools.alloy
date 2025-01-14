@@ -1,6 +1,7 @@
 package ca.uwaterloo.watform.portus.cli;
 
 import ca.uwaterloo.watform.portus.PortusOptions;
+import ca.uwaterloo.watform.portus.PortusSATFactory;
 import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.ast.Command;
 import edu.mit.csail.sdg.ast.Module;
@@ -16,9 +17,9 @@ import java.nio.file.Paths;
 final class OutputSmtlibCommandProcessor implements CommandProcessor {
 
     // Which solver should we use to output SMTLIB+? Determines what transformers are called.
-    private final A4Options.SatSolver solver;
+    private final PortusSATFactory solver;
 
-    public OutputSmtlibCommandProcessor(A4Options.SatSolver solver) {
+    public OutputSmtlibCommandProcessor(PortusSATFactory solver) {
         this.solver = solver;
     }
 
@@ -30,7 +31,7 @@ final class OutputSmtlibCommandProcessor implements CommandProcessor {
         options.portusOptions.outputName = getOutputName(alloyFilePath.getFileName().toString(), command.label);
         options.solver = solver;
 
-        options.solver.commandRunner().executeCommand(A4Reporter.NOP, world, command, options);
+        options.commandRunner().executeCommand(A4Reporter.NOP, world, command, options);
         System.out.println("  Done. Output to " + options.portusOptions.outputDirectory
                 + FileSystems.getDefault().getSeparator()
                 + options.portusOptions.outputName

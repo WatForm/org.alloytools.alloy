@@ -1,6 +1,9 @@
 package ca.uwaterloo.watform.portus.cli;
 
+import ca.uwaterloo.watform.portus.FortressRef;
 import ca.uwaterloo.watform.portus.PortusOptions;
+import ca.uwaterloo.watform.portus.PostFortressSmtlibTransformer;
+import ca.uwaterloo.watform.portus.PreFortressSmtlibTransformer;
 import ca.uwaterloo.watform.portus.SanitizingNameGenerator;
 import ca.uwaterloo.watform.portus.SortPolicy;
 import ca.uwaterloo.watform.portus.TimeoutException;
@@ -17,11 +20,14 @@ import edu.mit.csail.sdg.parser.CompUtil;
 import edu.mit.csail.sdg.translator.A4Options;
 import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.data.NameGenerator;
+import kodkod.engine.satlab.SATFactory;
+import kodkod.solvers.SAT4JRef;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
@@ -349,13 +355,19 @@ public final class PortusCLI {
             processors.add(new CountCommandsCommandProcessor());
         }
         if (options.useRunPortusProcessor.active()) {
-            processors.add(new RunCommandProcessor(A4Options.SatSolver.Z3));
+            processors.add(new RunCommandProcessor(new FortressRef()));
         }
         if (options.useRunKodkodProcessor.active()) {
-            processors.add(new RunCommandProcessor(A4Options.SatSolver.SAT4J));
+            processors.add(new RunCommandProcessor(new SAT4JRef()));
         }
         if (options.useRunKodkodMiniSatProcessor.active()) {
-            processors.add(new RunCommandProcessor(A4Options.SatSolver.MiniSatJNI));
+            Optional<SATFactory> minisat = SATFactory.find("minisat");
+            if (minisat.isPresent()) {
+                processors.add(new RunCommandProcessor(minisat.get()));
+            } else {
+                System.err.println("Error: MiniSat requested but could not be found.");
+                System.exit(-1);
+            }
         }
         if (options.useCorrectnessProcessor.active()) {
             processors.add(new CorrectnessCommandProcessor(new CorrectnessChecker(
@@ -365,9 +377,9 @@ public final class PortusCLI {
             processors.add(new DeltaDebugCommandProcessor());
         }
         if (options.useOutputPreSmtlibProcessor.active()) {
-            processors.add(new OutputSmtlibCommandProcessor(A4Options.SatSolver.PRE_FORTRESS_SMTLIB));
+            processors.add(new OutputSmtlibCommandProcessor(new PreFortressSmtlibTransformer()));
         } else if (options.useOutputPostSmtlibProcessor.active()) { // don't do both - confusing
-            processors.add(new OutputSmtlibCommandProcessor(A4Options.SatSolver.POST_FORTRESS_SMTLIB));
+            processors.add(new OutputSmtlibCommandProcessor(new PostFortressSmtlibTransformer()));
         }
         return processors;
     }

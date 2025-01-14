@@ -782,7 +782,7 @@ public final class SimpleReporter extends A4Reporter {
                         AlloySolution ai = null;
                         try { // [electrum] postpones error throwing, allows other commands to still be solved
                             // [portus] use the solver's CommandRunner instead of invoking TranslateAlloyToKodkod directly
-                            ai = options.solver.commandRunner().executeCommand(rep, world, cmd, options);
+                            ai = options.commandRunner().executeCommand(rep, world, cmd, options);
                         } catch (Exception e1) {
                             exc = e1;
                         }
@@ -793,7 +793,7 @@ public final class SimpleReporter extends A4Reporter {
                         else if (ai.highLevelCore().a.size() > 0)
                             result.add(tempCNF + ".core");
                         else {
-                            transformer |= ai.opt.solver.isTransformer();
+                            transformer |= ai.getOptions().solver.isTransformer();
                             result.add("");
                         }
                     }
