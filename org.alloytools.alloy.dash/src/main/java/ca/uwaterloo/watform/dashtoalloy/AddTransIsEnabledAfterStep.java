@@ -79,7 +79,7 @@ public class AddTransIsEnabledAfterStep {
             // some (p3 -> p2 -> p1 -> src & s'.confi)
             // src does not have to be a basic state  
             body.add(
-                createSomeOf(
+                createSome(
                     createIntersect(
                         translateDashRefToArrow(d.getTransSrc(tfqn)),
                         nextConf(prsIdx.size()))));
