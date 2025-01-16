@@ -121,13 +121,21 @@ public class AddTransIsEnabledAfterStep {
         Expr ev1, ev2;
         if (ev != null) {
             //ev1: t1_on  in (s.eventsi :> EnvEvents) + genEventsi 
-            ev1 = createIn(
-                        translateDashRefToArrow(ev),
-                        createUnion(
-                            createRangeRes(
-                                curEvents(ev.getParamValues().size()),
-                                allEnvironmentalEventsVar()),
-                            genEventVar(ev.getParamValues().size())));
+            if (d.hasEnvironmentalEvents()) {
+                ev1 = createIn(
+                            translateDashRefToArrow(ev),
+                            createUnion(
+                                createRangeRes(
+                                    curEvents(ev.getParamValues().size()),
+                                    allEnvironmentalEventsVar()),
+                                genEventVar(ev.getParamValues().size())));
+            } else {
+                // no env events so just 
+                //ev1: t1_on  in genEventsi 
+                ev1 = createIn(
+                            translateDashRefToArrow(ev),
+                            genEventVar(ev.getParamValues().size()));
+            }
             // ev2: t1_on  in s.eventsi  + genEventsi
             ev2 = createIn(
                         translateDashRefToArrow(ev),
