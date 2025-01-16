@@ -244,7 +244,7 @@ public class AddSnapshotSignature {
             }
             // stable: one boolean;
             if (d.hasConcurrency()) {    
-                decls.add(new DeclExt(stableName, createOne(createVar(boolName))));
+                decls.add(new DeclExt(stableName, createOneOf(createVar(boolName))));
             }
             // add vars
             List<Expr> typlist;
