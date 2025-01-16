@@ -53,7 +53,7 @@ public class AddSingleEventInputPred {
 				if (d.hasEventsAti(i)) {
 					e = createTrueCond();
 			    	for (int j=0;j <= d.getMaxDepthParams(); j++) {
-			            if (d.hasEventsAti(j)) {
+			            if (d.hasEventsAti(j) & d.hasEnvironmentalEvents()) {
 			            	if (i==j) {
 			            		e = createAnd(e,createLone(createRangeRes(curEvents(i), allEnvironmentalEventsVar())));
 			            	} else {
