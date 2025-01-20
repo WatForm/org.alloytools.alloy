@@ -53,6 +53,31 @@ public class DashState  extends Dash implements Serializable {
 		//System.out.println("here1 " + (this.param == null));
 	
 	}
+
+	// Copy constructor to create a deep copy 
+	public DashState(DashState other) {
+		//System.out.println("In copy constructor of DashState");
+		this.name = new String(other.name);
+		//System.out.println("In copy constructor of DashState: assigned name");
+		if(other.param == null){
+			this.param = new String(" ");
+		}
+		else {
+			this.param = new String(other.param);
+		}
+		//System.out.println("In copy constructor of DashState: assigned param");
+		this.kind = other.kind;
+		//System.out.println("In copy constructor of DashState: assigned kind");
+		this.def = other.def;
+		//System.out.println("In copy constructor of DashState: assigned def");
+		this.items = new ArrayList<Object>();
+		for(Object i: other.items){
+			this.items.add(i);
+		}
+		//System.out.println("Exiting copy constructor of DashState");
+
+	}
+	
 	/*
 	// basic state - default or non-default
 	// 3 args

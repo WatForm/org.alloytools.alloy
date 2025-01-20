@@ -1,6 +1,7 @@
 package ca.uwaterloo.watform.parser;
 
 import java.util.List;
+import java.util.Map;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -42,6 +43,19 @@ public class EventTable implements Serializable {
 			this.params = prms;
 			this.paramsIdx = prmsIdx;
 		}
+
+		public EventElement(EventElement other) {
+			this.kind = other.kind;
+			if(other.params == null) {
+				this.params = new ArrayList<String>();
+				this.paramsIdx = new ArrayList<Integer>();
+			}
+			else {
+				this.params = new ArrayList<String>(other.params);
+				this.paramsIdx = new ArrayList<Integer>(other.paramsIdx);
+			}
+		}
+
 		public String toString() {
 			String s = new String();
 			s += "kind: "+kind+"\n";
@@ -54,6 +68,14 @@ public class EventTable implements Serializable {
 	public EventTable() {
 		this.table = new LinkedHashMap<String,EventElement>();
 
+	}
+	public EventTable(EventTable other) {
+		this.table = new LinkedHashMap<String,EventElement>();
+		if(other.table != null) {
+			for (Map.Entry<String, EventElement> entry : other.table.entrySet()) {
+            	this.table.put(new String(entry.getKey()), new EventElement(entry.getValue()));
+        	}
+        }
 	}
 	public String toString() {
 		String s = new String("EVENT TABLE\n");

@@ -106,6 +106,50 @@ public class DashModule extends CompModuleHelper implements Serializable {
 		// this should be fine
 		initializeDashModule();
 	}
+
+	// parametrized constructor: to initialize the fields of a DashModule object
+	public DashModule(String filename, DashState rt, StateTable st, TransTable tt, EventTable et, VarTable vt, PredTable pt) {
+		
+		super(null, filename, null);
+
+		this.root = rt;
+		this.filename = filename;
+		this.stateTable = st;
+		this.transTable = tt;
+		this.eventTable = et;
+		this.varTable = vt;
+		this.predTable = pt;
+
+
+		initializeDashModule();
+	}
+
+
+	// copy constructor: to create a deep copy of a DashModule object
+	public DashModule(DashModule other) {
+		// needs to copy something other than null
+		super(other.getRootModule() ,new String(other.filename) , null);
+		this.root = new DashState(other.root);
+		this.roots = new ArrayList<>(other.roots);
+		this.filename = new String(other.filename);
+		this.rootStartLine = other.rootStartLine;
+		this.rootEndLine = other.rootEndLine;
+
+		this.maxDepthParams = 0;
+		// TOCHECK: the following may need to be a deep copy
+		this.transAtThisParamDepth = other.transAtThisParamDepth;
+
+
+		// translate and resolveAlloy 
+		this.predTable = new PredTable(other.predTable);
+		this.stateTable = new StateTable(other.stateTable);
+		this.varTable = new VarTable(other.varTable);
+		this.eventTable = new EventTable(other.eventTable);
+		this.transTable = new TransTable(other.transTable);
+		
+		//initializeDashModule();
+	}
+
 	private void initializeDashModule() {	
 		//assert (!DashOptions.isElectrum && (DashOptions.isTcmc || DashOptions.isTraces));
 		// do the open stmts for Dash after we know how many buffers
@@ -711,6 +755,18 @@ public class DashModule extends CompModuleHelper implements Serializable {
 		return eventTable.getAllEnvironmentalEvents();
 	}
 	
+	// Setter for transition guard and action for pred abstraction
+	public void setTransWhen(String t, Expr e){
+		transTable.setWhen(t, e);
+	}
 
+	public void setTransDo(String t, Expr e){
+		transTable.setDo(t, e);
+	}
+
+	//TODO: remove later
+	public String transTableToString() {
+		return transTable.toString();
+	}
 
 }

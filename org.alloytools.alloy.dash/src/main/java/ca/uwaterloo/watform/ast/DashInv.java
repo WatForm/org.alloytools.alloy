@@ -21,6 +21,11 @@ public class DashInv extends DashExpr {
         this.name = n;
     }
 
+    public DashInv(DashInv other) {
+        super(null, other.exp);
+        this.name = new String(other.name);
+    }
+
     public String toString() {
         return super.toString(DashStrings.invName + " "+name);
     }

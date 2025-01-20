@@ -4,6 +4,7 @@ import java.util.Set;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.LinkedHashMap;
 import java.util.Collections;
 import java.util.stream.Collectors;
@@ -33,6 +34,15 @@ public class PredTable implements Serializable {
 		this.predTable = new LinkedHashMap<String,PredElement>();
 	}
 
+	public PredTable(PredTable other) {
+		this.predTable = new LinkedHashMap<String,PredElement>();
+		if(other.predTable != null) {
+			for (Map.Entry<String, PredElement> entry : other.predTable.entrySet()) {
+            	this.predTable.put(new String(entry.getKey()), new PredElement(entry.getValue()));
+        	}
+    	}
+	}
+
 	public class PredElement implements Serializable {
 
 		// this expression must be resolved in the context of the guard/action
@@ -45,6 +55,11 @@ public class PredTable implements Serializable {
 			Expr e) {
 			this.exp = e;
 		}
+
+		public PredElement(PredElement other) {
+			this.exp = other.exp;
+		}
+
 		public String toString() {
 			String s = new String();
 			s += "exp: "+exp.toString() + "\n";

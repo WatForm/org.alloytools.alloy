@@ -19,6 +19,7 @@ import ca.uwaterloo.watform.core.DashErrors;
 import ca.uwaterloo.watform.parser.DashUtil;
 import ca.uwaterloo.watform.parser.DashModule;
 
+import ca.uwaterloo.watform.predabstraction.PredicateAbstraction;
 
 // no io in these!
 // A4 reporter is not used in Dash stuff
@@ -144,5 +145,31 @@ public class MainFunctions {
         options.solver = A4Options.SatSolver.SAT4J;
         A4Solution ans = TranslateAlloyToKodkod.execute_command(rep, alloy.getAllReachableSigs(), cmd, options); 
         return ans;
+    }
+
+    // returns a deep copy of DashModule object
+    /* 
+    public static DashModule copyDash(DashModule d) {
+        if(d == null){
+            DashErrors.emptyModule();
+            return d;
+        } 
+
+        DashModule dcopy = PredicateAbstraction.copyDashModule(d);
+        return dcopy;
+    }*/ 
+
+    //returns an abstract model
+    /* 2024-01-10 NAD
+           dropped args here
+    */
+    public static DashModule createAbstractModel(String inputFilename) {
+        // if(d == null){
+        //     DashErrors.emptyModule();
+        //     return d;
+        // } 
+
+        DashModule abs = PredicateAbstraction.createAbstractModel(inputFilename);
+        return abs;
     }
 }

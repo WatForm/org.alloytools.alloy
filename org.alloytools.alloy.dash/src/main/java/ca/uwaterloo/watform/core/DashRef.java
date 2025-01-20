@@ -105,6 +105,14 @@ public class DashRef extends Expr implements Serializable {
 		//return createJoin(processRef(), createJoinList(ll));		
 	}
 
+	// copy constructor for deep copy
+	public DashRef(DashRef other) {
+		super(Pos.UNKNOWN, Type.FORMULA);
+		this.kind = other.kind;
+		this.name = new String(other.name);
+		this.paramValues = new ArrayList<Expr>(other.paramValues);
+	}
+	
 	public static DashRef createStateDashRef(Pos p, String n, List<Expr> prmValues) {
 		return new DashRef(p, DashRefKind.STATE,n, prmValues);
 	}

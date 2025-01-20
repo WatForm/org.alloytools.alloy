@@ -111,6 +111,84 @@ public class StateTable implements Serializable {
 			//this.conditions = condL;
 
 		}
+
+		// copy constructor for StateElement class to create a deep copy
+		public StateElement(StateElement other){
+			
+			this.kind = other.kind;
+			if(other.param != null) {
+				this.param = new String(other.param);
+			}
+			else {
+				this.param = null;
+			}
+
+			
+			if(other.params != null) {
+				this.params = new ArrayList<String>();
+				this.paramsIdx = new ArrayList<Integer>(other.paramsIdx);
+				for(String s: other.params) {
+					this.params.add(new String(s));
+				}
+			}
+			else {
+				this.params = null;
+				this.paramsIdx = null;
+			}
+			this.def = other.def;
+
+			if(other.parent == null) {
+				this.parent = null;
+			}
+			else { 
+				this.parent = new String(other.parent);
+			}
+
+			
+			if(other.immChildren != null) {
+				this.immChildren = new ArrayList<String>();
+				for(String s: other.immChildren){
+					this.immChildren.add(new String(s));
+				}
+			}
+			else {
+				this.immChildren = null;
+			}
+
+			if(other.origInvariants == null) {
+				this.origInvariants = null;
+			}
+			else {
+				this.origInvariants = new ArrayList<DashInv>(other.origInvariants);
+			}
+			if(other.origInits == null) {
+				this.origInits = null;
+			}
+			else {
+				this.origInits = new ArrayList<DashInit>(other.origInits);
+			}
+			
+			
+			if(other.entered != null) {
+				this.entered = new ArrayList<Expr>();
+				for(Expr e: other.entered){
+					this.entered.add(ExprHelper.copyExpr(e));
+				}
+			}
+			else {
+				this.entered = null;
+			}
+
+			if(this.exited != null) {
+				this.exited = new ArrayList<Expr>();
+				for(Expr e: other.exited){
+					this.exited.add(ExprHelper.copyExpr(e));
+				}
+			}
+			else {
+				this.exited = null;
+			}
+		}
 		public String toString() {
 			String s = new String();
 			s += "kind: "+kind +"\n";
@@ -131,6 +209,22 @@ public class StateTable implements Serializable {
 		this.table = new HashMap<String,StateElement>();
 		this.isResolved = false;
 	}
+
+	public StateTable(StateTable other) {
+
+		this.table = new HashMap<String, StateElement>();
+		this.isResolved = other.isResolved;
+
+		for (HashMap.Entry<String, StateElement> entry : other.table.entrySet()) {
+            this.table.put(new String(entry.getKey()), new StateElement(entry.getValue()));
+        }
+
+        this.root = new String(other.root);
+        this.inits = new ArrayList<Expr>(other.inits);
+        this.invs = new ArrayList<Expr>(other.invs);
+        this.allParamsInOrder = new ArrayList<String>(other.allParamsInOrder);
+	}
+	
 	public void setRoot(String s) {
 		root = s;
 	}

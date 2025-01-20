@@ -17,6 +17,11 @@ public class DashInit extends DashExpr {
     public DashInit(Pos p, Expr i) {
         super(p,i);
     }
+
+    public DashInit(DashInit other) {
+        super(other.pos, other.exp);
+    }
+    
     public String toString() {
         return super.toString(DashStrings.initName);
     }

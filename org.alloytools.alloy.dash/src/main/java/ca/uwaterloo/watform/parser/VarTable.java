@@ -2,6 +2,7 @@ package ca.uwaterloo.watform.parser;
 
 import java.util.Set;
 import java.util.List;
+import java.util.Map;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -40,6 +41,24 @@ public class VarTable implements Serializable {
 		this.bufferTable = new LinkedHashMap<String,BufferElement>();
 	}
 
+	public VarTable(VarTable other) {
+		this.varTable = new LinkedHashMap<String,VarElement>();
+
+		if(other.varTable != null) {
+			for (Map.Entry<String, VarElement> entry : other.varTable.entrySet()) {
+            	this.varTable.put(new String(entry.getKey()), new VarElement(entry.getValue()));
+        	}
+        }
+
+		this.bufferTable = new LinkedHashMap<String,BufferElement>();
+
+		if(other.bufferTable != null) {
+			for (Map.Entry<String, BufferElement> entry : other.bufferTable.entrySet()) {
+            	this.bufferTable.put(new String(entry.getKey()), new BufferElement(entry.getValue()));
+        	}
+        }
+	}
+
 	public class VarElement implements Serializable {
 		private IntEnvKind kind;
 		private List<String> params;
@@ -57,6 +76,20 @@ public class VarTable implements Serializable {
 			this.paramsIdx = prmsIdx;
 			this.typ = t;
 		}
+
+		public VarElement(VarElement other) {
+			this.kind = other.kind;
+			if(other.params != null) {
+				this.params = new ArrayList<String>(other.params);
+				this.paramsIdx = new ArrayList<Integer>(other.paramsIdx);
+			}
+			else {
+				this.params = null;
+				this.paramsIdx = null;
+			}
+			this.typ = other.typ;
+		}
+
 		public String toString() {
 			String s = new String();
 			s += "kind: "+kind+"\n";
@@ -183,6 +216,26 @@ public class VarTable implements Serializable {
 			this.element = e;
 			this.index = idx;
 		}
+
+		public BufferElement(BufferElement other) {
+			this.kind = other.kind;
+			if(other.params == null) {
+				this.params = null;
+				this.paramsIdx = null;
+			}
+			else {
+				this.params = new ArrayList<String>(other.params);
+				this.paramsIdx = new ArrayList<Integer>(other.paramsIdx);
+			}
+			if(other.element == null) {
+				this.element = new String();
+			}
+			else {
+				this.element = new String(other.element);
+			}
+			this.index = other.index;
+		}
+		
 		public String toString() {
 			String s = new String();
 			s += "kind: "+kind+"\n";

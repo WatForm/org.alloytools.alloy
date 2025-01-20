@@ -6,6 +6,7 @@ import java.util.Collections;
 import java.util.stream.Collectors;
 
 import edu.mit.csail.sdg.alloy4.Pos;
+import edu.mit.csail.sdg.alloy4.ConstList;
 
 import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
@@ -95,6 +96,19 @@ public class ExprHelper  {
                 ((ExprUnary) e).op == ExprUnary.Op.PRIME);
     }
 
+    public static boolean isExprConst(Expr e) {
+        return (e instanceof ExprConstant);
+    }
+
+    public static boolean isExprList(Expr e) {
+        return (e instanceof ExprList);
+    }
+
+    // ASN: added isExprQt
+    public static boolean isExprQt(Expr e) {
+        return (e instanceof ExprQt);
+    }
+
     // simple equality: two var names are equal -----------------------
     public static boolean sEquals(Expr e1, Expr e2) {
         return ( (e1 == e2) ||
@@ -144,6 +158,37 @@ public class ExprHelper  {
     public static Expr getCond(Expr e) {
         assert(e instanceof ExprITE);
         return ((ExprITE) e).cond;
+    }
+
+    public static List<Expr> getExprListItems(Expr e) {
+        assert(e instanceof ExprList);
+        List<Expr> items = new ArrayList<Expr>();
+        for(Expr i: ((ExprList) e).args) {
+            items.add(i);
+        }
+        return items;
+    }
+    public static ExprList.Op getListOp(Expr e) {
+        assert(e instanceof ExprList);
+        return ((ExprList) e).op;
+    }
+
+    //ASN
+    public static ExprQt.Op getQtOp(Expr e) {
+        assert(e instanceof ExprQt);
+        return ((ExprQt) e).op;
+    }
+    public static List<Decl> getQtDecls(Expr e) {
+        assert(e instanceof ExprQt);
+        List<Decl> ds = new ArrayList<Decl>();
+        for(Decl d: ((ExprQt) e).decls){
+            ds.add(d);
+        }
+        return ds;    
+    }
+    public static Expr getQtSub(Expr e) {
+        assert(e instanceof ExprQt);
+        return ((ExprQt) e).sub;
     }
 
     // constructors -----------------------------------
@@ -556,5 +601,34 @@ public class ExprHelper  {
             DashErrors.UnsupportedExpr("usedIn", "");
             return false;
         }        
+    }
+
+    // implementing a copy constructor for Expr for deep copy
+
+    public static Expr copyExpr(Expr e) {
+        // TODO: should be complete 
+        if(isExprVar(e)) {
+            return createVar(getVarName((ExprVar) e));
+        }
+        else if(isExprUnary(e)) {
+            return createUnaryExpr(getUnaryOp(e), copyExpr(getSub(e)));
+        }
+        else if(isExprBinary(e)) {
+            return createBinaryExpr(copyExpr(getLeft(e)), getBinaryOp(e), copyExpr(getRight(e)));
+        }
+        else if(isExprList(e)) {
+            List<Expr> args = getExprListItems(e);
+            List<Expr> copyArgs = new ArrayList<Expr>();
+            int argsSize = args.size();
+            for(int i = 0; i < argsSize; i++){
+                Expr j = args.get(i);
+                copyArgs.add(copyExpr(j));
+
+            }
+            return createExprList(getListOp(e), copyArgs);
+        }
+        else {
+            return e;
+        }
     }
 }

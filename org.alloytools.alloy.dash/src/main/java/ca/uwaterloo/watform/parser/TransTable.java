@@ -77,6 +77,50 @@ public class TransTable implements Serializable {
 			this.sendList = sl;
 			this.doList = dl;
 		}
+		//copy all, even unresolved lists; maybe reqd for printing; don't worry about it rn
+		public TransElement(TransElement other){
+			if(other.src != null) {
+				this.src = new DashRef(other.src);
+			}
+			else {
+				this.src = null;
+			}
+
+			if(other.dest != null) {
+				this.dest = new DashRef(other.dest);
+			}
+			else {
+				this.dest = null;
+			}
+			
+			if(other.when != null) {
+				this.when = ExprHelper.copyExpr(other.when);
+			}
+			else {
+				this.when = null;
+			}
+
+			if(other.on != null) {
+				this.on = new DashRef(other.on);
+			}
+			else {
+				this.on = null;
+			}
+
+			if(other.send != null) {
+				this.send = new DashRef(other.send);
+			}
+			else {
+				this.send = null;
+			}
+
+			if(other.act != null) {
+				this.act = ExprHelper.copyExpr(other.act);
+			}
+			else {
+				this.act = null;
+			}
+		}
 		public String toString() {
 			String s = new String();
 			s += "params: " + NoneStringIfNeeded(params) +"\n";
@@ -114,6 +158,21 @@ public class TransTable implements Serializable {
 		table = new HashMap<String, TransElement>();
 		isResolved = false;
 	}
+	
+	public TransTable(TransTable other) {
+		this.table = new HashMap<String, TransElement>();
+		this.isResolved = other.isResolved;
+		
+		if(other.table != null) {
+			//System.out.println("In copy cons of TransTable: copying table entries...");
+			for (HashMap.Entry<String, TransElement> entry : other.table.entrySet()) {
+				String k = new String(entry.getKey());
+				TransElement e = new TransElement(entry.getValue());
+            	this.table.put(k, e);
+        	}
+    	}
+	}
+
 	public boolean add(
 			String tfqn,
 			List<String> params,
@@ -371,5 +430,13 @@ public class TransTable implements Serializable {
 		return depthsInUse;
 	}
 	
+	//setters
 
+	public void setWhen(String t, Expr e){
+		table.get(t).setWhen(e);
+	}
+
+	public void setDo(String t, Expr e){
+		table.get(t).setDo(e);
+	}
 }
