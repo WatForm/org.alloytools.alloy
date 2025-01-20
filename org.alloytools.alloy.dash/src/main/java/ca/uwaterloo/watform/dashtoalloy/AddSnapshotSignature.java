@@ -250,25 +250,59 @@ public class AddSnapshotSignature {
             List<Expr> typlist;
             for (String vfqn: d.getAllVarNames()) {
                 typlist = createVarList(d.getVarBufferParams(vfqn)); // could be empty
-                typlist.add(translateExpr(d.getVarType(vfqn),d, true));
-                //System.out.println(d.getVarType(vfqn));
-                //System.out.println(translateExpr(d.getVarType(vfqn),d, true));
-                if (typlist.size() > 1 ) {
+                if (typlist.size() == 0) {
+                    // no extra parameter types to add
                     decls.add((Decl) new DeclExt(
                         translateFQN(vfqn), 
-                        createArrowExprList(typlist)));
-                    //System.out.println(decls);
-                }
-                else {
-                    decls.add((Decl) new DeclExt(
-                        translateFQN(vfqn), 
-                        typlist.get(0))); 
-                    //System.out.println(decls);           
-                }
+                        translateExpr(
+                                        getSub(d.getVarType(vfqn)),
+                                        d, 
+                                        true)));                     
+                } else {
+                    // Id1 -> Id2 -> Id3 etc.
+                    Expr el = createArrowExprList(typlist);
+                    // if var is declared in Dash model with type "one X", 
+                    // "some X", or "lone X"
+                    // we can't just -> to that type
+                    // we have to use special arrow
+                    Expr t;
+                    if (isExprOne(d.getVarType(vfqn))) {
+                        t = createAnyArrowSome(
+                                    el, 
+                                    translateExpr(
+                                        getSub(d.getVarType(vfqn)),
+                                        d, 
+                                        true));
+
+                    } else if (isExprLone(d.getVarType(vfqn))) {
+                        t = createAnyArrowLone(
+                                    el, 
+                                    translateExpr(
+                                        getSub(d.getVarType(vfqn)),
+                                        d, 
+                                        true));
+                    } else if (isExprSome(d.getVarType(vfqn))) {
+                        t = createAnyArrowSome(
+                                    el, 
+                                    translateExpr(
+                                        getSub(d.getVarType(vfqn)),
+                                        d, 
+                                        true));
+                    } else {
+                        t = createArrow(
+                                    el, 
+                                    translateExpr(
+                                        getSub(d.getVarType(vfqn)),
+                                        d, 
+                                        true));
+                    }
+                    decls.add((Decl) new DeclExt(translateFQN(vfqn), t));
+                 }
             } 
             // add buffers
             for (String bfqn: d.getAllBufferNames()) {       
                 typlist = createVarList(d.getVarBufferParams(bfqn)); // could be empty
+                // TOCHECK: would any of these be "one", "some", etc??
                 typlist.add(bufferIndexVar(d.getBufferIndex(bfqn)));
                 typlist.add(createVar(d.getBufferElement(bfqn)));
                 if (typlist.size() > 1 )
