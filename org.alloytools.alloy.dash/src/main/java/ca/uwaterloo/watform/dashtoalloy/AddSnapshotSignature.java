@@ -109,9 +109,9 @@ public class AddSnapshotSignature {
                 //System.out.println(((ExprUnary) typ).op);
                 if (isExprVar(typ)) {
                     d.alloyString += d.addVarSigSimple(translateFQN(v), ((ExprVar) translateExpr(typ,d,true)) );
-                } else if (isExprSet(typ) && isExprVar(getSub(typ))) {
+                } else if (isExprSetOf(typ) && isExprVar(getSub(typ))) {
                     d.alloyString += d.addVarSigSimple(translateFQN(v), ((ExprVar)translateExpr(getSub(typ),d,true)) );
-                } else if (isExprLone(typ) && isExprVar(getSub(typ))) {
+                } else if (isExprLoneOf(typ) && isExprVar(getSub(typ))) {
                     d.alloyString += d.addVarLoneSigSimple(translateFQN(v), ((ExprVar)translateExpr(getSub(typ),d,true)) );
                 } else if (isExprOneOf(typ) && isExprVar(getSub(typ))) {
                     d.alloyString += d.addVarOneSigSimple(translateFQN(v), ((ExprVar) translateExpr(getSub(typ),d,true)) );
@@ -266,22 +266,36 @@ public class AddSnapshotSignature {
                     // we can't just -> to that type
                     // we have to use special arrow
                     Expr t;
-                    if (isExprOne(d.getVarType(vfqn))) {
-                        t = createAnyArrowSome(
+                    //if (d.getVarType(vfqn) instanceof ExprUnary) {
+                    //    System.out.println(((ExprUnary) d.getVarType(vfqn)).op);
+                    //}
+                    if (isExprOneOf(d.getVarType(vfqn))) {
+                        t = createAnyArrowOne(
                                     el, 
                                     translateExpr(
                                         getSub(d.getVarType(vfqn)),
                                         d, 
                                         true));
 
-                    } else if (isExprLone(d.getVarType(vfqn))) {
+                    } else if (isExprLoneOf(d.getVarType(vfqn))) {
                         t = createAnyArrowLone(
                                     el, 
                                     translateExpr(
                                         getSub(d.getVarType(vfqn)),
                                         d, 
                                         true));
-                    } else if (isExprSome(d.getVarType(vfqn))) {
+                        //System.out.println("in Snapshot sig: "+t.toString());
+                    } else if (isExprSomeOf(d.getVarType(vfqn))) {
+                        System.out.println("in Snapshot sig, SomeOf "+d.getVarType(vfqn).toString());
+                        t = createAnyArrowSome(
+                                    el, 
+                                    translateExpr(
+                                        getSub(d.getVarType(vfqn)),
+                                        d, 
+                                        true));
+                    } else if (isExprSetOf(d.getVarType(vfqn))) {
+                        System.out.println("in Snapshot sig, SetOf "+d.getVarType(vfqn).toString());
+                        // this is weird, Alloy goes from SetOf to Some arrow
                         t = createAnyArrowSome(
                                     el, 
                                     translateExpr(
@@ -289,10 +303,11 @@ public class AddSnapshotSignature {
                                         d, 
                                         true));
                     } else {
+                        //System.out.println(d.getVarType(vfqn));
                         t = createArrow(
                                     el, 
                                     translateExpr(
-                                        getSub(d.getVarType(vfqn)),
+                                        d.getVarType(vfqn),
                                         d, 
                                         true));
                     }

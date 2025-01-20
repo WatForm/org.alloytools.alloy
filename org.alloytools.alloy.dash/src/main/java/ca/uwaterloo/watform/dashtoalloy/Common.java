@@ -331,8 +331,8 @@ public class Common {
             return (d.getVarBufferParams(vfqn).size() == 0 && 
                     !(isExprVar(typ) || // could be just "Int" type
                     (isExprOneOf(typ) && isExprVar(getSub(typ))) ||
-                    (isExprLone(typ) && isExprVar(getSub(typ))) ||
-                    (isExprSet(typ) && isExprVar(getSub(typ)))));
+                    (isExprLoneOf(typ) && isExprVar(getSub(typ))) ||
+                    (isExprSetOf(typ) && isExprVar(getSub(typ)))));
         } else {
             // it is a buffer and getVarType does not work on buffers
             return false;
