@@ -63,6 +63,9 @@ public class ExprHelper  {
     public static boolean isExprLone(Expr e) {
         return ((e instanceof ExprUnary) && ((ExprUnary) e).op.equals(ExprUnary.Op.LONE));
     }
+    public static boolean isExprSome(Expr e) {
+        return ((e instanceof ExprUnary) && ((ExprUnary) e).op.equals(ExprUnary.Op.SOME));
+    }
     public static boolean isExprCard(Expr e) {
         return ((e instanceof ExprUnary) && ((ExprUnary) e).op.equals(ExprUnary.Op.CARDINALITY));
     }
@@ -413,6 +416,15 @@ public class ExprHelper  {
     }
     public static ExprBinary createArrow(Expr left,Expr right) {
         return (ExprBinary) ExprBinary.Op.ARROW.make(Pos.UNKNOWN, Pos.UNKNOWN,  left, right);
+    }
+    public static ExprBinary createAnyArrowSome(Expr left,Expr right) {
+        return (ExprBinary) ExprBinary.Op.ANY_ARROW_SOME.make(Pos.UNKNOWN, Pos.UNKNOWN,  left, right);
+    }
+    public static ExprBinary createAnyArrowOne(Expr left,Expr right) {
+        return (ExprBinary) ExprBinary.Op.ANY_ARROW_ONE.make(Pos.UNKNOWN, Pos.UNKNOWN,  left, right);
+    }
+    public static ExprBinary createAnyArrowLone(Expr left,Expr right) {
+        return (ExprBinary) ExprBinary.Op.ANY_ARROW_LONE.make(Pos.UNKNOWN, Pos.UNKNOWN,  left, right);
     }
     // set union
     public static ExprBinary createUnion(Expr left,Expr right) {
