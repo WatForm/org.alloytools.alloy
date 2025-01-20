@@ -51,7 +51,12 @@ public class ExprHelper  {
     public static boolean isExprUnary(Expr e) {
         return (e instanceof ExprUnary);
     }
+    /*
     public static boolean isExprSet(Expr e) {
+        return ((e instanceof ExprUnary) && ((ExprUnary) e).op.equals(ExprUnary.Op.SET));
+    }
+    */
+    public static boolean isExprSetOf(Expr e) {
         return ((e instanceof ExprUnary) && ((ExprUnary) e).op.equals(ExprUnary.Op.SETOF));
     }
     public static boolean isExprOne(Expr e) {
@@ -64,8 +69,14 @@ public class ExprHelper  {
     public static boolean isExprLone(Expr e) {
         return ((e instanceof ExprUnary) && ((ExprUnary) e).op.equals(ExprUnary.Op.LONE));
     }
+    public static boolean isExprLoneOf(Expr e) {
+        return ((e instanceof ExprUnary) && ((ExprUnary) e).op.equals(ExprUnary.Op.LONEOF));
+    }
     public static boolean isExprSome(Expr e) {
         return ((e instanceof ExprUnary) && ((ExprUnary) e).op.equals(ExprUnary.Op.SOME));
+    }
+    public static boolean isExprSomeOf(Expr e) {
+        return ((e instanceof ExprUnary) && ((ExprUnary) e).op.equals(ExprUnary.Op.SOMEOF));
     }
     public static boolean isExprCard(Expr e) {
         return ((e instanceof ExprUnary) && ((ExprUnary) e).op.equals(ExprUnary.Op.CARDINALITY));
