@@ -255,7 +255,7 @@ public class AddSnapshotSignature {
                     decls.add((Decl) new DeclExt(
                         translateFQN(vfqn), 
                         translateExpr(
-                                        getSub(d.getVarType(vfqn)),
+                                        d.getVarType(vfqn),
                                         d, 
                                         true)));                     
                 } else {
