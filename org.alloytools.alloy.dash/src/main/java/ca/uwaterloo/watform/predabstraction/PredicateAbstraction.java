@@ -107,8 +107,8 @@ public class PredicateAbstraction {
         Expr argsAndList = ExprHelper.createAndList(args);
         // translate guard && action && pred from var' notation to s.var and sn.var
         System.out.println("Formula being translated using my translate: "+argsAndList.toString());
-        //Expr translatedAndList = Common.translateExpr(argsAndList, d);
-        Expr translatedAndList = argsAndList;
+        Expr translatedAndList = Common.translateExpr(argsAndList, d);
+        //Expr translatedAndList = argsAndList;
         //Expr translatedAndList = translatePrimedExpr(argsAndList);
         //System.out.println("After translation: "+translatedAndList.toString());
 
