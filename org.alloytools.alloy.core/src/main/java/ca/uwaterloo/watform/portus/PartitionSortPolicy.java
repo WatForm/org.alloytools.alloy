@@ -54,16 +54,20 @@ final class PartitionSortPolicy extends SortPolicy {
 
     private final List<Sig.PrimSig> topLevelSigs;
 
+    private final ModelInfo modelInfo;
+
     private final ScopeComputer scoper;
 
     public PartitionSortPolicy(
-            Iterable<Sig> allSigs, Command command, ScopeComputer scoper, NameGenerator nameGenerator) {
+            Iterable<Sig> allSigs, Command command, ModelInfo modelInfo, ScopeComputer scoper,
+            NameGenerator nameGenerator) {
         super(allSigs);
+        this.modelInfo = modelInfo;
         this.scoper = scoper;
         this.nameGenerator = nameGenerator;
 
         topLevelSigs = StreamSupport.stream(allSigs.spliterator(), false)
-                .filter(sig -> !sig.builtin) // only handle custom top-level sigs
+                .filter(sig -> !sig.builtin || sig.equals(Sig.STRING)) // only handle custom top-level sigs and string
                 .filter(Sig::isTopLevel)
                 .map(sig -> (Sig.PrimSig) sig)
                 .collect(Collectors.toList());
@@ -342,10 +346,6 @@ final class PartitionSortPolicy extends SortPolicy {
             // We can't assign a sort to univ or none
             return null;
         }
-        if (sig == Sig.STRING) {
-            // String can't be assigned a sort for now - TODO strings
-            return null;
-        }
 
         if (sig instanceof Sig.PrimSig) {
             Sig.PrimSig topLevelSig = getTopLevel((Sig.PrimSig) sig);
@@ -375,7 +375,11 @@ final class PartitionSortPolicy extends SortPolicy {
         // Just the sum of all the top-level sigs in the sort
         int scope = 0;
         for (Sig.PrimSig sig : allSigs) {
-            scope += scoper.sig2scope(sig);
+            if (sig == Sig.STRING) {
+                scope += modelInfo.numStringConstants(); // sig2scope returns incorrect results for String
+            } else {
+                scope += scoper.sig2scope(sig);
+            }
         }
 
         // Don't set a scope of 0, Fortress doesn't support that.
@@ -389,7 +393,7 @@ final class PartitionSortPolicy extends SortPolicy {
         // Special cases: builtin sigs
         if (sig == Sig.SIGINT) {
             return true; // SIGINT is all of Sort.Int
-        } else if (sig.builtin) {
+        } else if (sig.builtin && sig != Sig.STRING) {
             // None of the others (although technically SEQIDX might be? and univ is tricky)
             // TODO: handle SEQIDX better here
             return false;

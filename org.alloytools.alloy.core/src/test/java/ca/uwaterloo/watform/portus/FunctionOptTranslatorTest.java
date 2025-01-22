@@ -69,7 +69,7 @@ public class FunctionOptTranslatorTest {
                 Theory.empty().withSort(sortA).withSort(sortB).withSort(sortC).withSort(Sort.Int()));
         ScopeComputer mockScoper = mock(ScopeComputer.class);
         RangeAssigner mockRangeAssigner = mock(RangeAssigner.class,
-                withSettings().useConstructor(new ArrayList<>(), mockSortPolicy, mockScoper));
+                withSettings().useConstructor(mock(ModelInfo.class), new ArrayList<>(), mockSortPolicy, mockScoper));
         nameGenerator = new SanitizingNameGenerator();
         context = new TranslationContext(new PortusOptions(), mockScoper, mockSortPolicy, mockRangeAssigner);
     }

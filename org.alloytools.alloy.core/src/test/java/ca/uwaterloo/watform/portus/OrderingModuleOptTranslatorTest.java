@@ -67,7 +67,7 @@ public class OrderingModuleOptTranslatorTest {
 
         policy = mock(SortPolicy.class);
         rangeAssigner = mock(RangeAssigner.class, withSettings()
-                .useConstructor(Arrays.asList(ordSig, orderedSig), policy, scoper));
+                .useConstructor(mock(ModelInfo.class), Arrays.asList(ordSig, orderedSig), policy, scoper));
         scoper = mock(ScopeComputer.class);
         Translator recursiveTranslator = (expr, context) -> {
             // recursive calls should check membership in orderedSig, translate as inOrderedSig(x)

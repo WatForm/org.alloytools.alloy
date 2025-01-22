@@ -39,6 +39,7 @@ class OneSigOptTranslator extends AbstractTranslator implements ScalarCaster, Ev
         // module imposes. So just disable it in that case.
         return sig.isOne == null
                 || !(sig instanceof Sig.PrimSig)
+                || sig.builtin
                 || isChildOfOrderedSig((Sig.PrimSig) sig, context);
     }
 

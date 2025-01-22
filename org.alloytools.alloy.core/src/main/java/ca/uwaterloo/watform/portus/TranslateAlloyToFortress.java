@@ -81,7 +81,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
 
             Interpretation interpretation = solve(logger, statistics, translated, options);
             AlloySolution solution = new FortressSolution(
-                    interpretation, translated.getEvaluator(), translated.getContext(),
+                    interpretation, translated.getEvaluator(), translated.getStringDecoder(), translated.getContext(),
                     world.getAllReachableSigs(), options.originalFilename, command.toString());
 
             logger.outputResult(command, solution);
@@ -115,12 +115,14 @@ public final class TranslateAlloyToFortress implements CommandRunner {
 
             // Decide on the sort policy with the options
             Iterable<Sig> sigs = world.getAllReachableSigs();
+            ModelInfo modelInfo = new ModelInfo(sigs, command, scoper);
             NameGenerator nameGenerator = new SanitizingNameGenerator();
-            SortPolicy sortPolicy = options.portusOptions.getSortPolicy(sigs, command, scoper, nameGenerator);
-            RangeAssigner rangeAssigner = new RangeAssigner(sigs, sortPolicy, scoper);
+            SortPolicy sortPolicy = options.portusOptions.getSortPolicy(
+                    sigs, command, modelInfo, scoper, nameGenerator);
+            RangeAssigner rangeAssigner = new RangeAssigner(modelInfo, sigs, sortPolicy, scoper);
 
             TranslatorManager translatorManager = new TranslatorManager(
-                    options.portusOptions, statistics, sortPolicy, nameGenerator);
+                    options.portusOptions, statistics, modelInfo, sortPolicy, nameGenerator);
             TranslationContext context = new TranslationContext(
                     options.portusOptions, scoper, sortPolicy, rangeAssigner);
 
@@ -128,7 +130,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
             translatorManager.runAllPasses(world, command, scoper, context);
 
             statistics.setTheoryStats(context.getTheory());
-            return new TranslationResult(translatorManager, sortPolicy, context);
+            return new TranslationResult(translatorManager, translatorManager.getStringDecoder(), sortPolicy, context);
         } finally {
             statistics.onTranslationFinished();
         }

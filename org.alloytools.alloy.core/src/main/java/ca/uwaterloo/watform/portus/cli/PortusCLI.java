@@ -1,9 +1,6 @@
 package ca.uwaterloo.watform.portus.cli;
 
-import ca.uwaterloo.watform.portus.PortusOptions;
-import ca.uwaterloo.watform.portus.SanitizingNameGenerator;
-import ca.uwaterloo.watform.portus.SortPolicy;
-import ca.uwaterloo.watform.portus.TimeoutException;
+import ca.uwaterloo.watform.portus.*;
 import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.alloy4.ConstList;
 import edu.mit.csail.sdg.alloy4.Pair;
@@ -45,8 +42,9 @@ public final class PortusCLI {
             Module world, Command command, A4Options options) {
         Iterable<Sig> sigs = world.getAllReachableSigs();
         ScopeComputer scoper = ScopeComputer.compute(A4Reporter.NOP, options, sigs, command).b;
+        ModelInfo modelInfo = new ModelInfo(sigs, command, scoper);
         NameGenerator nameGenerator = new SanitizingNameGenerator();
-        SortPolicy sortPolicy = options.portusOptions.getSortPolicy(sigs, command, scoper, nameGenerator);
+        SortPolicy sortPolicy = options.portusOptions.getSortPolicy(sigs, command, modelInfo, scoper, nameGenerator);
 
         // find the smallest bitwidth >= the command's bitwidth such that the max int representable is >= the size
         // of all sorts created by the sort policy

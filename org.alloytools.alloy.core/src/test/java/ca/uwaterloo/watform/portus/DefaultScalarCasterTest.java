@@ -51,8 +51,8 @@ public class DefaultScalarCasterTest {
         SortPolicy mockSortPolicy = mock(SortPolicy.class);
         when(mockSortPolicy.addSortsToTheory(any())).thenReturn(Theory.empty().withSort(testSort));
         // Use the constructor so the range assigner can be copied without issue
-        RangeAssigner mockRangeAssigner = mock(RangeAssigner.class, withSettings()
-                .useConstructor(Collections.singleton(testOneSig), mockSortPolicy, mockScopeComputer));
+        RangeAssigner mockRangeAssigner = mock(RangeAssigner.class, withSettings().useConstructor(
+                mock(ModelInfo.class), Collections.singleton(testOneSig), mockSortPolicy, mockScopeComputer));
         context = new TranslationContext(
                 new PortusOptions(), mockScopeComputer, mockSortPolicy, mockRangeAssigner);
         scalarCaster = new DefaultScalarCaster(mockTranslator, mockRoot, mockSortPolicy);

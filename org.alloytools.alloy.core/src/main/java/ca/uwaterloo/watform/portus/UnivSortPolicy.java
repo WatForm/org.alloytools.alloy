@@ -19,12 +19,12 @@ final class UnivSortPolicy extends SortPolicy {
     private final int univScope;
     private final int bitwidth;
 
-    public UnivSortPolicy(Iterable<Sig> sigs, ScopeComputer scoper) {
-        this(Sort.mkSortConst("univ"), sigs, scoper);
+    public UnivSortPolicy(Iterable<Sig> sigs, ModelInfo modelInfo, ScopeComputer scoper) {
+        this(Sort.mkSortConst("univ"), sigs, modelInfo, scoper);
     }
 
     /** Pass in the univ sort for testing purposes. */
-    UnivSortPolicy(Sort univ, Iterable<Sig> sigs, ScopeComputer scoper) {
+    UnivSortPolicy(Sort univ, Iterable<Sig> sigs, ModelInfo modelInfo, ScopeComputer scoper) {
         super(sigs);
         this.univ = univ;
         this.bitwidth = scoper.getBitwidth();
@@ -32,9 +32,11 @@ final class UnivSortPolicy extends SortPolicy {
         // Determine the scope of univ: the sum of all the top-level sorts' max scopes.
         int univScope = 0;
         for (Sig sig : sigs) {
-            // Don't count subsigs and don't count builtins like univ,Int,String
+            // Don't count subsigs and don't count builtins like univ,Int
             if (sig.isTopLevel() && !sig.builtin) {
                 univScope += scoper.sig2scope(sig);
+            } else if (sig == Sig.STRING) {
+                univScope += modelInfo.numStringConstants();
             }
         }
         // Make sure the sort is non-empty, even if there are no sigs in the model

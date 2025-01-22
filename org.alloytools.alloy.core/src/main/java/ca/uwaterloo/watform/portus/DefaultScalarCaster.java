@@ -31,7 +31,7 @@ import java.util.function.Function;
 final class DefaultScalarCaster implements ScalarCaster {
 
     // The list of builtin constants that we can treat like scalars.
-    // TODO: STRING
+    // String is handled by StringTranslator.
     private static final ConstList<ExprConstant.Op> SCALAR_CONSTANTS = ConstList.make(Arrays.asList(
             ExprConstant.Op.TRUE,
             ExprConstant.Op.FALSE,

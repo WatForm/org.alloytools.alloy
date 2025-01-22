@@ -23,6 +23,7 @@ import java.util.stream.Collectors;
  */
 class RangeAssigner {
 
+    private final ModelInfo modelInfo;
     private final List<Sig> allSigs;
     private final SortPolicy sortPolicy;
     private final ScopeComputer scoper;
@@ -35,7 +36,8 @@ class RangeAssigner {
     // on sortPolicy and scoper which *should* be fixed.
     private final Map<Sig, Pair<Integer, Integer>> memoizedSigToDERange;
 
-    public RangeAssigner(Iterable<Sig> allSigs, SortPolicy sortPolicy, ScopeComputer scoper) {
+    public RangeAssigner(ModelInfo modelInfo, Iterable<Sig> allSigs, SortPolicy sortPolicy, ScopeComputer scoper) {
+        this.modelInfo = modelInfo;
         this.allSigs = PortusUtil.iterableToList(allSigs);
         this.sortPolicy = sortPolicy;
         this.scoper = scoper;
@@ -45,6 +47,7 @@ class RangeAssigner {
 
     public RangeAssigner(RangeAssigner other) {
         // Deep copy so changes in the copy don't affect the original
+        this.modelInfo = other.modelInfo; // immutable
         this.allSigs = new ArrayList<>(other.allSigs);
         this.sortPolicy = other.sortPolicy; // sort policy is immutable
         this.scoper = other.scoper; // we probably don't mutate it...
@@ -93,9 +96,6 @@ class RangeAssigner {
         List<Sig.PrimSig> siblings = allSigs.stream()
                 .filter(otherSig -> otherSig instanceof Sig.PrimSig)
                 .map(otherSig -> (Sig.PrimSig) otherSig)
-                // We don't support strings yet, so explicitly ignore them here, since sig2scope will give -1
-                // if the scope isn't specified (which is the case for strings)
-                .filter(otherSig -> otherSig != Sig.STRING)
                 .filter(otherSig -> primSig.isTopLevel()
                         ? otherSig.isTopLevel() && sort.equals(sortPolicy.getSort(otherSig))
                         : primSig.parent == otherSig.parent)
@@ -133,7 +133,9 @@ class RangeAssigner {
     }
 
     private int getMinimumSize(Sig.PrimSig sig, ScopeComputer scoper) {
-        if (scoper.isExact(sig)) {
+        if (sig.equals(Sig.STRING)) {
+            return modelInfo.getStringConstants().size();
+        } else if (scoper.isExact(sig)) {
             return scoper.sig2scope(sig);
         } else {
             // use the sum of all the children's minimum sizes, because it's the size that the children with

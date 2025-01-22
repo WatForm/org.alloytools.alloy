@@ -63,7 +63,7 @@ final class TranslationPass implements Pass {
         int numSubsetSigs = 0;
         Set<String> sigNamesSeen = new HashSet<>();
         for (Sig sig : sigs) {
-            if (!sig.builtin) {
+            if (!sig.builtin || sig.equals(Sig.STRING)) {
                 if (sig instanceof Sig.PrimSig && sig.isTopLevel()) {
                     translator.translate(sig, context);
                     sigNamesSeen.add(sig.label);
@@ -137,8 +137,6 @@ final class TranslationPass implements Pass {
         // Add axioms asserting that the top-level sigs in each sort are disjoint
         for (Sort sort : context.getTheory().sortsJava()) {
             List<Sig> sortTLSigs = StreamSupport.stream(sigs.spliterator(), false)
-                    // Ignore String for now, we don't support it - TODO support Sig.STRING
-                    .filter(sig -> sig != Sig.STRING)
                     .filter(sig -> sig.isTopLevel() && Objects.equals(sortPolicy.getSort(sig), sort))
                     .collect(Collectors.toList());
 

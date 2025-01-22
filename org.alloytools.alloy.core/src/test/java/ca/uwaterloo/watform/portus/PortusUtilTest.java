@@ -58,7 +58,7 @@ public class PortusUtilTest {
         when(policy.addSortsToTheory(any())).thenReturn(Theory.empty().withSort(sort));
         ScopeComputer mockScoper = mock(ScopeComputer.class);
         RangeAssigner mockRangeAssigner = mock(RangeAssigner.class,
-                withSettings().useConstructor(new ArrayList<>(), policy, mockScoper));
+                withSettings().useConstructor(mock(ModelInfo.class), new ArrayList<>(), policy, mockScoper));
         context = new TranslationContext(new PortusOptions(), mockScoper, policy, mockRangeAssigner);
     }
 

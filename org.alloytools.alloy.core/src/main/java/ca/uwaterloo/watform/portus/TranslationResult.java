@@ -12,12 +12,15 @@ import fortress.problemstate.Scope;
 public final class TranslationResult {
 
     private final Evaluator evaluator;
+    private final StringDecoder stringDecoder;
     private final SortPolicy sortPolicy;
     private final TranslationContext context;
 
-    TranslationResult(Evaluator evaluator, SortPolicy sortPolicy, TranslationContext context) {
-        this.sortPolicy = sortPolicy;
+    TranslationResult(Evaluator evaluator, StringDecoder stringDecoder, SortPolicy sortPolicy,
+                      TranslationContext context) {
+        this.stringDecoder = stringDecoder;
         this.evaluator = evaluator;
+        this.sortPolicy = sortPolicy;
         this.context = context;
     }
 
@@ -48,6 +51,13 @@ public final class TranslationResult {
      */
     Evaluator getEvaluator() {
         return evaluator;
+    }
+
+    /**
+     * Get the StringDecoder used to determine the value of string constants.
+     */
+    StringDecoder getStringDecoder() {
+        return stringDecoder;
     }
 
     /**

@@ -38,7 +38,8 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 /**
- * The basic translator that provides unoptimized translations of every supported node.
+ * The basic translator that provides unoptimized translations of (almost) every supported node.
+ * Note: strings are handled in StringTranslator.
  */
 final class DefaultTranslator extends AbstractTranslator implements Evaluator, ScopeExpansionMarker {
 
@@ -94,6 +95,10 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
     /** Translate a signature declaration. */
     @Override
     public Term translate(Sig sig, TranslationContext context) {
+        if (sig.equals(Sig.STRING)) {
+            return null;
+        }
+
         if (sigMemberPredicates.containsKey(sig)) {
             throw new ErrorFatal("Internal error: seen sig " + sig.label + " before");
         }
@@ -192,8 +197,8 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
                     return Term.mkBottom();
                 }
             } else if (sig.equals(Sig.STRING)) {
-                // TODO - implement strings for real
-                return Term.mkBottom();
+                // implemented by StringTranslator
+                return null;
             } else {
                 throw new ErrorNoPortusSupport("Unsupported builtin sig: " + sig);
             }
