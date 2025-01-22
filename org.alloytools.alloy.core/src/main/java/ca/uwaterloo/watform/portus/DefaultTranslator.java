@@ -72,6 +72,9 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
     // Names of the above relation predicates for easy access.
     private final Map<Sig.Field, FuncDecl> relationPredicateDecls = new HashMap<>();
 
+    // Fields whose bounds resolved to none and are short-circuited.
+    private final Set<Sig.Field> shortCircuitedFields = new HashSet<>();
+
     // When "^expr" or "*expr" is translated, this maps expr and the auxiliary function's signature
     // to the name of an auxiliary function f_sort(x,y,extras) = [[(x,y,extras) \in expr]], used in the translation.
     private final ExprCache<String> auxClosureRelationNames;
@@ -215,9 +218,16 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
     @Override
     public Term translate(Sig.Field field, TranslationContext context) {
         // Find the Fortress sorts corresponding to the arguments of this field's predicate.
-        // Fields must have all definite sorts.
-        List<Sort> argSorts = sortPolicy.getMinimalExprDefiniteSorts(field,
-                "A field declaration must have definite Portus sorts!", context);
+        // Field bounds must have all definite sorts.
+        SortResolvant argSorts = sortPolicy.getMinimalExprSorts(field, context);
+        if (argSorts.isNone()) {
+            // the field is always empty: short-circuit it
+            shortCircuitedFields.add(field);
+            return Term.mkTop();
+        }
+        if (!argSorts.isDefinite()) {
+            throw new ErrorNoPortusSupport("A field declaration must have definite Portus sorts!");
+        }
 
         // Make a new predicate for the field relation (function optimization is elsewhere).
         String relName = nameGenerator.freshName(field.label);
@@ -226,7 +236,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
                 throw new ErrorFatal("Field predicate arity mismatch: expected arity " + field.type().arity()
                         + " but got " + terms.size() + ".");
             }
-            if (!terms.getSorts().equals(argSorts)) {
+            if (!terms.getSorts().equals(argSorts.getDefiniteSorts())) {
                 // Sorts don't match, so it's definitely not in the field!
                 return Term.mkBottom();
             }
@@ -234,12 +244,12 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
         });
 
         // the predicate signature is S1->S2->...->Sn->Bool, where Si is the ith product type's sort
-        FuncDecl decl = FuncDecl.mkFuncDecl(relName, argSorts, Sort.Bool());
+        FuncDecl decl = FuncDecl.mkFuncDecl(relName, argSorts.getDefiniteSorts(), Sort.Bool());
         relationPredicateDecls.put(field, decl);
         context.addFunctionDeclaration(decl);
 
         // constrain the bound of the field
-        context.addAxiom(makeFieldBoundConstraint(field, argSorts, context));
+        context.addAxiom(makeFieldBoundConstraint(field, argSorts.getDefiniteSorts(), context));
 
         // just return Top because the returned term doesn't matter for a field declaration
         return Term.mkTop();
@@ -283,6 +293,11 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
     }
 
     private ValueTupleSet evaluateField(Sig.Field field, FortressSolution solution) {
+        // Short-circuited fields are empty.
+        if (shortCircuitedFields.contains(field)) {
+            return ValueTupleSet.empty(field.type().arity());
+        }
+
         // Evaluate only fields we've translated here
         if (!relationPredicateDecls.containsKey(field)) return null;
 
@@ -292,6 +307,11 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
 
     @Override
     public Term translate(TermTuple tuple, Sig.Field field, TranslationContext context) {
+        // Short-circuited fields are empty.
+        if (shortCircuitedFields.contains(field)) {
+            return Term.mkBottom();
+        }
+
         // if we recognize the field, use its relation
         if (!relationPredicates.containsKey(field)) {
             throw new ErrorFatal("Unknown field: " + field);
