@@ -74,6 +74,12 @@ final class PortusUtil {
         return scala.collection.immutable.Map.from(CollectionConverters.asScala(map));
     }
 
+    /** Convert a java.util.List to a scala.collection.immutable.Seq. */
+    public static <T> scala.collection.immutable.Seq<T> toScalaSeq(List<T> list) {
+        //noinspection unchecked
+        return scala.collection.immutable.Seq.from(CollectionConverters.asScala(list));
+    }
+
     /** Strip wrappers we consider to be (pure) NOOPs: CAST2INT, CAST2SIGINT, NOOP. */
     public static Expr stripPortusNoops(Expr expr) {
         while (expr instanceof ExprUnary) {

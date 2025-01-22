@@ -2,6 +2,7 @@ package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
+import edu.mit.csail.sdg.alloy4.Util;
 import edu.mit.csail.sdg.ast.Command;
 import edu.mit.csail.sdg.ast.Module;
 import edu.mit.csail.sdg.ast.Sig;
@@ -17,13 +18,12 @@ import fortress.modelfinders.ErrorResult;
 import fortress.modelfinders.ModelFinder;
 import fortress.modelfinders.ModelFinderResult;
 import fortress.modelfinders.StandardModelFinder;
-import fortress.msfol.Sort;
-import fortress.msfol.Term;
-import fortress.msfol.Theory;
+import fortress.msfol.*;
 import fortress.operations.SmtlibConverter;
 import fortress.solvers.Solver;
 import fortress.util.Dump;
 import fortress.util.Milliseconds;
+import scala.collection.immutable.Seq;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -34,7 +34,11 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
  * The public API for Portus. Translate an Alloy AST to a Fortress theory, then attempt
@@ -165,10 +169,24 @@ public final class TranslateAlloyToFortress implements CommandRunner {
     }
 
     private Interpretation postprocessInterp(Interpretation interpretation, TranslationResult translated) {
-        // Add the function definitions from the theory because they aren't returned from Fortress.
+        // Add Int if it's not already there (sometimes it isn't)
+        Map<Sort, List<Value>> sortInterpretations = new HashMap<>(interpretation.sortInterpretationsJava());
+        if (!sortInterpretations.containsKey(Sort.Int())) {
+            int bitwidth = translated.getBitwidth();
+            sortInterpretations.put(Sort.Int(), IntStream.range(Util.min(bitwidth), Util.max(bitwidth) + 1)
+                    .mapToObj(IntegerLiteral::apply)
+                    .collect(Collectors.toList()));
+        }
+        // Convert back to Scala types
+        Map<Sort, Seq<Value>> sortInterpretationsScala = new HashMap<>();
+        for (Sort sort : sortInterpretations.keySet()) {
+            sortInterpretationsScala.put(sort, PortusUtil.toScalaSeq(sortInterpretations.get(sort)));
+        }
+
+        // Add the function definitions from the theory because they aren't returned from Fortress
         //noinspection unchecked
         return new BasicInterpretation(
-                interpretation.sortInterpretations(),
+                PortusUtil.toScalaMap(sortInterpretationsScala),
                 interpretation.constantInterpretations(),
                 interpretation.functionInterpretations(),
                 interpretation.functionDefinitions().concat(translated.getTheory().functionDefinitions()).toSet());

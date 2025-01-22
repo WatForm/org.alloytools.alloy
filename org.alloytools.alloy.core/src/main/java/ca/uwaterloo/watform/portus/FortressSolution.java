@@ -34,7 +34,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 public class FortressSolution implements AlloySolution {
 
@@ -78,14 +77,6 @@ public class FortressSolution implements AlloySolution {
         if (interpretation != null) {
             // Generate Alloy atoms (ExprVars) for each Fortress atom
             Map<Sort, List<Value>> sortInterpretations = new HashMap<>(interpretation.sortInterpretationsJava());
-
-            // Manually include integers if they aren't already included
-            if (!sortInterpretations.containsKey(Sort.Int())) {
-                int bitwidth = context.getBitwidth();
-                sortInterpretations.put(Sort.Int(), IntStream.range(Util.min(bitwidth), Util.max(bitwidth) + 1)
-                        .mapToObj(IntegerLiteral::apply)
-                        .collect(Collectors.toList()));
-            }
 
             List<Value> fortressAtoms = new ArrayList<>();
             for (Sort sort : sortInterpretations.keySet()) {
