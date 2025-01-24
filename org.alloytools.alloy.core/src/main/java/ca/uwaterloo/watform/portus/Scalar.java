@@ -79,6 +79,10 @@ final class Scalar {
         return scalarGenerator.apply(tuple);
     }
 
+    public Function<TermTuple, Term> getScalarGenerator() {
+        return scalarGenerator;
+    }
+
     public Term getNilaryScalar() {
         return getScalar(new TermTuple());
     }
@@ -131,6 +135,29 @@ final class Scalar {
             return Term.mkAnd(f.getGuard(fArgs), g.getGuard(gArgs));
         };
         return new Scalar(argSorts, g.getResultSort(), scalarGenerator, guardGenerator);
+    }
+
+    /**
+     * Compute f ++ g. If f and g have compatible sorts and arity n then:
+     *    (f ++ g)(x) = guard_g(x) ? g(x) : f(x)
+     *    guard_(f ++ g)(x) = guard_g(x) || (!guard_g(x) && guard_f(x)) === guard_g(x) || guard_f(x)
+     * This corresponds to Alloy override (++).
+     */
+    public static Scalar override(Scalar f, Scalar g) {
+        if (!f.hasSameSignature(g)) {
+            throw new ErrorFatal("Cannot compute override (++) of incompatible scalars!");
+        }
+
+        Function<TermTuple, Term> scalarGenerator = tuple -> Term.mkIfThenElse(
+                g.getGuard(tuple), g.getScalar(tuple), f.getScalar(tuple));
+        Function<TermTuple, Term> guardGenerator = tuple -> Term.mkOr(g.getGuard(tuple), f.getGuard(tuple));
+        return new Scalar(f.getArgSorts(), f.getResultSort(), scalarGenerator, guardGenerator);
+    }
+
+    @Override
+    public String toString() {
+        return "(" + argSorts.stream().map(Sort::toString).reduce((str, sort) -> str + ", " + sort).orElse("")
+                + ") -> " + resultSort;
     }
 
 }

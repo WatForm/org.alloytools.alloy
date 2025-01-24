@@ -2,6 +2,7 @@ package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprBinary;
+import edu.mit.csail.sdg.ast.ExprUnary;
 import fortress.data.NameGenerator;
 import fortress.msfol.AnnotatedVar;
 import fortress.msfol.Sort;
@@ -38,6 +39,8 @@ final class SimpleScalarOptTranslator implements Translator {
             return translateInEquals((ExprBinary) expr, context);
         } else if (expr instanceof ExprElementOf) {
             return translateExprElementOf((ExprElementOf) expr, context);
+        } else if (expr instanceof ExprUnary) {
+            return translateQuantifierExpr(((ExprUnary) expr).op, ((ExprUnary) expr).sub, context);
         }
         return null;
     }
@@ -124,6 +127,38 @@ final class SimpleScalarOptTranslator implements Translator {
                 Term.mkAnd(right.getGuard(tuple), Term.mkEq(left.getScalar(tuple), right.getScalar(tuple))),
                 Term.mkNot(right.getGuard(tuple)));
         return makeSmartForall(argVars, body);
+    }
+
+    /**
+     * Optimize quantifier expressions involving scalars, like "no s" and "some s".
+     * These can be reduced to just reasoning about the scalar's guard.
+     */
+    private Term translateQuantifierExpr(ExprUnary.Op quantifier, Expr expr, TranslationContext context) {
+        if (quantifier != ExprUnary.Op.SOME && quantifier != ExprUnary.Op.ONE
+            && quantifier != ExprUnary.Op.NO && quantifier != ExprUnary.Op.LONE) {
+            return null;
+        }
+
+        Scalar scalar = scalarCaster.castToScalar(expr, context);
+
+        // just for nilary scalars for a quick test
+        if (scalar == null || !scalar.isNilary()) {
+            return null;
+        }
+        switch (quantifier) {
+            case SOME:
+            case ONE:
+                // guard is true
+                return scalar.getNilaryGuard();
+            case NO:
+                // guard is false
+                return Term.mkNot(scalar.getNilaryGuard());
+            case LONE:
+                // always true
+                return Term.mkTop();
+            default:
+                return null;
+        }
     }
 
     /** Make a list of annotated variables from a list of sorts. */
