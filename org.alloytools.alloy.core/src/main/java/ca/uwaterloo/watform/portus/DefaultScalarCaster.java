@@ -114,7 +114,7 @@ final class DefaultScalarCaster implements ScalarCaster {
 
             @Override
             public Scalar visit(ExprUnary x) {
-                // Check for and strip any noops
+                // Strip noops. Note if the noop is cast2int and casting fails, IntSumScalarCaster will run if enabled.
                 Expr denooped = PortusUtil.stripPortusNoops(x);
                 if (denooped != x) {
                     return rootScalarCaster.castToScalar(denooped, context);

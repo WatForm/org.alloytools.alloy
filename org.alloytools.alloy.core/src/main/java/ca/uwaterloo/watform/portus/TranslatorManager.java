@@ -148,6 +148,7 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
         if (options.enableElementOfScalarOptimization) {
             scalarCasters.add(new ElementOfScalarCaster(this, sortPolicy, nameGenerator, statistics));
         }
+        scalarCasters.add(new IntSumScalarCaster(this, sortPolicy, nameGenerator));
 
         if (options.enableOneSigOptimization) {
             evaluators.add(oneSigOpt);

@@ -588,8 +588,8 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
                 // confusingly, AND and OR aren't real ExprBinary ops
                 throw new ErrorFatal("AND and OR should be ExprLists!");
             default:
-                // others are either not supported or not formulas
-                throw new ErrorFatal("Unsupported ExprBinary formula: " + expr.op);
+                // others are either not supported or not formulas, but could be caught by the int-as-scalar translator
+                return null;
         }
     }
 
@@ -846,9 +846,12 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
             case EXACTLYOF:
             case SETOF:
             // These appear to be for internal use in the Alloy->Kodkod translation, ignore for now.
-            case CAST2INT:
             case CAST2SIGINT:
                 return recursivelyTranslate(expr.sub, context);
+            case CAST2INT:
+                // CAST2INT marks something that needs to be an integer, so it should always be evaluated as an int.
+                // Let IntAsScalarTranslator handle it.
+                return null;
             case CARDINALITY:
                 return translateCardinality(expr.sub, context);
             default:
