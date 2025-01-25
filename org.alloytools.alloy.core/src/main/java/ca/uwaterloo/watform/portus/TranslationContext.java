@@ -20,6 +20,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 
 /**
  * Represents the translation environment for a certain expression, including the
@@ -37,7 +38,7 @@ final class TranslationContext {
     public final RangeAssigner rangeAssigner;
 
     // The context used for keeping track of the mapping of Alloy variables to terms and expressions in lets.
-    public final VarMappingContext varMappingContext;
+    private VarMappingContext varMappingContext;
 
     // The current theory. Mutable.
     private Theory theory;
@@ -82,6 +83,10 @@ final class TranslationContext {
         this.unchangingSorts = new HashSet<>(context.unchangingSorts);
         this.forcedExactScopeSorts = new HashSet<>(context.forcedExactScopeSorts);
         this.orderedSigs = new HashSet<>(context.orderedSigs);
+    }
+
+    public VarMappingContext getVarMappingContext() {
+        return varMappingContext;
     }
 
     /**
@@ -269,6 +274,27 @@ final class TranslationContext {
     /** @see VarMappingContext#removeFortressVars(AnnotatedVar...)  */
     public void removeFortressVars(AnnotatedVar... vars) {
         varMappingContext.removeFortressVars(vars);
+    }
+
+    /**
+     * Freeze a copy of the current variable mapping for use with {@link #withVarMappingContext}.
+     */
+    public VarMappingContext copyVarMappingContext() {
+        return new VarMappingContext(varMappingContext);
+    }
+
+    /**
+     * Run a callback using this context with a different variable mapping.
+     * For use when additions to the theory should be persistent but we need to temporarily use a different context.
+     */
+    public <T> T withVarMappingContext(VarMappingContext varMappingContext, Function<TranslationContext, T> callback) {
+        VarMappingContext oldVarMappingContext = this.varMappingContext;
+        try {
+            this.varMappingContext = varMappingContext;
+            return callback.apply(this);
+        } finally {
+            this.varMappingContext = oldVarMappingContext;
+        }
     }
 
     /** Configure a model finder's theory and scopes to check this translation. */

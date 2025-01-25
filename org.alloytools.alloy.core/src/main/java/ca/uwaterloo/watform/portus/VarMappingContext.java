@@ -334,7 +334,7 @@ final class VarMappingContext {
 
         /** Convenience: change the VarMappingContext of the passed-in TranslationContext. */
         public void useLetMapping(TranslationContext context) {
-            useLetMapping(context.varMappingContext);
+            useLetMapping(context.getVarMappingContext());
         }
 
         /**

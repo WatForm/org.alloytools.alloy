@@ -431,7 +431,7 @@ final class PortusUtil {
     public static List<AnnotatedVar> computeFreeVariables(
             Expr expr, TranslationContext context, SortPolicy sortPolicy) {
         // simple recursive implementation
-        return expr.accept(new ContextVisitReturn<List<AnnotatedVar>>(context.varMappingContext, sortPolicy) {
+        return expr.accept(new ContextVisitReturn<List<AnnotatedVar>>(context.getVarMappingContext(), sortPolicy) {
             @SafeVarargs
             private final List<AnnotatedVar> union(List<AnnotatedVar>... lists) {
                 // this is O(n^2) to union two lists of length n, but this shouldn't be a bottleneck

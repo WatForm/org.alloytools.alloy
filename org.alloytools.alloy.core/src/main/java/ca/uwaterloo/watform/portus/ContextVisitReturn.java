@@ -45,7 +45,7 @@ abstract class ContextVisitReturn<T> extends FortressVisitReturn<T> {
     }
 
     public ContextVisitReturn(TranslationContext context, SortPolicy sortPolicy) {
-        this(context.varMappingContext, sortPolicy);
+        this(context.getVarMappingContext(), sortPolicy);
     }
 
     // Quantified variables are mapped to an arbitrary variable satisfying this.

@@ -22,6 +22,7 @@ import java.util.function.Function;
  * Notably, this precludes representing an Alloy function f : A->one B->C as a function f(a,c) -> b.
  * TODO: Can we generalize to output from any index if possible?
  */
+// Idea: maybe it'll speed it up if sometimes we make functions for scalar/guard
 final class Scalar {
 
     // The sorts of the arguments expected by scalarGenerator and guardGenerator.

@@ -144,7 +144,7 @@ public abstract class SortPolicy {
     }
 
     public final SortResolvant getMinimalExprSorts(Expr expr, TranslationContext context) {
-        return getMinimalExprSorts(expr, context.varMappingContext);
+        return getMinimalExprSorts(expr, context.getVarMappingContext());
     }
 
     /**
@@ -166,7 +166,7 @@ public abstract class SortPolicy {
     }
 
     public final List<Sort> getMinimalExprDefiniteSorts(Expr expr, String errorMessage, TranslationContext context) {
-        return getMinimalExprDefiniteSorts(expr, errorMessage, context.varMappingContext);
+        return getMinimalExprDefiniteSorts(expr, errorMessage, context.getVarMappingContext());
     }
 
     private class SortVisitor extends ContextVisitReturn<SortResolvant> {

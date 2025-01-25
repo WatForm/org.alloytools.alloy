@@ -24,7 +24,7 @@ final class ContextExprCache<T> {
     }
 
     public void put(Expr expr, TranslationContext context, T value) {
-        put(expr, context.varMappingContext, value);
+        put(expr, context.getVarMappingContext(), value);
     }
 
     public T get(Expr expr, VarMappingContext context) {
@@ -32,7 +32,7 @@ final class ContextExprCache<T> {
     }
 
     public T get(Expr expr, TranslationContext context) {
-        return get(expr, context.varMappingContext);
+        return get(expr, context.getVarMappingContext());
     }
 
     /**
