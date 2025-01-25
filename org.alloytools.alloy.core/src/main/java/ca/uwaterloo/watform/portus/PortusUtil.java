@@ -21,34 +21,7 @@ import edu.mit.csail.sdg.ast.Func;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.parser.Macro;
 import fortress.data.NameGenerator;
-import fortress.msfol.AndList;
-import fortress.msfol.AnnotatedVar;
-import fortress.msfol.App;
-import fortress.msfol.BitVectorLiteral;
-import fortress.msfol.BuiltinApp;
-import fortress.msfol.Closure;
-import fortress.msfol.ConstantDefinition;
-import fortress.msfol.Distinct;
-import fortress.msfol.DomainElement;
-import fortress.msfol.EnumValue;
-import fortress.msfol.Eq;
-import fortress.msfol.Exists;
-import fortress.msfol.Forall;
-import fortress.msfol.FunctionDefinition;
-import fortress.msfol.IfThenElse;
-import fortress.msfol.Iff;
-import fortress.msfol.Implication;
-import fortress.msfol.IntegerLiteral;
-import fortress.msfol.Not;
-import fortress.msfol.OrList;
-import fortress.msfol.Quantifier;
-import fortress.msfol.ReflexiveClosure;
-import fortress.msfol.Sort;
-import fortress.msfol.Term;
-import fortress.msfol.TermVisitor;
-import fortress.msfol.Theory;
-import fortress.msfol.Value;
-import fortress.msfol.Var;
+import fortress.msfol.*;
 import fortress.operations.Substituter;
 import fortress.operations.TermOps;
 import scala.jdk.javaapi.CollectionConverters;
@@ -1126,6 +1099,11 @@ final class PortusUtil {
 
         @Override
         public Integer visitBitVectorLiteral(BitVectorLiteral term) {
+            return 1;
+        }
+
+        @Override
+        public Integer visitSetCardinality(SetCardinality term) {
             return 1;
         }
 

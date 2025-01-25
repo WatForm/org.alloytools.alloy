@@ -1,5 +1,5 @@
 -includeresource \
     @libs/ca.uwaterloo.watform.fortresscore-0.1.0.jar, \
-    @libs/org.scala-lang.scala-library-2.13.2.jar, \
+    @libs/org.scala-lang.scala-library-2.13.3.jar, \
     @libs/org.scala-lang.modules.scala-parallel-collections_2.13-1.0.0.jar, \
     @libs/org.antlr.antlr4-runtime-4.7.2.jar
