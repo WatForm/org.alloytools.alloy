@@ -143,6 +143,9 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
         if (options.enableJoinOptimization) {
             scalarCasters.add(joinOpt);
         }
+        if (options.enableRelationalScalarOptimization) {
+            scalarCasters.add(new RelationalScalarCaster(this, this, sortPolicy));
+        }
         scalarCasters.add(stringTranslator);
         scalarCasters.add(new DefaultScalarCaster(this, this, sortPolicy));
         if (options.enableElementOfScalarOptimization) {
