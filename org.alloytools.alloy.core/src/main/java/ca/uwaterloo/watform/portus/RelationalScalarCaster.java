@@ -3,12 +3,16 @@ package ca.uwaterloo.watform.portus;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprBinary;
+import edu.mit.csail.sdg.ast.ExprUnary;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
 
 import java.util.List;
 import java.util.function.Function;
 
+/**
+ * This scalar caster combines scalars into larger ones using relational operators.
+ */
 final class RelationalScalarCaster implements ScalarCaster {
 
     private final Translator translator;
@@ -28,20 +32,32 @@ final class RelationalScalarCaster implements ScalarCaster {
 
     @Override
     public Scalar castToScalar(Expr expr, TranslationContext context) {
-        if (!(expr instanceof ExprBinary)) return null;
-        ExprBinary binary = (ExprBinary) expr;
-        if (binary.op == ExprBinary.Op.INTERSECT) {
-            return castIntersection(binary.left, binary.right, context);
-        } else if (binary.op == ExprBinary.Op.MINUS) {
-            return castSetMinus(binary.left, binary.right, context);
-        } else if (binary.op == ExprBinary.Op.DOMAIN) {
-            return castDomainRestriction(binary.left, binary.right, context);
-        } else if (binary.op == ExprBinary.Op.RANGE) {
-            return castRangeRestriction(binary.left, binary.right, context);
-        } else if (binary.op.isArrow) {
-            return castArrow(binary.left, binary.right, context);
-        } else if (binary.op == ExprBinary.Op.PLUSPLUS) {
-            return castOverride(binary.left, binary.right, context);
+        if (expr instanceof ExprBinary) {
+            ExprBinary binary = (ExprBinary) expr;
+            if (binary.op == ExprBinary.Op.INTERSECT) {
+                return castIntersection(binary.left, binary.right, context);
+            } else if (binary.op == ExprBinary.Op.MINUS) {
+                return castSetMinus(binary.left, binary.right, context);
+            } else if (binary.op == ExprBinary.Op.DOMAIN) {
+                return castDomainRestriction(binary.left, binary.right, context);
+            } else if (binary.op == ExprBinary.Op.RANGE) {
+                return castRangeRestriction(binary.left, binary.right, context);
+            } else if (binary.op.isArrow) {
+                return castArrow(binary.left, binary.right, context);
+            } else if (binary.op == ExprBinary.Op.PLUSPLUS) {
+                return castOverride(binary.left, binary.right, context);
+            }
+        } else if (expr instanceof ExprUnary) {
+            ExprUnary unary = (ExprUnary) expr;
+            if (unary.op == ExprUnary.Op.TRANSPOSE) {
+                Expr sub = PortusUtil.stripPortusNoops(unary.sub);
+                if (sub instanceof ExprBinary) {
+                    ExprBinary subBinary = (ExprBinary) sub;
+                    if (subBinary.op.isArrow) {
+                        return castTransposeArrow(subBinary.left, subBinary.right, context);
+                    }
+                }
+            }
         }
         return null;
     }
@@ -188,6 +204,37 @@ final class RelationalScalarCaster implements ScalarCaster {
     }
 
     /**
+     * If castToScalar(e1) = (e1, guard1) and e2 has arity 1 and definite sorts then
+     *   castToScalar(~(e1->e2)) = (x -> e1, x -> guard1 && [[x \in e2]]).
+     * This is optimized further if e2 is a scalar.
+     */
+    private Scalar castTransposeArrow(Expr left, Expr right, TranslationContext context) {
+        if (left.type().arity() != 1 || right.type().arity() != 1) {
+            // shouldn't have typechecked, but check anyways
+            return null;
+        }
+
+        Scalar leftScalar = rootScalarCaster.castToScalar(left, context);
+        if (leftScalar == null || !leftScalar.isNilary()) {
+            return null;
+        }
+
+        SortResolvant rightSorts = sortPolicy.getMinimalExprSorts(right, context);
+        if (!rightSorts.isDefinite() || rightSorts.arity() != 1) {
+            return null;
+        }
+        List<Sort> argSorts = rightSorts.getDefiniteSorts();
+
+        VarMappingContext frozenContext = context.copyVarMappingContext();
+        Function<TermTuple, Term> scalarGenerator = tuple -> leftScalar.getNilaryScalar();
+        Function<TermTuple, Term> guardGenerator = tuple -> context.withVarMappingContext(frozenContext,
+                newContext -> Term.mkAnd(
+                        leftScalar.getNilaryGuard(),
+                        translator.translate(ExprElementOf.make(tuple, right), newContext)));
+        return new Scalar(argSorts, leftScalar.getResultSort(), scalarGenerator, guardGenerator);
+    }
+
+    /**
      * If castToScalar(e1) = (e1, guard1) and castToScalar(e2) = (e2, guard2) with compatible sorts then
      *   castToScalar(e1 ++ e2) = (e1 ++ e2, guard1 ++ guard2)
      * where ++ is as described in {@link Scalar#override}.
@@ -207,4 +254,5 @@ final class RelationalScalarCaster implements ScalarCaster {
         }
         return Scalar.override(leftScalar, rightScalar);
     }
+
 }

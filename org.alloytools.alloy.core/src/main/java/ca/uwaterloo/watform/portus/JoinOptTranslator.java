@@ -52,19 +52,34 @@ final class JoinOptTranslator extends AbstractTranslator implements ScalarCaster
 
     @Override
     public Scalar castToScalar(Expr expr, TranslationContext context) {
+        if (!(expr instanceof ExprBinary)) return null;
+        ExprBinary join = (ExprBinary) expr;
+        if (join.op != ExprBinary.Op.JOIN) return null;
+
+        Scalar composition = castComposeJoin(join.left, join.right, context);
+        if (composition != null) {
+            return composition;
+        }
+
+        // Attempt castToScalar(s.t) := castToScalar(t.~s) if s has arity 2 and t has arity 1.
+        // This helps on the off-chance that ~s is a unary scalar function and t is a nilary scalar.
+        if (join.left.type().arity() == 2 && join.right.type().arity() == 1) {
+            return scalarCaster.castToScalar(join.right.join(join.left.transpose()), context);
+        }
+
+        return null;
+    }
+
+    public Scalar castComposeJoin(Expr left, Expr right, TranslationContext context) {
         // If castToScalar(f) = (f1, g1) of arity n and castToScalar(g) = (f2, g2) of arity m>=1, then
         // castToScalar(f.g) = (f', g') of arity n+m-1, where:
         //   f'(x1,...,xn,y2,...,ym) = f2(f1(x1,...,xn),y2,...,ym)
         //   g'(x1,...,xn,y2,...,ym) = g1(x1,...,xn) && g2(f1(x1,...,xn),y2,...,ym)
 
-        if (!(expr instanceof ExprBinary)) return null;
-        ExprBinary join = (ExprBinary) expr;
-        if (join.op != ExprBinary.Op.JOIN) return null;
-
-        Scalar leftScalar = scalarCaster.castToScalar(join.left, context);
+        Scalar leftScalar = scalarCaster.castToScalar(left, context);
         if (leftScalar == null) return null;
 
-        Scalar rightScalar = scalarCaster.castToScalar(join.right, context);
+        Scalar rightScalar = scalarCaster.castToScalar(right, context);
         if (rightScalar == null || rightScalar.isNilary()) return null;
 
         return Scalar.compose(leftScalar, rightScalar);
