@@ -90,9 +90,15 @@ final class ClosureOfScalarOptTranslator extends AbstractTranslator {
         AnnotatedVar yDefnVar = new AnnotatedVar(Term.mkVar(nameGenerator.freshName("y")), y.getSort());
 
         boolean reflexive = (expr.op == ExprUnary.Op.RCLOSURE);
-        Term defnBody = buildClosureTerm(
-                expr.sub, new AnnotatedTerm(xDefnVar), yDefnVar.variable(), closedScalar, sortScope, reflexive,
-                context);
+        Term defnBody;
+        try {
+            context.addFortressVars(xDefnVar, yDefnVar);
+            defnBody = buildClosureTerm(
+                    expr.sub, new AnnotatedTerm(xDefnVar), yDefnVar.variable(), closedScalar, sortScope, reflexive,
+                    context);
+        } finally {
+            context.removeFortressVars(xDefnVar, yDefnVar);
+        }
 
         List<AnnotatedVar> freeVars = PortusUtil.computeFreeVariables(expr, context, sortPolicy);
         List<AnnotatedVar> defnParams = SetOps.concatenate(Arrays.<AnnotatedVar>asList(xDefnVar, yDefnVar), freeVars);
@@ -131,7 +137,7 @@ final class ClosureOfScalarOptTranslator extends AbstractTranslator {
 
             // guard(f^i(x))
             AnnotatedTerm iNested = buildNestedCall(cacheKey, scalar, x, i, context);
-            assembled = Term.mkAnd(scalar.getGuard(new TermTuple(iNested)), assembled);
+            assembled = Term.mkAnd(scalar.getGuard(new TermTuple(iNested), context), assembled);
         }
 
         if (reflexive) {
@@ -148,14 +154,15 @@ final class ClosureOfScalarOptTranslator extends AbstractTranslator {
         if (useSquareDefns) {
             return buildSquareDefnsNestedCall(cacheKey, scalar, arg, numNestings, context);
         } else {
-            return buildPlainNestedCall(scalar, arg, numNestings);
+            return buildPlainNestedCall(scalar, arg, numNestings, context);
         }
     }
 
-    private AnnotatedTerm buildPlainNestedCall(Scalar scalar, AnnotatedTerm arg, int numNestings) {
+    private AnnotatedTerm buildPlainNestedCall(
+            Scalar scalar, AnnotatedTerm arg, int numNestings, TranslationContext context) {
         AnnotatedTerm result = arg;
         for (int i = 0; i < numNestings; i++) {
-            result = scalar.getAnnotatedScalar(new TermTuple(result));
+            result = scalar.getAnnotatedScalar(new TermTuple(result), context);
         }
         return result;
     }
@@ -189,10 +196,11 @@ final class ClosureOfScalarOptTranslator extends AbstractTranslator {
         List<String> defns = new ArrayList<>();
         AnnotatedVar param = Term.mkVar(nameGenerator.freshName("x")).of(scalar.getArgSorts().get(0));
 
-        Term scalarBody = scalar.getScalar(TermTuple.fromVars(param));
+        Term scalarBody;
         List<AnnotatedVar> freeAnnVars;
         try {
             context.addFortressVar(param);
+            scalarBody = scalar.getScalar(TermTuple.fromVars(param), context);
             freeAnnVars = PortusUtil.computeTermFreeVars(scalarBody, context).stream()
                     .filter(avar -> !avar.equals(param)) // remove the param - we only want extra free vars
                     .collect(Collectors.toList());

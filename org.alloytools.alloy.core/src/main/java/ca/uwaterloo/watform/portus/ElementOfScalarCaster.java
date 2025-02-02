@@ -165,7 +165,7 @@ final class ElementOfScalarCaster implements ScalarCaster {
             return null;
         }
 
-        return new Scalar(sort, scalar, guard);
+        return new Scalar(sort, scalar, guard, context);
     }
 
     private List<Term> collectConjuncts(Term term) {

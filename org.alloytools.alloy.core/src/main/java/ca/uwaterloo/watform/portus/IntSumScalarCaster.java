@@ -39,7 +39,7 @@ final class IntSumScalarCaster implements ScalarCaster {
         SortResolvant resolvant = sortPolicy.getMinimalExprSorts(expr, context);
         if (resolvant.isNone()) {
             // empty sets treated as integers - hopefully this is okay in arbitrary context...
-            return new Scalar(Sort.Int(), IntegerLiteral.apply(0), Term.mkTop());
+            return new Scalar(Sort.Int(), IntegerLiteral.apply(0), Term.mkTop(), context);
         }
         if (resolvant.arity() != 1) {
             // only treat unary expressions as integers

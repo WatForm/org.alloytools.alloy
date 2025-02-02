@@ -69,7 +69,7 @@ class OneSigOptTranslator extends AbstractTranslator implements ScalarCaster, Ev
         if (domainElement == null) return null;
 
         // No guard is needed
-        return new Scalar(domainElement.sort(), domainElement, Term.mkTop());
+        return new Scalar(domainElement.sort(), domainElement, Term.mkTop(), context);
     }
 
     /** Evaluate an instance of a one sig as the value corresponding to its domain element. */

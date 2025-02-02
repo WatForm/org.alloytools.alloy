@@ -102,7 +102,7 @@ final class StringTranslator extends AbstractTranslator implements ScalarCaster,
         ExprConstant exprConst = (ExprConstant) expr;
         if (exprConst.op != ExprConstant.Op.STRING) return null;
 
-        return new Scalar(sortPolicy.getStringSort(), getDEForString(exprConst.string), Term.mkTop());
+        return new Scalar(sortPolicy.getStringSort(), getDEForString(exprConst.string), Term.mkTop(), context);
     }
 
     @Override

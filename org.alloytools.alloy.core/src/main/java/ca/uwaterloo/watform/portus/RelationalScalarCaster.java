@@ -8,7 +8,6 @@ import fortress.msfol.Sort;
 import fortress.msfol.Term;
 
 import java.util.List;
-import java.util.function.Function;
 
 /**
  * This scalar caster combines scalars into larger ones using relational operators.
@@ -85,15 +84,12 @@ final class RelationalScalarCaster implements ScalarCaster {
             }
         }
 
-        // freeze the context since the function could be invoked in a new context
-        VarMappingContext frozenContext = context.copyVarMappingContext();
-        // hopefully it's okay using context here... maybe we should technically pass in context
-        Function<TermTuple, Term> guardGenerator = tuple -> context.withVarMappingContext(frozenContext,
-                newContext -> Term.mkAnd(
-                    scalar.getGuard(tuple),
-                    translator.translate(ExprElementOf.make(
-                            tuple.concat(new TermTuple(scalar.getAnnotatedScalar(tuple))), expr), newContext)));
-        return new Scalar(scalar.getArgSorts(), scalar.getResultSort(), scalar.getScalarGenerator(), guardGenerator);
+        Scalar.TermGenerator guardGenerator = (tuple, newContext) -> Term.mkAnd(
+                scalar.getGuard(tuple, newContext),
+                translator.translate(ExprElementOf.make(
+                        tuple.concat(new TermTuple(scalar.getAnnotatedScalar(tuple, newContext))), expr), newContext));
+        return new Scalar(
+                scalar.getArgSorts(), scalar.getResultSort(), scalar.getScalarGenerator(), guardGenerator, context);
     }
 
     /**
@@ -106,13 +102,13 @@ final class RelationalScalarCaster implements ScalarCaster {
             return null;
         }
 
-        VarMappingContext frozenContext = context.copyVarMappingContext();
-        Function<TermTuple, Term> guardGenerator = tuple -> context.withVarMappingContext(frozenContext,
-                newContext -> Term.mkAnd(
-                    scalar.getGuard(tuple),
-                    Term.mkNot(translator.translate(ExprElementOf.make(
-                            tuple.concat(new TermTuple(scalar.getAnnotatedScalar(tuple))), right), newContext))));
-        return new Scalar(scalar.getArgSorts(), scalar.getResultSort(), scalar.getScalarGenerator(), guardGenerator);
+        Scalar.TermGenerator guardGenerator = (tuple, newContext) -> Term.mkAnd(
+                scalar.getGuard(tuple, newContext),
+                Term.mkNot(translator.translate(ExprElementOf.make(
+                        tuple.concat(new TermTuple(scalar.getAnnotatedScalar(tuple, newContext))), right),
+                        newContext)));
+        return new Scalar(
+                scalar.getArgSorts(), scalar.getResultSort(), scalar.getScalarGenerator(), guardGenerator, context);
     }
 
     /**
@@ -125,12 +121,11 @@ final class RelationalScalarCaster implements ScalarCaster {
             return null;
         }
 
-        VarMappingContext frozenContext = context.copyVarMappingContext();
-        Function<TermTuple, Term> guardGenerator = tuple -> context.withVarMappingContext(frozenContext,
-                newContext -> Term.mkAnd(
-                    scalar.getGuard(tuple),
-                    translator.translate(ExprElementOf.make(tuple.getAnnotatedTerm(0), left), newContext)));
-        return new Scalar(scalar.getArgSorts(), scalar.getResultSort(), scalar.getScalarGenerator(), guardGenerator);
+        Scalar.TermGenerator guardGenerator = (tuple, newContext) -> Term.mkAnd(
+                scalar.getGuard(tuple, newContext),
+                translator.translate(ExprElementOf.make(tuple.getAnnotatedTerm(0), left), newContext));
+        return new Scalar(
+                scalar.getArgSorts(), scalar.getResultSort(), scalar.getScalarGenerator(), guardGenerator, context);
     }
 
     /**
@@ -143,14 +138,12 @@ final class RelationalScalarCaster implements ScalarCaster {
         Scalar leftScalar = rootScalarCaster.castToScalar(left, context);
         if (leftScalar != null) {
             // First optimization
-            VarMappingContext frozenContext = context.copyVarMappingContext();
-            Function<TermTuple, Term> guardGenerator = tuple -> context.withVarMappingContext(frozenContext,
-                    newContext -> Term.mkAnd(
-                        leftScalar.getGuard(tuple),
-                        translator.translate(
-                                ExprElementOf.make(leftScalar.getAnnotatedScalar(tuple), right), newContext)));
+            Scalar.TermGenerator guardGenerator = (tuple, newContext) -> Term.mkAnd(
+                    leftScalar.getGuard(tuple, newContext),
+                    translator.translate(
+                            ExprElementOf.make(leftScalar.getAnnotatedScalar(tuple, newContext), right), newContext));
             return new Scalar(leftScalar.getArgSorts(), leftScalar.getResultSort(), leftScalar.getScalarGenerator(),
-                    guardGenerator);
+                    guardGenerator, context);
         }
 
         Scalar rightScalar = rootScalarCaster.castToScalar(right, context);
@@ -160,14 +153,13 @@ final class RelationalScalarCaster implements ScalarCaster {
             }
 
             // Second optimization
-            VarMappingContext frozenContext = context.copyVarMappingContext();
-            Function<TermTuple, Term> guardGenerator = tuple -> context.withVarMappingContext(frozenContext,
-                    newContext -> Term.mkAnd(
-                        rightScalar.getNilaryGuard(),
-                        translator.translate(ExprElementOf.make(
-                                tuple.concat(new TermTuple(rightScalar.getNilaryAnnotatedScalar())), left), newContext)));
+            Scalar.TermGenerator guardGenerator = (tuple, newContext) -> Term.mkAnd(
+                    rightScalar.getNilaryGuard(newContext),
+                    translator.translate(ExprElementOf.make(
+                            tuple.concat(new TermTuple(rightScalar.getNilaryAnnotatedScalar(newContext))), left),
+                            newContext));
             return new Scalar(rightScalar.getArgSorts(), rightScalar.getResultSort(), rightScalar.getScalarGenerator(),
-                    guardGenerator);
+                    guardGenerator, context);
         }
 
         return null;
@@ -192,14 +184,12 @@ final class RelationalScalarCaster implements ScalarCaster {
 
         int leftArity = left.type().arity();
         int rightArity = rightScalar.getArity();
-        VarMappingContext frozenContext = context.copyVarMappingContext();
-        Function<TermTuple, Term> scalarGenerator = tuple ->
-                rightScalar.getScalar(tuple.slice(leftArity, leftArity + rightArity));
-        Function<TermTuple, Term> guardGenerator = tuple -> context.withVarMappingContext(frozenContext,
-                newContext -> Term.mkAnd(
-                    rightScalar.getGuard(tuple.slice(leftArity, leftArity + rightArity)),
-                    translator.translate(ExprElementOf.make(tuple.slice(0, leftArity), left), newContext)));
-        return new Scalar(argSorts, rightScalar.getResultSort(), scalarGenerator, guardGenerator);
+        Scalar.TermGenerator scalarGenerator = (tuple, newContext) ->
+                rightScalar.getScalar(tuple.slice(leftArity, leftArity + rightArity), context);
+        Scalar.TermGenerator guardGenerator = (tuple, newContext) -> Term.mkAnd(
+                rightScalar.getGuard(tuple.slice(leftArity, leftArity + rightArity), newContext),
+                translator.translate(ExprElementOf.make(tuple.slice(0, leftArity), left), newContext));
+        return new Scalar(argSorts, rightScalar.getResultSort(), scalarGenerator, guardGenerator, context);
     }
 
     /**
@@ -224,13 +214,11 @@ final class RelationalScalarCaster implements ScalarCaster {
         }
         List<Sort> argSorts = rightSorts.getDefiniteSorts();
 
-        VarMappingContext frozenContext = context.copyVarMappingContext();
-        Function<TermTuple, Term> scalarGenerator = tuple -> leftScalar.getNilaryScalar();
-        Function<TermTuple, Term> guardGenerator = tuple -> context.withVarMappingContext(frozenContext,
-                newContext -> Term.mkAnd(
-                        leftScalar.getNilaryGuard(),
-                        translator.translate(ExprElementOf.make(tuple, right), newContext)));
-        return new Scalar(argSorts, leftScalar.getResultSort(), scalarGenerator, guardGenerator);
+        Scalar.TermGenerator scalarGenerator = (tuple, newContext) -> leftScalar.getNilaryScalar(newContext);
+        Scalar.TermGenerator guardGenerator = (tuple, newContext) -> Term.mkAnd(
+                    leftScalar.getNilaryGuard(newContext),
+                    translator.translate(ExprElementOf.make(tuple, right), newContext));
+        return new Scalar(argSorts, leftScalar.getResultSort(), scalarGenerator, guardGenerator, context);
     }
 
     /**
@@ -251,7 +239,7 @@ final class RelationalScalarCaster implements ScalarCaster {
             // probably will get short-circuited anyways
             return null;
         }
-        return Scalar.override(leftScalar, rightScalar);
+        return Scalar.override(leftScalar, rightScalar, context.getVarMappingContext());
     }
 
 }

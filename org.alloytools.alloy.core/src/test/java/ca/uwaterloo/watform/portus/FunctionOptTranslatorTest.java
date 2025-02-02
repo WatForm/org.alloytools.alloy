@@ -298,11 +298,12 @@ public class FunctionOptTranslatorTest {
         assertNotNull(scalar);
 
         Var x = Term.mkVar("x");
+        context.addFortressVar(x.of(sortA));
         assertFalse(scalar.isNilary());
         assertEquals(1, scalar.getArity());
         assertEquals(sortB, scalar.getResultSort());
-        assertEquals(Term.mkApp("f_0", x), scalar.getScalar(TermTuple.fromVars(x.of(sortA))));
-        assertEquals(Term.mkApp("inA", x), scalar.getGuard(TermTuple.fromVars(x.of(sortA))));
+        assertEquals(Term.mkApp("f_0", x), scalar.getScalar(TermTuple.fromVars(x.of(sortA)), context));
+        assertEquals(Term.mkApp("inA", x), scalar.getGuard(TermTuple.fromVars(x.of(sortA)), context));
     }
 
     @Test
@@ -328,11 +329,12 @@ public class FunctionOptTranslatorTest {
         assertNotNull(scalar);
 
         Var x = Term.mkVar("x");
+        context.addFortressVar(x.of(sortA));
         assertFalse(scalar.isNilary());
         assertEquals(1, scalar.getArity());
         assertEquals(sortB, scalar.getResultSort());
-        assertEquals(Term.mkApp("f_0", x), scalar.getScalar(TermTuple.fromVars(x.of(sortA))));
-        assertEquals(Term.mkApp("inDomain_0", x), scalar.getGuard(TermTuple.fromVars(x.of(sortA))));
+        assertEquals(Term.mkApp("f_0", x), scalar.getScalar(TermTuple.fromVars(x.of(sortA)), context));
+        assertEquals(Term.mkApp("inDomain_0", x), scalar.getGuard(TermTuple.fromVars(x.of(sortA)), context));
     }
 
     @Test
@@ -364,12 +366,13 @@ public class FunctionOptTranslatorTest {
 
         Var x = Term.mkVar("x");
         Var y = Term.mkVar("y");
+        context.addFortressVars(x.of(sortA), y.of(sortB));
         assertFalse(scalar.isNilary());
         assertEquals(2, scalar.getArity());
         assertEquals(sortC, scalar.getResultSort());
-        assertEquals(Term.mkApp("f_0", x, y), scalar.getScalar(TermTuple.fromVars(x.of(sortA), y.of(sortB))));
+        assertEquals(Term.mkApp("f_0", x, y), scalar.getScalar(TermTuple.fromVars(x.of(sortA), y.of(sortB)), context));
         assertEquals(Term.mkAnd(Term.mkApp("inA", x), Term.mkApp("inB", y)),
-                scalar.getGuard(TermTuple.fromVars(x.of(sortA), y.of(sortB))));
+                scalar.getGuard(TermTuple.fromVars(x.of(sortA), y.of(sortB)), context));
     }
 
     @Test
@@ -399,11 +402,13 @@ public class FunctionOptTranslatorTest {
 
         Var x = Term.mkVar("x");
         Var y = Term.mkVar("y");
+        context.addFortressVars(x.of(sortA), y.of(sortB));
         assertFalse(scalar.isNilary());
         assertEquals(2, scalar.getArity());
         assertEquals(sortC, scalar.getResultSort());
-        assertEquals(Term.mkApp("f_0", x, y), scalar.getScalar(TermTuple.fromVars(x.of(sortA), y.of(sortB))));
-        assertEquals(Term.mkApp("inDomain_0", x, y), scalar.getGuard(TermTuple.fromVars(x.of(sortA), y.of(sortB))));
+        assertEquals(Term.mkApp("f_0", x, y), scalar.getScalar(TermTuple.fromVars(x.of(sortA), y.of(sortB)), context));
+        assertEquals(Term.mkApp("inDomain_0", x, y), scalar.getGuard(
+                TermTuple.fromVars(x.of(sortA), y.of(sortB)), context));
     }
 
     @Test

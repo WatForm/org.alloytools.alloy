@@ -31,8 +31,8 @@ final class JoinOptTranslator extends AbstractTranslator implements ScalarCaster
         Scalar leftScalar = scalarCaster.castToScalar(expr.left, context);
         if (leftScalar != null) {
             TermTuple scalarArgs = tuple.slice(0, leftScalar.getArity());
-            AnnotatedTerm scalarCall = leftScalar.getAnnotatedScalar(scalarArgs);
-            Term scalarGuard = leftScalar.getGuard(scalarArgs);
+            AnnotatedTerm scalarCall = leftScalar.getAnnotatedScalar(scalarArgs, context);
+            Term scalarGuard = leftScalar.getGuard(scalarArgs, context);
             TermTuple newTuple = new TermTuple(scalarCall).concat(tuple.slice(leftScalar.getArity(), tuple.size()));
             return Term.mkAnd(scalarGuard, recursivelyTranslate(ExprElementOf.make(newTuple, expr.right), context));
         }
@@ -41,8 +41,8 @@ final class JoinOptTranslator extends AbstractTranslator implements ScalarCaster
         // This is the best we can do since functions have their outputs on the right.
         Scalar rightScalar = scalarCaster.castToScalar(expr.right, context);
         if (rightScalar != null && rightScalar.isNilary()) {
-            AnnotatedTerm rightTerm = rightScalar.getNilaryAnnotatedScalar();
-            Term rightGuard = rightScalar.getNilaryGuard();
+            AnnotatedTerm rightTerm = rightScalar.getNilaryAnnotatedScalar(context);
+            Term rightGuard = rightScalar.getNilaryGuard(context);
             TermTuple newTuple = tuple.concat(new TermTuple(rightTerm));
             return Term.mkAnd(rightGuard, recursivelyTranslate(ExprElementOf.make(newTuple, expr.left), context));
         }
@@ -82,7 +82,7 @@ final class JoinOptTranslator extends AbstractTranslator implements ScalarCaster
         Scalar rightScalar = scalarCaster.castToScalar(right, context);
         if (rightScalar == null || rightScalar.isNilary()) return null;
 
-        return Scalar.compose(leftScalar, rightScalar);
+        return Scalar.compose(leftScalar, rightScalar, context.getVarMappingContext());
     }
 
 }

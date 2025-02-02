@@ -40,6 +40,7 @@ final class VarMappingContext {
     }
 
     public VarMappingContext(VarMappingContext varMappingContext) {
+        // TODO - some kind of deep copy here? (being careful with the let context references)
         this.alloyVarMapping = varMappingContext.alloyVarMapping.dup();
         this.fortressVarsToSorts = varMappingContext.fortressVarsToSorts.dup();
     }

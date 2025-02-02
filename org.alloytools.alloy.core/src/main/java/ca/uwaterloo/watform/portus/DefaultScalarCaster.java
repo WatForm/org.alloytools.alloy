@@ -22,7 +22,6 @@ import fortress.msfol.Term;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.function.Function;
 
 /**
  * A scalar caster which casts simple expressions to scalars which don't need any additional state.
@@ -79,7 +78,7 @@ final class DefaultScalarCaster implements ScalarCaster {
                 assert scalar != null;
 
                 // Assume no guard on usage needed.
-                return new Scalar(new AnnotatedTerm(scalar, sort), Term.mkTop());
+                return new Scalar(new AnnotatedTerm(scalar, sort), Term.mkTop(), context);
             }
 
             @Override
@@ -158,11 +157,11 @@ final class DefaultScalarCaster implements ScalarCaster {
                 // scalar is "condition => left else right", guard is "condition => guardLeft else guardRight"
                 // (we have to repeat condition in normal translation anyways, so it should be fine)
                 Term condition = translator.translate(x.cond, context);
-                Function<TermTuple, Term> scalarGenerator = tuple ->
-                        Term.mkIfThenElse(condition, leftScalar.getScalar(tuple), rightScalar.getScalar(tuple));
-                Function<TermTuple, Term> guardGenerator = tuple ->
-                        Term.mkIfThenElse(condition, leftScalar.getGuard(tuple), rightScalar.getGuard(tuple));
-                return new Scalar(argSorts, resultSort, scalarGenerator, guardGenerator);
+                Scalar.TermGenerator scalarGenerator = (tuple, context) -> Term.mkIfThenElse(condition,
+                        leftScalar.getScalar(tuple, context), rightScalar.getScalar(tuple, context));
+                Scalar.TermGenerator guardGenerator = (tuple, context) -> Term.mkIfThenElse(condition,
+                        leftScalar.getGuard(tuple, context), rightScalar.getGuard(tuple, context));
+                return new Scalar(argSorts, resultSort, scalarGenerator, guardGenerator, context);
             }
 
             @Override
@@ -206,7 +205,7 @@ final class DefaultScalarCaster implements ScalarCaster {
                     AnnotatedTerm fortressTerm = varMappingContext.getTermMapping(x.label);
                     assert fortressTerm != null;
                     // no guard on the variable usage is needed
-                    return new Scalar(fortressTerm, Term.mkTop());
+                    return new Scalar(fortressTerm, Term.mkTop(), context);
                 }
                 return null;
             }

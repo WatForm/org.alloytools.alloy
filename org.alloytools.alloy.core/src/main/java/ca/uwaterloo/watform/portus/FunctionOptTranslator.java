@@ -83,8 +83,8 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
 
         public Scalar toScalar(TranslationContext context) {
             return new Scalar(argSorts, resultSort,
-                    tuple -> Term.mkApp(funcName, tuple.getTerms()),
-                    tuple -> makeDomainFormula(tuple, this, context));
+                    (tuple, newContext) -> Term.mkApp(funcName, tuple.getTerms()),
+                    (tuple, newContext) -> makeDomainFormula(tuple, this, newContext), context);
         }
     }
 

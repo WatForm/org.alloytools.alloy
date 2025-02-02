@@ -40,7 +40,7 @@ public class IntAsScalarTranslatorTest {
         ExprVar alloyI = ExprVar.make(null, "i");
         Var i = Term.mkVar("i");
         Var guard = Term.mkVar("guard");
-        when(mockScalarCaster.castToScalar(eq(alloyI), any())).thenReturn(new Scalar(Sort.Int(), i, guard));
+        when(mockScalarCaster.castToScalar(eq(alloyI), any())).thenReturn(new Scalar(Sort.Int(), i, guard, context));
 
         Translator translator = new IntAsScalarTranslator(mockScalarCaster);
         Term result = translator.translate(alloyI, context);

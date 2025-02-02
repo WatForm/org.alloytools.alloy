@@ -143,10 +143,10 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
 
             // TODO: Short-circuit if it's a domain element?
             return new Scalar(Collections.singletonList(sort), sort,
-                    tuple -> Term.mkApp(nextFuncName, tuple.getTerms()),
-                    tuple -> Term.mkAnd(
-                            recursivelyTranslate(ExprElementOf.make(tuple, sig), context),
-                            Term.mkNot(Term.mkEq(tuple.getTerm(0), lastDE))));
+                    (tuple, newContext) -> Term.mkApp(nextFuncName, tuple.getTerms()),
+                    (tuple, newContext) -> Term.mkAnd(
+                            recursivelyTranslate(ExprElementOf.make(tuple, sig), newContext),
+                            Term.mkNot(Term.mkEq(tuple.getTerm(0), lastDE))), context);
         }
 
         public Scalar getPrevScalar(TranslationContext context) {
@@ -158,10 +158,10 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
 
             // TODO: Short-circuit if it's a domain element?
             return new Scalar(Collections.singletonList(sort), sort,
-                    tuple -> Term.mkApp(prevFuncName, tuple.getTerms()),
-                    tuple -> Term.mkAnd(
-                            recursivelyTranslate(ExprElementOf.make(tuple, sig), context),
-                            Term.mkNot(Term.mkEq(tuple.getTerm(0), firstDE))));
+                    (tuple, newContext) -> Term.mkApp(prevFuncName, tuple.getTerms()),
+                    (tuple, newContext) -> Term.mkAnd(
+                            recursivelyTranslate(ExprElementOf.make(tuple, sig), newContext),
+                            Term.mkNot(Term.mkEq(tuple.getTerm(0), firstDE))), context);
         }
 
         public void addNextPredicate(TranslationContext context) {
@@ -450,7 +450,7 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
         for (OrderInfo order : orders) {
             if (order.matchesFirstUsage(expr)) {
                 // No guard is necessary since it's a plain domain element.
-                return new Scalar(order.getFirstScalar(context), Term.mkTop());
+                return new Scalar(order.getFirstScalar(context), Term.mkTop(), context);
             } else if (order.matchesNextUsage(expr)) {
                 return order.getNextScalar(context);
             } else if (order.matchesPrevUsage(expr)) {

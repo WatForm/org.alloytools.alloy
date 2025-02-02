@@ -1,7 +1,6 @@
 package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.A4Reporter;
-import edu.mit.csail.sdg.alloy4.ErrorWarning;
 import edu.mit.csail.sdg.ast.Command;
 import edu.mit.csail.sdg.translator.AlloySolution;
 import fortress.logging.EventLogger;
@@ -81,7 +80,6 @@ public final class PortusLogger implements EventLogger {
 
     @Override
     public void finished(ModelFinderResult result, Nanoseconds time) {
-        new Exception().printStackTrace();
         reporter.debug("Finished. SMT result: " + result + ". Total Fortress time: " + formatTime(time) + ".");
     }
 
