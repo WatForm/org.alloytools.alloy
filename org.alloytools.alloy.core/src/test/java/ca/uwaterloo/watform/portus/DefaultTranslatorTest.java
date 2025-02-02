@@ -51,11 +51,7 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.startsWith;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertThrows;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 import static org.mockito.AdditionalAnswers.delegatesTo;
 import static org.mockito.AdditionalMatchers.or;
 import static org.mockito.ArgumentMatchers.any;
@@ -4881,12 +4877,10 @@ public class DefaultTranslatorTest {
 
     @Test
     public void testTranslate_cast2int() {
-        // test cast2int is ignored: [[cast2int(e)]] := [[e]]
+        // test cast2int returns null so the next translator can handle it
         ExprVar e = makeTestVariable("e");
-        Var flagE = makeFlagConstant("flagE");
-        when(mockRoot.translate(eq(e), any())).thenReturn(flagE);
         Term result = translator.translate(ExprUnary.Op.CAST2INT.make(null, e), context);
-        assertEquals(flagE, result);
+        assertNull(result);
         assertContextEmpty();
     }
 
