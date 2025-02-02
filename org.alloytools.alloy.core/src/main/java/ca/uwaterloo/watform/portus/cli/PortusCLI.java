@@ -368,6 +368,9 @@ public final class PortusCLI {
         } else if (options.useOutputPostSmtlibProcessor.active()) { // don't do both - confusing
             processors.add(new OutputSmtlibCommandProcessor(A4Options.SatSolver.POST_FORTRESS_SMTLIB));
         }
+        if (options.useCheckSupportProcessor.active()) {
+            processors.add(new CheckSupportCommandProcessor());
+        }
         return processors;
     }
 

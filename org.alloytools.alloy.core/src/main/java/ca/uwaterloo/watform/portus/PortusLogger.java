@@ -1,6 +1,7 @@
 package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.A4Reporter;
+import edu.mit.csail.sdg.alloy4.ErrorWarning;
 import edu.mit.csail.sdg.ast.Command;
 import edu.mit.csail.sdg.translator.AlloySolution;
 import fortress.logging.EventLogger;
@@ -80,6 +81,7 @@ public final class PortusLogger implements EventLogger {
 
     @Override
     public void finished(ModelFinderResult result, Nanoseconds time) {
+        new Exception().printStackTrace();
         reporter.debug("Finished. SMT result: " + result + ". Total Fortress time: " + formatTime(time) + ".");
     }
 
@@ -102,6 +104,11 @@ public final class PortusLogger implements EventLogger {
     /** Called for 'output to file' solvers to output the filename. */
     public void outputFilename(String filename) {
         reporter.resultCNF(filename);
+    }
+
+    /** Output a message that Fortress supports this model. */
+    public void outputHasFortressSupport() {
+        reporter.debug("Fortress translation finished. Model is supported.");
     }
 
     private String formatTime(Nanoseconds time) {

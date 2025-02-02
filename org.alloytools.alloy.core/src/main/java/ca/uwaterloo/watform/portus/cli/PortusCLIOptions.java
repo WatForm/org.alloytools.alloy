@@ -46,6 +46,8 @@ final class PortusCLIOptions {
             "-smtlib-tc", "Output SMTLIB+ (typechecking only) for each command.");
     public final Option useOutputPostSmtlibProcessor = new Option(
             "-smtlib-all", "Output SMTLIB+ (post-Fortress) for each command.");
+    public final Option useCheckSupportProcessor = new Option(
+            "-support", "Check whether Portus supports each command.");
 
     public final Option useStatisticsProcessor = new Option(
             "-stats", "Output Portus translation statistics for each command without solving.");
@@ -110,7 +112,7 @@ final class PortusCLIOptions {
             setAllScopes, setSigScope,
             useRunPortusProcessor, useRunKodkodProcessor, useRunKodkodMiniSatProcessor,
             useCorrectnessProcessor, useDeltaDebugProcessor,
-            useOutputPreSmtlibProcessor, useOutputPostSmtlibProcessor,
+            useOutputPreSmtlibProcessor, useOutputPostSmtlibProcessor, useCheckSupportProcessor,
             useStatisticsProcessor, useCountCommandsProcessor,
             alwaysShowKodkodTime,
             disableSimpleScalarOpt, disableOneSigOpt, disableJoinOpt, disableOrderingModuleOpt,

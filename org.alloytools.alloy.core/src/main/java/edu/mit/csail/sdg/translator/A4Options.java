@@ -232,6 +232,10 @@ public final class A4Options implements Serializable {
         public static final PortusOptions.FortressSmtSolver FORTRESS_MSFOL = new PortusOptions.FortressSmtSolver(
                 "fortress/raw-msfol", "Output Fortress MSFOL to file");
 
+        /** Reports whether Portus and Fortress supports the model */
+        public static final PortusOptions.FortressSmtSolver CHECK_PORTUS_SUPPORT = new PortusOptions.FortressSmtSolver(
+                "fortress/check-support", "Check Portus/Fortress support");
+
     }
 
     /** This ensures the class can be serialized reliably. */

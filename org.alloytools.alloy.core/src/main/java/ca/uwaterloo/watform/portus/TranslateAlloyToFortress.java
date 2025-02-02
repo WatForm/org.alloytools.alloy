@@ -11,6 +11,8 @@ import edu.mit.csail.sdg.translator.AlloySolution;
 import edu.mit.csail.sdg.translator.CommandRunner;
 import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.compilers.AlmostNothingCompiler;
+import fortress.compilers.CompilerError;
+import fortress.compilers.CompilerResult;
 import fortress.data.NameGenerator;
 import fortress.interpretation.BasicInterpretation;
 import fortress.interpretation.Interpretation;
@@ -24,6 +26,7 @@ import fortress.solvers.Solver;
 import fortress.util.Dump;
 import fortress.util.Milliseconds;
 import scala.collection.immutable.Seq;
+import scala.util.Either;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -72,7 +75,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
 
             logger.translationFinished(translated.getTheory());
 
-            // Write raw MSFOL or SMTLIB+ to file if the appropriate solver is chosen
+            // Intercept special-case solvers if necessary.
             if (options.solver.id().equals(A4Options.SatSolver.FORTRESS_MSFOL.id())) {
                 writeFortressToFile(logger, options, translated);
                 return null;
@@ -80,6 +83,10 @@ public final class TranslateAlloyToFortress implements CommandRunner {
             if (options.solver.id().equals(A4Options.SatSolver.POST_FORTRESS_SMTLIB.id())
                     || options.solver.id().equals(A4Options.SatSolver.PRE_FORTRESS_SMTLIB.id())) {
                 writeSmtlibToFile(logger, options, translated);
+                return null;
+            }
+            if (options.solver.id().equals(A4Options.SatSolver.CHECK_PORTUS_SUPPORT.id())) {
+                checkFortressSupport(logger, options, translated);
                 return null;
             }
 
@@ -165,6 +172,23 @@ public final class TranslateAlloyToFortress implements CommandRunner {
             }
 
             return (result == ModelFinderResult.Sat()) ? postprocessInterp(finder.viewModel(), translated) : null;
+        }
+    }
+
+    /** Log whether Fortress supports the model without actually solving. */
+    private void checkFortressSupport(PortusLogger logger, A4Options options, TranslationResult translated) {
+        try (ModelFinder finder = createModelFinder(options.portusOptions)) {
+            translated.configureModelFinder(finder);
+            finder.setTimeout(Milliseconds.apply(options.portusOptions.timeoutMillis));
+            finder.addLogger(logger);
+
+            Either<CompilerError, CompilerResult> result = finder.compile(options.portusOptions.verbose, false);
+
+            if (result.isLeft()) {
+                throw new ErrorFatal("Error: Fortress does not support this model. Reason: " + result.left());
+            } else {
+                logger.outputHasFortressSupport();
+            }
         }
     }
 
