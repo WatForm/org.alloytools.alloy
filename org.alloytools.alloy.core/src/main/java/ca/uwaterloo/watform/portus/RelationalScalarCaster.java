@@ -143,7 +143,6 @@ final class RelationalScalarCaster implements ScalarCaster {
         Scalar leftScalar = rootScalarCaster.castToScalar(left, context);
         if (leftScalar != null) {
             // First optimization
-            System.out.println("Optimized range restriction (1): " + left + " :> " + right);
             VarMappingContext frozenContext = context.copyVarMappingContext();
             Function<TermTuple, Term> guardGenerator = tuple -> context.withVarMappingContext(frozenContext,
                     newContext -> Term.mkAnd(
