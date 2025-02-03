@@ -39,11 +39,16 @@ final class AntiMergePreprocessor extends NaturalRecursion.AlloyASTMapper {
         // We then take the cartesian product of all of these to generate the set of new decl lists
         List<List<Decl>> splitDeclLists = new ArrayList<>();
         for (Decl decl : x.decls) {
+            // one decl per name, even if they're combined in the original
+            // case where this is required: "all a, b: univ | a in A and b in B" requires a in A, b in B simultaneously
             List<Expr> splitExprs = splitExpr(decl.expr);
-            List<Decl> splitDecls = splitExprs.stream()
-                    .map(expr -> new Decl(decl.isPrivate, decl.disjoint, decl.disjoint2, decl.isVar, decl.names, expr))
+            List<List<Decl>> splitDecls = decl.names.stream()
+                    .map(name -> splitExprs.stream()
+                            .map(expr -> new Decl(decl.isPrivate, decl.disjoint, decl.disjoint2, decl.isVar,
+                                    Collections.singletonList(name), expr))
+                            .collect(Collectors.toList()))
                     .collect(Collectors.toList());
-            splitDeclLists.add(splitDecls);
+            splitDeclLists.addAll(splitDecls);
         }
 
         // Take the cartesian product to generate the new quantifiers
