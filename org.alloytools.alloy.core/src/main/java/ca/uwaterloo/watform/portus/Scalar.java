@@ -184,6 +184,9 @@ final class Scalar {
         if (g.isNilary()) {
             throw new ErrorFatal("Cannot compose scalars (g o f) where g is nilary!");
         }
+        if (!f.getResultSort().equals(g.getArgSorts().get(0))) {
+            throw new ErrorFatal("Cannot compose scalars of incompatible sorts!");
+        }
 
         int arity = f.getArity() + g.getArity() - 1;
         List<Sort> argSorts = SetOps.concatenate(f.getArgSorts(), g.getArgSorts().subList(1, g.getArity()));

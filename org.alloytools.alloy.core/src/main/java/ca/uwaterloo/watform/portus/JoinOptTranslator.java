@@ -82,6 +82,11 @@ final class JoinOptTranslator extends AbstractTranslator implements ScalarCaster
         Scalar rightScalar = scalarCaster.castToScalar(right, context);
         if (rightScalar == null || rightScalar.isNilary()) return null;
 
+        if (!leftScalar.getResultSort().equals(rightScalar.getArgSorts().get(0))) {
+            // incompatible sorts
+            return null;
+        }
+
         return Scalar.compose(leftScalar, rightScalar, context.getVarMappingContext());
     }
 
