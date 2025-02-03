@@ -61,6 +61,22 @@ final class PartitionSortPolicy extends SortPolicy {
     public PartitionSortPolicy(
             Iterable<Sig> allSigs, Command command, ModelInfo modelInfo, ScopeComputer scoper,
             NameGenerator nameGenerator) {
+        this(allSigs, command, modelInfo, scoper, nameGenerator, true);
+    }
+
+    /**
+     * Get a partition sort policy object without merging sorts in instances where the translation requires it.
+     * This is useful for seeing the "real" sort resolvant without merges.
+     */
+    public static PartitionSortPolicy makeWithoutMergingSorts(
+            Iterable<Sig> allSigs, Command command, ModelInfo modelInfo, ScopeComputer scoper,
+            NameGenerator nameGenerator) {
+        return new PartitionSortPolicy(allSigs, command, modelInfo, scoper, nameGenerator, false);
+    }
+
+    private PartitionSortPolicy(
+            Iterable<Sig> allSigs, Command command, ModelInfo modelInfo, ScopeComputer scoper,
+            NameGenerator nameGenerator, boolean shouldMergeSorts) {
         super(allSigs);
         this.modelInfo = modelInfo;
         this.scoper = scoper;
@@ -73,6 +89,12 @@ final class PartitionSortPolicy extends SortPolicy {
                 .collect(Collectors.toList());
         sortPartition = new DisjointSets<>(topLevelSigs);
 
+        if (shouldMergeSorts) {
+            mergeSorts(command);
+        }
+    }
+
+    private void mergeSorts(Command command) {
         // Merge together all sigs' sorts that need to be merged.
         // TODO: We need to pass down the sorts of the ExprElementOf LHS tuple because the logic in DefaultTranslator's
         //   join that determines the sort uses the LHS to short-circuit. This requires major refactoring.
@@ -386,6 +408,23 @@ final class PartitionSortPolicy extends SortPolicy {
         // This is okay because MembershipPredicateOptTranslator doesn't optimize out the membership predicate
         // when the sort scope would be 0, so correctness isn't impacted.
         return Math.max(scope, 1);
+    }
+
+    @Override
+    public Expr getCoveringExpr(Sort sort) {
+        if (Sort.Int().equals(sort)) {
+            return Sig.SIGINT;
+        } else if (sort.isBuiltin()) {
+            throw new ErrorFatal("Cannot get covering expr for non-int builtin sort: " + sort);
+        }
+
+        // Add all the top level sigs that are part of it together
+        // TODO if we go to sorts for subclasses and for "remainder sorts" (Edwards, Jackson, Torlak) this won't work
+        return topLevelSigs.stream()
+                .filter(sig -> sort.equals(getSort(sig)))
+                .map(sig -> (Expr) sig)
+                .reduce(Expr::plus)
+                .orElse(ExprConstant.EMPTYNESS);
     }
 
     @Override

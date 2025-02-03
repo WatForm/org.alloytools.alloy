@@ -65,6 +65,9 @@ public abstract class SortPolicy {
      */
     public abstract int getSortScope(Sort sort);
 
+    /** Get an Alloy expression that covers exactly the atoms in the sort. */
+    public abstract Expr getCoveringExpr(Sort sort);
+
     /**
      * Is every atom in sig's sort a member of sig?
      */

@@ -101,6 +101,7 @@ public final class PortusCLI {
         options.enableFuncOptimization = !cliOptions.disableFuncOpt.active();
         options.enableConstantsScopeAxiomStrategy = !disableAllOpts
                 && !cliOptions.useCardinalityScopeAxiomStrategy.active();
+        options.enableAntiMergePreprocessing = !disableAllOpts && !cliOptions.disableAntiMergePreprocessing.active();
 
         options.enableOrderingDefinition = !cliOptions.disableOrderingDefinition.active();
         options.enableClosureOptDefinition = !cliOptions.disableClosureOptDefinition.active();

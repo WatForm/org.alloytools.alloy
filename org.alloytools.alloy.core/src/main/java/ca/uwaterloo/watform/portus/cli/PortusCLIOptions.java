@@ -79,6 +79,8 @@ final class PortusCLIOptions {
             "Disable fun/pred call definition optimization.");
     public final Option disableRelationalScalarOpt = new Option("-disable-rel-scalar-opt",
             "Disable relational scalars optimization.");
+    public final Option disableAntiMergePreprocessing = new Option("-disable-anti-merge",
+            "Disable preprocessing to reduce sort merging. WARNING: some models will fail to translate!");
     public final Option disableFuncOpt = new Option("-disable-func-opt",
             "Disable function optimization. WARNING: some models will fail to translate!");
     public final Option useCardinalityScopeAxiomStrategy = new Option(
@@ -118,7 +120,7 @@ final class PortusCLIOptions {
             disableSimpleScalarOpt, disableOneSigOpt, disableJoinOpt, disableOrderingModuleOpt,
             disableClosureOfScalarOpt, disableIntsAsScalars, disableMembershipPredicateOpt, disablePartitionSortPolicy,
             disableSumDefinitionsOpt, disableExprDefnOpt, disableRelationalScalarOpt,
-            useCardinalityScopeAxiomStrategy, disableFuncOpt, disableAllOpts,
+            useCardinalityScopeAxiomStrategy, disableAntiMergePreprocessing, disableFuncOpt, disableAllOpts,
             disableOrderingDefinition, disableClosureOptDefinition, enableSumBalancing,
             enableElementOfScalarOpt, enableCaching, enableKodkodIntCompatibility,
             enableFortressNonExactScopes,

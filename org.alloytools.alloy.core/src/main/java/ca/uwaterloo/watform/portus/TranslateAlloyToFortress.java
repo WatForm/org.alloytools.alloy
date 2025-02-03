@@ -123,11 +123,18 @@ public final class TranslateAlloyToFortress implements CommandRunner {
             PortusStatistics statistics, Module world, Command command, ScopeComputer scoper, A4Options options) {
         statistics.onStartTranslation();
         try {
-
             // Decide on the sort policy with the options
             Iterable<Sig> sigs = world.getAllReachableSigs();
             ModelInfo modelInfo = new ModelInfo(sigs, command, scoper);
             NameGenerator nameGenerator = new SanitizingNameGenerator();
+
+            if (options.portusOptions.enableAntiMergePreprocessing) {
+                // Preprocess the formula
+                AntiMergePreprocessor preprocessor = new AntiMergePreprocessor(
+                        sigs, command, modelInfo, scoper, nameGenerator);
+                command = preprocessor.preprocess(command);
+            }
+
             SortPolicy sortPolicy = options.portusOptions.getSortPolicy(
                     sigs, command, modelInfo, scoper, nameGenerator);
             RangeAssigner rangeAssigner = new RangeAssigner(modelInfo, sigs, sortPolicy, scoper);
