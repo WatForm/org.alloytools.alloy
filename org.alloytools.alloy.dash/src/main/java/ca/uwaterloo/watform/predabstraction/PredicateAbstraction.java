@@ -95,7 +95,7 @@ public class PredicateAbstraction {
     // This method takes a transition guard, action, and an abstraction predicate as input;
     // returns an Alloy predicate that is used to abstract the action 
     
-    public static Command createQuery(List<Expr> args, DashModule d) {
+    public static Command createQuery(List<Expr> args, DashModule d, CompModule comp, String label) {
 
         // create an Expr e: sn = s.DshSnapshot/next 
         List<Decl> snapshots = Common.curNextDecls();
@@ -120,7 +120,7 @@ public class PredicateAbstraction {
         ExprQt q = ExprHelper.createSome(snapshots, formula);
         boolean check = false; //run command
         
-        return CommandHelper.createCommand(check, 4, 4, q);
+        return CommandHelper.createCommand(comp, check, 4, 4, q, label);
     }
 
 
@@ -181,7 +181,7 @@ public class PredicateAbstraction {
     //    This method takes a concrete guard exp and a map of abs preds -> BVs and
     //    returns an Expr where the guard is abstracted.
     
-    public static Expr replaceSubexp(Expr e, HashMap<Expr, Expr> map) {
+    public static Expr replaceSubexp(Expr e, HashMap<Expr, ExprVar> map) {
 
         if(map.containsKey(e)){
             return map.get(e);
@@ -280,10 +280,10 @@ public class PredicateAbstraction {
         d = MainFunctions.resolveDash(d, rep);
         System.out.println("Resolved Dash"); 
 
-        CompModule c = MainFunctions.translate(d, rep);
-        System.out.println("Translated Dash to Alloy"); 
-        c = MainFunctions.resolveAlloy(c,rep);
-        System.out.println("Resolved Alloy");
+        // CompModule c = MainFunctions.translate(d, rep);
+        // System.out.println("Translated Dash to Alloy"); 
+        // c = MainFunctions.resolveAlloy(c,rep);
+        // System.out.println("Resolved Alloy");
                 
 
         //get all the transition names, guards, and actions store in a list
@@ -341,20 +341,19 @@ public class PredicateAbstraction {
 
 
         // List of boolean variables corresponding to the abstraction predicates
-        List<String> bvNames = new ArrayList<String>();
-        for(int i = 0; i < absPreds.size(); i++) {
-            bvNames.add("B"+Integer.toString(i));
-        }
+        // List<String> bvNames = new ArrayList<String>();
+        // for(int i = 0; i < absPreds.size(); i++) {
+        //     bvNames.add("B"+Integer.toString(i));
+        // }
         
         // get rid of createOne; oneOf?
-        Expr boolType = ExprHelper.createOne(ExprHelper.createVar(DashStrings.boolName));
+        //Expr boolType = ExprHelper.createVar(DashStrings.boolName);
         
-        HashMap<Expr, Expr> predVarMap = new HashMap<Expr, Expr>();
+        HashMap<Expr, ExprVar> predVarMap = new HashMap<Expr, ExprVar>();
         int i = 0;
         for(Expr p: absPreds) {
-            Expr v = ExprHelper.createVar(bvNames.get(i));
+            predVarMap.put(p, ExprHelper.createVar("B"+Integer.toString(i)));
             i += 1;
-            predVarMap.put(p, v);
         }
 
         //Inits and facts also need to be translated 
@@ -399,7 +398,7 @@ public class PredicateAbstraction {
 
                 for(Expr p: absPreds) {
                     Expr negp = ExprHelper.createNot(p);
-                    Expr v = predVarMap.get(p);
+                    ExprVar v = predVarMap.get(p);
                     List<Expr> queryArgs = new ArrayList<Expr>();
                     queryArgs.add(guard);
                     queryArgs.add(action);
@@ -408,20 +407,24 @@ public class PredicateAbstraction {
                     // Parse, resolve, and translate the dash model again 
                     d = MainFunctions.parseDashFile(inputFilename, rep);
                     d = MainFunctions.resolveDash(d, rep);
-                    c = MainFunctions.translate(d, rep);
-                    c = MainFunctions.resolveAlloy(c, rep);
+                    CompModule c = MainFunctions.translate(d, rep);
 
-                    Command query = createQuery(queryArgs, d);
+                    Command query = createQuery(queryArgs, d, c, t+"_neg_"+ExprHelper.getVarName(v));
                     System.out.println("Query created");
-                    A4Options options = new A4Options();
                     
+                    c = MainFunctions.resolveAlloy(c, rep);
+                    A4Options options = new A4Options();
                     A4Solution solution = MainFunctions.executeCommand(query, c, rep, options);
+
                     if(solution.satisfiable()){
                         System.out.println("Ran query for "+t+" and neg predicate "+p.toString()+" : SAT");
                         queryArgs.remove(negp);
                         queryArgs.add(p);
-                        Command query2 = createQuery(queryArgs, d);
-                        A4Solution sol2 = MainFunctions.executeCommand(query2, c, rep, options);
+                        CompModule c2 = MainFunctions.translate(d, rep);
+                        Command query2 = createQuery(queryArgs, d, c2, t+"_"+ExprHelper.getVarName(v));
+                        
+                        c2 = MainFunctions.resolveAlloy(c2, rep);
+                        A4Solution sol2 = MainFunctions.executeCommand(query2, c2, rep, options);
 
                         if(!sol2.satisfiable()){
                             System.out.println("Ran query for "+t+" and predicate "+p.toString()+" : UNSAT");

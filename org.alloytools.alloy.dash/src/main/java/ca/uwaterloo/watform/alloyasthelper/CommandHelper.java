@@ -39,11 +39,28 @@ public class CommandHelper {
 		return c.change(sig, isExact, newScope);
 	}
 
-	public static Command createCommand(boolean check, int overallScope, int bitwidth, Expr formula) {
-		ExprVar commandKeyword = ExprHelper.createVar("c");
-		Command c = new Command(null, null, "", check, overallScope, bitwidth, -1, -1, -1, -1, null, null, commandKeyword, formula, null);
-		System.out.println(c.toString());
-		return c;
+	public static Command createCommand(CompModule comp, boolean check, int overallScope, int bitwidth, Expr formula, String label) {
+		ExprVar commandKeyword;
+		if(check) {
+			commandKeyword = ExprHelper.createVar("c");
+		}
+		else {
+			commandKeyword = ExprHelper.createVar("r");
+		}
+		boolean followUp = false;
+		comp.addCommand(false, null, formula, commandKeyword, overallScope, bitwidth, -1, -1, -1, -1, null, ExprHelper.createVar(label));
+		// addCommand(boolean followUp, Pos pos, Expr e, ExprVar commandKeyword, int overall, int bitwidth, int seq, int tmn, int tmx, int expects, List<CommandScope> scopes, ExprVar label) 
+		
+		List<Command> cmds = new ArrayList<Command>();
+		for(Command c: comp.getAllCommands()){
+			cmds.add(c);
+		}
+		return cmds.get(cmds.size() - 1);
+
+
+		// Command c = new Command(null, null, "c", check, overallScope, bitwidth, -1, -1, -1, -1, null, null, commandKeyword, formula, null);
+		// System.out.println(c.toString());
+		// return c;
          
 	}
 
