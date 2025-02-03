@@ -136,7 +136,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
             }
 
             SortPolicy sortPolicy = options.portusOptions.getSortPolicy(
-                    sigs, command, modelInfo, scoper, nameGenerator);
+                    statistics, sigs, command, modelInfo, scoper, nameGenerator);
             RangeAssigner rangeAssigner = new RangeAssigner(modelInfo, sigs, sortPolicy, scoper);
 
             TranslatorManager translatorManager = new TranslatorManager(

@@ -62,7 +62,8 @@ public class PartitionSortPolicyTest {
         when(mockScoper.isExact(sig)).thenReturn(false);
 
         PartitionSortPolicy sortPolicy = new PartitionSortPolicy(
-                Collections.singletonList(sig), makeEmptyCommand(), mockModelInfo, mockScoper, nameGenerator);
+                new PortusStatistics(), Collections.singletonList(sig), makeEmptyCommand(), mockModelInfo, mockScoper,
+                nameGenerator);
 
         Sort sort = sortPolicy.getSort(sig);
         assertNotNull(sort);
@@ -80,7 +81,8 @@ public class PartitionSortPolicyTest {
         when(mockScoper.sig2scope(sigB)).thenReturn(2);
         when(mockScoper.isExact(sigB)).thenReturn(false);
         PartitionSortPolicy sortPolicy = new PartitionSortPolicy(
-                Arrays.asList(sigA, sigB), makeEmptyCommand(), mockModelInfo, mockScoper, nameGenerator);
+                new PortusStatistics(), Arrays.asList(sigA, sigB), makeEmptyCommand(), mockModelInfo, mockScoper,
+                nameGenerator);
 
         Sort sortA = sortPolicy.getSort(sigA);
         Sort sortB = sortPolicy.getSort(sigB);
@@ -103,7 +105,8 @@ public class PartitionSortPolicyTest {
         when(mockScoper.sig2scope(child)).thenReturn(2);
         when(mockScoper.isExact(child)).thenReturn(false);
         PartitionSortPolicy sortPolicy = new PartitionSortPolicy(
-                Arrays.asList(parent, child), makeEmptyCommand(), mockModelInfo, mockScoper, nameGenerator);
+                new PortusStatistics(), Arrays.asList(parent, child), makeEmptyCommand(), mockModelInfo, mockScoper,
+                nameGenerator);
 
         Sort sort = sortPolicy.getSort(parent);
         assertNotNull(sort);
@@ -125,7 +128,8 @@ public class PartitionSortPolicyTest {
         when(mockScoper.sig2scope(child)).thenReturn(2);
         when(mockScoper.isExact(child)).thenReturn(false);
         PartitionSortPolicy sortPolicy = new PartitionSortPolicy(
-                Arrays.asList(child, parent), makeEmptyCommand(), mockModelInfo, mockScoper, nameGenerator);
+                new PortusStatistics(), Arrays.asList(child, parent), makeEmptyCommand(), mockModelInfo, mockScoper,
+                nameGenerator);
 
         Sort sort = sortPolicy.getSort(parent);
         assertNotNull(sort);
@@ -149,7 +153,8 @@ public class PartitionSortPolicyTest {
 
         Expr formula = ExprConstant.TRUE.forAll(sigA.plus(sigB).oneOf("x"));
         PartitionSortPolicy sortPolicy = new PartitionSortPolicy(
-                Arrays.asList(sigA, sigB), makeCommand(formula), mockModelInfo, mockScoper, nameGenerator);
+                new PortusStatistics(), Arrays.asList(sigA, sigB), makeCommand(formula), mockModelInfo, mockScoper,
+                nameGenerator);
 
         Sort sort = sortPolicy.getSort(sigA);
         assertNotNull(sort);
@@ -172,7 +177,8 @@ public class PartitionSortPolicyTest {
 
         Expr formula = sigA.plus(sigB).some();
         PartitionSortPolicy sortPolicy = new PartitionSortPolicy(
-                Arrays.asList(sigA, sigB), makeCommand(formula), mockModelInfo, mockScoper, nameGenerator);
+                new PortusStatistics(), Arrays.asList(sigA, sigB), makeCommand(formula), mockModelInfo, mockScoper,
+                nameGenerator);
 
         Sort sort = sortPolicy.getSort(sigA);
         assertNotNull(sort);
@@ -196,7 +202,8 @@ public class PartitionSortPolicyTest {
         Expr formula = ExprVar.make(null, "e", Type.make(sigA).product(Type.make(sigA)))
                 .override(sigA.product(sigA.plus(sigB)));
         PartitionSortPolicy sortPolicy = new PartitionSortPolicy(
-                Arrays.asList(sigA, sigB), makeCommand(formula), mockModelInfo, mockScoper, nameGenerator);
+                new PortusStatistics(), Arrays.asList(sigA, sigB), makeCommand(formula), mockModelInfo, mockScoper,
+                nameGenerator);
 
         Sort sort = sortPolicy.getSort(sigA);
         assertNotNull(sort);
@@ -219,7 +226,8 @@ public class PartitionSortPolicyTest {
 
         Expr formula = sigA.product(sigA.plus(sigB)).join(sigA.plus(sigB).product(sigA));
         PartitionSortPolicy sortPolicy = new PartitionSortPolicy(
-                Arrays.asList(sigA, sigB), makeCommand(formula), mockModelInfo, mockScoper, nameGenerator);
+                new PortusStatistics(), Arrays.asList(sigA, sigB), makeCommand(formula), mockModelInfo, mockScoper,
+                nameGenerator);
 
         Sort sort = sortPolicy.getSort(sigA);
         assertNotNull(sort);
@@ -243,7 +251,8 @@ public class PartitionSortPolicyTest {
         ExprVar a = ExprVar.make(null, "a");
         Expr formula = ExprLet.make(null, a, sigA, a.plus(sigB).no());
         PartitionSortPolicy sortPolicy = new PartitionSortPolicy(
-                Arrays.asList(sigA, sigB), makeCommand(formula), mockModelInfo, mockScoper, nameGenerator);
+                new PortusStatistics(), Arrays.asList(sigA, sigB), makeCommand(formula), mockModelInfo, mockScoper,
+                nameGenerator);
 
         Sort sort = sortPolicy.getSort(sigA);
         assertNotNull(sort);
@@ -266,7 +275,8 @@ public class PartitionSortPolicyTest {
 
         sigA.addField("f", sigA.plus(sigB));
         PartitionSortPolicy sortPolicy = new PartitionSortPolicy(
-                Arrays.asList(sigA, sigB), makeEmptyCommand(), mockModelInfo, mockScoper, nameGenerator);
+                new PortusStatistics(), Arrays.asList(sigA, sigB), makeEmptyCommand(), mockModelInfo, mockScoper,
+                nameGenerator);
 
         Sort sort = sortPolicy.getSort(sigA);
         assertNotNull(sort);
@@ -291,7 +301,8 @@ public class PartitionSortPolicyTest {
                 Arrays.asList(new Pos(null, 0, 0), new Pos(null, 0, 0)),
                 Arrays.asList(sigA, sigB));
         PartitionSortPolicy sortPolicy = new PartitionSortPolicy(
-                Arrays.asList(sigC, sigA, sigB), makeEmptyCommand(), mockModelInfo, mockScoper, nameGenerator);
+                new PortusStatistics(), Arrays.asList(sigC, sigA, sigB), makeEmptyCommand(), mockModelInfo, mockScoper,
+                nameGenerator);
 
         Sort sort = sortPolicy.getSort(sigA);
         assertNotNull(sort);
@@ -308,7 +319,8 @@ public class PartitionSortPolicyTest {
     public void testString() {
         when(mockModelInfo.numStringConstants()).thenReturn(2);
         PartitionSortPolicy sortPolicy = new PartitionSortPolicy(
-                Collections.singletonList(Sig.STRING), makeEmptyCommand(), mockModelInfo, mockScoper, nameGenerator);
+                new PortusStatistics(), Collections.singletonList(Sig.STRING), makeEmptyCommand(), mockModelInfo,
+                mockScoper, nameGenerator);
 
         Sort sort = sortPolicy.getSort(Sig.STRING);
         assertNotNull(sort);
@@ -325,7 +337,8 @@ public class PartitionSortPolicyTest {
 
         Expr formula = sigA.plus(Sig.STRING).some();
         PartitionSortPolicy sortPolicy = new PartitionSortPolicy(
-                Arrays.asList(sigA, Sig.STRING), makeCommand(formula), mockModelInfo, mockScoper, nameGenerator);
+                new PortusStatistics(), Arrays.asList(sigA, Sig.STRING), makeCommand(formula), mockModelInfo,
+                mockScoper, nameGenerator);
 
         Sort sort = sortPolicy.getSort(sigA);
         assertNotNull(sort);
@@ -339,7 +352,8 @@ public class PartitionSortPolicyTest {
     @Test
     public void testBuiltins() {
         PartitionSortPolicy sortPolicy = new PartitionSortPolicy(
-                Collections.emptyList(), makeEmptyCommand(), mockModelInfo, mockScoper, nameGenerator);
+                new PortusStatistics(), Collections.emptyList(), makeEmptyCommand(), mockModelInfo, mockScoper,
+                nameGenerator);
         assertEquals(Sort.Int(), sortPolicy.getSort(Sig.SIGINT));
         assertEquals(Sort.Int(), sortPolicy.getSort(Sig.SEQIDX));
         assertNull(sortPolicy.getSort(Sig.UNIV));

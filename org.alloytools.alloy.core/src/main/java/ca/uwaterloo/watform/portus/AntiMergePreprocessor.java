@@ -18,7 +18,8 @@ final class AntiMergePreprocessor extends NaturalRecursion.AlloyASTMapper {
     public AntiMergePreprocessor(
             Iterable<Sig> allSigs, Command command, ModelInfo modelInfo, ScopeComputer scoper,
             NameGenerator nameGenerator) {
-        super(PartitionSortPolicy.makeWithoutMergingSorts(allSigs, command, modelInfo, scoper, nameGenerator));
+        super(PartitionSortPolicy.makeWithoutMergingSorts(
+                new PortusStatistics(), allSigs, command, modelInfo, scoper, nameGenerator));
     }
 
     /** Run the preprocessor on the command. */

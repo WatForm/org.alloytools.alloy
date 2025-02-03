@@ -110,4 +110,14 @@ final class DisjointSets<T> {
         return set;
     }
 
+    /**
+     * Return whether element1 and element2 are in the same set.
+     */
+    public boolean areSameSet(T element1, T element2) {
+        if (!elementToIndex.containsKey(element1) || !elementToIndex.containsKey(element2)) {
+            throw new NoSuchElementException();
+        }
+        return find(elementToIndex.get(element1)) == find(elementToIndex.get(element2));
+    }
+
 }

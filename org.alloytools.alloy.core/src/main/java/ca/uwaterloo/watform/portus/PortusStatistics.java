@@ -51,6 +51,8 @@ public final class PortusStatistics {
     public final UsageCounts<Translator> translatorUsageCounts = new UsageCounts<>();
     public final UsageCounts<ScalarCaster> scalarCasterUsageCounts = new UsageCounts<>();
 
+    public final Counter sortMerges = new Counter();
+
     public final Counter elementOfScalarCasterIgnoredDueToFreeVarsCount = new Counter();
     public final Counter translationCacheHitCount = new Counter();
     public final Counter castToScalarCacheHitCount = new Counter();
@@ -140,6 +142,10 @@ public final class PortusStatistics {
 
         System.out.println(indent + "Scalar caster usage counts:");
         scalarCasterUsageCounts.print(indent + indent, ScalarCaster::name);
+
+        if (options.enablePartitionSortPolicy) {
+            System.out.println(indent + "Number of sort merges: " + sortMerges.count);
+        }
 
         if (options.enableElementOfScalarOptimization) {
             System.out.println(indent + "Times element-of scalar caster couldn't optimize due to free vars: "

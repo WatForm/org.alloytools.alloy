@@ -113,11 +113,11 @@ public final class PortusOptions implements Serializable {
 
     /** Which sort policy should we use to translate? */
     public SortPolicy getSortPolicy(
-            Iterable<Sig> sigs, Command command, ModelInfo modelInfo, ScopeComputer scoper,
+            PortusStatistics statistics, Iterable<Sig> sigs, Command command, ModelInfo modelInfo, ScopeComputer scoper,
             NameGenerator nameGenerator) {
         // For now, always use the partition sort policy
         if (enablePartitionSortPolicy) {
-            return new PartitionSortPolicy(sigs, command, modelInfo, scoper, nameGenerator);
+            return new PartitionSortPolicy(statistics, sigs, command, modelInfo, scoper, nameGenerator);
         } else {
             return new UnivSortPolicy(sigs, modelInfo, scoper);
         }

@@ -44,7 +44,8 @@ public final class PortusCLI {
         ScopeComputer scoper = ScopeComputer.compute(A4Reporter.NOP, options, sigs, command).b;
         ModelInfo modelInfo = new ModelInfo(sigs, command, scoper);
         NameGenerator nameGenerator = new SanitizingNameGenerator();
-        SortPolicy sortPolicy = options.portusOptions.getSortPolicy(sigs, command, modelInfo, scoper, nameGenerator);
+        SortPolicy sortPolicy = options.portusOptions.getSortPolicy(
+                new PortusStatistics(), sigs, command, modelInfo, scoper, nameGenerator);
 
         // find the smallest bitwidth >= the command's bitwidth such that the max int representable is >= the size
         // of all sorts created by the sort policy

@@ -41,6 +41,8 @@ import java.util.stream.StreamSupport;
  */
 final class PartitionSortPolicy extends SortPolicy {
 
+    private final PortusStatistics statistics;
+
     // For generating unique names.
     private final NameGenerator nameGenerator;
 
@@ -59,9 +61,9 @@ final class PartitionSortPolicy extends SortPolicy {
     private final ScopeComputer scoper;
 
     public PartitionSortPolicy(
-            Iterable<Sig> allSigs, Command command, ModelInfo modelInfo, ScopeComputer scoper,
-            NameGenerator nameGenerator) {
-        this(allSigs, command, modelInfo, scoper, nameGenerator, true);
+            PortusStatistics statistics, Iterable<Sig> allSigs, Command command, ModelInfo modelInfo,
+            ScopeComputer scoper, NameGenerator nameGenerator) {
+        this(statistics, allSigs, command, modelInfo, scoper, nameGenerator, true);
     }
 
     /**
@@ -69,15 +71,16 @@ final class PartitionSortPolicy extends SortPolicy {
      * This is useful for seeing the "real" sort resolvant without merges.
      */
     public static PartitionSortPolicy makeWithoutMergingSorts(
-            Iterable<Sig> allSigs, Command command, ModelInfo modelInfo, ScopeComputer scoper,
-            NameGenerator nameGenerator) {
-        return new PartitionSortPolicy(allSigs, command, modelInfo, scoper, nameGenerator, false);
+            PortusStatistics statistics, Iterable<Sig> allSigs, Command command, ModelInfo modelInfo,
+            ScopeComputer scoper, NameGenerator nameGenerator) {
+        return new PartitionSortPolicy(statistics, allSigs, command, modelInfo, scoper, nameGenerator, false);
     }
 
     private PartitionSortPolicy(
-            Iterable<Sig> allSigs, Command command, ModelInfo modelInfo, ScopeComputer scoper,
-            NameGenerator nameGenerator, boolean shouldMergeSorts) {
+            PortusStatistics statistics, Iterable<Sig> allSigs, Command command, ModelInfo modelInfo,
+            ScopeComputer scoper, NameGenerator nameGenerator, boolean shouldMergeSorts) {
         super(allSigs);
+        this.statistics = statistics;
         this.modelInfo = modelInfo;
         this.scoper = scoper;
         this.nameGenerator = nameGenerator;
@@ -321,6 +324,9 @@ final class PartitionSortPolicy extends SortPolicy {
             if (first == null) {
                 first = topLevel;
             } else {
+                if (!sortPartition.areSameSet(first, topLevel)) {
+                    statistics.sortMerges.increment();
+                }
                 sortPartition.unite(first, topLevel);
             }
         }
