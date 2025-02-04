@@ -35,6 +35,12 @@ final class AntiMergePreprocessor extends NaturalRecursion.AlloyASTMapper {
     public Expr visit(ExprQt x) throws Err {
         if (x.op != ExprQt.Op.ALL && x.op != ExprQt.Op.SOME && x.op != ExprQt.Op.NO) return super.visit(x);
 
+        // Desugar away the "disjoint" keyword, which we don't support here.
+        Expr desugared = x.desugar();
+        if (desugared != x) {
+            return visitThis(desugared);
+        }
+
         // Worst case exponential in the number of decls, but that's okay
         // splitDeclLists[i] is the set of new decls that are generated for the ith decl
         // We then take the cartesian product of all of these to generate the set of new decl lists
