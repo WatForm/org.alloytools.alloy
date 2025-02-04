@@ -141,7 +141,7 @@ final class NaturalRecursion {
      * Also keeps a VarMappingContext, but maintains only term/let mappings, not Fortress var mappings!
      * Extend this to perform a transformation over the Alloy AST.
      */
-    static class AlloyASTMapper extends VisitReturn<Expr> {
+    static class AlloyASTMapper extends FortressVisitReturn<Expr> {
 
         protected final VarMappingContext varMappingContext = new VarMappingContext();
         protected final SortPolicy sortPolicy;
@@ -277,6 +277,11 @@ final class NaturalRecursion {
         }
 
         @Override
+        public Expr visit(ExprElementOf x) throws Err {
+            return ExprElementOf.make(x.tuple, visitThis(x.sub));
+        }
+
+        @Override
         public Expr visit(Func x) throws Err {
             return x;
         }
@@ -290,7 +295,6 @@ final class NaturalRecursion {
         public Expr visit(Macro macro) throws Err {
             return macro;
         }
-
     }
 
 }
