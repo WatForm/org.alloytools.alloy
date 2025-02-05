@@ -8,7 +8,6 @@ import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.msfol.Sort;
 import fortress.msfol.Theory;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -22,12 +21,12 @@ final class UnivSortPolicy extends SortPolicy {
     private final int univScope;
     private final int bitwidth;
 
-    public UnivSortPolicy(Iterable<Sig> sigs, ModelInfo modelInfo, ScopeComputer scoper) {
+    public UnivSortPolicy(List<Sig> sigs, ModelInfo modelInfo, ScopeComputer scoper) {
         this(Sort.mkSortConst("univ"), sigs, modelInfo, scoper);
     }
 
     /** Pass in the univ sort for testing purposes. */
-    UnivSortPolicy(Sort univ, Iterable<Sig> sigs, ModelInfo modelInfo, ScopeComputer scoper) {
+    UnivSortPolicy(Sort univ, List<Sig> sigs, ModelInfo modelInfo, ScopeComputer scoper) {
         super(sigs);
         this.univ = univ;
         this.bitwidth = scoper.getBitwidth();

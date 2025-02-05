@@ -289,7 +289,8 @@ public final class SimpleCLI {
                     }
                     rep.sb.append("Executing \"" + c + "\"\n");
                     options.skolemDepth = 0;
-                    AlloySolution s = options.solver.commandRunner().executeCommand(rep, world, c, options);
+                    AlloySolution s = options.solver.commandRunner().executeCommand(
+                            rep, world.getAllReachableSigs(), c, options);
                     if (s.satisfiable()) {
                         validate(s);
                         if (s.isIncremental()) {
@@ -299,7 +300,7 @@ public final class SimpleCLI {
                         }
                     }
                     options.skolemDepth = 2;
-                    s = options.solver.commandRunner().executeCommand(rep, world, c, options);
+                    s = options.solver.commandRunner().executeCommand(rep, world.getAllReachableSigs(), c, options);
                     if (s.satisfiable()) {
                         validate(s);
                         if (s.isIncremental()) {

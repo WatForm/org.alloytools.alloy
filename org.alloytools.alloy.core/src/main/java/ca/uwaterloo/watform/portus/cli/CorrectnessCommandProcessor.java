@@ -1,9 +1,7 @@
 package ca.uwaterloo.watform.portus.cli;
 
+import ca.uwaterloo.watform.portus.AlloyProblem;
 import ca.uwaterloo.watform.portus.PortusStatistics;
-import edu.mit.csail.sdg.ast.Command;
-import edu.mit.csail.sdg.ast.Module;
-import edu.mit.csail.sdg.translator.A4Options;
 
 /**
  * A command processor that checks correctness. Given a command, it generates an intepretation by going through Portus,
@@ -19,10 +17,9 @@ final class CorrectnessCommandProcessor implements CommandProcessor {
     }
 
     @Override
-    public boolean process(Module world, Command command, A4Options options) {
+    public boolean process(AlloyProblem problem) {
         PortusStatistics statistics = new PortusStatistics();
-        CorrectnessChecker.Result result = correctnessChecker.checkCorrectness(
-                statistics, world, command, options);
+        CorrectnessChecker.Result result = correctnessChecker.checkCorrectness(statistics, problem);
 
         if (result.kind == CorrectnessChecker.Result.Kind.EXCEPTION) {
             assert result.exception != null;
@@ -41,7 +38,7 @@ final class CorrectnessCommandProcessor implements CommandProcessor {
             System.err.print("ERROR: ");
         }
         System.out.println(result.kind.description);
-        statistics.printSummary(options.portusOptions);
+        statistics.printSummary(problem.getPortusOptions());
         return !result.kind.isError;
     }
 

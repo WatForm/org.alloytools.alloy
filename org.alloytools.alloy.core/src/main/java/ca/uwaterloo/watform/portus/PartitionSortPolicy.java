@@ -3,7 +3,6 @@ package ca.uwaterloo.watform.portus;
 import edu.mit.csail.sdg.alloy4.Err;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.ast.Assert;
-import edu.mit.csail.sdg.ast.Command;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprBinary;
 import edu.mit.csail.sdg.ast.ExprCall;
@@ -32,7 +31,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
 /**
  * A sort policy that attempts to partition top-level signatures among as many different sorts as possible.
@@ -61,9 +59,9 @@ final class PartitionSortPolicy extends SortPolicy {
     private final ScopeComputer scoper;
 
     public PartitionSortPolicy(
-            PortusStatistics statistics, Iterable<Sig> allSigs, Command command, ModelInfo modelInfo,
-            ScopeComputer scoper, NameGenerator nameGenerator) {
-        this(statistics, allSigs, command, modelInfo, scoper, nameGenerator, true);
+            PortusStatistics statistics, AlloyProblem problem, ModelInfo modelInfo, ScopeComputer scoper,
+            NameGenerator nameGenerator) {
+        this(statistics, problem, modelInfo, scoper, nameGenerator, true);
     }
 
     /**
@@ -71,21 +69,21 @@ final class PartitionSortPolicy extends SortPolicy {
      * This is useful for seeing the "real" sort resolvant without merges.
      */
     public static PartitionSortPolicy makeWithoutMergingSorts(
-            PortusStatistics statistics, Iterable<Sig> allSigs, Command command, ModelInfo modelInfo,
+            PortusStatistics statistics, AlloyProblem problem, ModelInfo modelInfo,
             ScopeComputer scoper, NameGenerator nameGenerator) {
-        return new PartitionSortPolicy(statistics, allSigs, command, modelInfo, scoper, nameGenerator, false);
+        return new PartitionSortPolicy(statistics, problem, modelInfo, scoper, nameGenerator, false);
     }
 
     private PartitionSortPolicy(
-            PortusStatistics statistics, Iterable<Sig> allSigs, Command command, ModelInfo modelInfo,
-            ScopeComputer scoper, NameGenerator nameGenerator, boolean shouldMergeSorts) {
-        super(allSigs);
+            PortusStatistics statistics, AlloyProblem problem, ModelInfo modelInfo, ScopeComputer scoper,
+            NameGenerator nameGenerator, boolean shouldMergeSorts) {
+        super(problem.getSigs());
         this.statistics = statistics;
         this.modelInfo = modelInfo;
         this.scoper = scoper;
         this.nameGenerator = nameGenerator;
 
-        topLevelSigs = StreamSupport.stream(allSigs.spliterator(), false)
+        topLevelSigs = allSigs.stream()
                 .filter(sig -> !sig.builtin || sig.equals(Sig.STRING)) // only handle custom top-level sigs and string
                 .filter(Sig::isTopLevel)
                 .map(sig -> (Sig.PrimSig) sig)
@@ -93,11 +91,11 @@ final class PartitionSortPolicy extends SortPolicy {
         sortPartition = new DisjointSets<>(topLevelSigs);
 
         if (shouldMergeSorts) {
-            mergeSorts(command);
+            mergeSorts(problem.getFormula());
         }
     }
 
-    private void mergeSorts(Command command) {
+    private void mergeSorts(Expr formula) {
         // Merge together all sigs' sorts that need to be merged.
         // TODO: We need to pass down the sorts of the ExprElementOf LHS tuple because the logic in DefaultTranslator's
         //   join that determines the sort uses the LHS to short-circuit. This requires major refactoring.
@@ -237,7 +235,7 @@ final class PartitionSortPolicy extends SortPolicy {
                 throw new ErrorFatal("Cannot visit Macro!");
             }
         };
-        merger.visitThis(command.formula);
+        merger.visitThis(formula);
 
         // Also make sure every in field declaration "f: e", e has definite sorts
         for (Sig sig : allSigs) {

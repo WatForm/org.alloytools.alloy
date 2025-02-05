@@ -40,8 +40,6 @@ final class PortusCLIOptions {
     public final Option useRunKodkodMiniSatProcessor = new Option("-rk-ms", "Run Kodkod (MiniSat) on each command.");
 
     public final Option useCorrectnessProcessor = new Option("-c", "Check Portus correctness on each command.");
-    public final Option useDeltaDebugProcessor = new Option(
-            "-dd", "Run delta debugging on each command to minimize the model (experimental).");
     public final Option useOutputPreSmtlibProcessor = new Option(
             "-smtlib-tc", "Output SMTLIB+ (typechecking only) for each command.");
     public final Option useOutputPostSmtlibProcessor = new Option(
@@ -51,8 +49,6 @@ final class PortusCLIOptions {
 
     public final Option useStatisticsProcessor = new Option(
             "-stats", "Output Portus translation statistics for each command without solving.");
-    public final Option useCountCommandsProcessor = new Option(
-            "-cmd-count", "Output a count of the commands in each file.");
 
     public final Option alwaysShowKodkodTime = new Option(
             "-show-kodkod-time", "When evaluating correctness, always evaluate and show Kodkod's time (slower).");
@@ -108,14 +104,17 @@ final class PortusCLIOptions {
     public final Option enableFortressNonExactScopes = new Option(
             "-enable-fortress-nonexact-scopes", "Enable use of the Fortress-level non-exact scopes feature.");
 
+    public final Option countCommands = new Option(
+            "-cmd-count", "Output a count of the commands in each file and stop.");
+
     public final Option[] allOptions = new Option[] {
             help, verbose, adjustBitwidth, noTimeout, pickCommandNumber,
             fortressCompiler, fortressSolver,
             setAllScopes, setSigScope,
             useRunPortusProcessor, useRunKodkodProcessor, useRunKodkodMiniSatProcessor,
-            useCorrectnessProcessor, useDeltaDebugProcessor,
+            useCorrectnessProcessor,
             useOutputPreSmtlibProcessor, useOutputPostSmtlibProcessor, useCheckSupportProcessor,
-            useStatisticsProcessor, useCountCommandsProcessor,
+            useStatisticsProcessor,
             alwaysShowKodkodTime,
             disableSimpleScalarOpt, disableOneSigOpt, disableJoinOpt, disableOrderingModuleOpt,
             disableClosureOfScalarOpt, disableIntsAsScalars, disableMembershipPredicateOpt, disablePartitionSortPolicy,
@@ -124,6 +123,7 @@ final class PortusCLIOptions {
             disableOrderingDefinition, disableClosureOptDefinition, enableSumBalancing,
             enableElementOfScalarOpt, enableCaching, enableKodkodIntCompatibility,
             enableFortressNonExactScopes,
+            countCommands,
     };
 
     // The positional arguments - a list of Alloy command specifiers.

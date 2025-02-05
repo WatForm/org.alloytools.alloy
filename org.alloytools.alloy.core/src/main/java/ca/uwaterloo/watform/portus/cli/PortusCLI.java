@@ -1,7 +1,6 @@
 package ca.uwaterloo.watform.portus.cli;
 
 import ca.uwaterloo.watform.portus.*;
-import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.alloy4.ConstList;
 import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.alloy4.Pos;
@@ -34,23 +33,21 @@ public final class PortusCLI {
     private static final String PROGRAM_NAME = "portus";
 
     /**
-     * Return a new command with bitwidth adjusted high enough to be able to represent the scope of every sort,
-     * so the cardinality scope axiom strategy will work. Also return the old bitwidth.
+     * Return a new problem with bitwidth adjusted high enough to be able to represent the scope of every sort,
+     * so the cardinality scope axiom strategy will work.
      * TODO: this is an ugly hack, can we move it into the main portus package?
      */
-    private static Pair<Integer, Command> fixBitwidthForCardinalityScope(
-            Module world, Command command, A4Options options) {
-        Iterable<Sig> sigs = world.getAllReachableSigs();
-        ScopeComputer scoper = ScopeComputer.compute(A4Reporter.NOP, options, sigs, command).b;
-        ModelInfo modelInfo = new ModelInfo(sigs, command, scoper);
+    private static AlloyProblem fixBitwidthForCardinalityScope(AlloyProblem problem) {
+        ScopeComputer scoper = problem.makeScopeComputer();
+        ModelInfo modelInfo = new ModelInfo(problem, scoper);
         NameGenerator nameGenerator = new SanitizingNameGenerator();
-        SortPolicy sortPolicy = options.portusOptions.getSortPolicy(
-                new PortusStatistics(), sigs, command, modelInfo, scoper, nameGenerator);
+        SortPolicy sortPolicy = problem.getPortusOptions().getSortPolicy(
+                new PortusStatistics(), problem, modelInfo, scoper, nameGenerator);
 
         // find the smallest bitwidth >= the command's bitwidth such that the max int representable is >= the size
         // of all sorts created by the sort policy
-        int bitwidth = scoper.getBitwidth();
-        for (Sig sig : world.getAllReachableUserDefinedSigs()) {
+        int bitwidth = problem.getBitwidth();
+        for (Sig sig : problem.getSigs()) {
             int sortScope = sortPolicy.getSortScope(sortPolicy.getSort(sig));
             // bump up the bitwidth until it can represent sortScope
             while (Util.max(bitwidth) < sortScope) {
@@ -58,12 +55,7 @@ public final class PortusCLI {
             }
         }
 
-        // replace the command's bitwidth but keep everything else the same
-        Command newCommand = new Command(
-                command.pos, command.nameExpr, command.label, command.check, command.overall, bitwidth, command.maxseq,
-                command.minprefix, command.maxprefix, command.expects, command.scope, command.additionalExactScopes,
-                command.commandKeyword, command.formula, command.parent);
-        return new Pair<>(scoper.getBitwidth(), newCommand);
+        return problem.withBitwidth(bitwidth);
     }
 
     private static int parseInt(String str, String error, PortusCLIOptions options) {
@@ -167,8 +159,9 @@ public final class PortusCLI {
     }
 
     // Implement the setAllScopes and setSigScope options
-    private static Command performScopeOverrides(Module world, Command command, PortusCLIOptions options) {
-        List<Sig> overridableSigs = world.getAllReachableUserDefinedSigs().stream()
+    private static AlloyProblem performScopeOverrides(AlloyProblem problem, PortusCLIOptions options) {
+        Command command = problem.getCommand();
+        List<Sig> overridableSigs = problem.getSigs().stream()
                 .filter(PortusCLI::canOverrideSig)
                 .collect(Collectors.toList());
 
@@ -210,35 +203,34 @@ public final class PortusCLI {
             command = changeScope(command, sig, true, scope);
         }
 
-        return command;
+        return problem.withCommand(command);
     }
 
     /** Process a single command in an Alloy file with each of the chosen processors. Return whether all successful. */
-    private static boolean processCommand(Module world, Command command, A4Options alloyOptions,
-                                          PortusCLIOptions options, List<CommandProcessor> processors) {
-        System.out.println("Command: " + command.label);
+    private static boolean processCommand(AlloyProblem problem, PortusCLIOptions options,
+                                          List<CommandProcessor> processors) {
+        System.out.println("Command: " + problem.getCommand().label);
 
         if (options.adjustBitwidth.active()) {
-            // Fix the command bitwidth to avoid errors when using the cardinality scope axiom strategy
-            Pair<Integer, Command> fixed = fixBitwidthForCardinalityScope(world, command, alloyOptions);
-            int oldBitwidth = fixed.a;
-            Command newCommand = fixed.b;
-            if (oldBitwidth != newCommand.bitwidth) {
-                System.out.println("WARNING: bumped bitwidth from " + oldBitwidth + " to " + newCommand.bitwidth
+            // Fix the problem bitwidth to avoid errors when using the cardinality scope axiom strategy
+            AlloyProblem newProblem = fixBitwidthForCardinalityScope(problem);
+            if (problem.getBitwidth() != newProblem.getBitwidth()) {
+                System.out.println("WARNING: bumped bitwidth from " + problem.getBitwidth() + " to "
+                        + newProblem.getBitwidth()
                         + " to meet requirements of cardinality scope axiom strategy (enabled due to "
                         + options.adjustBitwidth.displayName() + ")");
-                command = newCommand;
+                problem = newProblem;
             }
         }
 
-        command = performScopeOverrides(world, command, options);
+        problem = performScopeOverrides(problem, options);
 
         boolean allSuccessful = true;
         for (CommandProcessor processor : processors) {
             System.out.println("Running with processor: " + processor.displayName());
             boolean success;
             try {
-                success = processor.process(world, command, alloyOptions);
+                success = processor.process(problem);
             } catch (TimeoutException e) {
                 System.out.println("  SMT solver timeout!");
                 success = false;
@@ -298,13 +290,20 @@ public final class PortusCLI {
             if (runAllCommands && options.pickCommandNumber.active()) {
                 int commandIndex = parsePickCommandNumber(options, commands.size(), alloyFilename);
                 Command command = commands.get(commandIndex);
-                return processCommand(world, command, alloyOptions, options, processors);
+                return processCommand(new AlloyProblem(world, command, alloyOptions), options, processors);
+            }
+
+            if (options.countCommands.active()) {
+                // hacky thing for scripts: output a count of the commands and exit
+                System.out.println("Command count: " + world.getAllCommands().size());
+                return true;
             }
 
             boolean allSuccessful = true;
             for (Command command : commands) {
                 if (runAllCommands || commandNames.contains(command.label)) {
-                    boolean success = processCommand(world, command, alloyOptions, options, processors);
+                    boolean success = processCommand(
+                            new AlloyProblem(world, command, alloyOptions), options, processors);
                     allSuccessful = allSuccessful && success;
                 }
             }
@@ -346,9 +345,6 @@ public final class PortusCLI {
         if (options.useStatisticsProcessor.active()) {
             processors.add(new StatisticsCommandProcessor());
         }
-        if (options.useCountCommandsProcessor.active()) {
-            processors.add(new CountCommandsCommandProcessor());
-        }
         if (options.useRunPortusProcessor.active()) {
             processors.add(new RunCommandProcessor(A4Options.SatSolver.Z3));
         }
@@ -361,9 +357,6 @@ public final class PortusCLI {
         if (options.useCorrectnessProcessor.active()) {
             processors.add(new CorrectnessCommandProcessor(new CorrectnessChecker(
                     options.alwaysShowKodkodTime.active())));
-        }
-        if (options.useDeltaDebugProcessor.active()) {
-            processors.add(new DeltaDebugCommandProcessor());
         }
         if (options.useOutputPreSmtlibProcessor.active()) {
             processors.add(new OutputSmtlibCommandProcessor(A4Options.SatSolver.PRE_FORTRESS_SMTLIB));

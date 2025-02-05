@@ -1,10 +1,8 @@
 package ca.uwaterloo.watform.portus.cli;
 
+import ca.uwaterloo.watform.portus.AlloyProblem;
 import ca.uwaterloo.watform.portus.PortusOptions;
 import ca.uwaterloo.watform.portus.PortusStatistics;
-import edu.mit.csail.sdg.ast.Command;
-import edu.mit.csail.sdg.ast.Module;
-import edu.mit.csail.sdg.translator.A4Options;
 
 /**
  * A command processor which runs the Portus translation and prints statistics on the generated Fortress theory without
@@ -23,17 +21,17 @@ final class StatisticsCommandProcessor implements CommandProcessor {
     }
 
     @Override
-    public boolean process(Module world, Command command, A4Options options) {
+    public boolean process(AlloyProblem problem) {
         PortusStatistics statistics = new PortusStatistics();
         try {
-            solver.commandRunner().translate(statistics, world, command, options); // ignore the result
+            solver.commandRunner().translate(statistics, problem); // ignore the result
         } catch (Exception e) {
             System.err.println("Exception during translation!");
             e.printStackTrace();
-            statistics.printSummary(options.portusOptions);
+            statistics.printSummary(problem.getPortusOptions());
             return false;
         }
-        statistics.printSummary(options.portusOptions);
+        statistics.printSummary(problem.getPortusOptions());
         return true;
     }
 

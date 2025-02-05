@@ -48,8 +48,8 @@ final class MembershipPredicateOptTranslator extends AbstractTranslator implemen
      * expression in the AST to determine which sorts' scopes are expanded over in that expression.
      */
     public Pass getApplicabilityDeterminingPass(List<ScopeExpansionMarker> scopeExpansionMarkers) {
-        return (world, command, scoper, context) -> {
-            for (Sig sig : world.getAllReachableSigs()) {
+        return (problem, scoper, context) -> {
+            for (Sig sig : problem.getSigs()) {
                 determineApplicabilityFromSig(sig, scoper);
             }
 
@@ -59,7 +59,7 @@ final class MembershipPredicateOptTranslator extends AbstractTranslator implemen
                     (expr, varMappingContext) -> scopeExpansionMarkers.stream()
                         .map(marker -> marker.determineExpandedSorts(expr, varMappingContext))
                         .reduce(new HashSet<>(), SetOps::union),
-                    command.formula, sortPolicy, new VarMappingContext()));
+                    problem.getFormula(), sortPolicy, new VarMappingContext()));
         };
     }
 

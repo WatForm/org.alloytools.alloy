@@ -10,6 +10,6 @@ import edu.mit.csail.sdg.translator.ScopeComputer;
 @FunctionalInterface
 interface Pass {
 
-    void performPass(Module world, Command command, ScopeComputer scoper, TranslationContext context);
+    void performPass(AlloyProblem problem, ScopeComputer scoper, TranslationContext context);
 
 }

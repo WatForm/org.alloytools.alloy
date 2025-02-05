@@ -1,13 +1,11 @@
 package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
-import edu.mit.csail.sdg.ast.Command;
 import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprHasName;
 import edu.mit.csail.sdg.ast.ExprLet;
 import edu.mit.csail.sdg.ast.ExprVar;
-import edu.mit.csail.sdg.ast.Module;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.msfol.Sort;
@@ -35,8 +33,8 @@ final class TranslationPass implements Pass {
     }
 
     @Override
-    public void performPass(Module world, Command command, ScopeComputer scoper, TranslationContext context) {
-        Iterable<Sig> sigs = world.getAllReachableSigs();
+    public void performPass(AlloyProblem problem, ScopeComputer scoper, TranslationContext context) {
+        Iterable<Sig> sigs = problem.getSigs();
 
         // Do sigs first, then fields, then the formula.
         // We have to do fields after sigs because a field can refer to sigs that come after it.
@@ -50,7 +48,7 @@ final class TranslationPass implements Pass {
         addDisjointnessAxioms(sigs, context);
 
         // Translate the entire formula.
-        context.addAxiom(translator.translate(command.formula, context));
+        context.addAxiom(translator.translate(problem.getFormula(), context));
     }
 
     private void translateSigs(Iterable<Sig> sigs, TranslationContext context) {

@@ -665,8 +665,8 @@ public final class TranslateAlloyToKodkod extends VisitReturn<Object> {
      */
     public static final class Runner implements CommandRunner {
         @Override
-        public A4Solution executeCommand(A4Reporter rep, Module world, Command cmd, A4Options opts) {
-            return execute_commandFromBook(rep, world.getAllReachableSigs(), cmd, opts);
+        public A4Solution executeCommand(A4Reporter rep, List<Sig> allSigs, Command cmd, A4Options opts) {
+            return execute_commandFromBook(rep, allSigs, cmd, opts);
         }
     }
 

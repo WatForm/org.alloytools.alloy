@@ -1,15 +1,11 @@
 package ca.uwaterloo.watform.portus.cli;
 
-import ca.uwaterloo.watform.portus.ExprElementOf;
-import ca.uwaterloo.watform.portus.FortressVisitReturn;
-import ca.uwaterloo.watform.portus.PortusOptions;
-import ca.uwaterloo.watform.portus.PortusStatistics;
+import ca.uwaterloo.watform.portus.*;
 import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.alloy4.Err;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.alloy4.XMLNode;
 import edu.mit.csail.sdg.ast.Assert;
-import edu.mit.csail.sdg.ast.Command;
 import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprBinary;
@@ -23,7 +19,6 @@ import edu.mit.csail.sdg.ast.ExprQt;
 import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Func;
-import edu.mit.csail.sdg.ast.Module;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.parser.Macro;
 import edu.mit.csail.sdg.translator.A4Options;
@@ -238,17 +233,17 @@ final class CorrectnessChecker {
         }.visitThis(formula);
     }
 
-    public Result checkCorrectness(Module world, Command command, A4Options options) {
-        return checkCorrectness(new PortusStatistics(), world, command, options);
+    public Result checkCorrectness(AlloyProblem problem) {
+        return checkCorrectness(new PortusStatistics(), problem);
     }
 
-    public Result checkCorrectness(
-            PortusStatistics statistics, Module world, Command command, A4Options options) {
+    public Result checkCorrectness(PortusStatistics statistics, AlloyProblem problem) {
         // Run through Portus and get a solution using Fortress
         AlloySolution fortressSol;
         try {
             fortressSol = fortressSolver.commandRunner().executeCommand(
-                    new StdoutA4Reporter(options.portusOptions.verbose), statistics, world, command, options);
+                    new StdoutA4Reporter(problem.getPortusOptions().verbose), statistics,
+                    problem.getSigs(), problem.getCommand(), problem.getOptions());
         } catch (Exception exception) {
             return new Result(Result.Kind.EXCEPTION, exception);
         }
@@ -257,7 +252,7 @@ final class CorrectnessChecker {
             // If Fortress reports UNSAT, evaluate for correctness reasons; otherwise evaluate if the user requests it.
             statistics.onStartKodkod();
             AlloySolution kodkodSol = kodkodSolver.commandRunner().executeCommand(
-                    A4Reporter.NOP, world, command, options);
+                    A4Reporter.NOP, problem.getSigs(), problem.getCommand(), problem.getOptions());
             statistics.onKodkodFinished();
 
             // Make sure Kodkod also thinks it's unsat
@@ -274,7 +269,7 @@ final class CorrectnessChecker {
         // The Kodkod-converted formula uses different objects for Sig/Field than the original formula (because it
         // was reconstructed from XML), so A4Solution.eval() won't recognize them as equivalent. Fix this by
         // mapping the Sig/Field objects to those in the new A4Solution.
-        Expr kodkodCompatibleFormula = mapFormulaToNewA4Solution(command.formula, kodkodSol);
+        Expr kodkodCompatibleFormula = mapFormulaToNewA4Solution(problem.getFormula(), kodkodSol);
 
         // The assertion in the command needs to be valid according to Kodkod too
         // Typechecking should ensure we don't get any class cast errors here...

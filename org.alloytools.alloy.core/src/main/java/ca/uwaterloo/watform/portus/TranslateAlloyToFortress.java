@@ -4,7 +4,6 @@ import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.alloy4.Util;
 import edu.mit.csail.sdg.ast.Command;
-import edu.mit.csail.sdg.ast.Module;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.A4Options;
 import edu.mit.csail.sdg.translator.AlloySolution;
@@ -54,24 +53,24 @@ public final class TranslateAlloyToFortress implements CommandRunner {
      */
     @Override
     public AlloySolution executeCommand(
-            A4Reporter reporter, Module world, Command command, A4Options options) {
-        return executeCommand(reporter, new PortusStatistics(), world, command, options);
+            A4Reporter reporter, List<Sig> sigs, Command command, A4Options options) {
+        return executeCommand(reporter, new PortusStatistics(), sigs, command, options);
     }
 
     /**
      * Execute a command. Throws {@link TimeoutException} if the solver times out.
      */
     public AlloySolution executeCommand(
-            A4Reporter reporter, PortusStatistics statistics, Module world, Command command, A4Options options) {
+            A4Reporter reporter, PortusStatistics statistics, List<Sig> sigs, Command command, A4Options options) {
         PortusLogger logger = new PortusLogger(reporter);
-        ScopeComputer scoper = ScopeComputer.compute(reporter, options, world.getAllReachableSigs(), command).b;
+        AlloyProblem problem = new AlloyProblem(sigs, command, options);
 
         statistics.onStartPortus();
         try {
             // Actually execute the command, and time it.
-            logger.translationStarted(options.solver.id(), scoper.getBitwidth(), scoper.getMaxSeq());
+            logger.translationStarted(options.solver.id(), problem.getBitwidth(), problem.getMaxSeq());
 
-            TranslationResult translated = translate(statistics, world, command, scoper, options);
+            TranslationResult translated = translate(reporter, statistics, problem);
 
             logger.translationFinished(translated.getTheory());
 
@@ -93,7 +92,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
             Interpretation interpretation = solve(logger, statistics, translated, options);
             AlloySolution solution = new FortressSolution(
                     interpretation, translated.getEvaluator(), translated.getStringDecoder(), translated.getContext(),
-                    world.getAllReachableSigs(), options.originalFilename, command.toString());
+                    sigs, options.originalFilename, command.toString());
 
             logger.outputResult(command, solution);
             return solution;
@@ -110,42 +109,38 @@ public final class TranslateAlloyToFortress implements CommandRunner {
         }
     }
 
-    /**
-     * Translate the command to an MSFOL theory without executing it.
-     */
-    public TranslationResult translate(PortusStatistics statistics, Module world, Command command, A4Options options) {
-        ScopeComputer scoper = ScopeComputer.compute(A4Reporter.NOP, options, world.getAllReachableSigs(), command).b;
-        return translate(statistics, world, command, scoper, options);
+    /** Translate the model from Alloy to Fortress without executing it. */
+    public TranslationResult translate(PortusStatistics statistics, AlloyProblem problem) {
+        return translate(A4Reporter.NOP, statistics, problem);
     }
 
-    /** Translate the model from Alloy to Fortress. */
-    private TranslationResult translate(
-            PortusStatistics statistics, Module world, Command command, ScopeComputer scoper, A4Options options) {
+    /** Translate the model from Alloy to Fortress without executing it. */
+    public TranslationResult translate(A4Reporter reporter, PortusStatistics statistics, AlloyProblem problem) {
         statistics.onStartTranslation();
         try {
             // Decide on the sort policy with the options
-            Iterable<Sig> sigs = world.getAllReachableSigs();
-            ModelInfo modelInfo = new ModelInfo(sigs, command, scoper);
+            Iterable<Sig> sigs = problem.getSigs();
+            ScopeComputer scoper = problem.makeScopeComputer(reporter);
+            ModelInfo modelInfo = new ModelInfo(problem, scoper);
             NameGenerator nameGenerator = new SanitizingNameGenerator();
 
-            if (options.portusOptions.enableAntiMergePreprocessing) {
+            if (problem.getPortusOptions().enableAntiMergePreprocessing) {
                 // Preprocess the formula
-                AntiMergePreprocessor preprocessor = new AntiMergePreprocessor(
-                        sigs, command, modelInfo, scoper, nameGenerator);
-                command = preprocessor.preprocess(command);
+                AntiMergePreprocessor preprocessor = new AntiMergePreprocessor(nameGenerator);
+                problem = preprocessor.preprocess(problem);
             }
 
-            SortPolicy sortPolicy = options.portusOptions.getSortPolicy(
-                    statistics, sigs, command, modelInfo, scoper, nameGenerator);
+            SortPolicy sortPolicy = problem.getPortusOptions().getSortPolicy(
+                    statistics, problem, modelInfo, scoper, nameGenerator);
             RangeAssigner rangeAssigner = new RangeAssigner(modelInfo, sigs, sortPolicy, scoper);
 
             TranslatorManager translatorManager = new TranslatorManager(
-                    options.portusOptions, statistics, modelInfo, sortPolicy, nameGenerator);
+                    problem.getPortusOptions(), statistics, modelInfo, sortPolicy, nameGenerator);
             TranslationContext context = new TranslationContext(
-                    options.portusOptions, scoper, sortPolicy, rangeAssigner);
+                    problem.getPortusOptions(), scoper, sortPolicy, rangeAssigner);
 
             // Perform the entire translation.
-            translatorManager.runAllPasses(world, command, scoper, context);
+            translatorManager.runAllPasses(problem, scoper, context);
 
             statistics.setTheoryStats(context.getTheory());
             return new TranslationResult(translatorManager, translatorManager.getStringDecoder(), sortPolicy, context);

@@ -298,9 +298,9 @@ final class OrderingModuleOptTranslator extends AbstractTranslator implements Sc
      * sigs will be ordered.
      */
     public Pass getMarkOrderedSigsPass() {
-        return (world, command, scoper, context) -> {
+        return (problem, scoper, context) -> {
             // Mark all sigs that are ever ordered by any Ord sig.
-            for (Sig sig : world.getAllReachableSigs()) {
+            for (Sig sig : problem.getSigs()) {
                 for (Expr fact : sig.getFacts()) {
                     fact = fact.deNOP();
                     if (isTotalOrderFact(fact)) {

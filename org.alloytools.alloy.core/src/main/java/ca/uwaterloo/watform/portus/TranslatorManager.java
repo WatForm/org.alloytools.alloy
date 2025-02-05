@@ -182,9 +182,9 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
     /**
      * Perform the entire translation by running through all passes.
      */
-    public void runAllPasses(Module world, Command command, ScopeComputer scoper, TranslationContext context) {
+    public void runAllPasses(AlloyProblem problem, ScopeComputer scoper, TranslationContext context) {
         for (Pass pass : passes) {
-            pass.performPass(world, command, scoper, context);
+            pass.performPass(problem, scoper, context);
         }
     }
 

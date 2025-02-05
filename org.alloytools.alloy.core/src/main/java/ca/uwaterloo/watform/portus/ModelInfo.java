@@ -10,18 +10,19 @@ import java.util.Set;
 /**
  * Holds global, immutable information about the model being translated.
  * TODO expand with more info (esp. ScopeComputer).
+ * TODO evaluate whether to refactor to merge with AlloyProblem?
  */
 public class ModelInfo {
 
     private final Set<String> stringConstants;
 
-    public ModelInfo(Iterable<Sig> allSigs, Command command, ScopeComputer scoper) {
-        this.stringConstants = computeStringConstants(allSigs, command, scoper);
+    public ModelInfo(AlloyProblem problem, ScopeComputer scoper) {
+        this.stringConstants = computeStringConstants(problem, scoper);
     }
 
-    private static Set<String> computeStringConstants(Iterable<Sig> allSigs, Command command, ScopeComputer scoper) {
+    private static Set<String> computeStringConstants(AlloyProblem problem, ScopeComputer scoper) {
         // Duplicate of the string logic in ScopeComputer.compute()...
-        Set<String> stringConstants = command.getAllStringConstants(allSigs);
+        Set<String> stringConstants = problem.getAllStringConstants();
         int numStrings = scoper.sig2scope(Sig.STRING);
         for (int i = stringConstants.size(); i < numStrings; i++) {
             stringConstants.add("\"String" + i + "\"");

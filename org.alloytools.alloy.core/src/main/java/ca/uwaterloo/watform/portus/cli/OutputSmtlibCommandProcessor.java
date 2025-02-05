@@ -1,9 +1,8 @@
 package ca.uwaterloo.watform.portus.cli;
 
+import ca.uwaterloo.watform.portus.AlloyProblem;
 import ca.uwaterloo.watform.portus.PortusOptions;
 import edu.mit.csail.sdg.alloy4.A4Reporter;
-import edu.mit.csail.sdg.ast.Command;
-import edu.mit.csail.sdg.ast.Module;
 import edu.mit.csail.sdg.translator.A4Options;
 
 import java.nio.file.FileSystems;
@@ -23,17 +22,19 @@ final class OutputSmtlibCommandProcessor implements CommandProcessor {
     }
 
     @Override
-    public boolean process(Module world, Command command, A4Options options) {
+    public boolean process(AlloyProblem problem) {
         // Setup how we want to output the SMTLIB+ file: "filename_command.smttc" in the Alloy file's directory.
-        Path alloyFilePath = Paths.get(options.originalFilename).toAbsolutePath();
-        options.portusOptions.outputDirectory = alloyFilePath.getParent().toString();
-        options.portusOptions.outputName = getOutputName(alloyFilePath.getFileName().toString(), command.label);
-        options.solver = solver;
+        Path alloyFilePath = Paths.get(problem.getOptions().originalFilename).toAbsolutePath();
+        problem.getPortusOptions().outputDirectory = alloyFilePath.getParent().toString();
+        problem.getPortusOptions().outputName = getOutputName(
+                alloyFilePath.getFileName().toString(), problem.getCommand().label);
+        problem.getOptions().solver = solver;
 
-        options.solver.commandRunner().executeCommand(A4Reporter.NOP, world, command, options);
-        System.out.println("  Done. Output to " + options.portusOptions.outputDirectory
+        problem.getOptions().solver.commandRunner().executeCommand(
+                A4Reporter.NOP, problem.getSigs(), problem.getCommand(), problem.getOptions());
+        System.out.println("  Done. Output to " + problem.getPortusOptions().outputDirectory
                 + FileSystems.getDefault().getSeparator()
-                + options.portusOptions.outputName
+                + problem.getPortusOptions().outputName
                 + PortusOptions.SMTLIBPLUS_EXTENSION);
         return true;
     }

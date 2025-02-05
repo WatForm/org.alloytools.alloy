@@ -42,8 +42,8 @@ public abstract class SortPolicy {
 
     protected final List<Sig> allSigs;
 
-    public SortPolicy(Iterable<Sig> allSigs) {
-        this.allSigs = PortusUtil.iterableToList(allSigs);
+    public SortPolicy(List<Sig> allSigs) {
+        this.allSigs = allSigs;
     }
 
     /**
