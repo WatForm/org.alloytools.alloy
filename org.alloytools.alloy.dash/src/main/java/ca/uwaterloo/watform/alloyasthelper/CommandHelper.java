@@ -39,31 +39,39 @@ public class CommandHelper {
 		return c.change(sig, isExact, newScope);
 	}
 
-	public static Command createCommand(CompModule comp, boolean check, int overallScope, int bitwidth, Expr formula, String label) {
-		ExprVar commandKeyword;
-		if(check) {
-			commandKeyword = ExprHelper.createVar("c");
-		}
-		else {
-			commandKeyword = ExprHelper.createVar("r");
-		}
-		boolean followUp = false;
-		comp.addCommand(false, null, formula, commandKeyword, overallScope, bitwidth, -1, -1, -1, -1, null, ExprHelper.createVar(label));
-		// addCommand(boolean followUp, Pos pos, Expr e, ExprVar commandKeyword, int overall, int bitwidth, int seq, int tmn, int tmx, int expects, List<CommandScope> scopes, ExprVar label) 
-		
-		List<Command> cmds = new ArrayList<Command>();
-		for(Command c: comp.getAllCommands()){
-			cmds.add(c);
-		}
-		return cmds.get(cmds.size() - 1);
+	// public static Command createCommand(CompModule comp, boolean check, int overallScope, int bitwidth, Expr formula, String label) {
+	// 	ExprVar commandKeyword;
+	// 	if(check) {
+	// 		commandKeyword = ExprHelper.createVar("c");
+	// 	}
+	// 	else {
+	// 		commandKeyword = ExprHelper.createVar("r");
+	// 	}
 
-
-		// Command c = new Command(null, null, "c", check, overallScope, bitwidth, -1, -1, -1, -1, null, null, commandKeyword, formula, null);
-		// System.out.println(c.toString());
-		// return c;
+	// 	Command cmd = new Command(null, null, "c", check, overallScope, bitwidth, -1, -1, -1, -1, null, null, commandKeyword, formula, null);
+	// 	//comp.commands.add(cmd);
+	// 	System.out.println(cmd.toString());
+	// 	return cmd;
          
+	// }
+
+	public static void createCommand(CompModule comp, boolean check, int overallScope, int bitwidth, String predName) {
+
+		ExprVar commandKeyword = (check)? ExprHelper.createVar("c") : ExprHelper.createVar("r");
+		ExprVar pred = ExprHelper.createVar(predName);
+
+		comp.addCommand(false, null, pred, commandKeyword, overallScope, bitwidth, -1, -1, -1, -1, null, pred);
+
+		//ConstList<Command> c = comp.getAllCommands();
+		//Command cmd = c.get(c.size()-1);
+
+		//Command cmd = new Command(null, pred, predName, check, overallScope, bitwidth, -1, -1, -1, -1, null, null, commandKeyword, pred, null);
+		//System.out.println("\n***********> "+cmd.toString());
+
+		//return cmd;
 	}
 
+	// Command(Pos pos, Expr e, String label, boolean check, int overall, int bitwidth, int maxseq, int minprefix, int maxprefix, int expects, Iterable<CommandScope> scope, Iterable<Sig> additionalExactSig, ExprVar commandKeyword, Expr formula, Command parent)
 
 	// Refer MainFunctions.ExecuteCommand();
 
