@@ -20,7 +20,7 @@ final class SortResolvant {
 
     private final TupleSet<Sort> sortTuples;
 
-    private SortResolvant(TupleSet<Sort> sortTuples) {
+    public SortResolvant(TupleSet<Sort> sortTuples) {
         Objects.requireNonNull(sortTuples);
         this.sortTuples = sortTuples;
     }
@@ -98,6 +98,10 @@ final class SortResolvant {
 
     public SortResolvant intersection(SortResolvant other) {
         return new SortResolvant(sortTuples.intersection(other.sortTuples));
+    }
+
+    public SortResolvant difference(SortResolvant other) {
+        return new SortResolvant(sortTuples.difference(other.sortTuples));
     }
 
     public SortResolvant cartesianProduct(SortResolvant other) {

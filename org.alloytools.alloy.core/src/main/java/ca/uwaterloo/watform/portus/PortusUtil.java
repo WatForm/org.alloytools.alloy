@@ -1,24 +1,7 @@
 package ca.uwaterloo.watform.portus;
 
-import edu.mit.csail.sdg.alloy4.Err;
-import edu.mit.csail.sdg.alloy4.ErrorFatal;
-import edu.mit.csail.sdg.alloy4.Pair;
-import edu.mit.csail.sdg.alloy4.Util;
-import edu.mit.csail.sdg.ast.Assert;
-import edu.mit.csail.sdg.ast.Decl;
-import edu.mit.csail.sdg.ast.Expr;
-import edu.mit.csail.sdg.ast.ExprBinary;
-import edu.mit.csail.sdg.ast.ExprCall;
-import edu.mit.csail.sdg.ast.ExprConstant;
-import edu.mit.csail.sdg.ast.ExprHasName;
-import edu.mit.csail.sdg.ast.ExprITE;
-import edu.mit.csail.sdg.ast.ExprLet;
-import edu.mit.csail.sdg.ast.ExprList;
-import edu.mit.csail.sdg.ast.ExprQt;
-import edu.mit.csail.sdg.ast.ExprUnary;
-import edu.mit.csail.sdg.ast.ExprVar;
-import edu.mit.csail.sdg.ast.Func;
-import edu.mit.csail.sdg.ast.Sig;
+import edu.mit.csail.sdg.alloy4.*;
+import edu.mit.csail.sdg.ast.*;
 import edu.mit.csail.sdg.parser.Macro;
 import fortress.data.NameGenerator;
 import fortress.msfol.*;
@@ -26,10 +9,7 @@ import fortress.operations.Substituter;
 import fortress.operations.TermOps;
 import scala.jdk.javaapi.CollectionConverters;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -171,6 +151,31 @@ final class PortusUtil {
         if (!arrow.op.isArrow) return arrow;
         // recurse to strip nested multiplicities
         return stripArrowMultiplicities(arrow.left).product(stripArrowMultiplicities(arrow.right));
+    }
+
+    /**
+     * Generate "expr->expr->...->expr" n times.
+     */
+    public static Expr nthProduct(Expr expr, int n) {
+        Expr result = expr;
+        for (int i = 1; i < n; i++) {
+            result = result.product(expr);
+        }
+        return result;
+    }
+
+    /**
+     * Generate "none->...->none" of the desired arity.
+     */
+    public static Expr noneOfArity(int arity) {
+        return nthProduct(ExprConstant.EMPTYNESS, arity);
+    }
+
+    /**
+     * Generate "univ->...->univ" of the desired arity.
+     */
+    public static Expr univOfArity(int arity) {
+        return nthProduct(Sig.UNIV, arity);
     }
 
     /**

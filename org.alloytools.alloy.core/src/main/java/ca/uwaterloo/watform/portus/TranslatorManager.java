@@ -2,9 +2,7 @@ package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.Err;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
-import edu.mit.csail.sdg.ast.Command;
 import edu.mit.csail.sdg.ast.Expr;
-import edu.mit.csail.sdg.ast.Module;
 import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.data.NameGenerator;
 import fortress.msfol.Term;
@@ -73,13 +71,14 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
         SigAxioms sigAxioms = new SigAxioms(this, sortPolicy, nameGenerator);
 
         // There *shouldn't* be side effects in the constructors, so it should be ok to always construct these
+        PushdownOptTranslator pushdownOpt = new PushdownOptTranslator(this, this, sortPolicy, nameGenerator);
         OneSigOptTranslator oneSigOpt = new OneSigOptTranslator(this, sortPolicy, sigAxioms);
         FunctionOptTranslator functionOpt = new FunctionOptTranslator(this, this, sortPolicy, nameGenerator, true);
         JoinOptTranslator joinOpt = new JoinOptTranslator(this, this);
         OrderingModuleOptTranslator orderingModuleOpt = new OrderingModuleOptTranslator(
                 this, sortPolicy, nameGenerator, options.enableOrderingDefinition);
         MembershipPredicateOptTranslator membershipPredOpt = new MembershipPredicateOptTranslator(
-                this, sortPolicy, sigAxioms, !options.enableFortressNonExactScopes);
+                this, sortPolicy, sigAxioms, nameGenerator, !options.enableFortressNonExactScopes);
         ClosureOfScalarOptTranslator closureOfScalarOpt = new ClosureOfScalarOptTranslator(
                 this, this, sortPolicy, nameGenerator, options.enableClosureOptDefinition);
         StringTranslator stringTranslator = new StringTranslator(this, modelInfo, sortPolicy);
@@ -98,6 +97,9 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
         passes.add(orderingModuleOpt.getMarkOrderedSigsPass());
         passes.add(new TranslationPass(this, sortPolicy, sigAxioms));
 
+        if (options.enableNoSigHierarchy) {
+            translators.add(pushdownOpt);
+        }
         if (options.enableSimpleScalarOptimization) {
             translators.add(new SimpleScalarOptTranslator(this, this, nameGenerator));
         }
@@ -133,6 +135,9 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
             translators.add(intAsScalarTranslator);
         }
 
+        if (options.enableNoSigHierarchy) {
+            scalarCasters.add(pushdownOpt);
+        }
         scalarCasters.add(orderingModuleOpt);
         if (options.enableOneSigOptimization) {
             scalarCasters.add(oneSigOpt);
@@ -188,6 +193,8 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
         }
     }
 
+    int transCount = 0;
+
     /**
      * Translate an expression by delegating to the list of translators.
      * @return The Fortress term for the Alloy expression, as translated by some translator.
@@ -213,12 +220,18 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
                 if (useCaching) {
                     translationCache.put(expr, context, attempt);
                 }
+                transCount++;
+                if (transCount % 10000 == 0) {
+//                    System.out.println("translation " + transCount + ": " + expr + " --> " + attempt);
+                }
                 return attempt;
             }
         }
 
         throw new ErrorFatal("No Fortress translation implemented for node: " + expr);
     }
+
+    int scalarCount = 0;
 
     /**
      * Attempt to cast expr to scalar by delegating to the list of scalar casters.
@@ -240,6 +253,11 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
                 statistics.scalarCasterUsageCounts.increment(scalarCaster);
                 if (useCaching) {
                     castToScalarCache.put(expr, context, attempt);
+                }
+                scalarCount++;
+                if (scalarCount % 10000 == 0) {
+//                    System.out.println("Scalar cast " + scalarCount + ": " + expr + " --> " + attempt);
+//                    statistics.printSummary(context.options);
                 }
                 return attempt;
             }

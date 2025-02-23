@@ -3,6 +3,7 @@ package ca.uwaterloo.watform.portus;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.ScopeComputer;
+import fortress.data.NameGenerator;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
 
@@ -20,6 +21,7 @@ final class MembershipPredicateOptTranslator extends AbstractTranslator implemen
 
     private final SortPolicy sortPolicy;
     private final SigAxioms sigAxioms;
+    private final NameGenerator nameGenerator;
 
     private final Set<Sort> inapplicableSorts = new HashSet<>();
 
@@ -30,10 +32,11 @@ final class MembershipPredicateOptTranslator extends AbstractTranslator implemen
     private final boolean noFortressNonExactScopes;
 
     public MembershipPredicateOptTranslator(Translator topLevel, SortPolicy sortPolicy, SigAxioms sigAxioms,
-                                            boolean noFortressNonExactScopes) {
+                                            NameGenerator nameGenerator, boolean noFortressNonExactScopes) {
         super(topLevel);
         this.sortPolicy = sortPolicy;
         this.sigAxioms = sigAxioms;
+        this.nameGenerator = nameGenerator;
         this.noFortressNonExactScopes = noFortressNonExactScopes;
     }
 
@@ -49,17 +52,19 @@ final class MembershipPredicateOptTranslator extends AbstractTranslator implemen
      */
     public Pass getApplicabilityDeterminingPass(List<ScopeExpansionMarker> scopeExpansionMarkers) {
         return (problem, scoper, context) -> {
-            for (Sig sig : problem.getSigs()) {
-                determineApplicabilityFromSig(sig, scoper);
-            }
-
-            // Perform a pass over the command and determine all inapplicable sorts.
-            // If we ever expand over a sort, we can't optimize it here.
-            inapplicableSorts.addAll(NaturalRecursion.accumulate(
-                    (expr, varMappingContext) -> scopeExpansionMarkers.stream()
-                        .map(marker -> marker.determineExpandedSorts(expr, varMappingContext))
-                        .reduce(new HashSet<>(), SetOps::union),
-                    problem.getFormula(), sortPolicy, new VarMappingContext()));
+            // FIXME: Broken wrt pushdown/anti merge stuff!
+//            for (Sig sig : problem.getSigs()) {
+//                determineApplicabilityFromSig(sig, scoper);
+//            }
+//
+//            // Perform a pass over the command and determine all inapplicable sorts.
+//            // If we ever expand over a sort, we can't optimize it here.
+//            inapplicableSorts.addAll(NaturalRecursion.accumulate(
+//                    (expr, varMappingContext) -> scopeExpansionMarkers.stream()
+//                        .map(marker -> marker.determineExpandedSorts(expr, varMappingContext))
+//                        .reduce(new HashSet<>(), SetOps::union),
+//                    problem.getFormula(),
+//                    sortPolicy, new VarMappingContext()));
         };
     }
 

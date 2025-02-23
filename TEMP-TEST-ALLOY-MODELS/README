@@ -1,0 +1,11 @@
+These Alloy files are versions of view-backing.als from the expert models corpus which have transformations
+done on them to remove the sig hierarchy. This also includes splitting out function arguments into each having
+one sig, etc. These transformations are intended to be done automatically by the preprocessor in the future,
+but are included here for experimentation before the full preprocessor is implemented.
+
+Still to be done as of view-backing-transformed-2-v2.als:
+- split out let variables into one per sig, like with function arguments
+- fix constraints for split fields: "f: A -> one (B+C)" should not be split into "f_B: A -> one B"
+  and "f_C: A -> one C" and blindly combined as "f_B + f_C" whenever f is mentioned, because that
+  results in expressions violating the original "one" constraint. Instead there should be some combination
+  of "lone" and extra constraints.

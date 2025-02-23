@@ -25,11 +25,7 @@ import fortress.problemstate.ExactScope;
 import fortress.problemstate.NonExactScope;
 import fortress.problemstate.Scope;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.StreamSupport;
@@ -67,6 +63,17 @@ public abstract class SortPolicy {
 
     /** Get an Alloy expression that covers exactly the atoms in the sort. */
     public abstract Expr getCoveringExpr(Sort sort);
+
+    /** Get an Alloy expression that covers exactly the tuples in the sort resolvant. */
+    public Expr getCoveringExpr(SortResolvant resolvant) {
+        // {(A, B), (C, D)} ==> A->B + C->D
+        return resolvant.stream().map(sorts -> sorts.stream()
+                        .map(this::getCoveringExpr)
+                        .reduce(Expr::product)
+                        .orElse(ExprConstant.EMPTYNESS))
+                .reduce(Expr::plus)
+                .orElse(ExprConstant.EMPTYNESS);
+    }
 
     /**
      * Is every atom in sig's sort a member of sig?
@@ -142,7 +149,7 @@ public abstract class SortPolicy {
      * Statically find the sort resolvant that describes the possible Fortress sorts that expr could have.
      * @see SortResolvant
      */
-    public final SortResolvant getMinimalExprSorts(Expr expr, VarMappingContext varMappingContext) {
+    public SortResolvant getMinimalExprSorts(Expr expr, VarMappingContext varMappingContext) {
         return expr.accept(new SortVisitor(varMappingContext));
     }
 
@@ -176,6 +183,11 @@ public abstract class SortPolicy {
 
         public SortVisitor(VarMappingContext context) {
             super(context, SortPolicy.this);
+        }
+
+        @Override
+        public SortResolvant visitThis(Expr x) throws Err {
+            return super.visitThis(x);
         }
 
         @Override

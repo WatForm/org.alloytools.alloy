@@ -33,7 +33,9 @@ final class RelationalScalarCaster implements ScalarCaster {
     public Scalar castToScalar(Expr expr, TranslationContext context) {
         if (expr instanceof ExprBinary) {
             ExprBinary binary = (ExprBinary) expr;
-            if (binary.op == ExprBinary.Op.INTERSECT) {
+            if (binary.op == ExprBinary.Op.PLUS) {
+                return castUnion(binary.left, binary.right, context);
+            } else if (binary.op == ExprBinary.Op.INTERSECT) {
                 return castIntersection(binary.left, binary.right, context);
             } else if (binary.op == ExprBinary.Op.MINUS) {
                 return castSetMinus(binary.left, binary.right, context);
@@ -57,6 +59,19 @@ final class RelationalScalarCaster implements ScalarCaster {
                     }
                 }
             }
+        }
+        return null;
+    }
+
+    // castToScalar(a + b) := castToScalar(a) when resolvant(b) = none and vice versa
+    private Scalar castUnion(Expr left, Expr right, TranslationContext context) {
+        SortResolvant leftResolvant = sortPolicy.getMinimalExprSorts(left, context);
+        if (leftResolvant.isNone()) {
+            return rootScalarCaster.castToScalar(right, context);
+        }
+        SortResolvant rightResolvant = sortPolicy.getMinimalExprSorts(right, context);
+        if (rightResolvant.isNone()) {
+            return rootScalarCaster.castToScalar(left, context);
         }
         return null;
     }

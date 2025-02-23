@@ -247,8 +247,9 @@ public abstract class Sig extends Expr implements Clause {
     /**
      * The list of "per atom" fact associated with this signature; each fact is
      * allowed to refer to this.decl.get()
+     * [portus] Made non-final and added unsafe resetFacts() to support easier preprocessing.
      */
-    private final SafeList<Expr> facts = new SafeList<Expr>();
+    private SafeList<Expr> facts = new SafeList<Expr>();
 
     /**
      * Returns true if this sig is a toplevel sig (meaning: it is UNIV, or it is a
@@ -402,6 +403,15 @@ public abstract class Sig extends Expr implements Clause {
      */
     public SafeList<Expr> getFacts() {
         return facts.dup();
+    }
+
+    /**
+     * Reset the list of facts. This is unsafe and will break other references to the list of facts!
+     * Use this only when you're sure there are no loose references to the facts!
+     * @since Added by Portus to support easier preprocessing.
+     */
+    public void resetFacts() {
+        facts = new SafeList<>();
     }
 
     /** {@inheritDoc} */

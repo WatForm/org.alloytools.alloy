@@ -7,10 +7,7 @@ import fortress.msfol.Sort;
 import fortress.msfol.Term;
 import fortress.msfol.Var;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.function.BiFunction;
 import java.util.function.BinaryOperator;
 import java.util.stream.Collectors;
@@ -141,17 +138,25 @@ final class NaturalRecursion {
      * Also keeps a VarMappingContext, but maintains only term/let mappings, not Fortress var mappings!
      * Extend this to perform a transformation over the Alloy AST.
      */
-    static class AlloyASTMapper extends FortressVisitReturn<Expr> {
+    static abstract class AlloyASTMapper extends FortressVisitReturn<Expr> {
 
-        protected final VarMappingContext varMappingContext = new VarMappingContext();
+        protected final VarMappingContext varMappingContext;
         protected final SortPolicy sortPolicy;
 
-        public AlloyASTMapper(SortPolicy sortPolicy) {
+        public AlloyASTMapper(SortPolicy sortPolicy, VarMappingContext varMappingContext) {
             this.sortPolicy = sortPolicy;
+            this.varMappingContext = varMappingContext;
         }
 
+        /** Create a new instance of this mapper and call it with the new expression and context. */
+        protected abstract Expr recurse(Expr expr, VarMappingContext newVarMappingContext);
+
         private List<Expr> visitAll(List<Expr> exprs) {
-            return exprs.stream().map(this::visitThis).collect(Collectors.toList());
+            List<Expr> visited = new ArrayList<>(exprs.size());
+            for (Expr expr : exprs) {
+                visited.add(visitThis(expr));
+            }
+            return visited;
         }
 
         private List<Decl> visitDecls(List<Decl> decls) {
@@ -173,7 +178,8 @@ final class NaturalRecursion {
 
         @Override
         public Expr visit(ExprCall x) throws Err {
-            return ExprCall.make(x.pos, x.closingBracket, x.fun, visitAll(x.args), x.extraWeight);
+            List<Expr> args = visitAll(x.args);
+            return ExprCall.make(x.pos, x.closingBracket, visitFunc(x.fun, args), args, x.extraWeight);
         }
 
         @Override
@@ -281,8 +287,48 @@ final class NaturalRecursion {
             return ExprElementOf.make(x.tuple, visitThis(x.sub));
         }
 
+        /**
+         * By default, do a fresh recursion on the func, taking the decl sorts from the declared types.
+         * The passed arguments are ignored by default.
+         * Caching must be implemented in subclasses!
+         */
+        public Func visitFunc(Func x, List<Expr> args) throws Err {
+            VarMappingContext newVarMappingContext = new VarMappingContext();
+            for (Decl decl : x.decls) {
+                for (ExprHasName name : decl.names) {
+                    // Just for the sorts - hopefully this works...
+                    // TODO maybe have to strip multiplicities?
+                    newVarMappingContext.addLetMapping(name.label, decl.expr);
+                }
+            }
+
+            Expr body = recurse(x.getBody(), newVarMappingContext);
+            return new Func(x.pos, x.isPrivate, x.label, x.decls, x.returnDecl, body);
+        }
+//        {
+//            // Assign the decl labels to the arguments
+//            int arg = 0;
+//            for (Decl decl : x.decls) {
+//                for (ExprHasName name : decl.names) {
+//                    varMappingContext.addLetMapping(name.label, args.get(arg));
+//                    arg++;
+//                }
+//            }
+//
+//            try {
+//                return new Func(x.pos, x.isPrivate, x.labelPos, x.label, x.decls, x.returnDecl, visitThis(x.getBody()));
+//            } finally {
+//                // Remove the decl labels again
+//                for (Decl decl : x.decls) {
+//                    for (ExprHasName name : decl.names) {
+//                        varMappingContext.removeMapping(name.label);
+//                    }
+//                }
+//            }
+//        }
+
         @Override
-        public Expr visit(Func x) throws Err {
+        public Expr visit(Func x) throws Err { // required but not used
             return x;
         }
 

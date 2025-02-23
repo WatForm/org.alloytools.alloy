@@ -31,7 +31,7 @@ public abstract class VisitReturn<T> {
     /**
      * This is the start method that begins a traversal over the given expression.
      */
-    public final T visitThis(Expr x) throws Err {
+    public T visitThis(Expr x) throws Err {
         return x.accept(this);
     }
 

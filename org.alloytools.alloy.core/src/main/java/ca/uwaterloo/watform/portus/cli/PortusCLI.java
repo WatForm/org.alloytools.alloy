@@ -99,6 +99,7 @@ public final class PortusCLI {
         options.enableOrderingDefinition = !cliOptions.disableOrderingDefinition.active();
         options.enableClosureOptDefinition = !cliOptions.disableClosureOptDefinition.active();
         options.enableSumBalancing = cliOptions.enableSumBalancing.active();
+        options.enableNoSigHierarchy = cliOptions.enableNoSigHierarchy.active();
 
         options.enableElementOfScalarOptimization = cliOptions.enableElementOfScalarOpt.active();
         options.enableCaching = cliOptions.enableCaching.active();

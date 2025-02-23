@@ -90,8 +90,8 @@ final class PartitionSortPolicy extends SortPolicy {
                 .collect(Collectors.toList());
         sortPartition = new DisjointSets<>(topLevelSigs);
 
-        if (shouldMergeSorts) {
-            mergeSorts(problem.getFormula());
+        if (shouldMergeSorts && !problem.getPortusOptions().enableNoSigHierarchy) {
+//            mergeSorts(problem.getFormula());
         }
     }
 

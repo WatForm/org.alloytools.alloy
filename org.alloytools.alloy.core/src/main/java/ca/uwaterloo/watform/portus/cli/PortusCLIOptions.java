@@ -92,6 +92,8 @@ final class PortusCLIOptions {
     public final Option enableSumBalancing = new Option(
             "-enable-sum-balancing",
             "Enable balanced sum definitions (experimental). Requires sum definitions optimization.");
+    public final Option enableNoSigHierarchy = new Option(
+            "-enable-no-hierarchy", "Enable transformations to avoid representing the sig hierarchy (experimental).");
 
     public final Option enableElementOfScalarOpt = new Option(
             "-enable-element-scalar-opt", "Enable element-of scalar caster optimization (experimental).");
@@ -120,7 +122,7 @@ final class PortusCLIOptions {
             disableClosureOfScalarOpt, disableIntsAsScalars, disableMembershipPredicateOpt, disablePartitionSortPolicy,
             disableSumDefinitionsOpt, disableExprDefnOpt, disableRelationalScalarOpt,
             useCardinalityScopeAxiomStrategy, disableAntiMergePreprocessing, disableFuncOpt, disableAllOpts,
-            disableOrderingDefinition, disableClosureOptDefinition, enableSumBalancing,
+            disableOrderingDefinition, disableClosureOptDefinition, enableSumBalancing, enableNoSigHierarchy,
             enableElementOfScalarOpt, enableCaching, enableKodkodIntCompatibility,
             enableFortressNonExactScopes,
             countCommands,

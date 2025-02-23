@@ -93,7 +93,11 @@ class ExprDefnOptTranslator implements Translator {
         try {
             String defnName = cache.get(expr, null, context);
             if (defnName == null) {
+                String str = expr.toString();
+                String name = expr.hashCode() + " = " + str.substring(0, Math.min(str.length(), 30));
+                System.out.println("Generating definition for: " + name);
                 defnName = generateDefinition(expr, context);
+                System.out.println("Finished: " + name);
                 if (defnName == null) {
                     return null;
                 }

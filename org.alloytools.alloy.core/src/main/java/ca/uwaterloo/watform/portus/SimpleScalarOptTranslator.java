@@ -63,7 +63,7 @@ final class SimpleScalarOptTranslator implements Translator {
         TermTuple args = expr.tuple.slice(0, expr.tuple.size() - 1);
 
         // If the sorts don't match up, short-circuit: can't possibly be equal
-        if (!Objects.equals(scalar.getResultSort(), last.getSort())) {
+        if (!Objects.equals(scalar.getResultSort(), last.getSort()) || !scalar.getArgSorts().equals(args.getSorts())) {
             return Term.mkBottom();
         }
 

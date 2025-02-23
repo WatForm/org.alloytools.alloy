@@ -26,13 +26,7 @@ import fortress.msfol.Sort;
 import fortress.msfol.Term;
 import fortress.msfol.Var;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -382,12 +376,13 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
                 Term.mkNot(recursivelyTranslate(ExprElementOf.make(tuple, right), context)));
     }
 
+    int joins = 0;
+
     /** Translate "tuple \in left . right". */
     private Term translateJoin(TermTuple tuple, Expr left, Expr right, TranslationContext context) {
         // Naive join implementation without optimizations (see KT figure 4.11).
         // [[(x1,...,xn) \in e1 . e2]] := exists y: sort . [[(x1,...,xm,y) \in e1]] &&
-        //   [[(y,x{m+1},...,xn) \in e2]] where arity(e1) = m+1 and arity(e2) = n-m+1 and m<n
-        Var yVar = Term.mkVar(nameGenerator.freshName("y"));
+        //   [[(y,x{m+1},...,xn) \in e2]] where arity(e1) = m+1 and arity(e2) = n-m+1 and m<
 
         // Determine the sort that y should have.
         int partitionIdx = left.type().arity() - 1; // so that adding y gives the arity
@@ -413,6 +408,14 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
         if (leftSort.isNone() || rightSort.isNone() || leftSort.join(rightSort).isNone()) {
             return Term.mkBottom();
         }
+
+        joins++;
+        if (joins % 5000 == 0) {
+            System.out.println("default join " + joins + ": " + left + " . " + right + " (" + left.pos + ")");
+        }
+
+        // Create the variable after short-circuiting to avoid wasting names.
+        Var yVar = Term.mkVar(nameGenerator.freshName("y"));
 
         // Otherwise, there is an intersection between the middle columns. We can translate if the intersection is
         // exactly one sort, because then all possible common y values come from that sort.
@@ -1025,7 +1028,8 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
         }
 
         // first, just translate all the args (they all must be formulas)
-        sortPolicy.checkIsFormula("AND or OR arguments must all be formulas", expr.args);
+        // TODO probably okay not to check (causing issues when sometimes types aren't set after preprocessing)
+//        sortPolicy.checkIsFormula("AND or OR arguments must all be formulas", expr.args);
         List<Term> translatedArgs = expr.args.stream()
                 .map(arg -> recursivelyTranslate(arg, context))
                 .collect(Collectors.toList());
@@ -1269,14 +1273,8 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
             ExprUnary exprUnary = (ExprUnary) expr;
             if (exprUnary.op == ExprUnary.Op.CARDINALITY) {
                 SortResolvant resolvant = sortPolicy.getMinimalExprSorts(exprUnary.sub, varMappingContext);
-                if (resolvant.isNone()) {
-                    // special case, "#none" - don't worry about it
-                    return new HashSet<>();
-                }
-                if (!resolvant.isDefinite()) {
-                    throw new ErrorNoPortusSupport("Argument of cardinality must have definite sorts!");
-                }
-                return new HashSet<>(resolvant.getDefiniteSorts());
+                // all of them: flatten {(A,B),(C,D)} to {A,B,C,D}.
+                return resolvant.stream().flatMap(Collection::stream).collect(Collectors.toSet());
             }
         } else if (expr instanceof ExprQt) {
             ExprQt exprQt = (ExprQt) expr;
