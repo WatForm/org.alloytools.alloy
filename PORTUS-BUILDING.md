@@ -6,3 +6,5 @@
 3. Fortress is compiled with SBT. Install it from https://www.scala-sbt.org or your preferred package manager.
 4. Run `./gradlew build` to build a fat JAR. The output is at org.alloytools.alloy.dist/target/org.alloytools.alloy.dist.jar. Gradle will also compile Fortress and place the compilation output and several auxiliary libraries in org.alloytools.fortress.core/libs: to run Portus you don't need these (everything is in the fat JAR), but to set up IntelliJ or another IDE, you'll need to add these libraries to the classpath so the IDE can find the Fortress and Scala symbols.
 5. Run Portus from the home directory with `java -cp org.alloytools.alloy.dist/target/org.alloytools.alloy.dist.jar ca.waterloo.watform.portus.cli.PortusCLI`. I recommend making an alias for this.
+
+Note: if fortress does not build during the process, please run ./gradlew clean build to rebuild fortress.
