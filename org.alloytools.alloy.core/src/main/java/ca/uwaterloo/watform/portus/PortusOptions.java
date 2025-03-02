@@ -81,6 +81,7 @@ public final class PortusOptions implements Serializable {
 
     public boolean enablePartitionSortPolicy = true;
     public boolean enableConstantsScopeAxiomStrategy = true; // alternative: cardinality; TODO: refactor this
+    public boolean enablePropositionalScopeAxiomStrategy = false; // TODO refactor!
     public boolean enableAntiMergePreprocessing = true;
 
     public boolean enableOrderingDefinition = true;

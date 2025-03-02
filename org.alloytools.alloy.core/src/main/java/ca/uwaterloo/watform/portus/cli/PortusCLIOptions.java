@@ -101,6 +101,8 @@ final class PortusCLIOptions {
             "-enable-element-scalar-opt", "Enable element-of scalar caster optimization (experimental).");
     public final Option enableCaching = new Option(
             "-enable-caching", "Enable caching translations (experimental).");
+    public final Option enablePropScopeAxiomStrategy = new Option(
+            "-enable-prop-scope-axioms", "Enable propositional scope axiom strategy (experimental, Z3 only).");
 
     public final Option enableKodkodIntCompatibility = new Option(
             "-kodkod-int-compat", "Force compatibility with Kodkod integer semantics (slow).");
@@ -122,8 +124,8 @@ final class PortusCLIOptions {
             disableSumDefinitionsOpt, disableExprDefnOpt, disableRelationalScalarOpt,
             useCardinalityScopeAxiomStrategy, disableAntiMergePreprocessing, disableFuncOpt, disableAllOpts,
             disableOrderingDefinition, disableClosureOptDefinition, enableSumBalancing,
-            enableElementOfScalarOpt, enableCaching, enableKodkodIntCompatibility,
-            enableFortressNonExactScopes,
+            enableElementOfScalarOpt, enableCaching, enablePropScopeAxiomStrategy,
+            enableKodkodIntCompatibility, enableFortressNonExactScopes,
     };
 
     // The positional arguments - a list of Alloy command specifiers.

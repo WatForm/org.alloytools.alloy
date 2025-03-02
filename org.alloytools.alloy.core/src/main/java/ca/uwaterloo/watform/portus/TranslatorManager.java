@@ -65,7 +65,9 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
 
         // Use the options to come up with a list of translators
         ScopeAxiomStrategy scopeAxiomStrategy;
-        if (options.enableConstantsScopeAxiomStrategy) {
+        if (options.enablePropositionalScopeAxiomStrategy) {
+            scopeAxiomStrategy = new PropositionalScopeAxiomStrategy(sortPolicy);
+        } else if (options.enableConstantsScopeAxiomStrategy) {
             scopeAxiomStrategy = new ConstantsScopeAxiomStrategy(sortPolicy, nameGenerator);
         } else {
             scopeAxiomStrategy = new CardinalityScopeAxiomStrategy(sortPolicy);

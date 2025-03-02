@@ -110,6 +110,7 @@ public final class PortusCLI {
 
         options.enableElementOfScalarOptimization = cliOptions.enableElementOfScalarOpt.active();
         options.enableCaching = cliOptions.enableCaching.active();
+        options.enablePropositionalScopeAxiomStrategy = cliOptions.enablePropScopeAxiomStrategy.active();
 
         options.enableKodkodIntCompatibility = cliOptions.enableKodkodIntCompatibility.active();
 
