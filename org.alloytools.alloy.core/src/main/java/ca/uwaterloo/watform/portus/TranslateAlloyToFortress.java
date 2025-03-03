@@ -177,6 +177,9 @@ public final class TranslateAlloyToFortress implements CommandRunner {
             if (result == ModelFinderResult.Timeout()) {
                 throw new TimeoutException();
             }
+            if (result == ModelFinderResult.Unknown()) {
+                throw new ErrorFatal("Fortress returned UNKNOWN!");
+            }
 
             return (result == ModelFinderResult.Sat()) ? postprocessInterp(finder.viewModel(), translated) : null;
         }

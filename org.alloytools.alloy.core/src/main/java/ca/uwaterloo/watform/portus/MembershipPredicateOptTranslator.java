@@ -53,13 +53,20 @@ final class MembershipPredicateOptTranslator extends AbstractTranslator implemen
                 determineApplicabilityFromSig(sig, scoper);
             }
 
-            // Perform a pass over the command and determine all inapplicable sorts.
-            // If we ever expand over a sort, we can't optimize it here.
-            inapplicableSorts.addAll(NaturalRecursion.accumulate(
-                    (expr, varMappingContext) -> scopeExpansionMarkers.stream()
-                        .map(marker -> marker.determineExpandedSorts(expr, varMappingContext))
-                        .reduce(new HashSet<>(), SetOps::union),
-                    command.formula, sortPolicy, new VarMappingContext()));
+            if (!noFortressNonExactScopes) {
+                // The reason we do this is because if Fortress non-exact scopes are used, we need to generate
+                // membership predicates for any sigs that are expanded over.
+                // TODO: But this is only the case for sigs with exact scopes! So this is wrong - change this to
+                //   not mark a sort as inapplicable if its only top-level sig has an exact scope!
+
+                // Perform a pass over the command and determine all inapplicable sorts.
+                // If we ever expand over a sort, we can't optimize it here.
+                inapplicableSorts.addAll(NaturalRecursion.accumulate(
+                        (expr, varMappingContext) -> scopeExpansionMarkers.stream()
+                                .map(marker -> marker.determineExpandedSorts(expr, varMappingContext))
+                                .reduce(new HashSet<>(), SetOps::union),
+                        command.formula, sortPolicy, new VarMappingContext()));
+            }
         };
     }
 
@@ -81,8 +88,8 @@ final class MembershipPredicateOptTranslator extends AbstractTranslator implemen
         // Top-level sigs with non-exact scope require membership predicates (i.e. they can't use Fortress
         // non-exact scope) because the scope axiom strategies need the parent sort to be exact.
         // So they have to use exact scope Fortress sorts and so we can't apply the membership predicate opt.
-        // TODO: This is dependent on the scope axiom strategy but cardinality + constants need it so it's probably fine
-        // TODO: but if we change the cardinality implementation, it might not need it...
+        // TODO: This is dependent on the scope axiom strategy but cardinality/constants/prop need it so it's probably fine
+        //   but if we change the cardinality implementation, it might not need it...
         // Also, if we explicitly disable Fortress-level non-exact scopes, don't rely on them.
         if (!scoper.isExact(primSig) && (noFortressNonExactScopes || !primSig.children().isEmpty())) {
             inapplicableSorts.add(sort);
