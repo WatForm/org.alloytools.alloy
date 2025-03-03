@@ -24,19 +24,40 @@ final class PropositionalScopeAxiomStrategy implements ScopeAxiomStrategy {
     @Override
     public Term makeExactScopeAxiom(Sig sig, int scope, Translator recursiveTranslator, TranslationContext context) {
         System.out.println("PROPOSITIONAL EXACT: " + sig + " @ " + scope);
-        return makeExactlyK(scope, makeDEInSigList(sig, recursiveTranslator, context));
+
+        Sort sort = sortPolicy.getSort(sig);
+        int sortScope = sortPolicy.getSortScope(sort);
+        List<Term> deInSigList = makeDEInSigList(sort, sortScope, sig, recursiveTranslator, context);
+
+        // Not using pbeq because that seems super slow?
+        Term lowerBound = makeAtMostK(scope, deInSigList);
+        if (scope == sortScope) {
+            // no need to assert an upper bound
+            return lowerBound;
+        } else {
+            // assert lower and upper bounds
+            Term upperBound = makeAtLeastK(scope, deInSigList);
+            return Term.mkAnd(lowerBound, upperBound);
+        }
     }
 
     @Override
     public Term makeNonExactScopeAxiom(Sig sig, int scope, Translator recursiveTranslator, TranslationContext context) {
         System.out.println("PROPOSITIONAL NON EXACT: " + sig + " @ " + scope);
-        return makeAtMostK(scope, makeDEInSigList(sig, recursiveTranslator, context));
-    }
 
-    private List<Term> makeDEInSigList(Sig sig, Translator recursiveTranslator, TranslationContext context) {
         Sort sort = sortPolicy.getSort(sig);
         int sortScope = sortPolicy.getSortScope(sort);
 
+        if (scope == sortScope) {
+            // no need to assert an upper bound
+            return Term.mkTop();
+        }
+
+        return makeAtMostK(scope, makeDEInSigList(sort, sortScope, sig, recursiveTranslator, context));
+    }
+
+    private List<Term> makeDEInSigList(
+            Sort sort, int sortScope, Sig sig, Translator recursiveTranslator, TranslationContext context) {
         List<Term> terms = new ArrayList<>(sortScope);
         for (int i = 1; i <= sortScope; i++) {
             DomainElement de = Term.mkDomainElement(i, sort);
@@ -54,13 +75,19 @@ final class PropositionalScopeAxiomStrategy implements ScopeAxiomStrategy {
         return Term.mkCustomPred(smtlib, args);
     }
 
-    private Term makeExactlyK(int k, List<Term> args) {
-        StringBuilder smtlib = new StringBuilder("(_ pbeq " + k);
-        for (int i = 0; i < args.size(); i++) {
-            smtlib.append(" 1");
-        }
-        smtlib.append(")");
-        return Term.mkCustomPred(smtlib.toString(), args);
+    private Term makeAtLeastK(int k, List<Term> args) {
+        String smtlib = "(_ at-least " + k + ")";
+        return Term.mkCustomPred(smtlib, args);
     }
+
+    // pbeq seems super slow?
+//    private Term makeExactlyK(int k, List<Term> args) {
+//        StringBuilder smtlib = new StringBuilder("(_ pbeq " + k);
+//        for (int i = 0; i < args.size(); i++) {
+//            smtlib.append(" 1");
+//        }
+//        smtlib.append(")");
+//        return Term.mkCustomPred(smtlib.toString(), args);
+//    }
 
 }
