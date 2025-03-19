@@ -103,6 +103,8 @@ final class PortusCLIOptions {
             "-enable-caching", "Enable caching translations (experimental).");
     public final Option enablePropScopeAxiomStrategy = new Option(
             "-enable-prop-scope-axioms", "Enable propositional scope axiom strategy (experimental, Z3 only).");
+    public final Option enablePseudoBooleanOpt = new Option(
+            "-enable-pb-opt", "Enable pseudo-Boolean optimization (experimental, Z3 only).");
 
     public final Option enableKodkodIntCompatibility = new Option(
             "-kodkod-int-compat", "Force compatibility with Kodkod integer semantics (slow).");
@@ -124,7 +126,7 @@ final class PortusCLIOptions {
             disableSumDefinitionsOpt, disableExprDefnOpt, disableRelationalScalarOpt,
             useCardinalityScopeAxiomStrategy, disableAntiMergePreprocessing, disableFuncOpt, disableAllOpts,
             disableOrderingDefinition, disableClosureOptDefinition, enableSumBalancing,
-            enableElementOfScalarOpt, enableCaching, enablePropScopeAxiomStrategy,
+            enableElementOfScalarOpt, enableCaching, enablePropScopeAxiomStrategy, enablePseudoBooleanOpt,
             enableKodkodIntCompatibility, enableFortressNonExactScopes,
     };
 

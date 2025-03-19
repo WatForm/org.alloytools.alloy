@@ -100,6 +100,9 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
         passes.add(orderingModuleOpt.getMarkOrderedSigsPass());
         passes.add(new TranslationPass(this, sortPolicy, sigAxioms));
 
+        if (options.enablePseudoBooleanOptimization) {
+            translators.add(new PseudoBooleanOptTranslator(this, sortPolicy));
+        }
         if (options.enableSimpleScalarOptimization) {
             translators.add(new SimpleScalarOptTranslator(this, this, nameGenerator));
         }
