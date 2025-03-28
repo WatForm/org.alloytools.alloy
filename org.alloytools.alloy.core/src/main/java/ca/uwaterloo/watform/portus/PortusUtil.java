@@ -1088,8 +1088,22 @@ final class PortusUtil {
             return visitQuantifier(term);
         }
 
+        @Override
+        public Integer visitExists2ndOrder(Exists2ndOrder term) {
+            return visitQuantifer2ndOrder(term);
+        }
+
+        @Override
+        public Integer visitForall2ndOrder(Forall2ndOrder term) {
+            return visitQuantifer2ndOrder(term);
+        }
+
         private Integer visitQuantifier(Quantifier term) {
             return 1 + term.vars().size() + visit(term.body());
+        }
+
+        private Integer visitQuantifer2ndOrder(Quantifier2ndOrder term) {
+            return 1 + term.declarations().size() + visit(term.body());
         }
 
         @Override
