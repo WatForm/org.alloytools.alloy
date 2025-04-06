@@ -213,18 +213,21 @@ final class PortusUtil {
      * We assume that none of the decls' expressions resolve to "none" (i.e. their sort resolvants are empty).
      * This must be handled at a higher level.
      */
-    public static Pair<Pair<List<String>, List<AnnotatedVar>>, AnnotatedTerm> translateDeclList(
+    public static Pair<Pair<List<String>, List<DeclResult>>, AnnotatedTerm> translateDeclList(
             List<Decl> decls, TranslationContext context, SortPolicy sortPolicy, Translator rootTranslator,
             NameGenerator nameGenerator) {
+        // TODO - this method currently doesn't add second-order variables with addFortressVars.
+        //   This might cause hard-to-diagnose errors when second-order vars are used in some constructs!
         List<String> alloyVarNames = new ArrayList<>();
-        List<AnnotatedVar> fortressVars = new ArrayList<>();
+        List<DeclResult> allDeclResults = new ArrayList<>();
         List<Term> conditions = new ArrayList<>();
 
         for (Decl decl : decls) {
             // Kodkod evaluates the decl expression once. To emulate this, only add the
             // variables to the context after evaluating the whole decl.
-            List<Pair<String, AnnotatedTerm>> termMappingsToAdd = new ArrayList<>();
-            List<AnnotatedVar> fortressVarsToAdd = new ArrayList<>();
+            List<String> namesToAdd = new ArrayList<>();
+            List<DeclResult> declResults = new ArrayList<>();
+            List<AnnotatedVar> fortressVarsToAdd = new ArrayList<>(); // TODO second order here
 
             // Alloy typechecked that it has arity 1
             for (ExprHasName name : decl.names) {
@@ -238,9 +241,8 @@ final class PortusUtil {
                     boolean noMultiplicity = mult == ExprUnary.Op.SETOF
                             && (!(decl.expr.deNOP() instanceof ExprUnary)
                             || ((ExprUnary) decl.expr.deNOP()).op != ExprUnary.Op.SETOF);
-                    if (!noMultiplicity) {
-                        throw new ErrorNoPortusSupport("Unsupported quantifier multiplicity for Fortress: "
-                                + decl.expr.mult());
+                    if (noMultiplicity) {
+                        mult = ExprUnary.Op.ONEOF;
                     }
                 }
 
@@ -253,54 +255,82 @@ final class PortusUtil {
                     }
                 }
 
-                Var var = Term.mkVar(nameGenerator.freshName(name.label));
                 // Note that the decl expr has to be unary since typechecking should have caught anything else
                 String definiteSortsError = "Translating a quantification requires the variable declarations " +
                         "to have definite and well-defined Portus sorts!";
                 List<Sort> exprSorts = sortPolicy.getMinimalExprDefiniteSorts(declExpr, definiteSortsError, context);
-                if (exprSorts.size() != 1) {
-                    // Could happen for cases Kodkod skolemizes, like e.g. "some s: one A->B | ..."
-                    // Also occurs e.g. with "pred foo[s: A->B] {...}; run foo" since that runs "some s: A->B | foo[s]"
-                    throw new ErrorNoPortusSupport("Portus doesn't support quantifying over tuples!");
-                }
-                Sort varSort = exprSorts.get(0);
-                AnnotatedVar annotatedVar = var.of(varSort);
-                alloyVarNames.add(name.label);
-                fortressVarsToAdd.add(annotatedVar);
 
-                try {
-                    // Add the condition "var \in declExpr" to restrict the domain of var
-                    context.addFortressVar(annotatedVar);
-                    Expr domainExpr = ExprElementOf.make(annotatedVar, declExpr);
-                    conditions.add(rootTranslator.translate(domainExpr, context));
-                } finally {
-                    context.removeFortressVar(annotatedVar);
-                }
+                String varName = nameGenerator.freshName(name.label);
+                if (mult == ExprUnary.Op.ONEOF && exprSorts.size() == 1) {
+                    // First order
+                    Var var = Term.mkVar(varName);
+                    Sort varSort = exprSorts.get(0);
+                    AnnotatedVar annotatedVar = var.of(varSort);
+                    fortressVarsToAdd.add(annotatedVar);
 
-                // Add it to the lexical scope to translate the subformula
-                termMappingsToAdd.add(new Pair<>(name.label, new AnnotatedTerm(annotatedVar)));
+                    try {
+                        // Add the condition "var \in declExpr" to restrict the domain of var
+                        context.addFortressVar(annotatedVar);
+                        Expr domainExpr = ExprElementOf.make(annotatedVar, declExpr);
+                        conditions.add(rootTranslator.translate(domainExpr, context));
+                    } finally {
+                        context.removeFortressVar(annotatedVar);
+                    }
+
+                    // Add it to the lexical scope to translate the subformula
+                    namesToAdd.add(name.label);
+                    declResults.add(DeclResult.makeFirstOrder(annotatedVar));
+                } else {
+                    // Second order
+                    // TODO: Possible function-like optimization here
+                    FuncDecl predicate = FuncDecl.mkFuncDecl(varName, exprSorts, Sort.Bool());
+
+                    // TODO add to fortressVarsToAdd
+
+                    try {
+                        // TODO context.addFortressVar
+                        context.addFuncMapping(varName, predicate);
+                        // Add the condition "func in declExpr" - use a declaration formula
+                        Expr domainExpr = ExprVar.make(null, varName).in(decl.expr);
+                        conditions.add(rootTranslator.translate(domainExpr, context));
+                    } finally {
+                        // TODO context.removeFortressVar
+                        context.removeMapping(varName);
+                    }
+
+                    namesToAdd.add(name.label);
+                    declResults.add(DeclResult.makeSecondOrder(predicate));
+                }
             }
 
             // Add the term mappings and fortress vars now, in order, after having translated the decl expression
-            for (Pair<String, AnnotatedTerm> mapping : termMappingsToAdd) {
-                context.addTermMapping(mapping.a, mapping.b);
+            for (int i = 0; i < namesToAdd.size(); i++) {
+                declResults.get(i).addMapping(namesToAdd.get(i), context.getVarMappingContext());
             }
-            context.addFortressVars(fortressVarsToAdd);
-            fortressVars.addAll(fortressVarsToAdd);
+            context.addFortressVars(fortressVarsToAdd); // TODO second order here
+            alloyVarNames.addAll(namesToAdd);
+            allDeclResults.addAll(declResults);
         }
 
         // All the conditions must be true for a set of variables to be used
         Term condition = conditions.isEmpty() ? Term.mkTop() : Term.mkAnd(conditions);
         AnnotatedTerm conditionAnnotated = new AnnotatedTerm(condition, Sort.Bool());
-        return new Pair<>(new Pair<>(alloyVarNames, fortressVars), conditionAnnotated);
+        return new Pair<>(new Pair<>(alloyVarNames, allDeclResults), conditionAnnotated);
     }
 
     /**
-     * For each pair of vars (v1, v2) in zip(a, b), substitute v1 -> v2 in term.
+     * For each pair of vars/funcs (v1, v2) in zip(a, b), substitute v1 -> v2 in term.
      * We require that a and b have the same size.
      */
-    public static Term substituteVars(List<AnnotatedVar> a, List<AnnotatedVar> b, Term term) {
-        return substitute(a, b.stream().map(AnnotatedVar::variable).collect(Collectors.toList()), term);
+    public static Term substituteDecls(List<DeclResult> a, List<DeclResult> b, Term term) {
+        if (a.size() != b.size()) {
+            throw new IllegalArgumentException("a and b must have same size");
+        }
+
+        for (int i = 0; i < a.size(); i++) {
+            term = a.get(i).substitute(b.get(i), term);
+        }
+        return term;
     }
 
     /**
@@ -326,13 +356,13 @@ final class PortusUtil {
      * Generate the term (v1 = u1) && (v2 = u2) && ... && (vn = un) for each pair
      * (vi, ui) in zip(a, b). We require that a and b have the same size.
      */
-    public static Term mkVarsEqual(List<AnnotatedVar> a, List<AnnotatedVar> b) {
+    public static Term mkDeclsEqual(List<DeclResult> a, List<DeclResult> b, NameGenerator nameGenerator) {
         if (a.size() != b.size()) {
             throw new IllegalArgumentException("a and b must have same size");
         }
         List<Term> conjuncts = new ArrayList<>();
         for (int i = 0; i < a.size(); i++) {
-            conjuncts.add(Term.mkEq(a.get(i).variable(), b.get(i).variable()));
+            conjuncts.add(a.get(i).makeEqual(b.get(i), nameGenerator));
         }
         return Term.mkAnd(conjuncts);
     }

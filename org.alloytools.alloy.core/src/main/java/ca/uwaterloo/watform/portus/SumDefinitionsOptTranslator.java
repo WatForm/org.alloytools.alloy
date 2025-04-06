@@ -86,10 +86,13 @@ final class SumDefinitionsOptTranslator extends AbstractTranslator {
             return null;
         }
 
-        Pair<Pair<List<String>, List<AnnotatedVar>>, AnnotatedTerm> varsAndCond =
+        Pair<Pair<List<String>, List<DeclResult>>, AnnotatedTerm> varsAndCond =
                 PortusUtil.translateDeclList(expr.decls, context, sortPolicy, topLevelTranslator, nameGenerator);
         List<String> alloyVarNames = varsAndCond.a.a;
-        List<AnnotatedVar> vars = varsAndCond.a.b;
+        // we don't support second order variables for sums - TODO do they even make sense?
+        List<AnnotatedVar> vars = varsAndCond.a.b.stream()
+                .map(DeclResult::getFirstOrderDecl)
+                .collect(Collectors.toList());
         AnnotatedTerm condition = varsAndCond.b;
 
         // Process subformula - Fortress vars were added to the lexical scope in translateDeclList()

@@ -25,6 +25,7 @@ import fortress.msfol.IntegerLiteral;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
 import fortress.msfol.Var;
+import scala.jdk.javaapi.CollectionConverters;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -713,7 +714,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
         List<Sort> sorts = e1Sorts.getDefiniteSorts();
 
         // Create the variables
-        List<AnnotatedVar> vars = IntStream.range(0, e1.type().arity())
+        List<AnnotatedVar> vars = IntStream.range(0, sorts.size())
                 .mapToObj(idx -> Term.mkVar(nameGenerator.freshName("x" + idx))
                         .of(sorts.get(idx)))
                 .collect(Collectors.toList());
@@ -1079,13 +1080,10 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
     private Term translateQuantifiedExpr(ExprQt.Op quantifier, Expr expr, TranslationContext context) {
         // "Q e" is equivalent to "Q x1:S1,...,xn:Sn | (x1,...,xn) \in e" where n = arity(e), so translate as such
         // for simplicity.
-        int arity = expr.type().arity();
-        if (arity <= 0) {
-            throw new ErrorNoPortusSupport("Portus doesn't support types with multiple arities");
-        }
-        List<AnnotatedVar> vars = new ArrayList<>(arity);
-
         SortResolvant exprResolvant = sortPolicy.getMinimalExprSorts(expr, context);
+
+        int arity = exprResolvant.arity();
+        List<AnnotatedVar> vars = new ArrayList<>(arity);
 
         if (exprResolvant.isNone()) {
             // Short-circuit if we're quantifying over none
@@ -1123,7 +1121,7 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
             context.removeFortressVars(vars);
         }
         Term sub = Term.mkTop();
-        return translateRawQuantifier(quantifier, vars, condition, sub, context);
+        return translateRawQuantifier(quantifier, DeclResult.makeFirstOrder(vars), condition, sub, context);
     }
 
     /** Translate an ExprQt formula. */
@@ -1161,49 +1159,53 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
         }
 
         // Translate all the decls into Fortress
-        Pair<Pair<List<String>, List<AnnotatedVar>>, AnnotatedTerm> varsAndCond =
+        Pair<Pair<List<String>, List<DeclResult>>, AnnotatedTerm> varsAndCond =
                 PortusUtil.translateDeclList(expr.decls, context, sortPolicy, topLevelTranslator, nameGenerator);
         List<String> alloyVarNames = varsAndCond.a.a;
-        List<AnnotatedVar> vars = varsAndCond.a.b;
+        List<DeclResult> declResults = varsAndCond.a.b;
         Term condition = varsAndCond.b.getTerm();
 
         // Process subformula - Fortress vars were added to the lexical scope in translateDeclList()
         try {
             Term sub = recursivelyTranslate(expr.sub, context);
-            return translateRawQuantifier(expr.op, vars, condition, sub, context);
+            return translateRawQuantifier(expr.op, declResults, condition, sub, context);
         } finally {
             // Remove the vars from the lexical scope since it's done (always, even if there's an exception)
             for (String alloyVarName : alloyVarNames) {
                 context.removeMapping(alloyVarName);
             }
-            context.removeFortressVars(vars);
+            // Remove only the first-order vars from the context - TODO support second-order free vars here
+            context.removeFortressVars(declResults.stream()
+                    .filter(DeclResult::isFirstOrder)
+                    .map(DeclResult::getFirstOrderDecl)
+                    .collect(Collectors.toList()));
         }
     }
 
     /** Translate "Q vars: e | f" after the vars, condition (vars \in e) and the subformula have been translated. */
     private Term translateRawQuantifier(
-            ExprQt.Op quantifier, List<AnnotatedVar> vars, Term condition, Term sub, TranslationContext context) {
+            ExprQt.Op quantifier, List<DeclResult> decls, Term condition, Term sub, TranslationContext context) {
         // Process the formula itself - see KT figure 4.6
         if (quantifier == ExprQt.Op.NO) {
             // "no x: e | f" gets translated like "all x: e | not f"
-            return translateRawQuantifier(ExprQt.Op.ALL, vars, condition, Term.mkNot(sub), context);
+            return translateRawQuantifier(ExprQt.Op.ALL, decls, condition, Term.mkNot(sub), context);
         }
         switch (quantifier) {
             case ALL:
                 // forall x1: S, ..., xn: S . [[x1 \in e1]] && ... && [[xn \in en]] => [[sub]]
-                return Term.mkForall(vars, Term.mkImp(condition, sub));
+                return DeclResult.makeForall(decls, Term.mkImp(condition, sub));
             case SOME:
                 // exists x1: S, ..., xn: S . [[x1 \in e1]] && ... && [[xn \in en]] && [[sub]]
-                return Term.mkExists(vars, Term.mkAnd(condition, sub));
+                return DeclResult.makeExists(decls, Term.mkAnd(condition, sub));
             case LONE: {
                 // naive for now
                 // forall x, y: S . [[x \in e]] && [[y \in e]] && [[f]] && [[f[x/y]]] => x = y
-                List<AnnotatedVar> primed = prime(vars);
-                Term primedCondition = PortusUtil.substituteVars(vars, primed, condition);
-                Term primedSub = PortusUtil.substituteVars(vars, primed, sub);
-                Term equal = PortusUtil.mkVarsEqual(vars, primed);
-                vars.addAll(primed); // add both at the same time
-                return Term.mkForall(vars, Term.mkImp(
+                List<DeclResult> primed = prime(decls);
+                Term primedCondition = PortusUtil.substituteDecls(decls, primed, condition);
+                Term primedSub = PortusUtil.substituteDecls(decls, primed, sub);
+                Term equal = PortusUtil.mkDeclsEqual(decls, primed, nameGenerator);
+                decls.addAll(primed); // add both at the same time
+                return DeclResult.makeForall(decls, Term.mkImp(
                         Term.mkAnd(condition, primedCondition, sub, primedSub),
                         equal));
             }
@@ -1211,16 +1213,20 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
                 // naive for now
                 // exists x: S . [[x \in e]] && [[f]] && forall y: S . [[y \in e]]
                 //   && [[f[x/y]]] => x = y
-                List<AnnotatedVar> primed = prime(vars);
-                Term primedCondition = PortusUtil.substituteVars(vars, primed, condition);
-                Term primedSub = PortusUtil.substituteVars(vars, primed, sub);
-                Term equal = PortusUtil.mkVarsEqual(vars, primed);
-                return Term.mkExists(vars, Term.mkAnd(condition, sub,
-                        Term.mkForall(primed, Term.mkImp(
+                List<DeclResult> primed = prime(decls);
+                Term primedCondition = PortusUtil.substituteDecls(decls, primed, condition);
+                Term primedSub = PortusUtil.substituteDecls(decls, primed, sub);
+                Term equal = PortusUtil.mkDeclsEqual(decls, primed, nameGenerator);
+                return DeclResult.makeExists(decls, Term.mkAnd(condition, sub,
+                        DeclResult.makeForall(primed, Term.mkImp(
                                 Term.mkAnd(primedCondition, primedSub),
                                 equal))));
             }
             case SUM:
+                // Don't support second-order variables in sums for now - TODO does this even make sense?
+                List<AnnotatedVar> vars = decls.stream()
+                        .map(DeclResult::getFirstOrderDecl)
+                        .collect(Collectors.toList());
                 return translateSum(sub, condition, vars, context);
             default:
                 // unsupported or not formula - NO is handled above
@@ -1423,6 +1429,20 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
             }
         }
 
+        // Second-order variables: call the predicate
+        if (context.hasFuncMapping(expr.label)) {
+            FuncDecl func = context.getFuncMapping(expr.label);
+            if (tuple.size() != func.arity()) {
+                throw new ErrorFatal("Wrong arity for second-order variable!");
+            }
+            // If the sorts are mismatched, short-circuit
+            //noinspection unchecked
+            if (!tuple.getSorts().equals(CollectionConverters.<Sort> asJava(func.argSorts()))) {
+                return Term.mkBottom();
+            }
+            return Term.mkApp(func.name(), tuple.getTerms());
+        }
+
         // KT figure 4.12: [[x \in v]] := x = v
         if (tuple.size() != 1) {
             throw new ErrorFatal("Wrong arity for ExprVar!");
@@ -1590,11 +1610,9 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
         return context.getTermMapping(label);
     }
 
-    /** Generate a copy of `vars` with each variable suffixed with "_prime". */
-    private List<AnnotatedVar> prime(List<AnnotatedVar> vars) {
-        return vars.stream()
-                .map(var -> Term.mkVar(nameGenerator.freshName(var.variable().name() + "_prime")).of(var.sort()))
-                .collect(Collectors.toList());
+    /** Generate a copy of `decls` with each suffixed with "_prime". */
+    private List<DeclResult> prime(List<DeclResult> decls) {
+        return decls.stream().map(decl -> decl.prime(nameGenerator)).collect(Collectors.toList());
     }
 
 }
