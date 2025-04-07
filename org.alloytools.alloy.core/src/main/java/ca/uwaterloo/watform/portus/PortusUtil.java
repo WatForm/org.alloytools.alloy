@@ -233,18 +233,7 @@ final class PortusUtil {
             for (ExprHasName name : decl.names) {
                 // Ensure decl.expr is ONEOF: we don't support other multiplicities in quantifiers (yet)
                 // TODO: try to skolemize it like Kodkod does?
-                ExprUnary.Op mult = decl.expr.mult();
-                if (mult != ExprUnary.Op.ONEOF) {
-                    // Treat "no multiplicity" as ONEOF because Alloy sometimes generates those internally.
-                    // mult() generates SETOF for no multiplicity, so check that either the expr isn't actually
-                    // an ExprUnary or it's an ExprUnary with a different op.
-                    boolean noMultiplicity = mult == ExprUnary.Op.SETOF
-                            && (!(decl.expr.deNOP() instanceof ExprUnary)
-                            || ((ExprUnary) decl.expr.deNOP()).op != ExprUnary.Op.SETOF);
-                    if (noMultiplicity) {
-                        mult = ExprUnary.Op.ONEOF;
-                    }
-                }
+                ExprUnary.Op mult = getDeclMult(decl);
 
                 // Unwrap the expression from its multiplicity (and any NOOPs)
                 Expr declExpr = decl.expr.deNOP();
@@ -316,6 +305,22 @@ final class PortusUtil {
         Term condition = conditions.isEmpty() ? Term.mkTop() : Term.mkAnd(conditions);
         AnnotatedTerm conditionAnnotated = new AnnotatedTerm(condition, Sort.Bool());
         return new Pair<>(new Pair<>(alloyVarNames, allDeclResults), conditionAnnotated);
+    }
+
+    public static ExprUnary.Op getDeclMult(Decl decl) {
+        ExprUnary.Op mult = decl.expr.mult();
+        if (mult != ExprUnary.Op.ONEOF) {
+            // Treat "no multiplicity" as ONEOF because Alloy sometimes generates those internally.
+            // mult() generates SETOF for no multiplicity, so check that either the expr isn't actually
+            // an ExprUnary or it's an ExprUnary with a different op.
+            boolean noMultiplicity = mult == ExprUnary.Op.SETOF
+                    && (!(decl.expr.deNOP() instanceof ExprUnary)
+                    || ((ExprUnary) decl.expr.deNOP()).op != ExprUnary.Op.SETOF);
+            if (noMultiplicity) {
+                mult = ExprUnary.Op.ONEOF;
+            }
+        }
+        return mult;
     }
 
     /**

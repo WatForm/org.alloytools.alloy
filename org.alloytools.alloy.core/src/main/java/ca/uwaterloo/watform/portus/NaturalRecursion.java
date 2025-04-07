@@ -3,6 +3,7 @@ package ca.uwaterloo.watform.portus;
 import edu.mit.csail.sdg.alloy4.Err;
 import edu.mit.csail.sdg.ast.*;
 import edu.mit.csail.sdg.parser.Macro;
+import fortress.msfol.FuncDecl;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
 import fortress.msfol.Var;
@@ -232,15 +233,24 @@ final class NaturalRecursion {
                         if (!resolvant.isDefinite()) {
                             throw new ErrorNoPortusSupport("Quantifier decl expression must have definite sorts!");
                         }
-                        if (resolvant.arity() > 1) {
-                            throw new ErrorNoPortusSupport("Portus only supports unary quantifier decl expressions!");
+
+                        if (resolvant.arity() == 1 && PortusUtil.getDeclMult(decl) == ExprUnary.Op.ONEOF) {
+                            // First-order
+                            Sort sort = resolvant.getDefiniteSorts().get(0);
+                            Var placeholderBoundVar = getPlaceholderBoundVar(sort);
+                            varMappingContext.addTermMapping(name.label, new AnnotatedTerm(placeholderBoundVar.of(sort)));
+                            varMappingContext.addFortressVar(placeholderBoundVar.of(sort));
+                            varNamesAdded.add(name.label);
+                            placeholderBoundVars.add(placeholderBoundVar);
+                        } else {
+                            // Second-order
+                            // We aren't adding with addFortressVar so won't show up as a free variable - just use
+                            // any name. TODO second order addFortressVar here
+                            FuncDecl placeholderFunc = FuncDecl.mkFuncDecl("%placeholder2ndOrder",
+                                    resolvant.getDefiniteSorts(), Sort.Bool());
+                            varMappingContext.addFuncMapping(placeholderFunc.name(), placeholderFunc);
+                            varNamesAdded.add(placeholderFunc.name());
                         }
-                        Sort sort = resolvant.getDefiniteSorts().get(0);
-                        Var placeholderBoundVar = getPlaceholderBoundVar(sort);
-                        varMappingContext.addTermMapping(name.label, new AnnotatedTerm(placeholderBoundVar.of(sort)));
-                        varMappingContext.addFortressVar(placeholderBoundVar.of(sort));
-                        varNamesAdded.add(name.label);
-                        placeholderBoundVars.add(placeholderBoundVar);
                     }
                 }
                 return visitThis(sub);
