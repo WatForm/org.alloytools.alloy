@@ -142,7 +142,7 @@ public final class Command extends Browsable {
             return p.toString();
         }
         boolean first = true;
-        StringBuilder sb = new StringBuilder(check ? "Check " : "Run ").append(label);
+        StringBuilder sb = new StringBuilder(check ? "check " : "run ").append(label);
         if (overall >= 0 && (bitwidth >= 0 || maxseq >= 0 || scope.size() > 0 || minprefix >= 0 || maxprefix >= 0))
             sb.append(" for ").append(overall).append(" but");
         else if (overall >= 0)

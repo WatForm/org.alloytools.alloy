@@ -127,8 +127,28 @@ public class DashPredicateAbstraction {
                 
             // d = MainFunctions.resolveDash(d, rep);
             // System.out.println("Resolved Dash"); 
+            A4Reporter rep = new A4Reporter();
             DashModule abs = MainFunctions.createAbstractModel(inputFilename);
-            System.out.println("Abstract Dash model created");                    
+            System.out.println("Abstract Dash model created.");       
+            //abs = MainFunctions.resolveDash(abs, rep);
+            //System.out.println("Abstract Dash model resolved."); 
+            CompModule c = MainFunctions.translate(abs, rep);
+            System.out.println("Translated abstract Dash to Alloy."); 
+            
+            String outfilename = inputFilename.substring(0,inputFilename.length()-4) + "-abstract.als";
+            File out = new File(outfilename);
+            if (!out.exists()) {
+                out.createNewFile();
+            }
+            System.out.println("Creating: " + outfilename);
+            FileWriter fw = new FileWriter(out.getAbsoluteFile());
+            BufferedWriter bw = new BufferedWriter(fw);
+            bw.write(abs.toStringAlloy());
+            bw.close();
+            c = MainFunctions.parseAlloyFileAndResolveAll(outfilename, rep);
+            //c = MainFunctions.resolveAlloy(c, rep);
+            System.out.println("Resolved abstract Alloy."); 
+
         } 
         catch (Exception e) {
             DashUtilFcns.handleException(e);

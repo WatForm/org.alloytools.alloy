@@ -16,6 +16,7 @@ import java.util.StringJoiner;
 import edu.mit.csail.sdg.alloy4.Pos;
 import edu.mit.csail.sdg.ast.Attr.AttrType;
 import edu.mit.csail.sdg.ast.Decl;
+import edu.mit.csail.sdg.ast.Type;
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprVar;
 
@@ -492,6 +493,4 @@ public class CompModuleHelper extends CompModule {
         return sb.toString();
     }
     */
-
-
 }

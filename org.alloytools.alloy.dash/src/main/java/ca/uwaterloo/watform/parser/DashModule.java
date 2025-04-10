@@ -46,11 +46,11 @@ public class DashModule extends CompModuleHelper implements Serializable {
 	private int maxDepthParams = 0;
 	private boolean[] transAtThisParamDepth; 
 	//private SymbolTable symbolTable;
-	private StateTable stateTable = new StateTable();
-	private TransTable transTable = new TransTable();
-	private EventTable eventTable = new EventTable();
-	private VarTable varTable = new VarTable();
-	private PredTable predTable = new PredTable();
+	public StateTable stateTable = new StateTable();
+	public TransTable transTable = new TransTable();
+	public EventTable eventTable = new EventTable();
+	public VarTable varTable = new VarTable();
+	public PredTable predTable = new PredTable();
 
 
 	// once created and parsed, the following are

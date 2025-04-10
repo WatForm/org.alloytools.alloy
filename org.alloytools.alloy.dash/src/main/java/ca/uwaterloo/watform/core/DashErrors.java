@@ -5,6 +5,7 @@
 package ca.uwaterloo.watform.core;
 
 import java.util.List;
+import java.io.*;
 
 import edu.mit.csail.sdg.alloy4.Pos;
 import edu.mit.csail.sdg.alloy4.Err;

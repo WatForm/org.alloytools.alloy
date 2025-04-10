@@ -277,7 +277,7 @@ public final class Func extends Expr implements Clause {
     ExprVar labelExpr = null;
     public Expr labelExpr(){
         if(labelExpr == null)
-            labelExpr = ExprVar.make(labelPos, label);
+            labelExpr = ExprVar.make(labelPos, label, Type.FORMULA); //TODO: remove Type.FORMULA if not required
         return labelExpr;
     } 
     /** {@inheritDoc} */

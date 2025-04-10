@@ -476,6 +476,15 @@ public class StateTable implements Serializable {
 	public List<Expr> getInvs() {
 		return invs;
 	}
+	public void setInits(List<Expr> other){
+		this.inits = new ArrayList<Expr>();
+		this.inits.addAll(other);
+	}
+	public void setInvs(List<Expr> other){
+		this.invs = new ArrayList<Expr>();
+		this.invs.addAll(other);
+	}
+
 	public List<Expr> getEnteredAction(String sfqn) {
 		if (table.containsKey(sfqn))
 			return table.get(sfqn).entered;  // could be null

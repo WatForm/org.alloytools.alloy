@@ -372,6 +372,7 @@ public class Common {
             Boolean isWeirdOne = isWeirdOne(DashStrings.removePrime(vName),d);
             Expr voutNotPrime = createVar(translateFQN(DashStrings.removePrime(vName)));
             Expr voutMayHavePrime;
+            //print expression e ; help with identifying which expr is the prob
             if (!hasPrime) voutMayHavePrime = voutNotPrime;
             else voutMayHavePrime = 
                 createVar(translateFQN(DashStrings.removePrime(vName))+DashStrings.PRIME);

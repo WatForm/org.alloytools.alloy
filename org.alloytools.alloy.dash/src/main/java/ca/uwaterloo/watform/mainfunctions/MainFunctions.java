@@ -168,7 +168,6 @@ public class MainFunctions {
         //     DashErrors.emptyModule();
         //     return d;
         // } 
-
         DashModule abs = PredicateAbstraction.createAbstractModel(inputFilename);
         return abs;
     }

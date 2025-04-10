@@ -10,6 +10,7 @@ import edu.mit.csail.sdg.alloy4.ConstList;
 
 import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
+import edu.mit.csail.sdg.ast.Type;
 import edu.mit.csail.sdg.ast.ExprBadJoin;
 import edu.mit.csail.sdg.ast.ExprBinary;
 import edu.mit.csail.sdg.ast.ExprITE;
@@ -274,10 +275,16 @@ public class ExprHelper  {
         return ExprVar.make(Pos.UNKNOWN,  DashStrings.univName);
     }
     public static ExprVar createVar(String v) {
+        assert(v != null && v != "");
         return ExprVar.make(Pos.UNKNOWN, v);
     }
     public static ExprVar createVar(Pos p, String v) {
+        assert(v != null && v != "");
         return ExprVar.make(p, v);
+    }
+    public static ExprVar createVar(String v, Type t) {
+        assert(v != null && v != "");
+        return ExprVar.make(Pos.UNKNOWN, v, t);
     }
     public static List<Expr> createVarList(List<String> vList) {
         List<Expr> retList = new ArrayList<Expr>();
