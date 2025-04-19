@@ -325,15 +325,14 @@ public class FortressSolution implements AlloySolution {
     }
 
     @Override
-    public A4Solution next() throws Err {
+    public FortressSolution next() throws Err {
         // TODO - does Fortress support incremental solving?
         throw new ErrorAPI("Not an incremental solver!");
     }
 
     @Override
-    public A4Solution fork(int p) throws Err {
-        // TODO - does Fortress support incremental solving?
-        throw new ErrorAPI("Not an incremental solver!");
+    public FortressSolution fork(int p) throws Err {
+        return next();
     }
 
     @Override
