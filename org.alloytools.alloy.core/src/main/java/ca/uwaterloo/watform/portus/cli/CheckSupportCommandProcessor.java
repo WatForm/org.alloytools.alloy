@@ -1,11 +1,11 @@
 package ca.uwaterloo.watform.portus.cli;
 
+import ca.uwaterloo.watform.portus.FortressSolution;
 import ca.uwaterloo.watform.portus.PortusOptions;
 import ca.uwaterloo.watform.portus.PortusStatistics;
 import edu.mit.csail.sdg.ast.Command;
 import edu.mit.csail.sdg.ast.Module;
 import edu.mit.csail.sdg.translator.A4Options;
-import edu.mit.csail.sdg.translator.AlloySolution;
 
 /**
  * A command processor which runs the Portus and Fortress translations but does not solve to check if Portus supports
@@ -19,9 +19,8 @@ final class CheckSupportCommandProcessor implements CommandProcessor {
     public boolean process(Module world, Command command, A4Options options) {
         PortusStatistics statistics = new PortusStatistics();
         options.solver = SOLVER;
-        try {
-            SOLVER.commandRunner().executeCommand(
-                    new StdoutA4Reporter(options.portusOptions.verbose), statistics, world, command, options);
+        try (FortressSolution ignored = SOLVER.commandRunner().executeCommand(
+                new StdoutA4Reporter(options.portusOptions.verbose), statistics, world, command, options)) {
             System.out.println("Result: SUPPORTED.");
             if (options.portusOptions.verbose) {
                 statistics.printSummary(options.portusOptions);

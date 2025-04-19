@@ -78,7 +78,7 @@ public class FortressSolutionTest {
                 context.options, new PortusStatistics(), mock(ModelInfo.class), sortPolicy, nameGenerator);
         solution = new FortressSolution(
                 interpretation, manager, mock(StringDecoder.class), context,
-                Collections.singletonList(Sig.UNIV), "", "");
+                Collections.singletonList(Sig.UNIV), "", "", null);
     }
 
     @Test
