@@ -19,11 +19,13 @@ import edu.mit.csail.sdg.ast.Type;
 import edu.mit.csail.sdg.parser.Macro;
 import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.modelfinders.ModelFinder;
+import fortress.msfol.FuncDecl;
 import fortress.msfol.Sort;
 import fortress.msfol.Theory;
 import fortress.problemstate.ExactScope;
 import fortress.problemstate.NonExactScope;
 import fortress.problemstate.Scope;
+import scala.jdk.javaapi.CollectionConverters;
 
 import java.util.Arrays;
 import java.util.List;
@@ -365,6 +367,13 @@ public abstract class SortPolicy {
                 AnnotatedTerm mapped = varMappingContext.getTermMapping(x.label);
                 assert mapped != null;
                 return SortResolvant.definite(mapped.getSort());
+            } else if (varMappingContext.hasFuncMapping(x.label)) {
+                // 2nd order variable implemented as a predicate
+                FuncDecl mapped = varMappingContext.getFuncMapping(x.label);
+                assert mapped != null;
+                assert mapped.resultSort().equals(Sort.Bool());
+                //noinspection unchecked
+                return SortResolvant.definite(CollectionConverters.<Sort> asJava(mapped.argSorts()));
             } else {
                 // unknown variable
                 // try to get the sort from the type - TODO this probably isn't necessary (except for tests)

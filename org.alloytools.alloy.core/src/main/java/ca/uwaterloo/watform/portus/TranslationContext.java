@@ -164,6 +164,18 @@ final class TranslationContext {
         return varMappingContext.getTermMapping(alloyVarName);
     }
 
+    public void addFuncMapping(String alloyVarName, FuncDecl fortressFunc) {
+        varMappingContext.addFuncMapping(alloyVarName, fortressFunc);
+    }
+
+    public boolean hasFuncMapping(String alloyVarName) {
+        return varMappingContext.hasFuncMapping(alloyVarName);
+    }
+
+    public FuncDecl getFuncMapping(String alloyVarName) {
+        return varMappingContext.getFuncMapping(alloyVarName);
+    }
+
     /**
      * Add a mapping from an Alloy variable name to a 'let' Alloy expression.
      * The mapping should be valid for the current lexical scope and be removed at the end
