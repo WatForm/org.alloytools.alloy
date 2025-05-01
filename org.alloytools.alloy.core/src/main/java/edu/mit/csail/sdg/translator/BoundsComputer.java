@@ -454,9 +454,14 @@ final class BoundsComputer {
         // [electrum] Add possible symbolic bounds
         if (Version.experimental)
             for (Sig s : sigs) {
-                sol.addSymbolicBound(s);
-                for (Field f : s.getFields())
-                    sol.addSymbolicBound(f);
+                // [portus] The if-condition was missing, causing buggy behaviour for meta in Kodkod.
+                // In the future we need to merge the current version of Kodkod, but for now just replicate the fix!
+                // See https://github.com/AlloyTools/org.alloytools.alloy/commit/93f19311430738b9ded25ece45a98ca06b58163c
+                if (s.isMeta == null) {
+                    sol.addSymbolicBound(s);
+                    for (Field f : s.getFields())
+                        sol.addSymbolicBound(f);
+                }
             }
 
         // Add any additional SIZE constraints

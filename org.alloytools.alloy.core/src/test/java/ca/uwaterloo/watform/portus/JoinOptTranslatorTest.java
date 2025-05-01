@@ -48,7 +48,7 @@ public class JoinOptTranslatorTest {
         when(mockSortPolicy.addSortsToTheory(any())).thenReturn(Theory.empty().withSort(testSort));
         ScopeComputer mockScoper = mock(ScopeComputer.class);
         RangeAssigner mockRangeAssigner = mock(RangeAssigner.class,
-                withSettings().useConstructor(new ArrayList<>(), mockSortPolicy, mockScoper));
+                withSettings().useConstructor(mock(ModelInfo.class), new ArrayList<>(), mockSortPolicy, mockScoper));
         context = new TranslationContext(new PortusOptions(), mockScoper, mockSortPolicy, mockRangeAssigner);
     }
 
@@ -79,7 +79,7 @@ public class JoinOptTranslatorTest {
         AnnotatedVar v = Term.mkVar("v").of(testSort);
         Var guard = Term.mkVar("guard");
         when(mockScalarCaster.castToScalar(argThat(isSameAs(alloyV)), any()))
-                .thenReturn(new Scalar(new AnnotatedTerm(v), guard));
+                .thenReturn(new Scalar(new AnnotatedTerm(v), guard, context));
 
         AnnotatedVar x = Term.mkVar("x").of(testSort);
         Var flag = Term.mkVar("flag");
@@ -99,7 +99,7 @@ public class JoinOptTranslatorTest {
         when(mockScalarCaster.castToScalar(argThat(isSameAs(f)), any())).thenReturn(new Scalar(
                 Collections.singletonList(testSort), testSort,
                 tuple -> Term.mkApp("f", tuple.getTerms()),
-                tuple -> Term.mkApp("guard", tuple.getTerms())));
+                tuple -> Term.mkApp("guard", tuple.getTerms()), context));
 
         Var x = Term.mkVar("x");
         Var flag = Term.mkVar("flag");
@@ -107,6 +107,7 @@ public class JoinOptTranslatorTest {
         when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(expectedTuple, e))), any()))
                 .thenReturn(flag);
 
+        context.addFortressVar(x.of(testSort));
         Term result = translator.translate(ExprElementOf.make(TermTuple.fromVars(x.of(testSort)), f.join(e)), context);
         Term expected = Term.mkAnd(Term.mkApp("guard", x), flag);
         assertEquals(expected, result);
@@ -120,7 +121,7 @@ public class JoinOptTranslatorTest {
         when(mockScalarCaster.castToScalar(argThat(isSameAs(f)), any())).thenReturn(new Scalar(
                 Collections.singletonList(testSort), testSort,
                 tuple -> Term.mkApp("f", tuple.getTerms()),
-                tuple -> Term.mkApp("guard", tuple.getTerms())));
+                tuple -> Term.mkApp("guard", tuple.getTerms()), context));
 
         Var x = Term.mkVar("x");
         AnnotatedVar y = Term.mkVar("y").of(testSort);
@@ -129,6 +130,7 @@ public class JoinOptTranslatorTest {
         when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(expectedTuple, e))), any()))
                 .thenReturn(flag);
 
+        context.addFortressVars(x.of(testSort), y);
         Term result = translator.translate(
                 ExprElementOf.make(TermTuple.fromVars(x.of(testSort), y), f.join(e)), context);
         Term expected = Term.mkAnd(Term.mkApp("guard", x), flag);
@@ -143,11 +145,12 @@ public class JoinOptTranslatorTest {
         when(mockScalarCaster.castToScalar(argThat(isSameAs(f)), any())).thenReturn(new Scalar(
                 Arrays.asList(testSort, testSort), testSort,
                 tuple -> Term.mkApp("f", tuple.getTerms()),
-                tuple -> Term.mkApp("guard", tuple.getTerms())));
+                tuple -> Term.mkApp("guard", tuple.getTerms()), context));
 
         Var x = Term.mkVar("x");
         Var y = Term.mkVar("y");
         Var flag = Term.mkVar("flag");
+        context.addFortressVars(x.of(testSort), y.of(testSort));
         TermTuple expectedTuple = new TermTuple(new AnnotatedTerm(Term.mkApp("f", x, y), testSort));
         when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(expectedTuple, e))), any()))
                 .thenReturn(flag);
@@ -166,7 +169,7 @@ public class JoinOptTranslatorTest {
         when(mockScalarCaster.castToScalar(argThat(isSameAs(f)), any())).thenReturn(new Scalar(
                 Arrays.asList(testSort, testSort), testSort,
                 tuple -> Term.mkApp("f", tuple.getTerms()),
-                tuple -> Term.mkApp("guard", tuple.getTerms())));
+                tuple -> Term.mkApp("guard", tuple.getTerms()), context));
 
         Var x = Term.mkVar("x");
         Var y = Term.mkVar("y");
@@ -177,6 +180,7 @@ public class JoinOptTranslatorTest {
         when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(expectedTuple, e))), any()))
                 .thenReturn(flag);
 
+        context.addFortressVars(x.of(testSort), y.of(testSort));
         Term result = translator.translate(
                 ExprElementOf.make(TermTuple.fromVars(x.of(testSort), y.of(testSort), z), f.join(e)), context);
         Term expected = Term.mkAnd(Term.mkApp("guard", x, y), flag);
@@ -196,7 +200,7 @@ public class JoinOptTranslatorTest {
         AnnotatedVar v = Term.mkVar("v").of(testSort);
         Var guard = Term.mkVar("guard");
         when(mockScalarCaster.castToScalar(argThat(isSameAs(alloyV)), any()))
-                .thenReturn(new Scalar(new AnnotatedTerm(v), guard));
+                .thenReturn(new Scalar(new AnnotatedTerm(v), guard, context));
 
         AnnotatedVar x = Term.mkVar("x").of(testSort);
         Var flag = Term.mkVar("flag");
@@ -216,17 +220,18 @@ public class JoinOptTranslatorTest {
         AnnotatedVar x = Term.mkVar("x").of(testSort);
         Var guardX = Term.mkVar("guardX");
         when(mockScalarCaster.castToScalar(argThat(isSameAs(alloyX)), any()))
-                .thenReturn(new Scalar(new AnnotatedTerm(x), guardX));
+                .thenReturn(new Scalar(new AnnotatedTerm(x), guardX, context));
         when(mockScalarCaster.castToScalar(argThat(isSameAs(alloyF)), any()))
                 .thenReturn(new Scalar(Collections.singletonList(testSort), testSort,
                         tuple -> Term.mkApp("f", tuple.getTerms()),
-                        tuple -> Term.mkApp("guardF", tuple.getTerms())));
+                        tuple -> Term.mkApp("guardF", tuple.getTerms()), context));
 
+        context.addFortressVar(x);
         Scalar scalar = translator.castToScalar(alloyX.join(alloyF), context);
         assertNotNull(scalar);
         assertTrue(scalar.isNilary());
-        assertEquals(Term.mkApp("f", x.variable()), scalar.getNilaryScalar());
-        assertEquals(Term.mkAnd(guardX, Term.mkApp("guardF", x.variable())), scalar.getNilaryGuard());
+        assertEquals(Term.mkApp("f", x.variable()), scalar.getNilaryScalar(context));
+        assertEquals(Term.mkAnd(guardX, Term.mkApp("guardF", x.variable())), scalar.getNilaryGuard(context));
     }
 
 }

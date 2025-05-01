@@ -1,11 +1,6 @@
 package ca.uwaterloo.watform.portus;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -147,6 +142,20 @@ final class SetOps {
             reversed.add(list.get(idx));
         }
         return reversed;
+    }
+
+    public static <T> List<List<T>> cartesianProduct(List<List<T>> lists) {
+        List<List<T>> current = Collections.singletonList(new ArrayList<>());
+        for (List<T> list : lists) {
+            List<List<T>> next = new ArrayList<>();
+            for (List<T> tuple : current) {
+                for (T element : list) {
+                    next.add(concatenate(tuple, element));
+                }
+            }
+            current = next;
+        }
+        return current;
     }
 
     public static <T> boolean startsWith(List<T> list, List<T> prefix) {

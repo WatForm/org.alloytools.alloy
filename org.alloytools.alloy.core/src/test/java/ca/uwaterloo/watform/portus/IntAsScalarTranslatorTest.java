@@ -30,7 +30,7 @@ public class IntAsScalarTranslatorTest {
         SortPolicy mockSortPolicy = mock(SortPolicy.class);
         ScopeComputer mockScoper = mock(ScopeComputer.class);
         RangeAssigner mockRangeAssigner = mock(RangeAssigner.class,
-                withSettings().useConstructor(new ArrayList<>(), mockSortPolicy, mockScoper));
+                withSettings().useConstructor(mock(ModelInfo.class), new ArrayList<>(), mockSortPolicy, mockScoper));
         context = new TranslationContext(new PortusOptions(), mockScoper, mockSortPolicy, mockRangeAssigner);
     }
 
@@ -40,7 +40,7 @@ public class IntAsScalarTranslatorTest {
         ExprVar alloyI = ExprVar.make(null, "i");
         Var i = Term.mkVar("i");
         Var guard = Term.mkVar("guard");
-        when(mockScalarCaster.castToScalar(eq(alloyI), any())).thenReturn(new Scalar(Sort.Int(), i, guard));
+        when(mockScalarCaster.castToScalar(eq(alloyI), any())).thenReturn(new Scalar(Sort.Int(), i, guard, context));
 
         Translator translator = new IntAsScalarTranslator(mockScalarCaster);
         Term result = translator.translate(alloyI, context);

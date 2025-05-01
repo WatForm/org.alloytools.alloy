@@ -35,13 +35,13 @@ final class ExprCache<T> {
 
             // Use this as the key to compare so that we don't get confused by lets
             // (without this otherwise e.g. with "fun f[x] { ^x }", we'd use the same aux function for all arguments x)
-            this.expr = PortusUtil.expandLets(expr, context.varMappingContext, sortPolicy);
+            this.expr = PortusUtil.expandLets(expr, context.getVarMappingContext(), sortPolicy);
 
             // computeFreeVariables also recurses through lets
             this.freeVars = PortusUtil.computeFreeVariables(expr, context, sortPolicy);
 
             this.extraSort = extraSort;
-            this.frozenContext = new VarMappingContext(context.varMappingContext);
+            this.frozenContext = new VarMappingContext(context.getVarMappingContext());
             this.frozenContext.dropAllLets(); // all lets have been expanded, so they're not valid for here!
         }
 

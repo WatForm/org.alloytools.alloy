@@ -35,7 +35,7 @@ public class SortPolicyTest {
         policy = mock(SortPolicy.class, CALLS_REAL_METHODS);
         ScopeComputer mockScoper = mock(ScopeComputer.class);
         RangeAssigner mockRangeAssigner = mock(RangeAssigner.class,
-                withSettings().useConstructor(new ArrayList<>(), policy, mockScoper));
+                withSettings().useConstructor(mock(ModelInfo.class), new ArrayList<>(), policy, mockScoper));
         context = new TranslationContext(new PortusOptions(), mockScoper, policy, mockRangeAssigner);
     }
 

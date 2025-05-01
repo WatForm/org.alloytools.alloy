@@ -5,6 +5,7 @@ import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.data.NameGenerator;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
+import fortress.msfol.Theory;
 import fortress.msfol.Var;
 import org.junit.Before;
 import org.junit.Test;
@@ -37,9 +38,10 @@ public class SimpleScalarOptTranslatorTest {
         mockScalarCaster = mock(ScalarCaster.class);
         nameGenerator = new SanitizingNameGenerator();
         SortPolicy mockSortPolicy = mock(SortPolicy.class);
+        when(mockSortPolicy.addSortsToTheory(any())).thenReturn(Theory.empty());
         ScopeComputer mockScoper = mock(ScopeComputer.class);
         RangeAssigner mockRangeAssigner = mock(RangeAssigner.class,
-                withSettings().useConstructor(new ArrayList<>(), mockSortPolicy, mockScoper));
+                withSettings().useConstructor(mock(ModelInfo.class), new ArrayList<>(), mockSortPolicy, mockScoper));
         context = new TranslationContext(new PortusOptions(), mockScoper, mockSortPolicy, mockRangeAssigner);
     }
 
@@ -53,8 +55,8 @@ public class SimpleScalarOptTranslatorTest {
         Var y = Term.mkVar("y");
         Var guardX = Term.mkVar("guardX");
         Var guardY = Term.mkVar("guardY");
-        when(mockScalarCaster.castToScalar(eq(alloyX), any())).thenReturn(new Scalar(sort, x, guardX));
-        when(mockScalarCaster.castToScalar(eq(alloyY), any())).thenReturn(new Scalar(sort, y, guardY));
+        when(mockScalarCaster.castToScalar(eq(alloyX), any())).thenReturn(new Scalar(sort, x, guardX, context));
+        when(mockScalarCaster.castToScalar(eq(alloyY), any())).thenReturn(new Scalar(sort, y, guardY, context));
 
         Translator translator = new SimpleScalarOptTranslator(mockTranslator, mockScalarCaster, nameGenerator);
         //noinspection SuspiciousNameCombination
@@ -74,7 +76,7 @@ public class SimpleScalarOptTranslatorTest {
         ExprVar alloyE = ExprVar.make(null, "e");
         Var x = Term.mkVar("x");
         Var guardX = Term.mkVar("guardX");
-        when(mockScalarCaster.castToScalar(eq(alloyX), any())).thenReturn(new Scalar(sort, x, guardX));
+        when(mockScalarCaster.castToScalar(eq(alloyX), any())).thenReturn(new Scalar(sort, x, guardX, context));
 
         Var flag = Term.mkVar("flag");
         when(mockTranslator.translate(argThat(isAlphaEquivalent(ExprElementOf.make(x.of(sort), alloyE))), any()))
@@ -95,7 +97,7 @@ public class SimpleScalarOptTranslatorTest {
         when(mockScalarCaster.castToScalar(eq(alloyF), any())).thenReturn(new Scalar(
                 Collections.singletonList(sort), sort,
                 tuple -> Term.mkApp("f", tuple.getTerms()),
-                tuple -> Term.mkApp("guard", tuple.getTerms())));
+                tuple -> Term.mkApp("guard", tuple.getTerms()), context));
 
         Var x = Term.mkVar("x0_0");
         Var flag = Term.mkVar("flag");
@@ -104,6 +106,7 @@ public class SimpleScalarOptTranslatorTest {
                         new AnnotatedTerm(x.of(sort)), new AnnotatedTerm(Term.mkApp("f", x), sort)), alloyE))), any()))
                 .thenReturn(flag);
 
+        context.addFortressVar(x.of(sort));
         Translator translator = new SimpleScalarOptTranslator(mockTranslator, mockScalarCaster, nameGenerator);
         Term result = translator.translate(alloyF.in(alloyE), context);
         Term expected = Term.mkForall(x.of(sort), Term.mkImp(Term.mkApp("guard", x), flag));
@@ -119,16 +122,17 @@ public class SimpleScalarOptTranslatorTest {
         when(mockScalarCaster.castToScalar(eq(alloyF), any())).thenReturn(new Scalar(
                 Collections.singletonList(sort), sort,
                 tuple -> Term.mkApp("f", tuple.getTerms()),
-                tuple -> Term.mkApp("guardF", tuple.getTerms())));
+                tuple -> Term.mkApp("guardF", tuple.getTerms()), context));
         when(mockScalarCaster.castToScalar(eq(alloyG), any())).thenReturn(new Scalar(
                 Collections.singletonList(sort), sort,
                 tuple -> Term.mkApp("g", tuple.getTerms()),
-                tuple -> Term.mkApp("guardG", tuple.getTerms())));
+                tuple -> Term.mkApp("guardG", tuple.getTerms()), context));
 
         Translator translator = new SimpleScalarOptTranslator(mockTranslator, mockScalarCaster, nameGenerator);
         Term result = translator.translate(alloyF.equal(alloyG), context);
 
         Var x = Term.mkVar("x0_0");
+        context.addFortressVar(x.of(sort));
         Term expected = Term.mkForall(x.of(sort), Term.mkIfThenElse(Term.mkApp("guardF", x),
                 Term.mkAnd(Term.mkApp("guardG", x), Term.mkEq(Term.mkApp("f", x), Term.mkApp("g", x))),
                 Term.mkNot(Term.mkApp("guardG", x))));
@@ -143,8 +147,9 @@ public class SimpleScalarOptTranslatorTest {
         ExprVar alloyE = ExprVar.make(null, "e");
         Var x = Term.mkVar("x");
         Var guardX = Term.mkVar("guardX");
-        when(mockScalarCaster.castToScalar(eq(alloyX), any())).thenReturn(new Scalar(sort, x, guardX));
+        when(mockScalarCaster.castToScalar(eq(alloyX), any())).thenReturn(new Scalar(sort, x, guardX, context));
 
+        context.addFortressVar(x.of(sort));
         Translator translator = new SimpleScalarOptTranslator(mockTranslator, mockScalarCaster, nameGenerator);
         Term result = translator.translate(alloyX.equal(alloyE), context);
         assertNull(result);
@@ -161,8 +166,8 @@ public class SimpleScalarOptTranslatorTest {
         Var y = Term.mkVar("y");
         Var guardX = Term.mkVar("guardX");
         Var guardY = Term.mkVar("guardY");
-        when(mockScalarCaster.castToScalar(eq(alloyX), any())).thenReturn(new Scalar(sortX, x, guardX));
-        when(mockScalarCaster.castToScalar(eq(alloyY), any())).thenReturn(new Scalar(sortY, y, guardY));
+        when(mockScalarCaster.castToScalar(eq(alloyX), any())).thenReturn(new Scalar(sortX, x, guardX, context));
+        when(mockScalarCaster.castToScalar(eq(alloyY), any())).thenReturn(new Scalar(sortY, y, guardY, context));
 
         Translator translator = new SimpleScalarOptTranslator(mockTranslator, mockScalarCaster, nameGenerator);
         //noinspection SuspiciousNameCombination
@@ -178,7 +183,7 @@ public class SimpleScalarOptTranslatorTest {
         Var e = Term.mkVar("e");
         Var v = Term.mkVar("v");
         Var guard = Term.mkVar("guard");
-        when(mockScalarCaster.castToScalar(eq(alloyE), any())).thenReturn(new Scalar(sort, e, guard));
+        when(mockScalarCaster.castToScalar(eq(alloyE), any())).thenReturn(new Scalar(sort, e, guard, context));
 
         Translator translator = new SimpleScalarOptTranslator(mockTranslator, mockScalarCaster, nameGenerator);
         Term result = translator.translate(ExprElementOf.make(v.of(sort), alloyE), context);
@@ -209,7 +214,7 @@ public class SimpleScalarOptTranslatorTest {
         Var v1 = Term.mkVar("v1");
         Var v2 = Term.mkVar("v2");
         Var guard = Term.mkVar("guard");
-        when(mockScalarCaster.castToScalar(eq(alloyE), any())).thenReturn(new Scalar(sort, e, guard));
+        when(mockScalarCaster.castToScalar(eq(alloyE), any())).thenReturn(new Scalar(sort, e, guard, context));
 
         Translator translator = new SimpleScalarOptTranslator(mockTranslator, mockScalarCaster, nameGenerator);
         Term result = translator.translate(ExprElementOf.make(
@@ -226,8 +231,9 @@ public class SimpleScalarOptTranslatorTest {
         Var y = Term.mkVar("y");
         when(mockScalarCaster.castToScalar(eq(f), any())).thenReturn(new Scalar(Collections.singletonList(sort), sort,
                 tuple -> Term.mkApp("f", tuple.getTerms()),
-                tuple -> Term.mkApp("guard", tuple.getTerms())));
+                tuple -> Term.mkApp("guard", tuple.getTerms()), context));
 
+        context.addFortressVars(x.of(sort), y.of(sort));
         Translator translator = new SimpleScalarOptTranslator(mockTranslator, mockScalarCaster, nameGenerator);
         Term result = translator.translate(ExprElementOf.make(
                 TermTuple.fromVars(x.of(sort), y.of(sort)), f), context);
@@ -245,8 +251,9 @@ public class SimpleScalarOptTranslatorTest {
         Var z = Term.mkVar("z");
         when(mockScalarCaster.castToScalar(eq(f), any())).thenReturn(new Scalar(Arrays.asList(sort, sort), sort,
                 tuple -> Term.mkApp("f", tuple.getTerms()),
-                tuple -> Term.mkApp("guard", tuple.getTerms())));
+                tuple -> Term.mkApp("guard", tuple.getTerms()), context));
 
+        context.addFortressVars(x.of(sort), y.of(sort), z.of(sort));
         Translator translator = new SimpleScalarOptTranslator(mockTranslator, mockScalarCaster, nameGenerator);
         Term result = translator.translate(ExprElementOf.make(
                 TermTuple.fromVars(x.of(sort), y.of(sort), z.of(sort)), f), context);
@@ -263,7 +270,7 @@ public class SimpleScalarOptTranslatorTest {
         Var e = Term.mkVar("e");
         Var v = Term.mkVar("v");
         Var guard = Term.mkVar("guard");
-        when(mockScalarCaster.castToScalar(eq(alloyE), any())).thenReturn(new Scalar(sortE, e, guard));
+        when(mockScalarCaster.castToScalar(eq(alloyE), any())).thenReturn(new Scalar(sortE, e, guard, context));
 
         Translator translator = new SimpleScalarOptTranslator(mockTranslator, mockScalarCaster, nameGenerator);
         Term result = translator.translate(ExprElementOf.make(v.of(sortV), alloyE), context);

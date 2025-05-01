@@ -41,6 +41,8 @@ import java.util.stream.StreamSupport;
  */
 final class PartitionSortPolicy extends SortPolicy {
 
+    private final PortusStatistics statistics;
+
     // For generating unique names.
     private final NameGenerator nameGenerator;
 
@@ -54,21 +56,48 @@ final class PartitionSortPolicy extends SortPolicy {
 
     private final List<Sig.PrimSig> topLevelSigs;
 
+    private final ModelInfo modelInfo;
+
     private final ScopeComputer scoper;
 
     public PartitionSortPolicy(
-            Iterable<Sig> allSigs, Command command, ScopeComputer scoper, NameGenerator nameGenerator) {
+            PortusStatistics statistics, Iterable<Sig> allSigs, Command command, ModelInfo modelInfo,
+            ScopeComputer scoper, NameGenerator nameGenerator) {
+        this(statistics, allSigs, command, modelInfo, scoper, nameGenerator, true);
+    }
+
+    /**
+     * Get a partition sort policy object without merging sorts in instances where the translation requires it.
+     * This is useful for seeing the "real" sort resolvant without merges.
+     */
+    public static PartitionSortPolicy makeWithoutMergingSorts(
+            PortusStatistics statistics, Iterable<Sig> allSigs, Command command, ModelInfo modelInfo,
+            ScopeComputer scoper, NameGenerator nameGenerator) {
+        return new PartitionSortPolicy(statistics, allSigs, command, modelInfo, scoper, nameGenerator, false);
+    }
+
+    private PartitionSortPolicy(
+            PortusStatistics statistics, Iterable<Sig> allSigs, Command command, ModelInfo modelInfo,
+            ScopeComputer scoper, NameGenerator nameGenerator, boolean shouldMergeSorts) {
         super(allSigs);
+        this.statistics = statistics;
+        this.modelInfo = modelInfo;
         this.scoper = scoper;
         this.nameGenerator = nameGenerator;
 
         topLevelSigs = StreamSupport.stream(allSigs.spliterator(), false)
-                .filter(sig -> !sig.builtin) // only handle custom top-level sigs
+                .filter(sig -> !sig.builtin || sig.equals(Sig.STRING)) // only handle custom top-level sigs and string
                 .filter(Sig::isTopLevel)
                 .map(sig -> (Sig.PrimSig) sig)
                 .collect(Collectors.toList());
         sortPartition = new DisjointSets<>(topLevelSigs);
 
+        if (shouldMergeSorts) {
+            mergeSorts(command);
+        }
+    }
+
+    private void mergeSorts(Command command) {
         // Merge together all sigs' sorts that need to be merged.
         // TODO: We need to pass down the sorts of the ExprElementOf LHS tuple because the logic in DefaultTranslator's
         //   join that determines the sort uses the LHS to short-circuit. This requires major refactoring.
@@ -295,6 +324,9 @@ final class PartitionSortPolicy extends SortPolicy {
             if (first == null) {
                 first = topLevel;
             } else {
+                if (!sortPartition.areSameSet(first, topLevel)) {
+                    statistics.sortMerges.increment();
+                }
                 sortPartition.unite(first, topLevel);
             }
         }
@@ -342,10 +374,6 @@ final class PartitionSortPolicy extends SortPolicy {
             // We can't assign a sort to univ or none
             return null;
         }
-        if (sig == Sig.STRING) {
-            // String can't be assigned a sort for now - TODO strings
-            return null;
-        }
 
         if (sig instanceof Sig.PrimSig) {
             Sig.PrimSig topLevelSig = getTopLevel((Sig.PrimSig) sig);
@@ -375,7 +403,11 @@ final class PartitionSortPolicy extends SortPolicy {
         // Just the sum of all the top-level sigs in the sort
         int scope = 0;
         for (Sig.PrimSig sig : allSigs) {
-            scope += scoper.sig2scope(sig);
+            if (sig == Sig.STRING) {
+                scope += modelInfo.numStringConstants(); // sig2scope returns incorrect results for String
+            } else {
+                scope += scoper.sig2scope(sig);
+            }
         }
 
         // Don't set a scope of 0, Fortress doesn't support that.
@@ -385,11 +417,28 @@ final class PartitionSortPolicy extends SortPolicy {
     }
 
     @Override
+    public Expr getCoveringExpr(Sort sort) {
+        if (Sort.Int().equals(sort)) {
+            return Sig.SIGINT;
+        } else if (sort.isBuiltin()) {
+            throw new ErrorFatal("Cannot get covering expr for non-int builtin sort: " + sort);
+        }
+
+        // Add all the top level sigs that are part of it together
+        // TODO if we go to sorts for subclasses and for "remainder sorts" (Edwards, Jackson, Torlak) this won't work
+        return topLevelSigs.stream()
+                .filter(sig -> sort.equals(getSort(sig)))
+                .map(sig -> (Expr) sig)
+                .reduce(Expr::plus)
+                .orElse(ExprConstant.EMPTYNESS);
+    }
+
+    @Override
     public boolean isSigEntireSort(Sig sig) {
         // Special cases: builtin sigs
         if (sig == Sig.SIGINT) {
             return true; // SIGINT is all of Sort.Int
-        } else if (sig.builtin) {
+        } else if (sig.builtin && sig != Sig.STRING) {
             // None of the others (although technically SEQIDX might be? and univ is tricky)
             // TODO: handle SEQIDX better here
             return false;

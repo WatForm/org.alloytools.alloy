@@ -2,6 +2,7 @@ package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
+import edu.mit.csail.sdg.alloy4.Util;
 import edu.mit.csail.sdg.ast.Command;
 import edu.mit.csail.sdg.ast.Module;
 import edu.mit.csail.sdg.ast.Sig;
@@ -10,6 +11,8 @@ import edu.mit.csail.sdg.translator.AlloySolution;
 import edu.mit.csail.sdg.translator.CommandRunner;
 import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.compilers.AlmostNothingCompiler;
+import fortress.compilers.CompilerError;
+import fortress.compilers.CompilerResult;
 import fortress.data.NameGenerator;
 import fortress.interpretation.BasicInterpretation;
 import fortress.interpretation.Interpretation;
@@ -17,13 +20,13 @@ import fortress.modelfinders.ErrorResult;
 import fortress.modelfinders.ModelFinder;
 import fortress.modelfinders.ModelFinderResult;
 import fortress.modelfinders.StandardModelFinder;
-import fortress.msfol.Sort;
-import fortress.msfol.Term;
-import fortress.msfol.Theory;
+import fortress.msfol.*;
 import fortress.operations.SmtlibConverter;
 import fortress.solvers.Solver;
 import fortress.util.Dump;
 import fortress.util.Milliseconds;
+import scala.collection.immutable.Seq;
+import scala.util.Either;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -34,7 +37,11 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
  * The public API for Portus. Translate an Alloy AST to a Fortress theory, then attempt
@@ -68,7 +75,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
 
             logger.translationFinished(translated.getTheory());
 
-            // Write raw MSFOL or SMTLIB+ to file if the appropriate solver is chosen
+            // Intercept special-case solvers if necessary.
             if (options.solver.id().equals(A4Options.SatSolver.FORTRESS_MSFOL.id())) {
                 writeFortressToFile(logger, options, translated);
                 return null;
@@ -78,10 +85,14 @@ public final class TranslateAlloyToFortress implements CommandRunner {
                 writeSmtlibToFile(logger, options, translated);
                 return null;
             }
+            if (options.solver.id().equals(A4Options.SatSolver.CHECK_PORTUS_SUPPORT.id())) {
+                checkFortressSupport(logger, options, translated);
+                return null;
+            }
 
             Interpretation interpretation = solve(logger, statistics, translated, options);
             AlloySolution solution = new FortressSolution(
-                    interpretation, translated.getEvaluator(), translated.getContext(),
+                    interpretation, translated.getEvaluator(), translated.getStringDecoder(), translated.getContext(),
                     world.getAllReachableSigs(), options.originalFilename, command.toString());
 
             logger.outputResult(command, solution);
@@ -112,15 +123,24 @@ public final class TranslateAlloyToFortress implements CommandRunner {
             PortusStatistics statistics, Module world, Command command, ScopeComputer scoper, A4Options options) {
         statistics.onStartTranslation();
         try {
-
             // Decide on the sort policy with the options
             Iterable<Sig> sigs = world.getAllReachableSigs();
+            ModelInfo modelInfo = new ModelInfo(sigs, command, scoper);
             NameGenerator nameGenerator = new SanitizingNameGenerator();
-            SortPolicy sortPolicy = options.portusOptions.getSortPolicy(sigs, command, scoper, nameGenerator);
-            RangeAssigner rangeAssigner = new RangeAssigner(sigs, sortPolicy, scoper);
+
+            if (options.portusOptions.enableAntiMergePreprocessing) {
+                // Preprocess the formula
+                AntiMergePreprocessor preprocessor = new AntiMergePreprocessor(
+                        sigs, command, modelInfo, scoper, nameGenerator);
+                command = preprocessor.preprocess(command);
+            }
+
+            SortPolicy sortPolicy = options.portusOptions.getSortPolicy(
+                    statistics, sigs, command, modelInfo, scoper, nameGenerator);
+            RangeAssigner rangeAssigner = new RangeAssigner(modelInfo, sigs, sortPolicy, scoper);
 
             TranslatorManager translatorManager = new TranslatorManager(
-                    options.portusOptions, statistics, sortPolicy, nameGenerator);
+                    options.portusOptions, statistics, modelInfo, sortPolicy, nameGenerator);
             TranslationContext context = new TranslationContext(
                     options.portusOptions, scoper, sortPolicy, rangeAssigner);
 
@@ -128,7 +148,7 @@ public final class TranslateAlloyToFortress implements CommandRunner {
             translatorManager.runAllPasses(world, command, scoper, context);
 
             statistics.setTheoryStats(context.getTheory());
-            return new TranslationResult(translatorManager, sortPolicy, context);
+            return new TranslationResult(translatorManager, translatorManager.getStringDecoder(), sortPolicy, context);
         } finally {
             statistics.onTranslationFinished();
         }
@@ -157,16 +177,50 @@ public final class TranslateAlloyToFortress implements CommandRunner {
             if (result == ModelFinderResult.Timeout()) {
                 throw new TimeoutException();
             }
+            if (result == ModelFinderResult.Unknown()) {
+                throw new ErrorFatal("Fortress returned UNKNOWN!");
+            }
 
             return (result == ModelFinderResult.Sat()) ? postprocessInterp(finder.viewModel(), translated) : null;
         }
     }
 
+    /** Log whether Fortress supports the model without actually solving. */
+    private void checkFortressSupport(PortusLogger logger, A4Options options, TranslationResult translated) {
+        try (ModelFinder finder = createModelFinder(options.portusOptions)) {
+            translated.configureModelFinder(finder);
+            finder.setTimeout(Milliseconds.apply(options.portusOptions.timeoutMillis));
+            finder.addLogger(logger);
+
+            Either<CompilerError, CompilerResult> result = finder.compile(options.portusOptions.verbose, false);
+
+            if (result.isLeft()) {
+                throw new ErrorFatal("Error: Fortress does not support this model. Reason: " + result.left());
+            } else {
+                logger.outputHasFortressSupport();
+            }
+        }
+    }
+
     private Interpretation postprocessInterp(Interpretation interpretation, TranslationResult translated) {
-        // Add the function definitions from the theory because they aren't returned from Fortress.
+        // Add Int if it's not already there (sometimes it isn't)
+        Map<Sort, List<Value>> sortInterpretations = new HashMap<>(interpretation.sortInterpretationsJava());
+        if (!sortInterpretations.containsKey(Sort.Int())) {
+            int bitwidth = translated.getBitwidth();
+            sortInterpretations.put(Sort.Int(), IntStream.range(Util.min(bitwidth), Util.max(bitwidth) + 1)
+                    .mapToObj(IntegerLiteral::apply)
+                    .collect(Collectors.toList()));
+        }
+        // Convert back to Scala types
+        Map<Sort, Seq<Value>> sortInterpretationsScala = new HashMap<>();
+        for (Sort sort : sortInterpretations.keySet()) {
+            sortInterpretationsScala.put(sort, PortusUtil.toScalaSeq(sortInterpretations.get(sort)));
+        }
+
+        // Add the function definitions from the theory because they aren't returned from Fortress
         //noinspection unchecked
         return new BasicInterpretation(
-                interpretation.sortInterpretations(),
+                PortusUtil.toScalaMap(sortInterpretationsScala),
                 interpretation.constantInterpretations(),
                 interpretation.functionInterpretations(),
                 interpretation.functionDefinitions().concat(translated.getTheory().functionDefinitions()).toSet());

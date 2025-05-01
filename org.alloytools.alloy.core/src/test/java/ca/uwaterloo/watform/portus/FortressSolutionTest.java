@@ -48,9 +48,9 @@ public class FortressSolutionTest {
         Sort univ = Sort.mkSortConst("testUniv");
         ScopeComputer mockScoper = mock(ScopeComputer.class);
         when(mockScoper.getBitwidth()).thenReturn(4);
-        SortPolicy sortPolicy = new UnivSortPolicy(univ, new ArrayList<>(), mockScoper);
+        SortPolicy sortPolicy = new UnivSortPolicy(univ, new ArrayList<>(), mock(ModelInfo.class), mockScoper);
         RangeAssigner mockRangeAssigner = mock(RangeAssigner.class,
-                withSettings().useConstructor(new ArrayList<>(), sortPolicy, mockScoper));
+                withSettings().useConstructor(mock(ModelInfo.class), new ArrayList<>(), sortPolicy, mockScoper));
         TranslationContext context = new TranslationContext(
                 new PortusOptions(), mockScoper, sortPolicy, mockRangeAssigner);
 
@@ -75,9 +75,9 @@ public class FortressSolutionTest {
 
         NameGenerator nameGenerator = new SanitizingNameGenerator();
         TranslatorManager manager = new TranslatorManager(
-                context.options, new PortusStatistics(), sortPolicy, nameGenerator);
+                context.options, new PortusStatistics(), mock(ModelInfo.class), sortPolicy, nameGenerator);
         solution = new FortressSolution(
-                interpretation, manager, context,
+                interpretation, manager, mock(StringDecoder.class), context,
                 Collections.singletonList(Sig.UNIV), "", "");
     }
 

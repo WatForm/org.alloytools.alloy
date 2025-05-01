@@ -36,7 +36,6 @@ final class SimpleEvaluator implements Evaluator {
                 return rootEvaluator.evaluate(expr.left, solution, context).difference(
                         rootEvaluator.evaluate(expr.right, solution, context));
             case ARROW:
-                // TODO: are the rest of the arrows also just simple cartesian products?
                 return rootEvaluator.evaluate(expr.left, solution, context).cartesianProduct(
                         rootEvaluator.evaluate(expr.right, solution, context));
             case JOIN:

@@ -83,8 +83,8 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
 
         public Scalar toScalar(TranslationContext context) {
             return new Scalar(argSorts, resultSort,
-                    tuple -> Term.mkApp(funcName, tuple.getTerms()),
-                    tuple -> makeDomainFormula(tuple, this, context));
+                    (tuple, newContext) -> Term.mkApp(funcName, tuple.getTerms()),
+                    (tuple, newContext) -> makeDomainFormula(tuple, this, newContext), context);
         }
     }
 
@@ -119,14 +119,25 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
     @Override
     public Term translate(Sig.Field field, TranslationContext context) {
         Expr bound = productWithRightMultiplicity(field.sig, field.decl().expr);
+        if (bound == null) {
+            // could occur if meta is used and EXACTLYOF is used on the right bound - don't bother
+            return null;
+        }
+
         Pair<List<Expr>, ExprUnary.Op> funcTypeExprsAndMult = getFunctionTypeExprs(bound);
         if (funcTypeExprsAndMult == null) return null; // not a function, not applicable
         List<Expr> boundExprs = funcTypeExprsAndMult.a;
 
-        List<Sort> allSorts = sortPolicy.getMinimalExprDefiniteSorts(field,
-                "A field declaration must have definite Portus sorts!", context);
-        List<Sort> argSorts = allSorts.subList(0, allSorts.size() - 1);
-        Sort resultSort = allSorts.get(allSorts.size() - 1);
+        SortResolvant allSorts = sortPolicy.getMinimalExprSorts(field, context);
+        if (allSorts.isNone()) {
+            return null; // short-circuiting is handled elsewhere
+        }
+        if (!allSorts.isDefinite()) {
+            throw new ErrorNoPortusSupport("A field declaration must have definite Portus sorts!");
+        }
+
+        List<Sort> argSorts = allSorts.getDefiniteSorts().subList(0, allSorts.getDefiniteSorts().size() - 1);
+        Sort resultSort = allSorts.getDefiniteSorts().get(allSorts.getDefiniteSorts().size() - 1);
 
         String funcName = nameGenerator.freshName(field.label);
         // The optimized type is S1 x ... x S{n-1} -> Sn, where n is the field arity
@@ -233,8 +244,9 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
             case SOMEOF:
                 return left.any_arrow_some(right);
             case EXACTLYOF:
-                // EXACTLYOF should only appear here if the meta feature is used, which we don't support
-                throw new ErrorNoPortusSupport("Portus doesn't support Alloy's 'meta' feature");
+                // EXACTLYOF should only appear here if the meta feature is used
+                // Don't bother trying to optimize it, fall back to the default case
+                return null;
             default:
                 // we don't support anything else
                 throw new ErrorFatal("Unsupported multiplicity: " + mult);

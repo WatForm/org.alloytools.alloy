@@ -2,6 +2,7 @@ package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprBinary;
+import edu.mit.csail.sdg.ast.ExprUnary;
 import fortress.data.NameGenerator;
 import fortress.msfol.AnnotatedVar;
 import fortress.msfol.Sort;
@@ -38,6 +39,8 @@ final class SimpleScalarOptTranslator implements Translator {
             return translateInEquals((ExprBinary) expr, context);
         } else if (expr instanceof ExprElementOf) {
             return translateExprElementOf((ExprElementOf) expr, context);
+        } else if (expr instanceof ExprUnary) {
+            return translateQuantifierExpr(((ExprUnary) expr).op, ((ExprUnary) expr).sub, context);
         }
         return null;
     }
@@ -64,7 +67,7 @@ final class SimpleScalarOptTranslator implements Translator {
             return Term.mkBottom();
         }
 
-        return Term.mkAnd(scalar.getGuard(args), Term.mkEq(last.getTerm(), scalar.getScalar(args)));
+        return Term.mkAnd(scalar.getGuard(args, context), Term.mkEq(last.getTerm(), scalar.getScalar(args, context)));
     }
 
     private Term translateInEquals(ExprBinary expr, TranslationContext context) {
@@ -82,7 +85,7 @@ final class SimpleScalarOptTranslator implements Translator {
         if (rightScalar == null) {
             return null;
         }
-        return translateOptimizedEquals(leftScalar, rightScalar);
+        return translateOptimizedEquals(leftScalar, rightScalar, context);
     }
 
     /**
@@ -93,13 +96,13 @@ final class SimpleScalarOptTranslator implements Translator {
     private Term translateOptimizedIn(Scalar leftScalar, Expr right, TranslationContext context) {
         List<AnnotatedVar> argVars = makeArgVars(leftScalar.getArgSorts());
 
-        TermTuple tuple = TermTuple.fromVars(argVars);
-        TermTuple tupleWithLeft = tuple.concat(new TermTuple(leftScalar.getAnnotatedScalar(tuple)));
-
         try {
             context.addFortressVars(argVars);
+            TermTuple tuple = TermTuple.fromVars(argVars);
+            TermTuple tupleWithLeft = tuple.concat(new TermTuple(leftScalar.getAnnotatedScalar(tuple, context)));
+
             Term inRight = rootTranslator.translate(ExprElementOf.make(tupleWithLeft, right), context);
-            Term body = Term.mkImp(leftScalar.getGuard(tuple), inRight);
+            Term body = Term.mkImp(leftScalar.getGuard(tuple, context), inRight);
             return makeSmartForall(argVars, body);
         } finally {
             context.removeFortressVars(argVars);
@@ -111,19 +114,58 @@ final class SimpleScalarOptTranslator implements Translator {
      *   [[f = g]] := forall x1,...,xn . guard_f(x1,...,xn)
      *     guard_f(x1,...,xn) => (guard_g(x1,..,xn) && f(x1,...,xn) = g(x1,...,xn)) else !guard_g(x1,...,xn)
      */
-    private Term translateOptimizedEquals(Scalar left, Scalar right) {
+    private Term translateOptimizedEquals(Scalar left, Scalar right, TranslationContext context) {
         if (!left.hasSameSignature(right)) {
             return null; // let someone else deal with it
         }
 
         List<AnnotatedVar> argVars = makeArgVars(left.getArgSorts());
-        TermTuple tuple = TermTuple.fromVars(argVars);
 
-        // TODO: if right guard is cheaper than left guard, swap them for a (very) slight optimization
-        Term body = Term.mkIfThenElse(left.getGuard(tuple),
-                Term.mkAnd(right.getGuard(tuple), Term.mkEq(left.getScalar(tuple), right.getScalar(tuple))),
-                Term.mkNot(right.getGuard(tuple)));
-        return makeSmartForall(argVars, body);
+        try {
+            context.addFortressVars(argVars);
+            TermTuple tuple = TermTuple.fromVars(argVars);
+
+            // TODO: if right guard is cheaper than left guard, swap them for a (very) slight optimization
+            Term body = Term.mkIfThenElse(left.getGuard(tuple, context),
+                    Term.mkAnd(right.getGuard(tuple, context),
+                            Term.mkEq(left.getScalar(tuple, context), right.getScalar(tuple, context))),
+                    Term.mkNot(right.getGuard(tuple, context)));
+            return makeSmartForall(argVars, body);
+        } finally {
+            context.removeFortressVars(argVars);
+        }
+    }
+
+    /**
+     * Optimize quantifier expressions involving scalars, like "no s" and "some s".
+     * These can be reduced to just reasoning about the scalar's guard.
+     */
+    private Term translateQuantifierExpr(ExprUnary.Op quantifier, Expr expr, TranslationContext context) {
+        if (quantifier != ExprUnary.Op.SOME && quantifier != ExprUnary.Op.ONE
+            && quantifier != ExprUnary.Op.NO && quantifier != ExprUnary.Op.LONE) {
+            return null;
+        }
+
+        Scalar scalar = scalarCaster.castToScalar(expr, context);
+
+        // just for nilary scalars for a quick test
+        if (scalar == null || !scalar.isNilary()) {
+            return null;
+        }
+        switch (quantifier) {
+            case SOME:
+            case ONE:
+                // guard is true
+                return scalar.getNilaryGuard(context);
+            case NO:
+                // guard is false
+                return Term.mkNot(scalar.getNilaryGuard(context));
+            case LONE:
+                // always true
+                return Term.mkTop();
+            default:
+                return null;
+        }
     }
 
     /** Make a list of annotated variables from a list of sorts. */

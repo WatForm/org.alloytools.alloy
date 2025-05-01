@@ -35,7 +35,8 @@ final class IntAsScalarTranslator implements Translator {
 
         // Translate as guard => integer else 0; that is, treat empty sets as 0.
         // This is consistent with Kodkod, which sums sets of integers when used as an integer.
-        return Term.mkIfThenElse(scalar.getNilaryGuard(), scalar.getNilaryScalar(), IntegerLiteral.apply(0));
+        return Term.mkIfThenElse(scalar.getNilaryGuard(context),
+                scalar.getNilaryScalar(context), IntegerLiteral.apply(0));
     }
 
     @Override

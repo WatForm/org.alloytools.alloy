@@ -67,7 +67,7 @@ public class OrderingModuleOptTranslatorTest {
 
         policy = mock(SortPolicy.class);
         rangeAssigner = mock(RangeAssigner.class, withSettings()
-                .useConstructor(Arrays.asList(ordSig, orderedSig), policy, scoper));
+                .useConstructor(mock(ModelInfo.class), Arrays.asList(ordSig, orderedSig), policy, scoper));
         scoper = mock(ScopeComputer.class);
         Translator recursiveTranslator = (expr, context) -> {
             // recursive calls should check membership in orderedSig, translate as inOrderedSig(x)
@@ -322,9 +322,9 @@ public class OrderingModuleOptTranslatorTest {
 
         assertNotNull(scalar);
         assertTrue(scalar.isNilary());
-        assertEquals(Term.mkDomainElement(1, orderedSigSort), scalar.getNilaryScalar());
+        assertEquals(Term.mkDomainElement(1, orderedSigSort), scalar.getNilaryScalar(context));
         assertEquals(orderedSigSort, scalar.getResultSort());
-        assertEquals(Term.mkTop(), scalar.getNilaryGuard());
+        assertEquals(Term.mkTop(), scalar.getNilaryGuard(context));
     }
 
     @Test
@@ -345,9 +345,9 @@ public class OrderingModuleOptTranslatorTest {
 
         assertNotNull(scalar);
         assertTrue(scalar.isNilary());
-        assertEquals(Term.mkDomainElement(5, orderedSigSort), scalar.getNilaryScalar());
+        assertEquals(Term.mkDomainElement(5, orderedSigSort), scalar.getNilaryScalar(context));
         assertEquals(orderedSigSort, scalar.getResultSort());
-        assertEquals(Term.mkTop(), scalar.getNilaryGuard());
+        assertEquals(Term.mkTop(), scalar.getNilaryGuard(context));
     }
 
     @Test
@@ -367,16 +367,17 @@ public class OrderingModuleOptTranslatorTest {
         assertEquals(orderedSigSort, nextFunc.resultSort());
 
         AnnotatedVar x = Term.mkVar("x").of(orderedSigSort);
+        context.addFortressVar(x);
         assertNotNull(scalar);
         assertFalse(scalar.isNilary());
         assertEquals(1, scalar.getArity());
         assertEquals(orderedSigSort, scalar.getArgSorts().get(0));
         assertEquals(orderedSigSort, scalar.getResultSort());
-        assertEquals(Term.mkApp(nextFunc.name(), x.variable()), scalar.getScalar(TermTuple.fromVars(x)));
+        assertEquals(Term.mkApp(nextFunc.name(), x.variable()), scalar.getScalar(TermTuple.fromVars(x), context));
         Term expectedGuard = Term.mkAnd(
                 Term.mkApp("inOrderedSig", x.variable()),
                 Term.mkNot(Term.mkEq(x.variable(), Term.mkDomainElement(3, orderedSigSort))));
-        assertEquals(expectedGuard, scalar.getGuard(TermTuple.fromVars(x)));
+        assertEquals(expectedGuard, scalar.getGuard(TermTuple.fromVars(x), context));
     }
 
     @Test
@@ -398,14 +399,15 @@ public class OrderingModuleOptTranslatorTest {
         assertEquals(orderedSigSort, nextFunc.resultSort());
 
         AnnotatedVar x = Term.mkVar("x").of(orderedSigSort);
+        context.addFortressVar(x);
         assertNotNull(scalar);
         assertFalse(scalar.isNilary());
         assertEquals(1, scalar.getArity());
-        assertEquals(Term.mkApp(nextFunc.name(), x.variable()), scalar.getScalar(TermTuple.fromVars(x)));
+        assertEquals(Term.mkApp(nextFunc.name(), x.variable()), scalar.getScalar(TermTuple.fromVars(x), context));
         Term expectedGuard = Term.mkAnd(
                 Term.mkApp("inOrderedSig", x.variable()),
                 Term.mkNot(Term.mkEq(x.variable(), Term.mkDomainElement(3, orderedSigSort))));
-        assertEquals(expectedGuard, scalar.getGuard(TermTuple.fromVars(x)));
+        assertEquals(expectedGuard, scalar.getGuard(TermTuple.fromVars(x), context));
     }
 
     @Test

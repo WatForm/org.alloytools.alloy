@@ -22,7 +22,6 @@ import fortress.msfol.Term;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.function.Function;
 
 /**
  * A scalar caster which casts simple expressions to scalars which don't need any additional state.
@@ -31,7 +30,7 @@ import java.util.function.Function;
 final class DefaultScalarCaster implements ScalarCaster {
 
     // The list of builtin constants that we can treat like scalars.
-    // TODO: STRING
+    // String is handled by StringTranslator.
     private static final ConstList<ExprConstant.Op> SCALAR_CONSTANTS = ConstList.make(Arrays.asList(
             ExprConstant.Op.TRUE,
             ExprConstant.Op.FALSE,
@@ -40,11 +39,11 @@ final class DefaultScalarCaster implements ScalarCaster {
             ExprConstant.Op.MAX));
 
     // The list of unary operations that will return scalars.
-    private static final ConstList<ExprUnary.Op> SCALAR_UNARY_OPS = ConstList.make(Collections.singletonList(
+    private static final ConstList<ExprUnary.Op> INT_UNARY_OPS = ConstList.make(Collections.singletonList(
             ExprUnary.Op.CARDINALITY));
 
     // The list of binary operations that will return scalars.
-    private static final ConstList<ExprBinary.Op> SCALAR_BINARY_OPS = ConstList.make(Arrays.asList(
+    private static final ConstList<ExprBinary.Op> INT_BINARY_OPS = ConstList.make(Arrays.asList(
             ExprBinary.Op.IPLUS,
             ExprBinary.Op.IMINUS,
             ExprBinary.Op.MUL,
@@ -79,7 +78,7 @@ final class DefaultScalarCaster implements ScalarCaster {
                 assert scalar != null;
 
                 // Assume no guard on usage needed.
-                return new Scalar(new AnnotatedTerm(scalar, sort), Term.mkTop());
+                return new Scalar(new AnnotatedTerm(scalar, sort), Term.mkTop(), context);
             }
 
             @Override
@@ -114,13 +113,13 @@ final class DefaultScalarCaster implements ScalarCaster {
 
             @Override
             public Scalar visit(ExprUnary x) {
-                // Check for and strip any noops
+                // Strip noops. Note if the noop is cast2int and casting fails, IntSumScalarCaster will run if enabled.
                 Expr denooped = PortusUtil.stripPortusNoops(x);
                 if (denooped != x) {
                     return rootScalarCaster.castToScalar(denooped, context);
                 }
 
-                if (SCALAR_UNARY_OPS.contains(x.op)) {
+                if (INT_UNARY_OPS.contains(x.op)) {
                     // Translate as an integer expression (they all return int)
                     return castByTranslating(x, Sort.Int());
                 }
@@ -129,7 +128,7 @@ final class DefaultScalarCaster implements ScalarCaster {
 
             @Override
             public Scalar visit(ExprBinary x) {
-                if (SCALAR_BINARY_OPS.contains(x.op)) {
+                if (INT_BINARY_OPS.contains(x.op)) {
                     // Translate as an integer expression (they all return int)
                     return castByTranslating(x, Sort.Int());
                 }
@@ -158,11 +157,11 @@ final class DefaultScalarCaster implements ScalarCaster {
                 // scalar is "condition => left else right", guard is "condition => guardLeft else guardRight"
                 // (we have to repeat condition in normal translation anyways, so it should be fine)
                 Term condition = translator.translate(x.cond, context);
-                Function<TermTuple, Term> scalarGenerator = tuple ->
-                        Term.mkIfThenElse(condition, leftScalar.getScalar(tuple), rightScalar.getScalar(tuple));
-                Function<TermTuple, Term> guardGenerator = tuple ->
-                        Term.mkIfThenElse(condition, leftScalar.getGuard(tuple), rightScalar.getGuard(tuple));
-                return new Scalar(argSorts, resultSort, scalarGenerator, guardGenerator);
+                Scalar.TermGenerator scalarGenerator = (tuple, context) -> Term.mkIfThenElse(condition,
+                        leftScalar.getScalar(tuple, context), rightScalar.getScalar(tuple, context));
+                Scalar.TermGenerator guardGenerator = (tuple, context) -> Term.mkIfThenElse(condition,
+                        leftScalar.getGuard(tuple, context), rightScalar.getGuard(tuple, context));
+                return new Scalar(argSorts, resultSort, scalarGenerator, guardGenerator, context);
             }
 
             @Override
@@ -206,7 +205,7 @@ final class DefaultScalarCaster implements ScalarCaster {
                     AnnotatedTerm fortressTerm = varMappingContext.getTermMapping(x.label);
                     assert fortressTerm != null;
                     // no guard on the variable usage is needed
-                    return new Scalar(fortressTerm, Term.mkTop());
+                    return new Scalar(fortressTerm, Term.mkTop(), context);
                 }
                 return null;
             }

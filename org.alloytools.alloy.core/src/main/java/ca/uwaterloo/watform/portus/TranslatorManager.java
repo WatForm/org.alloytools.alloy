@@ -45,6 +45,8 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
     private final ContextExprCache<Term> translationCache;
     private final ContextExprCache<Scalar> castToScalarCache;
 
+    private final StringDecoder stringDecoder;
+
     /**
      * Create a TranslatorManager that uses the given reporter and options
      * to create its list of translators to delegate to.
@@ -53,7 +55,8 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
      *                on the options selected by the user.
      */
     public TranslatorManager(
-            PortusOptions options, PortusStatistics statistics, SortPolicy sortPolicy, NameGenerator nameGenerator) {
+            PortusOptions options, PortusStatistics statistics, ModelInfo modelInfo, SortPolicy sortPolicy,
+            NameGenerator nameGenerator) {
         this.statistics = statistics;
 
         this.useCaching = options.enableCaching;
@@ -79,9 +82,12 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
                 this, sortPolicy, sigAxioms, !options.enableFortressNonExactScopes);
         ClosureOfScalarOptTranslator closureOfScalarOpt = new ClosureOfScalarOptTranslator(
                 this, this, sortPolicy, nameGenerator, options.enableClosureOptDefinition);
+        StringTranslator stringTranslator = new StringTranslator(this, modelInfo, sortPolicy);
         DefaultTranslator defaultTranslator = new DefaultTranslator(
                 this, scopeAxiomStrategy, sigAxioms, sortPolicy, nameGenerator);
         IntAsScalarTranslator intAsScalarTranslator = new IntAsScalarTranslator(this);
+
+        this.stringDecoder = stringTranslator;
 
         List<ScopeExpansionMarker> scopeExpansionMarkers = new ArrayList<>();
         scopeExpansionMarkers.add(defaultTranslator);
@@ -121,6 +127,7 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
             translators.add(new SumDefinitionsOptTranslator(
                     this, sortPolicy, nameGenerator, options.enableSumBalancing));
         }
+        translators.add(stringTranslator);
         translators.add(defaultTranslator);
         if (options.enableIntsAsScalars) {
             translators.add(intAsScalarTranslator);
@@ -136,10 +143,15 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
         if (options.enableJoinOptimization) {
             scalarCasters.add(joinOpt);
         }
+        if (options.enableRelationalScalarOptimization) {
+            scalarCasters.add(new RelationalScalarCaster(this, this, sortPolicy));
+        }
+        scalarCasters.add(stringTranslator);
         scalarCasters.add(new DefaultScalarCaster(this, this, sortPolicy));
         if (options.enableElementOfScalarOptimization) {
             scalarCasters.add(new ElementOfScalarCaster(this, sortPolicy, nameGenerator, statistics));
         }
+        scalarCasters.add(new IntSumScalarCaster(this, sortPolicy, nameGenerator));
 
         if (options.enableOneSigOptimization) {
             evaluators.add(oneSigOpt);
@@ -158,6 +170,13 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
     @Override
     public String name() {
         return "Root";
+    }
+
+    /**
+     * The StringDecoder to be used to decode strings resulting from this translation.
+     */
+    public StringDecoder getStringDecoder() {
+        return stringDecoder;
     }
 
     /**

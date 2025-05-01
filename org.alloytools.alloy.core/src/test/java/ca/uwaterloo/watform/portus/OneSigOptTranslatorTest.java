@@ -94,9 +94,9 @@ public class OneSigOptTranslatorTest {
         Scalar result = opt.castToScalar(testOneSig, context);
         assertNotNull(result);
         assertTrue(result.isNilary());
-        assertEquals(Term.mkDomainElement(1, testSort), result.getNilaryScalar());
+        assertEquals(Term.mkDomainElement(1, testSort), result.getNilaryScalar(context));
         assertEquals(testSort, result.getResultSort());
-        assertEquals(Term.mkTop(), result.getNilaryGuard());
+        assertEquals(Term.mkTop(), result.getNilaryGuard(context));
     }
 
 }

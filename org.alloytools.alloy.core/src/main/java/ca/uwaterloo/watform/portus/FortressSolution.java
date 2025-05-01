@@ -18,14 +18,7 @@ import edu.mit.csail.sdg.translator.A4Tuple;
 import edu.mit.csail.sdg.translator.A4TupleSet;
 import edu.mit.csail.sdg.translator.AlloySolution;
 import fortress.interpretation.Interpretation;
-import fortress.msfol.AnnotatedVar;
-import fortress.msfol.FuncDecl;
-import fortress.msfol.FunctionDefinition;
-import fortress.msfol.IntegerLiteral;
-import fortress.msfol.Sort;
-import fortress.msfol.Term;
-import fortress.msfol.Theory;
-import fortress.msfol.Value;
+import fortress.msfol.*;
 import fortress.operations.PreimageFinding;
 import fortress.operations.InterpretationVerifier;
 import kodkod.instance.Universe;
@@ -41,7 +34,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 public class FortressSolution implements AlloySolution {
 
@@ -50,6 +42,9 @@ public class FortressSolution implements AlloySolution {
 
     /** An evaluator which contains the state necessary to evaluate expressions in this interpretation. */
     private final Evaluator evaluator;
+
+    /** For decoding atoms to strings when outputting to XML. */
+    private final StringDecoder stringDecoder;
 
     /** The context of the translation used to produce the interpretation. */
     private final TranslationContext context;
@@ -69,10 +64,11 @@ public class FortressSolution implements AlloySolution {
     /** The single Kodkod universe of atoms - Alloy requires a consistent Universe object. */
     private final Universe universe;
 
-    FortressSolution(Interpretation interpretation, Evaluator evaluator, TranslationContext context, Iterable<Sig> sigs,
-                     String originalFilename, String originalCommand) {
+    FortressSolution(Interpretation interpretation, Evaluator evaluator, StringDecoder stringDecoder,
+                     TranslationContext context, Iterable<Sig> sigs, String originalFilename, String originalCommand) {
         this.interpretation = interpretation;
         this.evaluator = evaluator;
+        this.stringDecoder = stringDecoder;
         this.context = context;
         this.sigs = new SafeList<>(sigs);
         this.originalFilename = originalFilename;
@@ -81,14 +77,6 @@ public class FortressSolution implements AlloySolution {
         if (interpretation != null) {
             // Generate Alloy atoms (ExprVars) for each Fortress atom
             Map<Sort, List<Value>> sortInterpretations = new HashMap<>(interpretation.sortInterpretationsJava());
-
-            // Manually include integers if they aren't already included
-            if (!sortInterpretations.containsKey(Sort.Int())) {
-                int bitwidth = context.getBitwidth();
-                sortInterpretations.put(Sort.Int(), IntStream.range(Util.min(bitwidth), Util.max(bitwidth) + 1)
-                        .mapToObj(IntegerLiteral::apply)
-                        .collect(Collectors.toList()));
-            }
 
             List<Value> fortressAtoms = new ArrayList<>();
             for (Sort sort : sortInterpretations.keySet()) {
@@ -408,6 +396,14 @@ public class FortressSolution implements AlloySolution {
 
     @Override
     public String atom2name(Object atom) {
+        // If this atom represents a string constant, use the actual string as the name.
+        // This is needed for printing to XML in the format read by A4SolutionReader.
+        if (atom instanceof DomainElement) {
+            String stringConst = stringDecoder.decode((DomainElement) atom);
+            if (stringConst != null) {
+                return stringConst;
+            }
+        }
         return atom.toString();
     }
 

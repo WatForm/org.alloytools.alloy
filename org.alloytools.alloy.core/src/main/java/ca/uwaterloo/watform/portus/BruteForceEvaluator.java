@@ -1,7 +1,6 @@
 package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.ast.Expr;
-import edu.mit.csail.sdg.ast.Sig;
 import fortress.data.NameGenerator;
 import fortress.msfol.AnnotatedVar;
 import fortress.msfol.Term;
@@ -34,12 +33,6 @@ final class BruteForceEvaluator implements Evaluator {
             // A formula - just check it and return the boolean
             boolean result = evaluateBooleanExpr(expr, solution, context);
             return ValueTupleSet.singleton(result ? Term.mkTop() : Term.mkBottom());
-        }
-
-        // Special case: we don't support strings, so just return none.
-        // TODO: Support strings.
-        if (expr.deNOP().equals(Sig.STRING)) {
-            return ValueTupleSet.empty(1);
         }
 
         return bruteForceEval(expr, solution, context);

@@ -1,22 +1,8 @@
 package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.Err;
-import edu.mit.csail.sdg.ast.Assert;
-import edu.mit.csail.sdg.ast.Decl;
-import edu.mit.csail.sdg.ast.Expr;
-import edu.mit.csail.sdg.ast.ExprBinary;
-import edu.mit.csail.sdg.ast.ExprCall;
-import edu.mit.csail.sdg.ast.ExprConstant;
-import edu.mit.csail.sdg.ast.ExprHasName;
-import edu.mit.csail.sdg.ast.ExprITE;
-import edu.mit.csail.sdg.ast.ExprLet;
-import edu.mit.csail.sdg.ast.ExprList;
-import edu.mit.csail.sdg.ast.ExprQt;
-import edu.mit.csail.sdg.ast.ExprUnary;
-import edu.mit.csail.sdg.ast.ExprVar;
-import edu.mit.csail.sdg.ast.Func;
-import edu.mit.csail.sdg.ast.Sig;
-import edu.mit.csail.sdg.parser.Macro;
+import edu.mit.csail.sdg.ast.*;
+import fortress.msfol.FuncDecl;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
 import fortress.msfol.Var;
@@ -45,7 +31,7 @@ abstract class ContextVisitReturn<T> extends FortressVisitReturn<T> {
     }
 
     public ContextVisitReturn(TranslationContext context, SortPolicy sortPolicy) {
-        this(context.varMappingContext, sortPolicy);
+        this(context.getVarMappingContext(), sortPolicy);
     }
 
     // Quantified variables are mapped to an arbitrary variable satisfying this.
@@ -97,15 +83,24 @@ abstract class ContextVisitReturn<T> extends FortressVisitReturn<T> {
                     if (!resolvant.isDefinite()) {
                         throw new ErrorNoPortusSupport("Quantifier decl expression must have definite sorts!");
                     }
-                    if (resolvant.arity() > 1) {
-                        throw new ErrorNoPortusSupport("Portus only supports unary quantifier decl expressions!");
+
+                    if (resolvant.arity() == 1 && PortusUtil.getDeclMult(decl) == ExprUnary.Op.ONEOF) {
+                        // First-order
+                        Sort sort = resolvant.getDefiniteSorts().get(0);
+                        Var placeholderBoundVar = getPlaceholderBoundVar(sort);
+                        varMappingContext.addTermMapping(name.label, new AnnotatedTerm(placeholderBoundVar.of(sort)));
+                        varMappingContext.addFortressVar(placeholderBoundVar.of(sort));
+                        varNamesAdded.add(name.label);
+                        placeholderBoundVars.add(placeholderBoundVar);
+                    } else {
+                        // Second-order
+                        // We aren't adding with addFortressVar so won't show up as a free variable - just use
+                        // any name. TODO second order addFortressVar here
+                        FuncDecl placeholderFunc = FuncDecl.mkFuncDecl("%placeholder2ndOrder%",
+                                resolvant.getDefiniteSorts(), Sort.Bool());
+                        varMappingContext.addFuncMapping(placeholderFunc.name(), placeholderFunc);
+                        varNamesAdded.add(placeholderFunc.name());
                     }
-                    Sort sort = resolvant.getDefiniteSorts().get(0);
-                    Var placeholderBoundVar = getPlaceholderBoundVar(sort);
-                    varMappingContext.addTermMapping(name.label, new AnnotatedTerm(placeholderBoundVar.of(sort)));
-                    varMappingContext.addFortressVar(placeholderBoundVar.of(sort));
-                    varNamesAdded.add(name.label);
-                    placeholderBoundVars.add(placeholderBoundVar);
                 }
             }
             return visitQuantifier(x, argResults, false);
@@ -159,88 +154,6 @@ abstract class ContextVisitReturn<T> extends FortressVisitReturn<T> {
      */
     public T visitLetVarExpr(Expr expr) throws Err {
         return visitThis(expr);
-    }
-
-    /** A base implementation of ContextVisitReturn that by default returns null from each method. */
-    static class Default<T> extends ContextVisitReturn<T> {
-        public Default(TranslationContext context, SortPolicy sortPolicy) {
-            super(context, sortPolicy);
-        }
-
-        @Override
-        public T visitLet(ExprLet x) throws Err {
-            return null;
-        }
-
-        @Override
-        public T visitQuantifier(ExprQt x, List<T> argResults, boolean anyArgNone) throws Err {
-            return null;
-        }
-
-        @Override
-        public T visitVar(ExprVar x) throws Err {
-            return null;
-        }
-
-        @Override
-        public T visit(ExprElementOf x) throws Err {
-            return null;
-        }
-
-        @Override
-        public T visit(ExprBinary x) throws Err {
-            return null;
-        }
-
-        @Override
-        public T visit(ExprList x) throws Err {
-            return null;
-        }
-
-        @Override
-        public T visit(ExprCall x) throws Err {
-            return null;
-        }
-
-        @Override
-        public T visit(ExprConstant x) throws Err {
-            return null;
-        }
-
-        @Override
-        public T visit(ExprITE x) throws Err {
-            return null;
-        }
-
-        @Override
-        public T visit(ExprUnary x) throws Err {
-            return null;
-        }
-
-        @Override
-        public T visit(Sig x) throws Err {
-            return null;
-        }
-
-        @Override
-        public T visit(Sig.Field x) throws Err {
-            return null;
-        }
-
-        @Override
-        public T visit(Func x) throws Err {
-            return null;
-        }
-
-        @Override
-        public T visit(Assert x) throws Err {
-            return null;
-        }
-
-        @Override
-        public T visit(Macro macro) throws Err {
-            return null;
-        }
     }
 
 }

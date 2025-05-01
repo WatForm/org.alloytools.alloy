@@ -104,6 +104,11 @@ public final class PortusLogger implements EventLogger {
         reporter.resultCNF(filename);
     }
 
+    /** Output a message that Fortress supports this model. */
+    public void outputHasFortressSupport() {
+        reporter.resultCNF("Fortress translation finished. Model is supported.");
+    }
+
     private String formatTime(Nanoseconds time) {
         return time.toMilli().value() + "ms";
     }

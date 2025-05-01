@@ -51,11 +51,7 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.startsWith;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertThrows;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 import static org.mockito.AdditionalAnswers.delegatesTo;
 import static org.mockito.AdditionalMatchers.or;
 import static org.mockito.ArgumentMatchers.any;
@@ -83,13 +79,13 @@ public class DefaultTranslatorTest {
         mockRoot = mock(Translator.class);
         mockScoper = mock(ScopeComputer.class);
         mockSortPolicy = mock(SortPolicy.class, delegatesTo(
-                new UnivSortPolicy(univ, Collections.emptyList(), mockScoper)));
+                new UnivSortPolicy(univ, Collections.emptyList(), mock(ModelInfo.class), mockScoper)));
         NameGenerator nameGenerator = new SanitizingNameGenerator();
         translator = new DefaultTranslator(mockRoot, new QuantifierScopeAxiomStrategy(mockSortPolicy, nameGenerator),
                 new SigAxioms(mockRoot, mockSortPolicy, nameGenerator), mockSortPolicy, nameGenerator);
         // Use the constructor so RangeAssigner's list of sigs isn't null (causes issues with copy constructor)
         RangeAssigner mockRangeAssigner = mock(RangeAssigner.class,
-                withSettings().useConstructor(new ArrayList<>(), mockSortPolicy, mockScoper));
+                withSettings().useConstructor(mock(ModelInfo.class), new ArrayList<>(), mockSortPolicy, mockScoper));
         context = new TranslationContext(new PortusOptions(), mockScoper, mockSortPolicy, mockRangeAssigner);
     }
 
@@ -3051,9 +3047,8 @@ public class DefaultTranslatorTest {
         assertNotNull(fortressX1.get()); // make sure we captured references, so we translated [[f]]
         assertNotNull(fortressX2.get());
         // use the captured reference to construct the expected translation
-        Term expected = Term.mkForall(
-                Arrays.asList(fortressX1.get(), fortressX2.get()),
-                Term.mkImp(Term.mkAnd(flagInE1, flagInE2), flagSub));
+        Term expected = Term.mkForall(fortressX1.get(), Term.mkForall(fortressX2.get(),
+                Term.mkImp(Term.mkAnd(flagInE1, flagInE2), flagSub)));
         assertEquals(expected, result);
 
         // make sure the mappings were removed after translation
@@ -3148,9 +3143,8 @@ public class DefaultTranslatorTest {
         assertNotNull(fortressX1.get()); // make sure we captured references, so we translated [[f]]
         assertNotNull(fortressX2.get());
         // use the captured reference to construct the expected translation
-        Term expected = Term.mkForall(
-                Arrays.asList(fortressX1.get(), fortressX2.get()),
-                Term.mkImp(Term.mkAnd(flagInE1, flagInE2), flagSub));
+        Term expected = Term.mkForall(fortressX1.get(), Term.mkForall(fortressX2.get(),
+                Term.mkImp(Term.mkAnd(flagInE1, flagInE2), flagSub)));
         assertEquals(expected, result);
 
         // make sure the mappings were removed after translation
@@ -3190,9 +3184,8 @@ public class DefaultTranslatorTest {
         });
 
         Term result = translator.translate(f.forAll(x1, x2), context);
-        Term expected = Term.mkForall(
-                Arrays.asList(Term.mkVar("x_0").of(univ), Term.mkVar("x_1").of(univ)),
-                Term.mkImp(Term.mkAnd(flagInE1, flagInE2), flagSub));
+        Term expected = Term.mkForall(Term.mkVar("x_0").of(univ), Term.mkForall(Term.mkVar("x_1").of(univ),
+                Term.mkImp(Term.mkAnd(flagInE1, flagInE2), flagSub)));
         assertEquals(expected, result);
 
         // make sure the mappings were removed after translation
@@ -3309,13 +3302,13 @@ public class DefaultTranslatorTest {
         when(mockRoot.translate(eq(f), any())).then(useTestFunction("f", "x"));
 
         Var x = Term.mkVar("x"), y = Term.mkVar("y");
-        Term expected = Term.mkForall(Arrays.asList(x.of(univ), y.of(univ)), Term.mkImp(
+        Term expected = Term.mkForall(x.of(univ), Term.mkForall(y.of(univ), Term.mkImp(
                 Term.mkAnd(
                         Term.mkApp("inE", x),
                         Term.mkApp("inE", y),
                         Term.mkApp("f", x),
                         Term.mkApp("f", y)),
-                Term.mkEq(x, y)));
+                Term.mkEq(x, y))));
 
         Term result = translator.translate(f.forLone(alloyX), context);
         assertThat(result, isAlphaEquivalentTerm(expected));
@@ -3997,8 +3990,7 @@ public class DefaultTranslatorTest {
                 ExprElementOf.make(TermTuple.fromVars(x0.of(univ), x1.of(univ)), e))), any())).thenReturn(flagInE);
 
         Term result = translator.translate(e.some(), context);
-        Term expected = Term.mkExists(Arrays.asList(x0.of(univ), x1.of(univ)),
-                Term.mkAnd(flagInE, Term.mkTop()));
+        Term expected = Term.mkExists(x0.of(univ), Term.mkExists(x1.of(univ), Term.mkAnd(flagInE, Term.mkTop())));
         assertEquals(expected, result);
         assertContextEmpty();
     }
@@ -4032,8 +4024,7 @@ public class DefaultTranslatorTest {
                 ExprElementOf.make(TermTuple.fromVars(x0.of(univ), x1.of(Sort.Int())), e))), any())).thenReturn(flagInE);
 
         Term result = translator.translate(e.some(), context);
-        Term expected = Term.mkExists(Arrays.asList(x0.of(univ), x1.of(Sort.Int())),
-                Term.mkAnd(flagInE, Term.mkTop()));
+        Term expected= Term.mkExists(x0.of(univ), Term.mkExists(x1.of(Sort.Int()), Term.mkAnd(flagInE, Term.mkTop())));
         assertEquals(expected, result);
         assertContextEmpty();
     }
@@ -4069,9 +4060,9 @@ public class DefaultTranslatorTest {
         when(mockRoot.translate(argThat(isSameAs(ExprElementOf.make(x.of(univ), e))), any())).thenReturn(flagInE);
 
         Term result = translator.translate(e.lone(), context);
-        Term expected = Term.mkForall(Arrays.asList(x.of(univ), y.of(univ)), Term.mkImp(
+        Term expected = Term.mkForall(x.of(univ), Term.mkForall(y.of(univ), Term.mkImp(
                 Term.mkAnd(flagInE, flagInE, Term.mkTop(), Term.mkTop()),
-                Term.mkEq(x, y)));
+                Term.mkEq(x, y))));
         assertEquals(expected, result);
         assertContextEmpty();
     }
@@ -4881,12 +4872,10 @@ public class DefaultTranslatorTest {
 
     @Test
     public void testTranslate_cast2int() {
-        // test cast2int is ignored: [[cast2int(e)]] := [[e]]
+        // test cast2int returns null so the next translator can handle it
         ExprVar e = makeTestVariable("e");
-        Var flagE = makeFlagConstant("flagE");
-        when(mockRoot.translate(eq(e), any())).thenReturn(flagE);
         Term result = translator.translate(ExprUnary.Op.CAST2INT.make(null, e), context);
-        assertEquals(flagE, result);
+        assertNull(result);
         assertContextEmpty();
     }
 

@@ -76,10 +76,12 @@ public final class PortusOptions implements Serializable {
     public boolean enableIntsAsScalars = true;
     public boolean enableSumDefinitionsOptimization = true;
     public boolean enableExprDefnOptimization = true;
+    public boolean enableRelationalScalarOptimization = true;
     public boolean enableFuncOptimization = true;
 
     public boolean enablePartitionSortPolicy = true;
     public boolean enableConstantsScopeAxiomStrategy = true; // alternative: cardinality; TODO: refactor this
+    public boolean enableAntiMergePreprocessing = true;
 
     public boolean enableOrderingDefinition = true;
     public boolean enableClosureOptDefinition = true;
@@ -111,12 +113,13 @@ public final class PortusOptions implements Serializable {
 
     /** Which sort policy should we use to translate? */
     public SortPolicy getSortPolicy(
-            Iterable<Sig> sigs, Command command, ScopeComputer scoper, NameGenerator nameGenerator) {
+            PortusStatistics statistics, Iterable<Sig> sigs, Command command, ModelInfo modelInfo, ScopeComputer scoper,
+            NameGenerator nameGenerator) {
         // For now, always use the partition sort policy
         if (enablePartitionSortPolicy) {
-            return new PartitionSortPolicy(sigs, command, scoper, nameGenerator);
+            return new PartitionSortPolicy(statistics, sigs, command, modelInfo, scoper, nameGenerator);
         } else {
-            return new UnivSortPolicy(sigs, scoper);
+            return new UnivSortPolicy(sigs, modelInfo, scoper);
         }
     }
 

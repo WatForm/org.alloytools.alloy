@@ -46,6 +46,8 @@ final class PortusCLIOptions {
             "-smtlib-tc", "Output SMTLIB+ (typechecking only) for each command.");
     public final Option useOutputPostSmtlibProcessor = new Option(
             "-smtlib-all", "Output SMTLIB+ (post-Fortress) for each command.");
+    public final Option useCheckSupportProcessor = new Option(
+            "-support", "Check whether Portus supports each command.");
 
     public final Option useStatisticsProcessor = new Option(
             "-stats", "Output Portus translation statistics for each command without solving.");
@@ -75,6 +77,10 @@ final class PortusCLIOptions {
             "-disable-sum-defn-opt", "Disable sum definitions optimization.");
     public final Option disableExprDefnOpt = new Option("-disable-expr-defn-opt",
             "Disable fun/pred call definition optimization.");
+    public final Option disableRelationalScalarOpt = new Option("-disable-rel-scalar-opt",
+            "Disable relational scalars optimization.");
+    public final Option disableAntiMergePreprocessing = new Option("-disable-anti-merge",
+            "Disable preprocessing to reduce sort merging. WARNING: some models will fail to translate!");
     public final Option disableFuncOpt = new Option("-disable-func-opt",
             "Disable function optimization. WARNING: some models will fail to translate!");
     public final Option useCardinalityScopeAxiomStrategy = new Option(
@@ -108,13 +114,13 @@ final class PortusCLIOptions {
             setAllScopes, setSigScope,
             useRunPortusProcessor, useRunKodkodProcessor, useRunKodkodMiniSatProcessor,
             useCorrectnessProcessor, useDeltaDebugProcessor,
-            useOutputPreSmtlibProcessor, useOutputPostSmtlibProcessor,
+            useOutputPreSmtlibProcessor, useOutputPostSmtlibProcessor, useCheckSupportProcessor,
             useStatisticsProcessor, useCountCommandsProcessor,
             alwaysShowKodkodTime,
             disableSimpleScalarOpt, disableOneSigOpt, disableJoinOpt, disableOrderingModuleOpt,
             disableClosureOfScalarOpt, disableIntsAsScalars, disableMembershipPredicateOpt, disablePartitionSortPolicy,
-            disableSumDefinitionsOpt, disableExprDefnOpt,
-            useCardinalityScopeAxiomStrategy, disableFuncOpt, disableAllOpts,
+            disableSumDefinitionsOpt, disableExprDefnOpt, disableRelationalScalarOpt,
+            useCardinalityScopeAxiomStrategy, disableAntiMergePreprocessing, disableFuncOpt, disableAllOpts,
             disableOrderingDefinition, disableClosureOptDefinition, enableSumBalancing,
             enableElementOfScalarOpt, enableCaching, enableKodkodIntCompatibility,
             enableFortressNonExactScopes,

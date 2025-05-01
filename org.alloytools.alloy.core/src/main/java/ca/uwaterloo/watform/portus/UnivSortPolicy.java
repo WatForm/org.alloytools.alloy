@@ -1,11 +1,14 @@
 package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
+import edu.mit.csail.sdg.ast.Expr;
+import edu.mit.csail.sdg.ast.ExprConstant;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.msfol.Sort;
 import fortress.msfol.Theory;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -19,12 +22,12 @@ final class UnivSortPolicy extends SortPolicy {
     private final int univScope;
     private final int bitwidth;
 
-    public UnivSortPolicy(Iterable<Sig> sigs, ScopeComputer scoper) {
-        this(Sort.mkSortConst("univ"), sigs, scoper);
+    public UnivSortPolicy(Iterable<Sig> sigs, ModelInfo modelInfo, ScopeComputer scoper) {
+        this(Sort.mkSortConst("univ"), sigs, modelInfo, scoper);
     }
 
     /** Pass in the univ sort for testing purposes. */
-    UnivSortPolicy(Sort univ, Iterable<Sig> sigs, ScopeComputer scoper) {
+    UnivSortPolicy(Sort univ, Iterable<Sig> sigs, ModelInfo modelInfo, ScopeComputer scoper) {
         super(sigs);
         this.univ = univ;
         this.bitwidth = scoper.getBitwidth();
@@ -32,9 +35,11 @@ final class UnivSortPolicy extends SortPolicy {
         // Determine the scope of univ: the sum of all the top-level sorts' max scopes.
         int univScope = 0;
         for (Sig sig : sigs) {
-            // Don't count subsigs and don't count builtins like univ,Int,String
+            // Don't count subsigs and don't count builtins like univ,Int
             if (sig.isTopLevel() && !sig.builtin) {
                 univScope += scoper.sig2scope(sig);
+            } else if (sig == Sig.STRING) {
+                univScope += modelInfo.numStringConstants();
             }
         }
         // Make sure the sort is non-empty, even if there are no sigs in the model
@@ -59,6 +64,21 @@ final class UnivSortPolicy extends SortPolicy {
             return univScope;
         } else if (Sort.Int().equals(sort)) {
             return 1 << bitwidth; // 2^bitwidth, the number of integers
+        } else {
+            throw new ErrorFatal("Unknown sort: " + sort);
+        }
+    }
+
+    @Override
+    public Expr getCoveringExpr(Sort sort) {
+        if (univ.equals(sort)) {
+            return allSigs.stream()
+                    .filter(sig -> !sig.builtin || sig.equals(Sig.STRING))
+                    .map(sig -> (Expr) sig)
+                    .reduce(Expr::plus)
+                    .orElse(ExprConstant.EMPTYNESS);
+        } else if (Sort.Int().equals(sort)) {
+            return Sig.SIGINT;
         } else {
             throw new ErrorFatal("Unknown sort: " + sort);
         }

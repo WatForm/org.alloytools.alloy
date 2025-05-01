@@ -1,9 +1,6 @@
 package ca.uwaterloo.watform.portus.cli;
 
-import ca.uwaterloo.watform.portus.PortusOptions;
-import ca.uwaterloo.watform.portus.SanitizingNameGenerator;
-import ca.uwaterloo.watform.portus.SortPolicy;
-import ca.uwaterloo.watform.portus.TimeoutException;
+import ca.uwaterloo.watform.portus.*;
 import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.alloy4.ConstList;
 import edu.mit.csail.sdg.alloy4.Pair;
@@ -45,8 +42,10 @@ public final class PortusCLI {
             Module world, Command command, A4Options options) {
         Iterable<Sig> sigs = world.getAllReachableSigs();
         ScopeComputer scoper = ScopeComputer.compute(A4Reporter.NOP, options, sigs, command).b;
+        ModelInfo modelInfo = new ModelInfo(sigs, command, scoper);
         NameGenerator nameGenerator = new SanitizingNameGenerator();
-        SortPolicy sortPolicy = options.portusOptions.getSortPolicy(sigs, command, scoper, nameGenerator);
+        SortPolicy sortPolicy = options.portusOptions.getSortPolicy(
+                new PortusStatistics(), sigs, command, modelInfo, scoper, nameGenerator);
 
         // find the smallest bitwidth >= the command's bitwidth such that the max int representable is >= the size
         // of all sorts created by the sort policy
@@ -98,10 +97,12 @@ public final class PortusCLI {
         options.enablePartitionSortPolicy = !disableAllOpts && !cliOptions.disablePartitionSortPolicy.active();
         options.enableSumDefinitionsOptimization = !disableAllOpts && !cliOptions.disableSumDefinitionsOpt.active();
         options.enableExprDefnOptimization = !disableAllOpts && !cliOptions.disableExprDefnOpt.active();
+        options.enableRelationalScalarOptimization = !disableAllOpts && !cliOptions.disableRelationalScalarOpt.active();
         // specifically don't include the function optimization in disableAllOpts
         options.enableFuncOptimization = !cliOptions.disableFuncOpt.active();
         options.enableConstantsScopeAxiomStrategy = !disableAllOpts
                 && !cliOptions.useCardinalityScopeAxiomStrategy.active();
+        options.enableAntiMergePreprocessing = !disableAllOpts && !cliOptions.disableAntiMergePreprocessing.active();
 
         options.enableOrderingDefinition = !cliOptions.disableOrderingDefinition.active();
         options.enableClosureOptDefinition = !cliOptions.disableClosureOptDefinition.active();
@@ -368,6 +369,9 @@ public final class PortusCLI {
             processors.add(new OutputSmtlibCommandProcessor(A4Options.SatSolver.PRE_FORTRESS_SMTLIB));
         } else if (options.useOutputPostSmtlibProcessor.active()) { // don't do both - confusing
             processors.add(new OutputSmtlibCommandProcessor(A4Options.SatSolver.POST_FORTRESS_SMTLIB));
+        }
+        if (options.useCheckSupportProcessor.active()) {
+            processors.add(new CheckSupportCommandProcessor());
         }
         return processors;
     }

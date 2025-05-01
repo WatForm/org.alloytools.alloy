@@ -7,8 +7,10 @@ import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprCall;
 import edu.mit.csail.sdg.ast.ExprVar;
 import fortress.msfol.AnnotatedVar;
+import fortress.msfol.FuncDecl;
 import fortress.msfol.Sort;
 import fortress.msfol.Var;
+import scala.jdk.javaapi.CollectionConverters;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -18,6 +20,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.Stack;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Responsible for keeping track of the current Alloy lexical scope's mapping from Alloy variables to Fortress Terms
@@ -26,9 +29,10 @@ import java.util.function.Function;
 final class VarMappingContext {
 
     // The current Alloy lexical scope's mapping from Alloy variable labels to either
-    // Fortress Terms (i.e. for quantified vars) or Alloy expressions as used in the "let x = e | ..." construct.
+    // Fortress Terms (i.e. for quantified vars) or functions (for second order vars)
+    // or Alloy expressions as used in the "let x = e | ..." construct.
     // We use a single Env so these types of mappings can shadow each other.
-    private Env<String, Either<AnnotatedTerm, LetContext>> alloyVarMapping;
+    private Env<String, Either<Either<AnnotatedTerm, FuncDecl>, LetContext>> alloyVarMapping;
 
     // The current Fortress translation scope's map from Fortress variables to their corresponding sorts.
     // This is necessary because Fortress does not keep track of the sorts of its variables itself.
@@ -40,6 +44,7 @@ final class VarMappingContext {
     }
 
     public VarMappingContext(VarMappingContext varMappingContext) {
+        // TODO - some kind of deep copy here? (being careful with the let context references)
         this.alloyVarMapping = varMappingContext.alloyVarMapping.dup();
         this.fortressVarsToSorts = varMappingContext.fortressVarsToSorts.dup();
     }
@@ -50,7 +55,7 @@ final class VarMappingContext {
      * of the scope with {@link #removeMapping(String)}.
      */
     public void addTermMapping(String alloyVarName, AnnotatedTerm fortressTerm) {
-        alloyVarMapping.put(alloyVarName, Either.asFirst(fortressTerm));
+        alloyVarMapping.put(alloyVarName, Either.asFirst(Either.asFirst(fortressTerm)));
     }
 
     /**
@@ -58,7 +63,9 @@ final class VarMappingContext {
      * the given Alloy variable name?
      */
     public boolean hasTermMapping(String alloyVarName) {
-        return alloyVarMapping.has(alloyVarName) && alloyVarMapping.get(alloyVarName).hasFirst();
+        return alloyVarMapping.has(alloyVarName)
+                && alloyVarMapping.get(alloyVarName).hasFirst()
+                && alloyVarMapping.get(alloyVarName).getFirst().hasFirst();
     }
 
     /**
@@ -67,7 +74,24 @@ final class VarMappingContext {
      */
     public AnnotatedTerm getTermMapping(String alloyVarName) {
         if (hasTermMapping(alloyVarName)) {
-            return alloyVarMapping.get(alloyVarName).getFirst();
+            return alloyVarMapping.get(alloyVarName).getFirst().getFirst();
+        }
+        return null;
+    }
+
+    public void addFuncMapping(String alloyVarName, FuncDecl fortressFunc) {
+        alloyVarMapping.put(alloyVarName, Either.asFirst(Either.asSecond(fortressFunc)));
+    }
+
+    public boolean hasFuncMapping(String alloyVarName) {
+        return alloyVarMapping.has(alloyVarName)
+                && alloyVarMapping.get(alloyVarName).hasFirst()
+                && alloyVarMapping.get(alloyVarName).getFirst().hasSecond();
+    }
+
+    public FuncDecl getFuncMapping(String alloyVarName) {
+        if (hasFuncMapping(alloyVarName)) {
+            return alloyVarMapping.get(alloyVarName).getFirst().getSecond();
         }
         return null;
     }
@@ -91,7 +115,7 @@ final class VarMappingContext {
      * All mappings must be removed individually with {@link #removeMapping(String)}.
      */
     public void addSimultaneousLetMappings(List<Pair<String, Expr>> varNamesAndBoundExprs) {
-        Env<String, Either<AnnotatedTerm, LetContext>> oldAlloyVarMapping = alloyVarMapping.dup();
+        Env<String, Either<Either<AnnotatedTerm, FuncDecl>, LetContext>> oldAlloyVarMapping = alloyVarMapping.dup();
         for (Pair<String, Expr> varNameAndBoundExpr : varNamesAndBoundExprs) {
             LetContext letContext = new LetContext(varNameAndBoundExpr.b, oldAlloyVarMapping);
             alloyVarMapping.put(varNameAndBoundExpr.a, Either.asSecond(letContext));
@@ -242,19 +266,33 @@ final class VarMappingContext {
         }
     }
 
-    private static Either<AnnotatedTerm, LetContext> replaceSortInEither(
-            Either<AnnotatedTerm, LetContext> either, Sort from, Sort to) {
+    private static Either<Either<AnnotatedTerm, FuncDecl>, LetContext> replaceSortInEither(
+            Either<Either<AnnotatedTerm, FuncDecl>, LetContext> either, Sort from, Sort to) {
         if (either.hasFirst()) {
-            AnnotatedTerm term = either.getFirst();
-            if (Objects.equals(term.getSort(), from)) {
-                term = new AnnotatedTerm(term.getTerm(), to);
+            Either<AnnotatedTerm, FuncDecl> subEither = either.getFirst();
+            if (subEither.hasFirst()) {
+                AnnotatedTerm term = subEither.getFirst();
+                if (Objects.equals(term.getSort(), from)) {
+                    term = new AnnotatedTerm(term.getTerm(), to);
+                }
+                return Either.asFirst(Either.asFirst(term));
+            } else {
+                FuncDecl funcDecl = subEither.getSecond();
+                return Either.asFirst(Either.asSecond(replaceSortInFuncDecl(funcDecl, from, to)));
             }
-            return Either.asFirst(term);
         } else { // either.hasSecond()
             LetContext context = either.getSecond();
             context.replaceSort(from, to);
             return Either.asSecond(context);
         }
+    }
+
+    private static FuncDecl replaceSortInFuncDecl(FuncDecl funcDecl, Sort from, Sort to) {
+        List<Sort> argSorts = CollectionConverters.asJava(funcDecl.argSorts());
+        List<Sort> newArgSorts = argSorts.stream().map(sort -> (sort == from) ? to : sort).collect(Collectors.toList());
+        Sort resultSort = funcDecl.resultSort();
+        Sort newResultSort = (resultSort == from) ? to : resultSort;
+        return FuncDecl.mkFuncDecl(funcDecl.name(), newArgSorts, newResultSort);
     }
 
     /**
@@ -294,19 +332,19 @@ final class VarMappingContext {
         /**
          * The mapping of Alloy variable names to Fortress terms or Alloy let exprs at the place "let" appears.
          */
-        private final Env<String, Either<AnnotatedTerm, LetContext>> savedVarMapping;
+        private final Env<String, Either<Either<AnnotatedTerm, FuncDecl>, LetContext>> savedVarMapping;
 
         /**
          * The old Alloy variable name to Fortress var/let mapping when using useLetMapping().
          */
-        private Env<String, Either<AnnotatedTerm, LetContext>> oldMapping = null;
+        private Env<String, Either<Either<AnnotatedTerm, FuncDecl>, LetContext>> oldMapping = null;
 
         /**
          * The TranslationContext whose mapping we've changed with useLetMapping().
          */
         private VarMappingContext mappedContext = null;
 
-        private LetContext(Expr expr, Env<String, Either<AnnotatedTerm, LetContext>> alloyVarMapping) {
+        private LetContext(Expr expr, Env<String, Either<Either<AnnotatedTerm, FuncDecl>, LetContext>> alloyVarMapping) {
             this.expr = expr;
             this.savedVarMapping = alloyVarMapping;
         }
@@ -334,7 +372,7 @@ final class VarMappingContext {
 
         /** Convenience: change the VarMappingContext of the passed-in TranslationContext. */
         public void useLetMapping(TranslationContext context) {
-            useLetMapping(context.varMappingContext);
+            useLetMapping(context.getVarMappingContext());
         }
 
         /**
