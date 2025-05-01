@@ -2,7 +2,6 @@ package ca.uwaterloo.watform.portus;
 
 import fortress.data.NameGenerator;
 import fortress.msfol.*;
-import fortress.operations.AuxSubstituter;
 import fortress.operations.Substituter;
 import scala.jdk.javaapi.CollectionConverters;
 
@@ -131,7 +130,7 @@ final class DeclResult {
         } else {
             FuncDecl from = getSecondOrderDecl();
             FuncDecl to = other.getSecondOrderDecl();
-            return AuxSubstituter.renameApplications(term, from.name(), to.name());
+            return Substituter.renameApplications(term, from.name(), to.name());
         }
     }
 
