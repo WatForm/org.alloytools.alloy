@@ -46,6 +46,13 @@ final class AntiMergePreprocessor extends NaturalRecursion.AlloyASTMapper {
         // We then take the cartesian product of all of these to generate the set of new decl lists
         List<List<Decl>> splitDeclLists = new ArrayList<>();
         for (Decl decl : x.decls) {
+            if (PortusUtil.getDeclMult(decl) != ExprUnary.Op.ONEOF) {
+                // This preprocessing step isn't valid for second-order quantifiers of multiplicity not ONEOF!
+                // TODO -- This will prevent lots of sort merges if we have second-order quantifiers - allow ourselves
+                //   to recurse instead of exiting here! Currently it errors out due to definite sorts issues.
+                return x;
+            }
+
             // one decl per name, even if they're combined in the original
             // case where this is required: "all a, b: univ | a in A and b in B" requires a in A, b in B simultaneously
             List<Expr> splitExprs = splitExpr(decl.expr);
