@@ -2,7 +2,6 @@ package ca.uwaterloo.watform.portus;
 
 import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.alloy4.Err;
-import edu.mit.csail.sdg.alloy4.ErrorAPI;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
 import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.alloy4.Pos;
@@ -12,7 +11,6 @@ import edu.mit.csail.sdg.ast.Expr;
 import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Func;
 import edu.mit.csail.sdg.ast.Sig;
-import edu.mit.csail.sdg.translator.A4Solution;
 import edu.mit.csail.sdg.translator.A4SolutionWriter;
 import edu.mit.csail.sdg.translator.A4Tuple;
 import edu.mit.csail.sdg.translator.A4TupleSet;
@@ -35,7 +33,9 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public class FortressSolution implements AlloySolution {
+// FIXME - Possible memory leak in the GUI! The solver process is only closed when close() is called, but in the GUI,
+//   it probably won't be called, so the process will remain open indefinitely!
+public class FortressSolution implements AlloySolution, AutoCloseable {
 
     /** The Fortress interpretation corresponding to this solution (null if unsat). */
     private final Interpretation interpretation;
@@ -48,6 +48,9 @@ public class FortressSolution implements AlloySolution {
 
     /** The context of the translation used to produce the interpretation. */
     private final TranslationContext context;
+
+    /** The solution finder used to generate 'next interpretations' for incremental solving. */
+    private final SolutionFinder solutionFinder;
 
     /** All reachable sigs in the model. */
     private final SafeList<Sig> sigs;
@@ -65,11 +68,13 @@ public class FortressSolution implements AlloySolution {
     private final Universe universe;
 
     FortressSolution(Interpretation interpretation, Evaluator evaluator, StringDecoder stringDecoder,
-                     TranslationContext context, Iterable<Sig> sigs, String originalFilename, String originalCommand) {
+                     TranslationContext context, Iterable<Sig> sigs, String originalFilename, String originalCommand,
+                     SolutionFinder solutionFinder) {
         this.interpretation = interpretation;
         this.evaluator = evaluator;
         this.stringDecoder = stringDecoder;
         this.context = context;
+        this.solutionFinder = solutionFinder;
         this.sigs = new SafeList<>(sigs);
         this.originalFilename = originalFilename;
         this.originalCommand = originalCommand;
@@ -325,21 +330,22 @@ public class FortressSolution implements AlloySolution {
     }
 
     @Override
-    public A4Solution next() throws Err {
-        // TODO - does Fortress support incremental solving?
-        throw new ErrorAPI("Not an incremental solver!");
+    public FortressSolution next() throws Err {
+        if (solutionFinder == null) {
+            throw new ErrorFatal("This FortressSolution doesn't support incremental solving!");
+        }
+        // TODO - should be more careful with resource handles! Both of these objects will hold the process reference!
+        return solutionFinder.nextInterpretation();
     }
 
     @Override
-    public A4Solution fork(int p) throws Err {
-        // TODO - does Fortress support incremental solving?
-        throw new ErrorAPI("Not an incremental solver!");
+    public FortressSolution fork(int p) throws Err {
+        return next();
     }
 
     @Override
     public boolean isIncremental() {
-        // TODO - does Fortress support incremental solving?
-        return false;
+        return solutionFinder != null;
     }
 
     @Override
@@ -423,6 +429,11 @@ public class FortressSolution implements AlloySolution {
             }
         }
         return Sig.UNIV; // didn't find it
+    }
+
+    @Override
+    public void close() {
+        solutionFinder.close();
     }
 
 }

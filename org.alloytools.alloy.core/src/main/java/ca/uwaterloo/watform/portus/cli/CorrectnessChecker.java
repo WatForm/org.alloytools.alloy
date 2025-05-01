@@ -1,9 +1,6 @@
 package ca.uwaterloo.watform.portus.cli;
 
-import ca.uwaterloo.watform.portus.ExprElementOf;
-import ca.uwaterloo.watform.portus.FortressVisitReturn;
-import ca.uwaterloo.watform.portus.PortusOptions;
-import ca.uwaterloo.watform.portus.PortusStatistics;
+import ca.uwaterloo.watform.portus.*;
 import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.alloy4.Err;
 import edu.mit.csail.sdg.alloy4.ErrorFatal;
@@ -246,61 +243,58 @@ final class CorrectnessChecker {
     public Result checkCorrectness(
             PortusStatistics statistics, Module world, Command command, A4Options options) {
         // Run through Portus and get a solution using Fortress
-        AlloySolution fortressSol;
-        try {
-            fortressSol = fortressSolver.commandRunner().executeCommand(
-                    new StdoutA4Reporter(options.portusOptions.verbose), statistics, world, command, options);
+        try (FortressSolution fortressSol = fortressSolver.commandRunner().executeCommand(
+                new StdoutA4Reporter(options.portusOptions.verbose), statistics, world, command, options)) {
+            if (!fortressSol.satisfiable() || alwaysRecordKodkodTime) {
+                // If Fortress reports UNSAT, evaluate for correctness reasons; otherwise evaluate if the user requests it.
+                statistics.onStartKodkod();
+                AlloySolution kodkodSol = kodkodSolver.commandRunner().executeCommand(
+                        A4Reporter.NOP, world, command, options);
+                statistics.onKodkodFinished();
+
+                // Make sure Kodkod also thinks it's unsat
+                if (!fortressSol.satisfiable() && kodkodSol.satisfiable()) {
+                    return new Result(Result.Kind.KODKOD_SAT_FORTRESS_UNSAT, fortressSol);
+                } else {
+                    return new Result(Result.Kind.OK, fortressSol);
+                }
+            }
+
+            // Convert it to an A4Solution to validate it with Kodkod
+            A4Solution kodkodSol = convertToKodkod(fortressSol);
+
+            // The Kodkod-converted formula uses different objects for Sig/Field than the original formula (because it
+            // was reconstructed from XML), so A4Solution.eval() won't recognize them as equivalent. Fix this by
+            // mapping the Sig/Field objects to those in the new A4Solution.
+            Expr kodkodCompatibleFormula = mapFormulaToNewA4Solution(command.formula, kodkodSol);
+
+            try {
+                // The assertion in the command needs to be valid according to Kodkod too
+                // Typechecking should ensure we don't get any class cast errors here...
+                boolean assertionValid = (boolean) kodkodSol.eval(kodkodCompatibleFormula);
+                if (assertionValid) {
+                    return new Result(Result.Kind.OK, fortressSol);
+                } else {
+                    return new Result(Result.Kind.FORTRESS_INTERPRETATION_INVALID, fortressSol);
+                }
+            } catch (HigherOrderDeclException e) {
+                // If the model contains higher-order quantifiers, eval will fail. In this case, just make sure that
+                // Kodkod also thinks it's SAT.
+                System.out.println("WARNING: Model contains higher-order quantifiers: cannot verify correctness of " +
+                        "interpretation returned by Fortress!");
+                statistics.onStartKodkod();
+                AlloySolution newKodkodSol = kodkodSolver.commandRunner().executeCommand(
+                        A4Reporter.NOP, world, command, options);
+                statistics.onKodkodFinished();
+
+                if (newKodkodSol.satisfiable()) {
+                    return new Result(Result.Kind.OK, fortressSol);
+                } else {
+                    return new Result(Result.Kind.FORTRESS_INTERPRETATION_INVALID, fortressSol);
+                }
+            }
         } catch (Exception exception) {
             return new Result(Result.Kind.EXCEPTION, exception);
-        }
-
-        if (!fortressSol.satisfiable() || alwaysRecordKodkodTime) {
-            // If Fortress reports UNSAT, evaluate for correctness reasons; otherwise evaluate if the user requests it.
-            statistics.onStartKodkod();
-            AlloySolution kodkodSol = kodkodSolver.commandRunner().executeCommand(
-                    A4Reporter.NOP, world, command, options);
-            statistics.onKodkodFinished();
-
-            // Make sure Kodkod also thinks it's unsat
-            if (!fortressSol.satisfiable() && kodkodSol.satisfiable()) {
-                return new Result(Result.Kind.KODKOD_SAT_FORTRESS_UNSAT, fortressSol);
-            } else {
-                return new Result(Result.Kind.OK, fortressSol);
-            }
-        }
-
-        // Convert it to an A4Solution to validate it with Kodkod
-        A4Solution kodkodSol = convertToKodkod(fortressSol);
-
-        // The Kodkod-converted formula uses different objects for Sig/Field than the original formula (because it
-        // was reconstructed from XML), so A4Solution.eval() won't recognize them as equivalent. Fix this by
-        // mapping the Sig/Field objects to those in the new A4Solution.
-        Expr kodkodCompatibleFormula = mapFormulaToNewA4Solution(command.formula, kodkodSol);
-
-        try {
-            // The assertion in the command needs to be valid according to Kodkod too
-            // Typechecking should ensure we don't get any class cast errors here...
-            boolean assertionValid = (boolean) kodkodSol.eval(kodkodCompatibleFormula);
-            if (assertionValid) {
-                return new Result(Result.Kind.OK, fortressSol);
-            } else {
-                return new Result(Result.Kind.FORTRESS_INTERPRETATION_INVALID, fortressSol);
-            }
-        } catch (HigherOrderDeclException e) {
-            // If the model contains higher-order quantifiers, eval will fail. In this case, just make sure that
-            // Kodkod also thinks it's SAT.
-            System.out.println("WARNING: Model contains higher-order quantifiers: cannot verify correctness of " +
-                            "interpretation returned by Fortress!");
-            statistics.onStartKodkod();
-            AlloySolution newKodkodSol = kodkodSolver.commandRunner().executeCommand(
-                    A4Reporter.NOP, world, command, options);
-            statistics.onKodkodFinished();
-
-            if (newKodkodSol.satisfiable()) {
-                return new Result(Result.Kind.OK, fortressSol);
-            } else {
-                return new Result(Result.Kind.FORTRESS_INTERPRETATION_INVALID, fortressSol);
-            }
         }
     }
 

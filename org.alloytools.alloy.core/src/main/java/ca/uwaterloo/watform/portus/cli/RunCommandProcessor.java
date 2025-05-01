@@ -1,5 +1,6 @@
 package ca.uwaterloo.watform.portus.cli;
 
+import ca.uwaterloo.watform.portus.FortressSolution;
 import ca.uwaterloo.watform.portus.PortusOptions;
 import ca.uwaterloo.watform.portus.PortusStatistics;
 import edu.mit.csail.sdg.alloy4.A4Reporter;
@@ -23,8 +24,8 @@ final class RunCommandProcessor implements CommandProcessor {
         boolean isPortus = solver instanceof PortusOptions.FortressSmtSolver;
         PortusStatistics statistics = new PortusStatistics();
 
+        AlloySolution solution = null;
         try {
-            AlloySolution solution;
             if (isPortus) {
                 solution = ((PortusOptions.FortressSmtSolver) solver).commandRunner().executeCommand(
                         new StdoutA4Reporter(options.portusOptions.verbose), statistics, world, command, options);
@@ -41,6 +42,10 @@ final class RunCommandProcessor implements CommandProcessor {
             e.printStackTrace();
             statistics.printSummary(options.portusOptions);
             return false;
+        } finally {
+            if (isPortus && solution != null) {
+                ((FortressSolution) solution).close(); // TODO better resource management
+            }
         }
 
         if (options.portusOptions.verbose) {
