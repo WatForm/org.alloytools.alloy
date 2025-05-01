@@ -30,6 +30,7 @@ import edu.mit.csail.sdg.translator.A4Options;
 import edu.mit.csail.sdg.translator.A4Solution;
 import edu.mit.csail.sdg.translator.A4SolutionReader;
 import edu.mit.csail.sdg.translator.AlloySolution;
+import kodkod.engine.fol2sat.HigherOrderDeclException;
 
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -276,13 +277,30 @@ final class CorrectnessChecker {
         // mapping the Sig/Field objects to those in the new A4Solution.
         Expr kodkodCompatibleFormula = mapFormulaToNewA4Solution(command.formula, kodkodSol);
 
-        // The assertion in the command needs to be valid according to Kodkod too
-        // Typechecking should ensure we don't get any class cast errors here...
-        boolean assertionValid = (boolean) kodkodSol.eval(kodkodCompatibleFormula);
-        if (assertionValid) {
-            return new Result(Result.Kind.OK, fortressSol);
-        } else {
-            return new Result(Result.Kind.FORTRESS_INTERPRETATION_INVALID, fortressSol);
+        try {
+            // The assertion in the command needs to be valid according to Kodkod too
+            // Typechecking should ensure we don't get any class cast errors here...
+            boolean assertionValid = (boolean) kodkodSol.eval(kodkodCompatibleFormula);
+            if (assertionValid) {
+                return new Result(Result.Kind.OK, fortressSol);
+            } else {
+                return new Result(Result.Kind.FORTRESS_INTERPRETATION_INVALID, fortressSol);
+            }
+        } catch (HigherOrderDeclException e) {
+            // If the model contains higher-order quantifiers, eval will fail. In this case, just make sure that
+            // Kodkod also thinks it's SAT.
+            System.out.println("WARNING: Model contains higher-order quantifiers: cannot verify correctness of " +
+                            "interpretation returned by Fortress!");
+            statistics.onStartKodkod();
+            AlloySolution newKodkodSol = kodkodSolver.commandRunner().executeCommand(
+                    A4Reporter.NOP, world, command, options);
+            statistics.onKodkodFinished();
+
+            if (newKodkodSol.satisfiable()) {
+                return new Result(Result.Kind.OK, fortressSol);
+            } else {
+                return new Result(Result.Kind.FORTRESS_INTERPRETATION_INVALID, fortressSol);
+            }
         }
     }
 
