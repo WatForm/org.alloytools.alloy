@@ -77,6 +77,52 @@ public class TransTable implements Serializable {
 			this.sendList = sl;
 			this.doList = dl;
 		}
+
+		//copy constructor for deep copy (after resolve)
+		public TransElement(TransElement other){
+			if(other.src != null) {
+				this.src = new DashRef(other.src);
+			}
+			else {
+				this.src = null;
+			}
+
+			if(other.dest != null) {
+				this.dest = new DashRef(other.dest);
+			}
+			else {
+				this.dest = null;
+			}
+			
+			if(other.when != null) {
+				this.when = ExprHelper.copyExpr(other.when);
+			}
+			else {
+				this.when = null;
+			}
+
+			if(other.on != null) {
+				this.on = new DashRef(other.on);
+			}
+			else {
+				this.on = null;
+			}
+
+			if(other.send != null) {
+				this.send = new DashRef(other.send);
+			}
+			else {
+				this.send = null;
+			}
+
+			if(other.act != null) {
+				this.act = ExprHelper.copyExpr(other.act);
+			}
+			else {
+				this.act = null;
+			}
+		}
+
 		public String toString() {
 			String s = new String();
 			s += "params: " + NoneStringIfNeeded(params) +"\n";
@@ -114,6 +160,19 @@ public class TransTable implements Serializable {
 		table = new HashMap<String, TransElement>();
 		isResolved = false;
 	}
+
+	//copy constructor for deep copy
+	public TransTable(TransTable other) {
+		this.table = new HashMap<String, TransElement>();
+		this.isResolved = other.isResolved;
+
+		if(other.table != null) {
+			for (HashMap.Entry<String, TransElement> entry : other.table.entrySet()) {
+            	this.table.put(new String(entry.getKey()), new TransElement(entry.getValue()));
+        	}
+        }
+	}
+
 	public boolean add(
 			String tfqn,
 			List<String> params,

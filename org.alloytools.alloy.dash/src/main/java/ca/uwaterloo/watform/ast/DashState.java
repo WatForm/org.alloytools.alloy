@@ -53,6 +53,32 @@ public class DashState  extends Dash implements Serializable {
 		//System.out.println("here1 " + (this.param == null));
 	
 	}
+
+	// copy constructor for deep copy
+	public DashState(DashState other) {
+		this.pos = other.pos;
+		if(other.name == null) {
+			this.name = new String();
+		}
+		else {
+			this.name = new String(other.name);
+		}
+		if(other.param == null) {
+			this.param = new String();
+		}
+		else {
+			this.param = new String(other.param);
+		}
+		this.kind = other.kind;
+		this.def = other.def;
+		if(other.items == null) {
+			this.items = new ArrayList<Object>();
+		}
+		else { 
+			this.items = new ArrayList<Object>(other.items);
+		}
+	}
+
 	/*
 	// basic state - default or non-default
 	// 3 args

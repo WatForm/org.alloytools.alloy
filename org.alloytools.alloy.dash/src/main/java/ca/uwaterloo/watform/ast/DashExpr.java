@@ -21,6 +21,12 @@ public abstract class DashExpr extends Dash {
         this.pos = p;
         this.exp = e; 
     }
+
+    //copy constructor 
+    public DashExpr(DashExpr other) {
+        this.pos = other.pos;
+        this.exp = other.exp;
+    }
     public String toString(String name) {
         String s = new String();
         s += name + " {\n";
