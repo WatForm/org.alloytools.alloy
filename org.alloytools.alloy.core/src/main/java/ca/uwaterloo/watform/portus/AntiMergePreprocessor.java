@@ -13,7 +13,7 @@ import java.util.stream.Collectors;
  * For example, if the sort policy assigns resolvant(e) = {(A), (Int)}, then we replace:
  *   all x: e | f  -->  (all x: e&A | f) && (all x: e&Int | f)
  */
-final class AntiMergePreprocessor extends NaturalRecursion.AlloyASTMapper {
+public final class AntiMergePreprocessor extends NaturalRecursion.AlloyASTMapper {
 
     public AntiMergePreprocessor(
             Iterable<Sig> allSigs, Command command, ModelInfo modelInfo, ScopeComputer scoper,

@@ -44,6 +44,14 @@ public final class PortusCLI {
         ScopeComputer scoper = ScopeComputer.compute(A4Reporter.NOP, options, sigs, command).b;
         ModelInfo modelInfo = new ModelInfo(sigs, command, scoper);
         NameGenerator nameGenerator = new SanitizingNameGenerator();
+
+        if (options.portusOptions.enableAntiMergePreprocessing) {
+            // Preprocess the formula - TODO duplicating TranslateAlloyToFortress, ugly!
+            AntiMergePreprocessor preprocessor = new AntiMergePreprocessor(
+                    sigs, command, modelInfo, scoper, nameGenerator);
+            command = preprocessor.preprocess(command);
+        }
+
         SortPolicy sortPolicy = options.portusOptions.getSortPolicy(
                 new PortusStatistics(), sigs, command, modelInfo, scoper, nameGenerator);
 
