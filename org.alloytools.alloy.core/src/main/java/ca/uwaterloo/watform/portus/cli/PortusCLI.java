@@ -292,6 +292,7 @@ public final class PortusCLI {
             List<Command> commands = world.getAllCommands();
 
             A4Options alloyOptions = new A4Options();
+            alloyOptions.noOverflow = true; // TEMP - Hardcode no-overflow on for this build!
             alloyOptions.originalFilename = alloyFilename;
             applyOptionFlags(alloyOptions.portusOptions, options);
             setFortressOptions(alloyOptions.portusOptions, options);
