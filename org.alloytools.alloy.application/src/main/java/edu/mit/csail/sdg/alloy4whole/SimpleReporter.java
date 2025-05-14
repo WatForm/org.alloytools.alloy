@@ -662,7 +662,7 @@ public final class SimpleReporter extends A4Reporter {
                 }
                 String toString = sol.toString();
                 synchronized (SimpleReporter.class) {
-                    if (!latestKodkods.add(toString))
+                    if (sol instanceof A4Solution && !latestKodkods.add(toString))
                         if (tries < 100) {
                             tries++;
                             continue;
@@ -671,6 +671,7 @@ public final class SimpleReporter extends A4Reporter {
                     // sometimes we might repeat the same solution infinitely
                     // number of times; this at least allows the user to keep
                     // going
+                    // [portus] don't apply the counter scheme for Portus solutions
                     writeXML(null, mod, filename, sol, latestKodkodSRC);
                     latestKodkod = sol;
                 }

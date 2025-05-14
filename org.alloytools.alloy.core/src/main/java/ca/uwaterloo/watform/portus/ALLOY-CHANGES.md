@@ -29,3 +29,5 @@
 - Small modifications in `SimpleCLI` to support dumping SMTLIB from the command line.
 - Added `keySet()` in `Env` so that `VarMappingContext` doesn't have to keep track of it itself.
 - Made `Err`'s constructor public so that `ErrorNoPortusSupport` can be defined in the Portus package.
+- Added condition in `SimpleReporter.SimpleTask2.run` exempting Portus solutions from a Kodkod-specific bugfix
+  related to getting the next interpretation.
