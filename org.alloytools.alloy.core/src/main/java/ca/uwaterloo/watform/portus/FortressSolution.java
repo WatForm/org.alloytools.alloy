@@ -20,7 +20,6 @@ import fortress.msfol.*;
 import fortress.operations.PreimageFinding;
 import fortress.operations.InterpretationVerifier;
 import kodkod.instance.Universe;
-import scala.Option;
 
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -254,7 +253,7 @@ public class FortressSolution implements AlloySolution, AutoCloseable {
         // Check whether the interpretation satisfies a theory with the term as the only axiom.
         Theory theory = Theory.empty()
                 .withSorts(interpretation.sortInterpretationsJava().keySet())
-                .withFunctionDeclarations(interpretation.functionInterpretations().keys())
+                .withFunctionDefinitions(interpretation.functionDefinitions().toIterable())
                 .withConstantDeclarations(interpretation.constantInterpretationsJava().keySet())
                 .withAxiom(formula);
         InterpretationVerifier verifier = new InterpretationVerifier(theory);
@@ -273,32 +272,16 @@ public class FortressSolution implements AlloySolution, AutoCloseable {
      * Get the preimage of the output value in the function func.
      */
     ValueTupleSet functionPreimage(FuncDecl func, Value output) {
-        // Note: a Map is the wrong data structure for this! This is very inefficient, no better than naive iteration!
-        // Functions should always show up in the function interpretations, even if it's filled by a definition
-        if (!interpretation.functionInterpretationsJava().containsKey(func)) {
-            throw new ErrorFatal("Function " + func + " does not exist in this solution!");
-        }
-
-        ValueTupleSet result = interpretation.functionInterpretationsJava().get(func).entrySet().stream()
-                .filter(entry -> Objects.equals(entry.getValue(), output))
-                .map(Map.Entry::getKey)
-                .collect(ValueTupleSet.collect(func.arity()));
-
-        // If there's a function definition, include it too
-        Option<FunctionDefinition> definitionOption = interpretation.functionDefinitions().find(
+        FunctionDefinition definition = interpretation.functionDefinitions().find(
                 def -> def.name().equals(func.name())
                         && def.argSortedVar().map(AnnotatedVar::sort).equals(func.argSorts())
-                        && def.resultSort().equals(func.resultSort()));
-        if (definitionOption.isDefined()) {
-            FunctionDefinition definition = definitionOption.get();
-            int arity = definition.argSortedVar().size();
-            result = result.union(ValueTupleSet.fromScala(PreimageFinding.findPreimage(interpretation,
-                    definition.argSortedVar(),
-                    definition.body(),
-                    output), arity));
-        }
-
-        return result;
+                        && def.resultSort().equals(func.resultSort()))
+                .getOrElse(() -> { throw new ErrorFatal("Function " + func + " does not exist in this solution!"); });
+        int arity = definition.argSortedVar().size();
+        return ValueTupleSet.fromScala(PreimageFinding.findPreimage(interpretation,
+                definition.argSortedVar(),
+                definition.body(),
+                output), arity);
     }
 
     // A4SolutionReader/Writer want the int literals to be actual Integer objects, so convert IntegerLiterals.

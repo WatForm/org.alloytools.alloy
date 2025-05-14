@@ -5,7 +5,7 @@ import edu.mit.csail.sdg.alloy4.Util;
 import edu.mit.csail.sdg.ast.Command;
 import edu.mit.csail.sdg.ast.Module;
 import edu.mit.csail.sdg.translator.A4Options;
-import fortress.interpretation.BasicInterpretation;
+import fortress.interpretation.BasicInterpretation$;
 import fortress.interpretation.Interpretation;
 import fortress.modelfinders.ErrorResult;
 import fortress.modelfinders.ModelFinder;
@@ -99,10 +99,9 @@ class SolutionFinder implements AutoCloseable {
 
         // Add the function definitions from the theory because they aren't returned from Fortress
         //noinspection unchecked
-        return new BasicInterpretation(
+        return BasicInterpretation$.MODULE$.apply(
                 PortusUtil.toScalaMap(sortInterpretationsScala),
                 interpretation.constantInterpretations(),
-                interpretation.functionInterpretations(),
                 interpretation.functionDefinitions().concat(translated.getTheory().functionDefinitions()).toSet());
     }
 

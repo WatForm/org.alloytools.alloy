@@ -5,7 +5,7 @@ import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.translator.A4TupleSet;
 import edu.mit.csail.sdg.translator.ScopeComputer;
 import fortress.data.NameGenerator;
-import fortress.interpretation.BasicInterpretation;
+import fortress.interpretation.BasicInterpretation$;
 import fortress.interpretation.Interpretation;
 import fortress.msfol.AnnotatedVar;
 import fortress.msfol.FuncDecl;
@@ -67,7 +67,7 @@ public class FortressSolutionTest {
         sorts.put(Sort.Int(), CollectionConverters.asScala(intElems).toSeq());
         Map<AnnotatedVar, Value> constants = new HashMap<>();
         Map<FuncDecl, scala.collection.immutable.Map<Seq<Value>, Value>> functions = new HashMap<>();
-        Interpretation interpretation = new BasicInterpretation(
+        Interpretation interpretation = BasicInterpretation$.MODULE$.apply(
                 PortusUtil.<Sort, Seq<Value>>toScalaMap(sorts),
                 PortusUtil.<AnnotatedVar, Value>toScalaMap(constants),
                 PortusUtil.<FuncDecl, scala.collection.immutable.Map<Seq<Value>, Value>>toScalaMap(functions),
