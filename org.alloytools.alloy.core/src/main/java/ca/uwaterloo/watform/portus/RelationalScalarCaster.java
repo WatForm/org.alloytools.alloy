@@ -239,6 +239,10 @@ final class RelationalScalarCaster implements ScalarCaster {
             // probably will get short-circuited anyways
             return null;
         }
+        if (leftScalar.getArity() != 2) {
+            // doesn't apply to arity > 2, wrong semantics for Alloy ++
+            return null;
+        }
         return Scalar.override(leftScalar, rightScalar, context.getVarMappingContext());
     }
 
