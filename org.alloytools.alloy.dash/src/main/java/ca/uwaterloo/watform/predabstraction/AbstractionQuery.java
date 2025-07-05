@@ -20,7 +20,8 @@ public class AbstractionQuery {
             INIT,
             INV,
             GUARD,
-            ACTION;
+            ACTION,
+            PROPERTY;
 
         }
 
@@ -64,6 +65,9 @@ public class AbstractionQuery {
         }
         public boolean isActionQuery(){
             return (qtype == QueryType.ACTION);
+        }
+        public boolean isPropertyQuery() {
+            return (qtype == QueryType.PROPERTY);
         }
         public boolean isQueryNegatedPredicate() {
             return absPredNegated;

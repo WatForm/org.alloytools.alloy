@@ -50,13 +50,11 @@ public class CommandHelper {
 		for(Func f: funcs) {
 			if(f.isPred && f.label == predName) {
 				pred = (ExprVar) f.labelExpr();
-				System.out.println("Testing if f.labelExpr() works in CommandHelper.createCommand() : " + predName + "; variable: " + ExprHelper.getVarName(pred));
 			}
 		}
 
 		if(pred == null) {
 			pred = ExprHelper.createVar(predName, Type.FORMULA);
-			System.out.println("###> f.labelExpr() did not work for " + predName);
 		}
 
 		comp.addCommand(false, null, pred, commandKeyword, overallScope, bitwidth, -1, -1, -1, -1, null, pred);

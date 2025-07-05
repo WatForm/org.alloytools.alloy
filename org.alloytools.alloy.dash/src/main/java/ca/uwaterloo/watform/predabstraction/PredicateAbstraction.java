@@ -30,6 +30,7 @@ import edu.mit.csail.sdg.ast.ExprBinary;
 import edu.mit.csail.sdg.ast.ExprList;
 import edu.mit.csail.sdg.ast.ExprQt;
 import edu.mit.csail.sdg.ast.Command;
+import edu.mit.csail.sdg.ast.Func;
 import edu.mit.csail.sdg.alloy4.ConstList;
 
 import java.io.*;
@@ -41,32 +42,35 @@ import java.nio.file.Files;
 
 public class PredicateAbstraction {
 
-    public static String negString = "neg";
-    public static String boolVarString = "B";
-    public static String guardString = "guard";
-    public static String actionString = "action";
-    public static String initsString = "inits";
-    public static String invString = "inv";
+    public final String negString = "neg";
+    public final String boolVarString = "B";
+    public final String guardString = "guard";
+    public final String actionString = "action";
+    public final String initsString = "inits";
+    public final String invString = "inv";
+    public final String propString = "prop";
 
+    public String fileName;
+    public DashModule origModel;
+    public CompModule origTransAlloy;
+    public HashMap<Expr, ExprVar> formulaVarMap;
 
-    // returns a deep copy of DashModule object
-    // public static DashModule copyDashModule(DashModule d){
+    public PredicateAbstraction(String inputFilename) {
+        
+        this.fileName = inputFilename;
+        
+        A4Reporter rep = new A4Reporter();
+        this.origModel = MainFunctions.parseDashFile(fileName, rep);
+        System.out.println("Parsed Dash file");
+        if (origModel == null) 
+            DashErrors.emptyFile(inputFilename);
+                
+        this.origModel = MainFunctions.resolveDash(this.origModel, rep);
+        System.out.println("Resolved Dash"); 
 
-    //     assert(d.hasRoot()); // there is a Dash component in this module
-    //     try {
-    //         //System.out.println("In the try block of copyDashModule");
-            
-    //         DashModule dcopy = new DashModule(d);
-    //         System.out.println("=========COPY==========");
-    //         System.out.println(dcopy.transTableToString());
-    //         System.out.println("===================");
-    //         return dcopy;
-            
-    //     } catch(Exception e) {
-    //         System.out.println("In catch block of copyDashModule");
-    //         return d;
-    //     }
-    // } 
+        this.origTransAlloy = MainFunctions.translate(this.origModel, rep);
+        System.out.println("Translated Dash to Alloy"); 
+    }
 
     /*
         Creates a predicate:
@@ -78,13 +82,7 @@ public class PredicateAbstraction {
             abs_pred
         }
     */
-    public static AbstractionQuery addQueryPred(List<Expr> args, 
-                                                DashModule d, 
-                                                CompModule c, 
-                                                String name,     
-                                                AbstractionQuery.QueryType typ,
-                                                Expr pred,
-                                                Boolean neg) {
+    public AbstractionQuery addQueryPred(List<Expr> args, String name, AbstractionQuery.QueryType typ, Expr pred, Boolean neg) {
 
         List<Expr> body = new ArrayList<Expr>();
         Expr svar = Common.curVar();
@@ -96,14 +94,11 @@ public class PredicateAbstraction {
             body.add(ExprHelper.createPredCall(DashStrings.smallStepName, Common.curNextVars()));
 
             for(Expr e: args) {
-                body.add(Common.translateExpr(e, d));
+                body.add(Common.translateExpr(e, origModel));
             }
 
-            String predBody = d.addPredSimple(name, Common.curNextDecls(), body);
+            String predBody = origModel.addPredSimple(name, Common.curNextDecls(), body);
             q.setPredBody(predBody);
-            System.out.println("\n******************");
-            System.out.println(predBody);
-            System.out.println("\n******************");
         }
         else {
             if(typ == AbstractionQuery.QueryType.INIT) {
@@ -112,32 +107,25 @@ public class PredicateAbstraction {
                 body.add(ExprHelper.createPredCall(DashStrings.initFactName, curvar));
             }
             for(Expr e: args) {
-                body.add(Common.translateExpr(e, d));
+                body.add(Common.translateExpr(e, origModel));
             }
             List<Decl> snapshot = new ArrayList<Decl>();
             snapshot.add(Common.curDecl());
-            String predBody = d.addPredSimple(name, snapshot, body);
+            String predBody = origModel.addPredSimple(name, snapshot, body);
             q.setPredBody(predBody);
-            System.out.println("\n******************");
-            System.out.println(predBody);
-            System.out.println("\n******************");
         }
 
         boolean check = false;
-        Command cmd = CommandHelper.createCommand(c, check, 4, 4, name);
+        Command cmd = CommandHelper.createCommand(origTransAlloy, check, 4, 4, name);
         q.setCommand(cmd);
         q.setCmdBody(cmd.toString() + "\n");
-        System.out.println("Query "+name+" created: "+cmd.toString());
+        // System.out.println("Query "+name+" created: "+cmd.toString());
         return q;
     }
-
-
-
     
     // This recursive method takes an Expr and breaks it down into a list of subexpressions (literals) based on the logical operators
     
-
-    public static void decomposeExpr(Expr e, Set<Expr> literals) {
+    public void decomposeExpr(Expr e, Set<Expr> literals) {
 
         if (ExprHelper.isExprConst(e) || ExprHelper.isExprVar(e)) {
             literals.add(e);
@@ -190,30 +178,25 @@ public class PredicateAbstraction {
         
     }
 
-    public static List<AbstractionQuery> addAbstractionQueries(List<Expr> items, 
-                                                             HashMap<Expr, ExprVar> predVarMap, 
-                                                             DashModule d, 
-                                                             CompModule c, 
-                                                             String name,
-                                                             AbstractionQuery.QueryType typ) {
+    public List<AbstractionQuery> addAbstractionQueries(List<Expr> items, String name, AbstractionQuery.QueryType typ) {
 
         List<AbstractionQuery> queries = new ArrayList<AbstractionQuery>();
         
         if(items != null){
-            for(Expr p: predVarMap.keySet()) {
+            for(Expr p: formulaVarMap.keySet()) {
                 List<Expr> queryArgs = new ArrayList<Expr>(items);
                 Expr negp = ExprHelper.createNot(p);
-                ExprVar v = predVarMap.get(p);
+                ExprVar v = formulaVarMap.get(p);
                 String qname = name + "_" + ExprHelper.getVarName(v) + "_" + negString;
 
                 queryArgs.add(negp);
-                AbstractionQuery q1 = addQueryPred(queryArgs, d, c, qname, typ, p, true);
+                AbstractionQuery q1 = addQueryPred(queryArgs, qname, typ, p, true);
                 queries.add(q1);
 
                 qname = name + "_" + ExprHelper.getVarName(v);            
                 queryArgs.remove(negp);
                 queryArgs.add(p);
-                AbstractionQuery q2 = addQueryPred(queryArgs, d, c, qname, typ, p, false); 
+                AbstractionQuery q2 = addQueryPred(queryArgs, qname, typ, p, false); 
                 queries.add(q2);
 
                 q1.setConjugateQuery(q2);
@@ -223,52 +206,48 @@ public class PredicateAbstraction {
         return queries;
     }
 
-
-     
-    // This method takes a DashModule object as input and returns the abstract model
-
-    public static DashModule createAbstractModel(String inputFilename) {
-
-        A4Reporter rep = new A4Reporter();
-
-        DashModule d = MainFunctions.parseDashFile(inputFilename, rep);
-        System.out.println("Parsed Dash file");
-        if (d == null) 
-            DashErrors.emptyFile(inputFilename);
-                
-        d = MainFunctions.resolveDash(d, rep);
-        System.out.println("Resolved Dash"); 
-
-        CompModule c = MainFunctions.translate(d, rep);
-        System.out.println("Translated Dash to Alloy"); 
-
-        int cmdCtr = c.getAllCommands().size();
-                
-
-        //get all the transition names, guards, and actions store in a list
-        List<String> allTransNames = d.getAllTransNames();
+    public HashMap<String, Expr> createTransitionGuardMap() {
+        
+        List<String> allTransNames = origModel.getAllTransNames();
         HashMap<String, Expr> allTransGuards = new HashMap<String, Expr>();
-        HashMap<String, Expr> allTransActions = new HashMap<String, Expr>();
 
         for(String t: allTransNames){
-            Expr g = d.getTransWhen(t);
-            Expr a = d.getTransDo(t);
+            Expr g = origModel.getTransWhen(t);
             if(g != null) { 
                 allTransGuards.put(t, g);
             }
-            if(a != null) {
+        }
+        return allTransGuards;
+    }
+
+    public HashMap<String, Expr> createTransitionActionMap() {
+        
+        List<String> allTransNames = origModel.getAllTransNames();
+        HashMap<String, Expr> allTransActions = new HashMap<String, Expr>();
+
+        for(String t: allTransNames){
+            Expr a = origModel.getTransDo(t);
+            if(a != null) { 
                 allTransActions.put(t, a);
             }
         }
+        return allTransActions;
+    }
 
-        List<Expr> inits = d.getInits();
-        List<Expr> invs = d.getInvs();
-        String rootName = d.getRootName();
+    public void createFormulaVariableMap() {
+        
+        //get all the transition names, guards, and actions store in a list
+        List<String> allTransNames = origModel.getAllTransNames();
+        HashMap<String, Expr> allTransGuards = createTransitionGuardMap();
+        HashMap<String, Expr> allTransActions = createTransitionActionMap();
+
+        List<Expr> inits = origModel.getInits();
+        List<Expr> invs = origModel.getInvs();
+        String rootName = origModel.getRootName();
 
         //for now, if a model has no guards, we do not abstract the model.
         if(allTransGuards.isEmpty() && invs.size() == 0){
-            System.out.println("The given Dash+ model does not have any guards or invariants (sources of predicates)");
-            return d;
+            formulaVarMap = new HashMap<Expr, ExprVar>();
         }
 
         //create a list/set of abstraction predicates from the guards, decomposed by logical operators
@@ -292,15 +271,40 @@ public class PredicateAbstraction {
             }
         }
 
-        HashMap<Expr, ExprVar> predVarMap = new HashMap<Expr, ExprVar>();
+        formulaVarMap = new HashMap<Expr, ExprVar>();
         int i = 0;
         for(Expr p: absPreds) {
             //String bvname = DashFQN.fqn(rootName, boolVarString + Integer.toString(i));
             String bvname = boolVarString + Integer.toString(i);
-            predVarMap.put(p, ExprHelper.createVar(bvname));
+            formulaVarMap.put(p, ExprHelper.createVar(bvname));
             i += 1;
         }
+    }
+     
+    // This method takes a DashModule object as input and returns the abstract model
 
+    public DashModule createAbstractModel() {
+
+        // Step 1: Parse, resolve, and translate input Dash file
+
+        A4Reporter rep = new A4Reporter();
+        int cmdCtr = origTransAlloy.getAllCommands().size();
+
+        // Step 2: Extract predicates from the guards and invariants and map each predicate to a new abstract boolean variable
+        List<String> allTransNames = origModel.getAllTransNames();
+        HashMap<String, Expr> allTransGuards = createTransitionGuardMap();
+        HashMap<String, Expr> allTransActions = createTransitionActionMap();
+        List<Expr> inits = origModel.getInits();
+        List<Expr> invs = origModel.getInvs();
+        String rootName = origModel.getRootName();
+        createFormulaVariableMap();
+
+        if(formulaVarMap == null) {
+            System.out.println("The given Dash+ model does not have any guards or invariants (sources of predicates)");
+            return origModel;
+        }
+
+        // Step 3: Create abstraction Alloy queries (commands to run predicates to abstract Alloy expressions in the Dash Model)
 
         List<AbstractionQuery> queries = new ArrayList<AbstractionQuery>(); 
         HashMap<String, List<AbstractionQuery> > transGuardQueryMap = new HashMap<String, List<AbstractionQuery> >();
@@ -308,17 +312,19 @@ public class PredicateAbstraction {
         HashMap<String, Expr> invMap = new HashMap<String, Expr>();
         HashMap<String, List<AbstractionQuery> > invQueryMap = new HashMap<String, List<AbstractionQuery> >();
         
+        // Abstract the initial conditions
         if(inits.size() > 0){
-            queries.addAll(addAbstractionQueries(inits, predVarMap, d, c, initsString, AbstractionQuery.QueryType.INIT));
+            queries.addAll(addAbstractionQueries(inits, initsString, AbstractionQuery.QueryType.INIT));
         }
 
+        // Abstract the invariants separately and individually
         if(invs.size() > 0) {
-            i = 0;
+            int i = 0;
             for(Expr inv: invs){
                 List<Expr> arg = new ArrayList<Expr>();
                 arg.add(inv);
                 String invName = invString + Integer.toString(i);
-                List<AbstractionQuery> qs = addAbstractionQueries(arg, predVarMap, d, c, invName, AbstractionQuery.QueryType.INV);
+                List<AbstractionQuery> qs = addAbstractionQueries(arg, invName, AbstractionQuery.QueryType.INV);
                 queries.addAll(qs);
                 invMap.put(invName, inv);
                 invQueryMap.put(invName, qs);
@@ -326,17 +332,18 @@ public class PredicateAbstraction {
             }
         }
 
-        
+        // Abstract the transition guards
         for(Map.Entry<String, Expr> entry: allTransGuards.entrySet()) {
             Expr g = entry.getValue(); 
             List<Expr> arg = new ArrayList<Expr>();
             arg.add(g);
             String qname = guardString + "_" + DashFQN.translateFQN(entry.getKey());
-            List<AbstractionQuery> qs = addAbstractionQueries(arg, predVarMap, d, c, qname, AbstractionQuery.QueryType.GUARD);
+            List<AbstractionQuery> qs = addAbstractionQueries(arg, qname, AbstractionQuery.QueryType.GUARD);
             transGuardQueryMap.put(entry.getKey(), qs);
             queries.addAll(qs);
         }
 
+        // Abstract the transition actions
         for(String t: allTransNames) {
             Expr guard = allTransGuards.get(t);
             Expr action = allTransActions.get(t);
@@ -345,19 +352,20 @@ public class PredicateAbstraction {
                 arg.add(guard);
                 arg.add(action);
                 String qname = actionString + "_" + DashFQN.translateFQN(t);
-                List<AbstractionQuery> qs = addAbstractionQueries(arg, predVarMap, d, c, qname, AbstractionQuery.QueryType.ACTION);
+                List<AbstractionQuery> qs = addAbstractionQueries(arg, qname, AbstractionQuery.QueryType.ACTION);
                 transActionQueryMap.put(t, qs);
                 queries.addAll(qs);
             }
         }
         
-        c = MainFunctions.resolveAlloy(c, rep);
+        // Step 4: Run the abstraction query commands and store the results
+        origTransAlloy = MainFunctions.resolveAlloy(origTransAlloy, rep);
         System.out.println("Total number of abstraction queries: "+queries.size());
 
-        String outfilename = inputFilename.substring(0,inputFilename.length()-4) + "-abs-query.als";
+        String outfilename = fileName.substring(0,fileName.length()-4) + "-abs-query.als";
 
         try {
-            DashModule d2 = MainFunctions.parseDashFile(inputFilename, rep);                
+            DashModule d2 = MainFunctions.parseDashFile(fileName, rep);                
             d2 = MainFunctions.resolveDash(d2, rep);
             CompModule c2 = MainFunctions.translate(d2, rep);
 
@@ -366,7 +374,7 @@ public class PredicateAbstraction {
             System.out.println("Creating: " + outfilename);
             FileWriter fw = new FileWriter(out.getAbsoluteFile());
             BufferedWriter bw = new BufferedWriter(fw);
-            bw.write(d.toStringAlloy());
+            bw.write(origModel.toStringAlloy());
 
             for(AbstractionQuery q: queries) {
                 bw.write(q.predBody);
@@ -383,18 +391,26 @@ public class PredicateAbstraction {
             System.out.println("Exception: "+e.toString());
         }
 
-        c = MainFunctions.parseAlloyFileAndResolveAll(outfilename, rep);
+        CompModule c = MainFunctions.parseAlloyFileAndResolveAll(outfilename, rep);
+
         List<Command> cmdlist = c.getAllCommands();
         HashMap<String, Boolean> queryResults = new HashMap<String, Boolean>();
-        for(Command cmd: cmdlist) {
-            A4Options options = new A4Options();
-            A4Solution solution = MainFunctions.executeCommand(cmd, c, rep, options);
-            queryResults.put(cmd.label, solution.satisfiable());
+        try {
+            for(Command cmd: cmdlist) {
+                A4Options options = new A4Options();
+                A4Solution solution = MainFunctions.executeCommand(cmd, c, rep, options);
+                queryResults.put(cmd.label, solution.satisfiable());
+            }
+        }
+        catch (Exception e) {
+            System.out.println("Exception: "+e.toString());
         }
 
         for(AbstractionQuery q: queries) {
             q.setResult(queryResults.get(q.commandName));
         }
+
+        // Step 5: Use the results of the queries to abstract the inits, invariants, guards, and actions
 
         HashMap<String, Boolean> processed = new HashMap<String, Boolean>();
         for(AbstractionQuery q: queries) {
@@ -405,6 +421,7 @@ public class PredicateAbstraction {
         List<Expr> absInvs = new ArrayList<Expr>();
         Expr dshSnap = ExprHelper.createVar(DashStrings.snapshotName);
 
+        // Abstract the initial conditions
         for(AbstractionQuery q: queries) {
             if(processed.get(q.commandName) == false) {
                 //inits
@@ -413,9 +430,9 @@ public class PredicateAbstraction {
                     AbstractionQuery qConj = q.conjugate;
                     boolean result = (q.isQueryNegatedPredicate())? q.result : qConj.result;
                     boolean negResult = (q.isQueryNegatedPredicate())? qConj.result : q.result;
-                    Expr v = predVarMap.get(q.absPred);
+                    Expr v = formulaVarMap.get(q.absPred);
                     Expr vfqn = ExprHelper.createVar(DashFQN.translateFQN(DashFQN.fqn(rootName, ExprHelper.getVarName((ExprVar) v))));
-                    Expr dvfqn = ExprHelper.createJoin(Pos.UNKNOWN, dshSnap, vfqn);
+                    Expr dvfqn = ExprHelper.createJoin(Pos.UNKNOWN, Common.curVar(), vfqn);
 
                     if(result && !negResult){
                         // add BV as it is
@@ -435,8 +452,11 @@ public class PredicateAbstraction {
         }
 
         List<Expr> absInit = new ArrayList<Expr>();
-        absInit.add(ExprHelper.createAndFromList(absInits));
+        if(! absInits.isEmpty()){
+            absInit.add(ExprHelper.createAndFromList(absInits));
+        }
         
+        // Abstract the invariants
         for(String in: invQueryMap.keySet()) {
             List<Expr> absInvVars = new ArrayList<Expr>();
             for(AbstractionQuery q: invQueryMap.get(in)){
@@ -445,9 +465,9 @@ public class PredicateAbstraction {
                     AbstractionQuery qConj = q.conjugate;
                     boolean result = (q.isQueryNegatedPredicate())? q.result : qConj.result;
                     boolean negResult = (q.isQueryNegatedPredicate())? qConj.result : q.result;
-                    ExprVar v = predVarMap.get(q.absPred);
+                    ExprVar v = formulaVarMap.get(q.absPred);
                     Expr vfqn = ExprHelper.createVar(DashFQN.translateFQN(DashFQN.fqn(rootName, ExprHelper.getVarName((ExprVar) v))));
-                    Expr dvfqn = ExprHelper.createJoin(Pos.UNKNOWN, dshSnap, vfqn);
+                    Expr dvfqn = ExprHelper.createJoin(Pos.UNKNOWN, Common.curVar(), vfqn);
 
                     if(result && !negResult){
                         // add BV as it is
@@ -464,14 +484,17 @@ public class PredicateAbstraction {
                     processed.put(qConj.commandName, true);
                 }
             }
-            Expr absInv = ExprHelper.createAndFromList(absInvVars);
-            absInvs.add(absInv);
+            if(!absInvVars.isEmpty()){
+                Expr absInv = ExprHelper.createAndFromList(absInvVars);
+                absInvs.add(absInv);
+            }
+            
         }
 
         HashMap<String, Expr> transAbsGuard = new HashMap<String, Expr>();
         HashMap<String, Expr> transAbsAction = new HashMap<String, Expr>();
         
-        //guards 
+        // Abstract the transition guards 
         for(String t: allTransNames) {
             List<Expr> absVars = new ArrayList<Expr>();
             if(transGuardQueryMap.containsKey(t)){
@@ -481,9 +504,9 @@ public class PredicateAbstraction {
                         AbstractionQuery qConj = q.conjugate;
                         boolean result = (q.isQueryNegatedPredicate())? q.result : qConj.result;
                         boolean negResult = (q.isQueryNegatedPredicate())? qConj.result : q.result;
-                        Expr v = predVarMap.get(q.absPred);
+                        Expr v = formulaVarMap.get(q.absPred);
                         Expr vfqn = ExprHelper.createVar(DashFQN.translateFQN(DashFQN.fqn(rootName, ExprHelper.getVarName((ExprVar) v))));
-                        Expr dvfqn = ExprHelper.createJoin(Pos.UNKNOWN, dshSnap, vfqn);
+                        Expr dvfqn = ExprHelper.createJoin(Pos.UNKNOWN, Common.curVar(), vfqn);
 
                         if(result && !negResult){
                             // add BV as it is
@@ -501,11 +524,13 @@ public class PredicateAbstraction {
                     }
                 }
             }
-            Expr absGuard = ExprHelper.createAndFromList(absVars);
-            transAbsGuard.put(t, absGuard);
+            if(!absVars.isEmpty()) {
+                Expr absGuard = ExprHelper.createAndFromList(absVars);
+                transAbsGuard.put(t, absGuard);
+            } 
         }
 
-        //actions 
+        // Abstract the transition actions 
         Set<String> varsChanged = new HashSet<String>();
 
         for(String t: allTransNames) {
@@ -517,10 +542,11 @@ public class PredicateAbstraction {
                         AbstractionQuery qConj = q.conjugate;
                         boolean result = (q.isQueryNegatedPredicate())? q.result : qConj.result;
                         boolean negResult = (q.isQueryNegatedPredicate())? qConj.result : q.result;
-                        Expr v = predVarMap.get(q.absPred);
+                        Expr v = formulaVarMap.get(q.absPred);
                         Expr vfqn = ExprHelper.createVar(DashFQN.translateFQN(DashFQN.fqn(rootName, ExprHelper.getVarName((ExprVar) v))));
-                        Expr vPrime = ExprHelper.createPrime(vfqn);
-                        Expr dvfqn = ExprHelper.createJoin(Pos.UNKNOWN, dshSnap, vPrime);
+                        //Expr vPrime = ExprHelper.createPrime(vfqn);
+                        //Expr dvfqn = ExprHelper.createJoin(Pos.UNKNOWN, Common.nextVar(), vPrime);
+                        Expr dvfqn = ExprHelper.createJoin(Pos.UNKNOWN, Common.nextVar(), vfqn);
 
                         if(result && !negResult){
                             // add BV as it is
@@ -540,17 +566,19 @@ public class PredicateAbstraction {
                     }
                 }
             }
-            Expr absAction = ExprHelper.createAndFromList(absVars);
-            transAbsAction.put(t, absAction);
+            if(!absVars.isEmpty()) {
+                Expr absAction = ExprHelper.createAndFromList(absVars);
+                transAbsAction.put(t, absAction);
+            }
         }
 
-        // add the boolean variables to a new VarTable
+        // Step 6: Add the abstract boolean variables to a new VarTable
         VarTable vt = new VarTable();
         List<String> prms = new ArrayList<String>();
         List<Integer> prmsIdx = new ArrayList<Integer>();
         Expr boolType = ExprHelper.createVar(DashStrings.boolName);
         
-        for(ExprVar bv: predVarMap.values()){
+        for(ExprVar bv: formulaVarMap.values()){
             String bvname = ExprHelper.getVarName(bv);
             String bvfqn = DashFQN.translateFQN(DashFQN.fqn(rootName, bvname));
             if(varsChanged.contains(bvfqn)) {
@@ -561,13 +589,14 @@ public class PredicateAbstraction {
             }
         }
         
-        DashModule absd = MainFunctions.parseDashFile(inputFilename, rep);
-        //System.out.println("Parsed Dash file");
+        // Step 7: Create the abstract DashModule by re-parsing and resolving the input file and replacing the 
+        // inits, invs, guards, and actions with their corresponding abstract versions
+
+        DashModule absd = MainFunctions.parseDashFile(fileName, rep);
         if (absd == null) 
-            DashErrors.emptyFile(inputFilename);
+            DashErrors.emptyFile(fileName);
                 
         absd = MainFunctions.resolveDash(absd, rep); 
-        //System.out.println("Resolved Dash");
 
         absd.stateTable.setInits(absInit);
         absd.stateTable.setInvs(absInvs);
@@ -578,21 +607,21 @@ public class PredicateAbstraction {
             Expr g = transAbsGuard.get(t);
             Expr a = transAbsAction.get(t);
             if(g != null){
-                // System.out.println("Testing: Abstract guard...");
-                // System.out.println(g.toString());
                 absd.setTransWhen(t, transAbsGuard.get(t));
+            }
+            else {
+                absd.setTransWhen(t, null);
             }
             if(a != null){
                 absd.setTransDo(t, transAbsAction.get(t));
             }
+            else {
+                absd.setTransDo(t, null);
+            }
             
         }
 
-        
-
-        //vartable varelemt can take empty list for prms
-        //invs and inits just run query as inv & pred
-
+        // Step 8: Print the tables of the abstract model
         System.out.println("========Abstract Inits==========");
         for(Expr init: absd.stateTable.getInits()) {
             System.out.println(init.toString());
@@ -619,10 +648,148 @@ public class PredicateAbstraction {
 
         // all different snapshot does not allow loop ; make sure not enables
 
-        return absd;
-        //return d;
-        
+        return absd;        
     }
+
+    /*
+    public static void createAbstractProperty(String propFilename, DashModule absd) {
+        
+        A4Reporter rep = new A4Reporter();
+        DashModule d = MainFunctions.parseDashFile(fileName, rep);
+        if (d == null) 
+            DashErrors.emptyFile(fileName);
+                
+        String propBody = new String();
+        try{
+            FileReader fr = new FileReader(propFilename);
+            BufferedReader br = new BufferedReader(fr);
+
+            while(line != null) {
+                d.alloyString += (line + "\n");
+                propBody += (line + "\n");
+            }
+            br.close();
+            fr.close();
+        }
+        catch (Exception e) {
+            System.out.println("Exception: "+e.toString());
+        } 
+
+        d = MainFunctions.resolveDash(d, rep);
+        CompModule c = MainFunctions.translate(d, rep);
+
+        String rootName = d.getRootName();
+
+        // trying to get all funcs without resolving alloy
+        int index = c.getAllFunc().size() - 1;
+        Func propFunc = c.getAllFunc().get(index);
+        Expr propBody = propFunc.getBody();
+        String propLabel = propFunc.label;
+        List<Expr> propList = new ArrayList<Expr>();
+        propList.add(propBody);
+
+        index = c.getAllCommands().size() - 1;
+        Command propCmd = c.getAllCommands().get(index);
+
+        List<AbstractionQuery> queries = new ArrayList<AbstractionQuery>(); 
+        String queryName = (propLabel.length() > 0)? propString + "_" + propLabel: propString;
+        queries.addAll(addAbstractionQueries(propList, queryName, AbstractionQuery.QueryType.PROPERTY));
+
+        //execute abstraction queries to abstract the property
+
+        c = MainFunctions.resolveAlloy(c, rep);
+        System.out.println("Total number of abstraction queries: "+queries.size());
+
+        String outfilename = propFilename.substring(0,propFilename.length()-4) + "-abs-query.als";
+
+        try {
+            DashModule d2 = MainFunctions.parseDashFile(fileName, rep);                
+            d2 = MainFunctions.resolveDash(d2, rep);
+            CompModule c2 = MainFunctions.translate(d2, rep);
+
+            File out = new File(outfilename);
+            if (!out.exists()) out.createNewFile();
+            System.out.println("Creating: " + outfilename);
+            FileWriter fw = new FileWriter(out.getAbsoluteFile());
+            BufferedWriter bw = new BufferedWriter(fw);
+            bw.write(origModel.toStringAlloy());
+
+            for(AbstractionQuery q: queries) {
+                bw.write(q.predBody);
+            }
+
+            for(AbstractionQuery q: queries) {
+                bw.write(q.cmdBody);
+            }
+            bw.close();
+            System.out.println("Alloy file with abstraction queries for the property in "+ propFilename +" created.");    
+
+        }   
+        catch (Exception e) {
+            System.out.println("Exception: "+e.toString());
+        }
+
+        c = MainFunctions.parseAlloyFileAndResolveAll(outfilename, rep);
+
+        List<Command> cmdlist = c.getAllCommands();
+        HashMap<String, Boolean> queryResults = new HashMap<String, Boolean>();
+        try {
+            for(Command cmd: cmdlist) {
+                A4Options options = new A4Options();
+                A4Solution solution = MainFunctions.executeCommand(cmd, c, rep, options);
+                queryResults.put(cmd.label, solution.satisfiable());
+            }
+        }
+        catch (Exception e) {
+            System.out.println("Exception: "+e.toString());
+        }
+
+        for(AbstractionQuery q: queries) {
+            q.setResult(queryResults.get(q.commandName));
+        }
+
+        // construct the abstract property
+
+        HashMap<String, Boolean> processed = new HashMap<String, Boolean>();
+        for(AbstractionQuery q: queries) {
+            processed.put(q.commandName, false);
+        }
+
+        List<Expr> absProp = new ArrayList<Expr>();
+        Expr dshSnap = ExprHelper.createVar(DashStrings.snapshotName);
+
+        for(AbstractionQuery q: queries) {
+            if(processed.get(q.commandName) == false) {
+                //inits
+                if(q.isPropertyQuery()) {
+
+                    AbstractionQuery qConj = q.conjugate;
+                    boolean result = (q.isQueryNegatedPredicate())? q.result : qConj.result;
+                    boolean negResult = (q.isQueryNegatedPredicate())? qConj.result : q.result;
+                    Expr v = formulaVarMap.get(q.absPred);
+                    Expr vfqn = ExprHelper.createVar(DashFQN.translateFQN(DashFQN.fqn(rootName, ExprHelper.getVarName((ExprVar) v))));
+                    Expr dvfqn = ExprHelper.createJoin(Pos.UNKNOWN, dshSnap, vfqn);
+
+                    if(result && !negResult){
+                        // add BV as it is
+                        absInits.add(ExprHelper.createIsTrue(dvfqn));
+                    }
+                    else if(!result && negResult) {
+                        // add negated BV
+                        absInits.add(ExprHelper.createIsFalse(dvfqn));
+                    }
+                    else {
+                        // do nothing
+                    }
+                    processed.put(q.commandName, true);
+                    processed.put(qConj.commandName, true);
+                }
+            }
+        }
+
+        Expr absPropBody = ExprHelper.createAndFromList(absProp);
+
+    }*/
 }
 
 
