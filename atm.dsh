@@ -1,0 +1,79 @@
+open util/integer
+state ATM {
+  
+  attempts: one Int
+  balance: one Int
+  
+  env withdrawAmount: one Int
+  event eject {}
+  
+  env event invalidPin {}
+  env event validPin {}
+  env event insertCard {}
+  env event cancel {}
+  init {
+        attempts = 3
+        balance > 0
+  }
+  
+  invariant {
+        withdrawAmount > 0
+  }
+  
+  default state Idle {
+        trans start {
+        on insertCard 
+        goto PINVerification
+        do {
+            attempts' = 3
+        }
+        }
+  }
+  state PINVerification {
+        trans invalid {
+        on invalidPin
+        when attempts > 0
+        do attempts' = attempts.minus[1]
+        }
+        trans cancel {
+        on cancel
+        goto Idle
+        send eject
+        }
+        trans exceededAttempts {
+        when attempts <= 0
+        goto Idle
+        send eject
+        }
+        trans valid {
+        on validPin
+        goto Withdraw
+        }
+  }
+  state Withdraw {
+        trans cancel {
+        on cancel
+        goto Idle
+        send eject
+        }
+        trans invalid {
+        when withdrawAmount > balance
+        }
+        trans valid {
+        when withdrawAmount <= balance
+        do balance' = balance.minus[withdrawAmount]
+        goto Idle
+        send eject
+        }
+  }
+}
+pred InvalidPINAtLeastOnce {
+    some s: DshSnapshot, sn: DshSnapshot | sn = s.DshSnapshot/next and
+                                                                                 s.ATM_attempts > sn.ATM_attempts
+}
+assert BalanceAlwaysPositive {
+    all s:DshSnapshot | s.ATM_balance >= 0
+}
+run InvalidPINAtLeastOnce for 8 but 10 int
+check BalanceAlwaysPositive for 12 but 20 int
+
