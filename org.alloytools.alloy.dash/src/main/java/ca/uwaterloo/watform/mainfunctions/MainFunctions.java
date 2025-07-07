@@ -20,6 +20,7 @@ import ca.uwaterloo.watform.parser.DashUtil;
 import ca.uwaterloo.watform.parser.DashModule;
 
 import ca.uwaterloo.watform.predabstraction.PredicateAbstraction;
+import ca.uwaterloo.watform.predabstraction.PrimeRemover;
 
 // no io in these!
 // A4 reporter is not used in Dash stuff
@@ -56,6 +57,15 @@ public class MainFunctions {
         //d.debug();
         return d;
     }
+	public static DashModule removePrimedInAction(DashModule d) {
+        if (d == null) {
+           DashErrors.emptyModule();
+        } else { 
+			d = PrimeRemover.removePrimedInAction(d);
+        }
+        //d.debug();
+        return d;
+	}
     public static DashModule translate(DashModule d, A4Reporter rep) {
         if (d == null) {
             DashErrors.emptyModule();

@@ -166,6 +166,9 @@ public class DashRef extends Expr implements Serializable {
 		return false;
 		*/
 	}
+	public DashRefKind getKind() {
+		return kind;
+	}
 	public String getName() {
 		return name;
 	}

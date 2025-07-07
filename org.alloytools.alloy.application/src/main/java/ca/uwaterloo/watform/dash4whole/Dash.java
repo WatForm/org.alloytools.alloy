@@ -201,6 +201,9 @@ public class Dash {
                     } else {
                         d = MainFunctions.resolveDash(d, rep);
                         System.out.println("Resolved Dash"); 
+
+						d = MainFunctions.removePrimedInAction(d);
+
                         CompModule c = MainFunctions.translate(d, rep);
                         System.out.println("Translated Dash to Alloy"); 
                         System.out.println("Method: " + method +"\n");
