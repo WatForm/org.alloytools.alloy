@@ -428,8 +428,8 @@ public class PredicateAbstraction {
                 if(q.isInitQuery()) {
 
                     AbstractionQuery qConj = q.conjugate;
-                    boolean result = (q.isQueryNegatedPredicate())? q.result : qConj.result;
-                    boolean negResult = (q.isQueryNegatedPredicate())? qConj.result : q.result;
+                    boolean negResult = (q.isQueryNegatedPredicate())? q.result : qConj.result;
+                    boolean result = (q.isQueryNegatedPredicate())? qConj.result : q.result;
                     Expr v = formulaVarMap.get(q.absPred);
                     Expr vfqn = ExprHelper.createVar(DashFQN.translateFQN(DashFQN.fqn(rootName, ExprHelper.getVarName((ExprVar) v))));
                     Expr dvfqn = ExprHelper.createJoin(Pos.UNKNOWN, Common.curVar(), vfqn);
@@ -463,8 +463,8 @@ public class PredicateAbstraction {
                 if(processed.get(q.commandName) == false){
 
                     AbstractionQuery qConj = q.conjugate;
-                    boolean result = (q.isQueryNegatedPredicate())? q.result : qConj.result;
-                    boolean negResult = (q.isQueryNegatedPredicate())? qConj.result : q.result;
+                    boolean negResult = (q.isQueryNegatedPredicate())? q.result : qConj.result;
+                    boolean result = (q.isQueryNegatedPredicate())? qConj.result : q.result;
                     ExprVar v = formulaVarMap.get(q.absPred);
                     Expr vfqn = ExprHelper.createVar(DashFQN.translateFQN(DashFQN.fqn(rootName, ExprHelper.getVarName((ExprVar) v))));
                     Expr dvfqn = ExprHelper.createJoin(Pos.UNKNOWN, Common.curVar(), vfqn);
@@ -502,8 +502,8 @@ public class PredicateAbstraction {
                     if(processed.get(q.commandName) == false) {
 
                         AbstractionQuery qConj = q.conjugate;
-                        boolean result = (q.isQueryNegatedPredicate())? q.result : qConj.result;
-                        boolean negResult = (q.isQueryNegatedPredicate())? qConj.result : q.result;
+                        boolean negResult = (q.isQueryNegatedPredicate())? q.result : qConj.result;
+                        boolean result = (q.isQueryNegatedPredicate())? qConj.result : q.result;
                         Expr v = formulaVarMap.get(q.absPred);
                         Expr vfqn = ExprHelper.createVar(DashFQN.translateFQN(DashFQN.fqn(rootName, ExprHelper.getVarName((ExprVar) v))));
                         Expr dvfqn = ExprHelper.createJoin(Pos.UNKNOWN, Common.curVar(), vfqn);
@@ -540,8 +540,8 @@ public class PredicateAbstraction {
                     if(processed.get(q.commandName) == false) {
 
                         AbstractionQuery qConj = q.conjugate;
-                        boolean result = (q.isQueryNegatedPredicate())? q.result : qConj.result;
-                        boolean negResult = (q.isQueryNegatedPredicate())? qConj.result : q.result;
+                        boolean negResult = (q.isQueryNegatedPredicate())? q.result : qConj.result;
+                        boolean result = (q.isQueryNegatedPredicate())? qConj.result : q.result;
                         Expr v = formulaVarMap.get(q.absPred);
                         Expr vfqn = ExprHelper.createVar(DashFQN.translateFQN(DashFQN.fqn(rootName, ExprHelper.getVarName((ExprVar) v))));
                         //Expr vPrime = ExprHelper.createPrime(vfqn);
