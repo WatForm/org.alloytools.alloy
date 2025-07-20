@@ -33,6 +33,15 @@ import edu.mit.csail.sdg.ast.Command;
 import edu.mit.csail.sdg.ast.Func;
 import edu.mit.csail.sdg.alloy4.ConstList;
 
+import kodkod.ast.Relation;
+import kodkod.instance.Instance;
+import kodkod.instance.TupleSet;
+import kodkod.instance.Tuple;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import ca.uwaterloo.watform.core.DashUtilFcns;
+
 import java.io.*;
 import java.util.*;
 import java.nio.file.Path;
@@ -790,6 +799,91 @@ public class PredicateAbstraction {
         Expr absPropBody = ExprHelper.createAndFromList(absProp);
 
     }*/
+
+	public A4Solution executeCommandCeValidation(Command cmd, CompModule alloy, A4Reporter rep, A4Options options) {
+        A4Solution ans = MainFunctions.executeCommand(cmd, alloy, rep, options);
+		Instance kkI = ans.debugExtractKInstance();
+		Set<Relation> relations = kkI.relations();
+
+		Map<String, Map<String, String>> snapshots = new LinkedHashMap<>();
+		Map<String, String> rename = new HashMap<>();
+		int currSnapshot = 0;
+
+		for(Relation r : relations) {
+			if ((DashStrings.snapshotName + DashStrings.SLASH + "Ord.First").equals(r.name())) {
+				Object firstSnapshot = kkI.tuples(r).iterator().next().atom(0);
+				Map<String, String> snapshot = new HashMap<>();
+				snapshots.put("S" + currSnapshot, snapshot);
+				rename.put("S" + currSnapshot, firstSnapshot.toString());
+			}
+		}
+
+		for(Relation r : relations) {
+			if ((DashStrings.snapshotName + DashStrings.SLASH + "Ord.Next").equals(r.name())) {
+				TupleSet ordNext = kkI.tuples(r);
+				// we iterate thru it n^2 times, b/c we don't know order of the tuples
+				for(int i = 0; i < ordNext.size(); i++) {
+					for(Tuple t: ordNext) {
+						if(rename.get("S"+currSnapshot).equals(t.atom(0).toString())) {
+							currSnapshot++;
+							Map<String, String> snapshot = new HashMap<>();
+							snapshots.put("S"+currSnapshot, snapshot);
+							rename.put("S" + currSnapshot, t.atom(1).toString());
+						}
+					}
+					if(currSnapshot == ordNext.size()) {
+						break;
+					}
+				}
+			}
+		}
+
+        DashModule concModel = MainFunctions.parseDashFile(this.fileName, rep);
+        concModel = MainFunctions.resolveDash(concModel, rep);
+
+        List<String> snapshotNames = new ArrayList<>(snapshots.keySet());
+		
+		// adding snapshot signatures
+		for(String s : snapshotNames) {
+			concModel.alloyString += concModel.addOneExtendsSigSimple(s, "DshSnapshot");
+		}
+
+		CompModule c = MainFunctions.translate(concModel, rep);
+
+		List<Expr> elist = new ArrayList<>();
+		elist.add(ExprHelper.createVar(snapshotNames.get(0)));
+		List<Expr> l = new ArrayList<>();
+		l.add(ExprHelper.createPredCall(DashStrings.initFactName, elist));
+
+		for(int i = 0; i < snapshotNames.size()-1; i++) {
+			elist.clear();
+			elist.add(ExprHelper.createVar(snapshotNames.get(i)));
+			l.add(ExprHelper.createEquals(
+				ExprHelper.createPredCall(DashStrings.snapshotName + DashStrings.SLASH + DashStrings.tracesNextName, elist),
+				ExprHelper.createVar(snapshotNames.get(i+1))));
+		}
+
+		concModel.alloyString += concModel.addFactSimple("counterexample", l);
+
+		try {
+			String outfilename = this.fileName.substring(0, this.fileName.length()-4) + "-ce-validation.als";
+			File out = new File(outfilename);
+			if (!out.exists()) {
+				out.createNewFile();
+			}
+			System.out.println("Creating: " + outfilename);
+			FileWriter fw = new FileWriter(out.getAbsoluteFile());
+			BufferedWriter bw = new BufferedWriter(fw);
+			bw.write(concModel.toStringAlloy());
+			bw.close();
+		} catch(Exception e) {
+            DashUtilFcns.handleException(e);
+		}
+
+		return ans;
+	}
+
+
 }
 
 

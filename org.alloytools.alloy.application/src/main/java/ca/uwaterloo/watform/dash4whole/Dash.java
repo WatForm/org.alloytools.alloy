@@ -28,6 +28,8 @@ import ca.uwaterloo.watform.parser.DashModule;
 import ca.uwaterloo.watform.mainfunctions.MainFunctions;
 
 
+// REMOVE LATER
+import ca.uwaterloo.watform.predabstraction.PredicateAbstraction;
 
 
 public class Dash {
@@ -46,7 +48,7 @@ public class Dash {
                 System.out.println("Executing command: " + cmd);
                 A4Solution ans = null;
                 try {
-                    ans = MainFunctions.executeCommand(cmd,c,rep, options);
+					ans = MainFunctions.executeCommand(cmd,c,rep, options);
                 } catch (Exception e) {
                     DashUtilFcns.handleException(e);
                 }
@@ -218,7 +220,10 @@ public class Dash {
                             c = MainFunctions.resolveAlloy(c,rep);
                             System.out.println("Resolved Alloy");
                             if (!resolveOnly) {
-                                executeCommands(c,cmdnum,rep);
+								// change to executeCommands later. Issue with PredAbs, so must use regular dash for now.
+								// executeCommands(c,cmdnum,rep);
+								PredicateAbstraction abstractor = new PredicateAbstraction(filename);
+                                DashPredicateAbstraction.executeCommands(c,cmdnum,rep, abstractor);
                             }
                         }                   
                     }

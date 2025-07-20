@@ -29,10 +29,11 @@ import ca.uwaterloo.watform.core.DashErrors;
 import ca.uwaterloo.watform.core.DashUtilFcns;
 import ca.uwaterloo.watform.parser.DashModule;
 import ca.uwaterloo.watform.mainfunctions.MainFunctions;
+import ca.uwaterloo.watform.predabstraction.PredicateAbstraction;
 
 public class DashPredicateAbstraction {
 
-    public static void executeCommands(CompModule c, Integer cmdnum, A4Reporter rep) {
+    public static void executeCommands(CompModule c, Integer cmdnum, A4Reporter rep, PredicateAbstraction abstractor) {
         // Choose some default options for how you want to execute the commands
         A4Options options = new A4Options();
 
@@ -44,7 +45,7 @@ public class DashPredicateAbstraction {
                 System.out.println("Executing command: " + cmd);
                 A4Solution ans = null;
                 try {
-                    ans = MainFunctions.executeCommand(cmd,c,rep, options);
+                    ans = MainFunctions.executeCommandCeValidation(cmd,c,rep, options, abstractor);
                 } catch (Exception e) {
                     DashUtilFcns.handleException(e);
                 }
@@ -128,7 +129,8 @@ public class DashPredicateAbstraction {
             // d = MainFunctions.resolveDash(d, rep);
             // System.out.println("Resolved Dash"); 
             A4Reporter rep = new A4Reporter();
-            DashModule abs = MainFunctions.createAbstractModel(inputFilename);
+        	PredicateAbstraction abstractor = new PredicateAbstraction(inputFilename);
+            DashModule abs = MainFunctions.createAbstractModel(inputFilename, abstractor);
             System.out.println("Abstract Dash model created.");       
             //abs = MainFunctions.resolveDash(abs, rep);
             //System.out.println("Abstract Dash model resolved."); 

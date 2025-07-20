@@ -147,6 +147,15 @@ public class MainFunctions {
         return ans;
     }
 
+	/**
+	 * execute a command then validate counterexample if needed and refine the abstraction
+	 * aim to work for traces Jul 19, 2025
+	 */
+	public static A4Solution executeCommandCeValidation(Command cmd, CompModule alloy, A4Reporter rep, A4Options options, PredicateAbstraction abstractor) {
+        A4Solution ans = abstractor.executeCommandCeValidation(cmd, alloy, rep, options);
+		return ans;
+	}
+
     // returns a deep copy of DashModule object
     /* 
     public static DashModule copyDash(DashModule d) {
@@ -163,12 +172,11 @@ public class MainFunctions {
     /* 2024-01-10 NAD
            dropped args here
     */
-    public static DashModule createAbstractModel(String inputFilename) {
+    public static DashModule createAbstractModel(String inputFilename, PredicateAbstraction abstractor) {
         // if(d == null){
         //     DashErrors.emptyModule();
         //     return d;
         // } 
-        PredicateAbstraction abstractor = new PredicateAbstraction(inputFilename);
         DashModule abs = abstractor.createAbstractModel();
         return abs;
     }
