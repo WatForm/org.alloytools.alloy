@@ -613,6 +613,19 @@ final class DefaultTranslator extends AbstractTranslator implements Evaluator, S
             conjuncts.add(recursivelyTranslate(nestedBound, context));
         }
 
+        // sequences, declared with ISSEQ_ARROW_LONE, have to be continuous from 0
+        if (arrow.op == ExprBinary.Op.ISSEQ_ARROW_LONE) {
+            // Do it the same way Kodkod does it
+            int arity = expr.type().arity();
+            Expr indices = expr;
+            for (int i = 0; i < arity - 1; i++) {
+                indices = indices.join(Sig.UNIV);
+            }
+            // "indices - indices.next in {0}"
+            Expr continuityCond = indices.minus(indices.join(ExprConstant.NEXT)).in(ExprConstant.ZERO);
+            conjuncts.add(recursivelyTranslate(continuityCond, context));
+        }
+
         return Term.mkAnd(conjuncts);
     }
 
