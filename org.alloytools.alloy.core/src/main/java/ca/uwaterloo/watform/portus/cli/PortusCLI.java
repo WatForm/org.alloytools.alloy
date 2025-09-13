@@ -293,6 +293,7 @@ public final class PortusCLI {
 
             A4Options alloyOptions = new A4Options();
             alloyOptions.originalFilename = alloyFilename;
+            alloyOptions.noOverflow = options.noOverflow.active();
             applyOptionFlags(alloyOptions.portusOptions, options);
             setFortressOptions(alloyOptions.portusOptions, options);
 

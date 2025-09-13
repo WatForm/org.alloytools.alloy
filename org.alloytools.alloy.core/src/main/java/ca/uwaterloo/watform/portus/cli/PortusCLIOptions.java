@@ -108,6 +108,8 @@ final class PortusCLIOptions {
     public final Option enableFortressNonExactScopes = new Option(
             "-enable-fortress-nonexact-scopes", "Enable use of the Fortress-level non-exact scopes feature.");
 
+    public final Option noOverflow = new Option("-no-overflow", "Turn on 'prevent overflow' when running with Kodkod.");
+
     public final Option[] allOptions = new Option[] {
             help, verbose, adjustBitwidth, noTimeout, pickCommandNumber,
             fortressCompiler, fortressSolver,
@@ -124,6 +126,7 @@ final class PortusCLIOptions {
             disableOrderingDefinition, disableClosureOptDefinition, enableSumBalancing,
             enableElementOfScalarOpt, enableCaching, enableKodkodIntCompatibility,
             enableFortressNonExactScopes,
+            noOverflow,
     };
 
     // The positional arguments - a list of Alloy command specifiers.
