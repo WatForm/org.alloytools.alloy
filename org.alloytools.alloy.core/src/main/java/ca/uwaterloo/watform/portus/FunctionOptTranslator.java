@@ -8,11 +8,9 @@ import edu.mit.csail.sdg.ast.ExprBinary;
 import edu.mit.csail.sdg.ast.ExprUnary;
 import edu.mit.csail.sdg.ast.Sig;
 import fortress.data.NameGenerator;
-import fortress.msfol.AnnotatedVar;
 import fortress.msfol.FuncDecl;
 import fortress.msfol.Sort;
 import fortress.msfol.Term;
-import fortress.msfol.Var;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -93,6 +91,8 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
 
     private final SortPolicy sortPolicy;
 
+    private final SigAxioms sigAxioms;
+
     private final NameGenerator nameGenerator;
 
     // Should we optimize "A->lone B" as well as "A->one B"?
@@ -101,11 +101,12 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
     private final Map<Sig.Field, FieldFuncInfo> optimizedFieldsInfo = new HashMap<>();
 
     public FunctionOptTranslator(
-            Translator topLevel, Evaluator rootEvaluator, SortPolicy sortPolicy, NameGenerator nameGenerator,
-            boolean optimizeLone) {
+            Translator topLevel, Evaluator rootEvaluator, SortPolicy sortPolicy, SigAxioms sigAxioms,
+            NameGenerator nameGenerator, boolean optimizeLone) {
         super(topLevel);
         this.rootEvaluator = rootEvaluator;
         this.sortPolicy = sortPolicy;
+        this.sigAxioms = sigAxioms;
         this.nameGenerator = nameGenerator;
         this.optimizeLone = optimizeLone;
     }
@@ -145,77 +146,18 @@ final class FunctionOptTranslator extends AbstractTranslator implements ScalarCa
 
         String domainPredName = null;
         if (optimizeLone && funcTypeExprsAndMult.b == ExprUnary.Op.LONE) {
-            // Generate the inDomain predicate
+            // Generate the inDomain predicate (will be constrained by the field bound constraint)
             domainPredName = nameGenerator.freshName("inDomain");
             context.addFunctionDeclaration(FuncDecl.mkFuncDecl(domainPredName, argSorts, Sort.Bool()));
-            context.addAxiom(makeDomainPredicateAxiom(boundExprs, argSorts, domainPredName, context));
         }
 
         FieldFuncInfo info = new FieldFuncInfo(funcName, argSorts, resultSort, boundExprs, domainPredName);
-        context.addAxiom(makeOptimizedFunctionAxiom(info, context));
         optimizedFieldsInfo.put(field, info);
+
+        context.addAxiom(sigAxioms.makeFieldBoundConstraint(field, allSorts.getDefiniteSorts(), context));
 
         // The return value doesn't matter for field declarations, it just can't be null
         return Term.mkTop();
-    }
-
-    private Term makeOptimizedFunctionAxiom(FieldFuncInfo info, TranslationContext context) {
-        // forall x1: sort(e1), ..., x{n-1}: sort(e{n-1}) . [[x1 \in e1]] && ... && [[x{n-1} \in e{n-1}]] =>
-        //   [[f(x1,...,x{n-1}) \in en]]
-        List<Var> vars = new ArrayList<>();
-        List<AnnotatedVar> decls = new ArrayList<>();
-        for (int i = 0; i < info.argSorts.size(); i++) {
-            Var var = Term.mkVar(nameGenerator.freshName("x" + i));
-            AnnotatedVar decl = var.of(info.argSorts.get(i));
-            vars.add(var);
-            decls.add(decl);
-        }
-
-        Term domainFormula, consequent;
-        try {
-            context.addFortressVars(decls);
-            domainFormula = makeDomainFormula(TermTuple.fromVars(decls), info, context);
-
-            try {
-                // Map "this" to the first variable, because it represents the signature's atom
-                context.addTermMapping("this", new AnnotatedTerm(decls.get(0)));
-                AnnotatedTerm funcApp = new AnnotatedTerm(Term.mkApp(info.funcName, vars), info.resultSort);
-                consequent = recursivelyTranslate(ExprElementOf.make(funcApp,
-                        info.boundExprs.get(info.boundExprs.size() - 1)), context);
-            } finally {
-                context.removeMapping("this");
-            }
-        } finally {
-            context.removeFortressVars(decls);
-        }
-
-        return Term.mkForall(decls, Term.mkImp(domainFormula, consequent));
-    }
-
-    private Term makeDomainPredicateAxiom(
-            List<Expr> boundExprs, List<Sort> argSorts, String domainPredName, TranslationContext context) {
-        // Force the domain to be a subset of the bound exprs
-        // forall x1: sort(e1), ..., x{n-1}: sort(e{n-1}) . inDomain(x1,...,x{n-1}) => [[x1 \in e1]] && ...
-        //   && [[x{n-1} \in e{n-1}]]
-        List<Var> vars = new ArrayList<>();
-        List<AnnotatedVar> decls = new ArrayList<>();
-        List<AnnotatedTerm> terms = new ArrayList<>();
-        for (int i = 0; i < argSorts.size(); i++) {
-            Var var = Term.mkVar(nameGenerator.freshName("x" + i));
-            AnnotatedVar decl = var.of(argSorts.get(i));
-            vars.add(var);
-            decls.add(decl);
-            terms.add(new AnnotatedTerm(decl));
-        }
-
-        try {
-            context.addFortressVars(decls);
-            TermTuple tuple = new TermTuple(terms);
-            Term domainFormula = makeBoundExprDomainFormula(tuple, boundExprs, context);
-            return Term.mkForall(decls, Term.mkImp(Term.mkApp(domainPredName, vars), domainFormula));
-        } finally {
-            context.removeFortressVars(decls);
-        }
     }
 
     /** Create the proper (right-) arrow. */

@@ -9,9 +9,10 @@ import fortress.msfol.Sort;
 import fortress.msfol.Term;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
- * A scheme for axioms to express the relationships between signatures.
+ * A scheme for axioms to express relationships between signatures (and the field bounds).
  */
 class SigAxioms {
 
@@ -121,6 +122,37 @@ class SigAxioms {
         } finally {
             context.removeFortressVar(x);
         }
+    }
+
+    /**
+     * Create an axiom asserting that a field's relation stays within its bound.
+     */
+    public Term makeFieldBoundConstraint(Sig.Field field, List<Sort> argSorts, TranslationContext context) {
+        // We translate the bound for "sig A { f: M e }" as [[all this: A | this.f in M e]] to constrain the range,
+        // plus a domain constraint: forall x1:S1,...,xn:Sn . [[(x1,...,xn) \in f]] => [[x1 \in A]].
+        // This is how Kodkod does it (effectively), and it elegantly handles "this" (generated as a variable when
+        // fields refer to previously declared fields) as well as multiplicities (handled by "in").
+        // With the scalar optimizations on, this even works for functions optimized by the function optimization.
+        // TODO: this can be optimized for one sigs.
+        // The sig.decl field is "this: sig".
+        Expr thisVar = field.sig.decl.get();
+        Expr rangeAxiomAlloy = thisVar.join(field).in(field.decl().expr).forAll(field.sig.decl);
+        Term rangeAxiom = rootTranslator.translate(rangeAxiomAlloy, context);
+
+        List<AnnotatedVar> vars = argSorts.stream()
+                .map(sort -> Term.mkVar(nameGenerator.freshName("x")).of(sort))
+                .collect(Collectors.toList());
+        Term domainAxiom;
+        try {
+            context.addFortressVars(vars);
+            domainAxiom = Term.mkForall(vars, Term.mkImp(
+                    rootTranslator.translate(ExprElementOf.make(TermTuple.fromVars(vars), field), context),
+                    rootTranslator.translate(ExprElementOf.make(vars.get(0), field.sig), context)));
+        } finally {
+            context.removeFortressVars(vars);
+        }
+
+        return Term.mkAnd(domainAxiom, rangeAxiom);
     }
 
 }

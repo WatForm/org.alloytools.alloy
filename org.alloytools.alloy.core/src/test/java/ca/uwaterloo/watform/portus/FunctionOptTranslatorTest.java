@@ -1,7 +1,5 @@
 package ca.uwaterloo.watform.portus;
 
-import edu.mit.csail.sdg.ast.Expr;
-import edu.mit.csail.sdg.ast.ExprBinary;
 import edu.mit.csail.sdg.ast.ExprVar;
 import edu.mit.csail.sdg.ast.Sig;
 import edu.mit.csail.sdg.ast.Type;
@@ -15,16 +13,12 @@ import fortress.msfol.Value;
 import fortress.msfol.Var;
 import org.junit.Before;
 import org.junit.Test;
-import org.mockito.stubbing.Answer;
-import scala.jdk.javaapi.CollectionConverters;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Set;
 
 import static ca.uwaterloo.watform.portus.FortressASTMatcher.isAlphaEquivalentTerm;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -46,19 +40,9 @@ public class FunctionOptTranslatorTest {
     private Evaluator mockEvaluator;
 
     private SortPolicy mockSortPolicy;
+    private SigAxioms sigAxioms;
     private NameGenerator nameGenerator;
     private TranslationContext context;
-
-    /** For use in Mockito then() with a translate() call: map (x1,...,xn) \in expr to funcName(x1,...,xn). */
-    private Answer<Term> useTestFunction(String funcName, Expr expr) {
-        return ctx -> {
-            Expr argExpr = ctx.getArgument(0);
-            assertTrue(argExpr instanceof ExprElementOf);
-            ExprElementOf elementOf = (ExprElementOf) argExpr;
-            assertEquals(expr, elementOf.sub);
-            return Term.mkApp(funcName, elementOf.tuple.getTerms());
-        };
-    }
 
     @Before
     public void setUp() {
@@ -71,6 +55,7 @@ public class FunctionOptTranslatorTest {
         RangeAssigner mockRangeAssigner = mock(RangeAssigner.class,
                 withSettings().useConstructor(mock(ModelInfo.class), new ArrayList<>(), mockSortPolicy, mockScoper));
         nameGenerator = new SanitizingNameGenerator();
+        sigAxioms = new SigAxioms(mockRoot, mockSortPolicy, nameGenerator);
         context = new TranslationContext(new PortusOptions(), mockScoper, mockSortPolicy, mockRangeAssigner);
     }
 
@@ -81,7 +66,7 @@ public class FunctionOptTranslatorTest {
         Sig.PrimSig sigB = new Sig.PrimSig("B");
         Sig.Field field = sigA.addField("f", sigB.setOf());
         Translator translator = new FunctionOptTranslator(
-                mockRoot, mockEvaluator, mockSortPolicy, nameGenerator, true);
+                mockRoot, mockEvaluator, mockSortPolicy, sigAxioms, nameGenerator, true);
         assertNull(translator.translate(field, context));
     }
 
@@ -92,7 +77,7 @@ public class FunctionOptTranslatorTest {
         Sig.PrimSig sigB = new Sig.PrimSig("B");
         Sig.Field field = sigA.addField("f", sigB.loneOf());
         Translator translator = new FunctionOptTranslator(
-                mockRoot, mockEvaluator, mockSortPolicy, nameGenerator, false);
+                mockRoot, mockEvaluator, mockSortPolicy, sigAxioms, nameGenerator, false);
         assertNull(translator.translate(field, context));
     }
 
@@ -107,12 +92,17 @@ public class FunctionOptTranslatorTest {
         when(mockSortPolicy.getSort(sigB)).thenReturn(sortB);
         Sig.Field field = sigA.addField("f", sigB.oneOf());
 
+        Var rangeAxiom = Term.mkVar("rangeAxiom");
+        Var domainAxiom1 = Term.mkVar("domainAxiom1");
+        Var domainAxiom2 = Term.mkVar("domainAxiom2");
+
         // even when lone opt is on
         Translator translator = new FunctionOptTranslator(
-                mockRoot, mockEvaluator, mockSortPolicy, nameGenerator, true);
+                mockRoot, mockEvaluator, mockSortPolicy, sigAxioms, nameGenerator, true);
         when(mockRoot.translate(any(), any()))
-                .then(useTestFunction("inA", sigA))
-                .then(useTestFunction("inB", sigB));
+                .thenReturn(rangeAxiom)
+                .thenReturn(domainAxiom1)
+                .thenReturn(domainAxiom2);
 
         Term result = translator.translate(field, context);
         assertNotNull(result); // opt applied
@@ -127,10 +117,11 @@ public class FunctionOptTranslatorTest {
         assertEquals(sortA, func.argSorts().head());
         assertEquals(sortB, func.resultSort());
 
-        Var x = Term.mkVar("x0_0");
-        Term expectedAxiom = Term.mkForall(x.of(sortA), Term.mkImp(
-                Term.mkApp("inA", x),
-                Term.mkApp("inB", Term.mkApp(func.name(), x))));
+        Var x0 = Term.mkVar("x_0");
+        Var x1 = Term.mkVar("x_1");
+        Term expectedAxiom = Term.mkAnd(
+                Term.mkForall(Arrays.asList(x0.of(sortA), x1.of(sortB)), Term.mkImp(domainAxiom1, domainAxiom2)),
+                rangeAxiom);
         assertThat(theory.axioms().head(), isAlphaEquivalentTerm(expectedAxiom));
     }
 
@@ -146,12 +137,17 @@ public class FunctionOptTranslatorTest {
         when(mockSortPolicy.getSort(sigB)).thenReturn(sortB);
         Sig.Field field = sigA.addField("f", sigB.loneOf());
 
+        Var rangeAxiom = Term.mkVar("rangeAxiom");
+        Var domainAxiom1 = Term.mkVar("domainAxiom1");
+        Var domainAxiom2 = Term.mkVar("domainAxiom2");
+
         // lone opt must be on
         Translator translator = new FunctionOptTranslator(
-                mockRoot, mockEvaluator, mockSortPolicy, nameGenerator, true);
+                mockRoot, mockEvaluator, mockSortPolicy, sigAxioms, nameGenerator, true);
         when(mockRoot.translate(any(), any()))
-                .then(useTestFunction("inA", sigA))
-                .then(useTestFunction("inB", sigB));
+                .thenReturn(rangeAxiom)
+                .thenReturn(domainAxiom1)
+                .thenReturn(domainAxiom2);
 
         Term result = translator.translate(field, context);
         assertNotNull(result); // opt applied
@@ -159,7 +155,7 @@ public class FunctionOptTranslatorTest {
         // should have two functions and two axioms
         Theory theory = context.getTheory();
         assertEquals(2, theory.functionDeclarations().size());
-        assertEquals(2, theory.axioms().size());
+        assertEquals(1, theory.axioms().size());
 
         FuncDecl func = theory.functionDeclarations().head();
         assertEquals(1, func.arity());
@@ -171,20 +167,12 @@ public class FunctionOptTranslatorTest {
         assertEquals(sortA, domainPred.argSorts().head());
         assertEquals(Sort.Bool(), domainPred.resultSort());
 
-        Var x0 = Term.mkVar("x0_0");
-        Var x1 = Term.mkVar("x0_1");
-        Term domainPredAxiom = Term.mkForall(x0.of(sortA), Term.mkImp(
-                Term.mkApp("inDomain_0", x0),
-                Term.mkApp("inA", x0)));
-        Term functionAxiom = Term.mkForall(x1.of(sortA), Term.mkImp(
-                Term.mkApp("inDomain_0", x1),
-                Term.mkApp("inB", Term.mkApp(func.name(), x1))));
-
-        //noinspection unchecked
-        Set<Term> axioms = CollectionConverters.<Term>asJava(context.getTheory().axioms());
-        assertThat(axioms, containsInAnyOrder(
-                isAlphaEquivalentTerm(domainPredAxiom),
-                isAlphaEquivalentTerm(functionAxiom)));
+        Var x0 = Term.mkVar("x_0");
+        Var x1 = Term.mkVar("x_1");
+        Term expectedAxiom = Term.mkAnd(
+                Term.mkForall(Arrays.asList(x0.of(sortA), x1.of(sortB)), Term.mkImp(domainAxiom1, domainAxiom2)),
+                rangeAxiom);
+        assertThat(theory.axioms().head(), isAlphaEquivalentTerm(expectedAxiom));
     }
 
     @Test
@@ -200,13 +188,17 @@ public class FunctionOptTranslatorTest {
         when(mockSortPolicy.getSort(sigC)).thenReturn(sortC);
         Sig.Field field = sigA.addField("f", sigB.any_arrow_one(sigC));
 
+        Var rangeAxiom = Term.mkVar("rangeAxiom");
+        Var domainAxiom1 = Term.mkVar("domainAxiom1");
+        Var domainAxiom2 = Term.mkVar("domainAxiom2");
+
         // even when lone opt is on
         Translator translator = new FunctionOptTranslator(
-                mockRoot, mockEvaluator, mockSortPolicy, nameGenerator, true);
+                mockRoot, mockEvaluator, mockSortPolicy, sigAxioms, nameGenerator, true);
         when(mockRoot.translate(any(), any()))
-                .then(useTestFunction("inA", sigA))
-                .then(useTestFunction("inB", sigB))
-                .then(useTestFunction("inC", sigC));
+                .thenReturn(rangeAxiom)
+                .thenReturn(domainAxiom1)
+                .thenReturn(domainAxiom2);
 
         Term result = translator.translate(field, context);
         assertNotNull(result); // opt applied
@@ -222,11 +214,13 @@ public class FunctionOptTranslatorTest {
         assertEquals(sortB, func.argSorts().tail().head());
         assertEquals(sortC, func.resultSort());
 
-        Var x1 = Term.mkVar("x0_0");
-        Var x2 = Term.mkVar("x1_0");
-        Term expectedAxiom = Term.mkForall(Arrays.asList(x1.of(sortA), x2.of(sortB)), Term.mkImp(
-                Term.mkAnd(Term.mkApp("inA", x1), Term.mkApp("inB", x2)),
-                Term.mkApp("inC", Term.mkApp(func.name(), x1, x2))));
+        Var x0 = Term.mkVar("x_0");
+        Var x1 = Term.mkVar("x_1");
+        Var x2 = Term.mkVar("x_2");
+        Term expectedAxiom = Term.mkAnd(
+                Term.mkForall(Arrays.asList(x0.of(sortA), x1.of(sortB), x2.of(sortC)),
+                        Term.mkImp(domainAxiom1, domainAxiom2)),
+                rangeAxiom);
         assertThat(theory.axioms().head(), isAlphaEquivalentTerm(expectedAxiom));
     }
 
@@ -238,22 +232,16 @@ public class FunctionOptTranslatorTest {
         Sig.Field fieldF = sigA.addField("f", sigA.oneOf());
         Sig.Field fieldG = sigA.addField("g", ExprVar.make(null, "this", Type.make(sigA)).join(fieldF).oneOf());
 
+        Var rangeAxiom = Term.mkVar("rangeAxiom");
+        Var domainAxiom1 = Term.mkVar("domainAxiom1");
+        Var domainAxiom2 = Term.mkVar("domainAxiom2");
+
         Translator translator = new FunctionOptTranslator(
-                mockRoot, mockEvaluator, mockSortPolicy, nameGenerator, true);
+                mockRoot, mockEvaluator, mockSortPolicy, sigAxioms, nameGenerator, true);
         when(mockRoot.translate(any(), any()))
-                .then(useTestFunction("inA", sigA))
-                .then(ctx -> {
-                    Expr argExpr = ctx.getArgument(0);
-                    assertTrue(argExpr instanceof ExprElementOf);
-                    ExprElementOf elementOf = (ExprElementOf) argExpr;
-                    assertTrue(elementOf.sub instanceof ExprBinary);
-                    ExprBinary join = (ExprBinary) elementOf.sub;
-                    assertEquals(ExprBinary.Op.JOIN, join.op);
-                    assertTrue(join.left instanceof ExprVar);
-                    assertEquals("this", ((ExprVar) join.left).label);
-                    assertTrue(join.right instanceof Sig.Field);
-                    return Term.mkApp(((Sig.Field) join.right).label, elementOf.tuple.getTerms());
-                });
+                .thenReturn(rangeAxiom)
+                .thenReturn(domainAxiom1)
+                .thenReturn(domainAxiom2);
 
         Term resultG = translator.translate(fieldG, context);
         assertNotNull(resultG); // opt applied
@@ -267,10 +255,12 @@ public class FunctionOptTranslatorTest {
         assertEquals(sortA, funcG.argSorts().head());
         assertEquals(sortA, funcG.resultSort());
 
-        Var x = Term.mkVar("x0_0");
-        Term expectedAxiom = Term.mkForall(x.of(sortA), Term.mkImp(
-                Term.mkApp("inA", x),
-                Term.mkApp("f", Term.mkApp(funcG.name(), x))));
+        Var x0 = Term.mkVar("x_0");
+        Var x1 = Term.mkVar("x_1");
+        Term expectedAxiom = Term.mkAnd(
+                Term.mkForall(Arrays.asList(x0.of(sortA), x1.of(sortA)),
+                        Term.mkImp(domainAxiom1, domainAxiom2)),
+                rangeAxiom);
         assertThat(theory.axioms().head(), isAlphaEquivalentTerm(expectedAxiom));
     }
 
@@ -283,13 +273,17 @@ public class FunctionOptTranslatorTest {
         when(mockSortPolicy.getSort(sigB)).thenReturn(sortB);
         Sig.Field field = sigA.addField("f", sigB.oneOf());
 
+        Var rangeAxiom = Term.mkVar("rangeAxiom");
+        Var domainAxiom1 = Term.mkVar("domainAxiom1");
+        Var domainAxiom2 = Term.mkVar("domainAxiom2");
+
         // even when lone opt is on
         FunctionOptTranslator translator = new FunctionOptTranslator(
-                mockRoot, mockEvaluator, mockSortPolicy, nameGenerator, true);
+                mockRoot, mockEvaluator, mockSortPolicy, sigAxioms, nameGenerator, true);
         when(mockRoot.translate(any(), any()))
-                .then(useTestFunction("inA", sigA))
-                .then(useTestFunction("inB", sigB))
-                .then(useTestFunction("inA", sigA));
+                .thenReturn(rangeAxiom)
+                .thenReturn(domainAxiom1)
+                .thenReturn(domainAxiom2);
 
         Term result = translator.translate(field, context);
         assertNotNull(result); // opt applied
@@ -303,7 +297,7 @@ public class FunctionOptTranslatorTest {
         assertEquals(1, scalar.getArity());
         assertEquals(sortB, scalar.getResultSort());
         assertEquals(Term.mkApp("f_0", x), scalar.getScalar(TermTuple.fromVars(x.of(sortA)), context));
-        assertEquals(Term.mkApp("inA", x), scalar.getGuard(TermTuple.fromVars(x.of(sortA)), context));
+        assertEquals(domainAxiom2, scalar.getGuard(TermTuple.fromVars(x.of(sortA)), context));
     }
 
     @Test
@@ -315,12 +309,17 @@ public class FunctionOptTranslatorTest {
         when(mockSortPolicy.getSort(sigB)).thenReturn(sortB);
         Sig.Field field = sigA.addField("f", sigB.loneOf());
 
+        Var rangeAxiom = Term.mkVar("rangeAxiom");
+        Var domainAxiom1 = Term.mkVar("domainAxiom1");
+        Var domainAxiom2 = Term.mkVar("domainAxiom2");
+
         // even when lone opt is on
         FunctionOptTranslator translator = new FunctionOptTranslator(
-                mockRoot, mockEvaluator, mockSortPolicy, nameGenerator, true);
+                mockRoot, mockEvaluator, mockSortPolicy, sigAxioms, nameGenerator, true);
         when(mockRoot.translate(any(), any()))
-                .then(useTestFunction("inA", sigA))
-                .then(useTestFunction("inB", sigB));
+                .thenReturn(rangeAxiom)
+                .thenReturn(domainAxiom1)
+                .thenReturn(domainAxiom2);
 
         Term result = translator.translate(field, context);
         assertNotNull(result); // opt applied
@@ -348,15 +347,17 @@ public class FunctionOptTranslatorTest {
         when(mockSortPolicy.getSort(sigC)).thenReturn(sortC);
         Sig.Field field = sigA.addField("f", sigB.any_arrow_one(sigC));
 
+        Var rangeAxiom = Term.mkVar("rangeAxiom");
+        Var domainAxiom1 = Term.mkVar("domainAxiom1");
+        Var domainAxiom2 = Term.mkVar("domainAxiom2");
+
         // even when lone opt is on
         FunctionOptTranslator translator = new FunctionOptTranslator(
-                mockRoot, mockEvaluator, mockSortPolicy, nameGenerator, true);
+                mockRoot, mockEvaluator, mockSortPolicy, sigAxioms, nameGenerator, true);
         when(mockRoot.translate(any(), any()))
-                .then(useTestFunction("inA", sigA))
-                .then(useTestFunction("inB", sigB))
-                .then(useTestFunction("inC", sigC))
-                .then(useTestFunction("inA", sigA))
-                .then(useTestFunction("inB", sigB));
+                .thenReturn(rangeAxiom)
+                .thenReturn(domainAxiom1)
+                .thenReturn(domainAxiom2);
 
         Term result = translator.translate(field, context);
         assertNotNull(result); // opt applied
@@ -371,7 +372,7 @@ public class FunctionOptTranslatorTest {
         assertEquals(2, scalar.getArity());
         assertEquals(sortC, scalar.getResultSort());
         assertEquals(Term.mkApp("f_0", x, y), scalar.getScalar(TermTuple.fromVars(x.of(sortA), y.of(sortB)), context));
-        assertEquals(Term.mkAnd(Term.mkApp("inA", x), Term.mkApp("inB", y)),
+        assertEquals(Term.mkAnd(domainAxiom2, domainAxiom2),
                 scalar.getGuard(TermTuple.fromVars(x.of(sortA), y.of(sortB)), context));
     }
 
@@ -386,13 +387,17 @@ public class FunctionOptTranslatorTest {
         when(mockSortPolicy.getSort(sigC)).thenReturn(sortC);
         Sig.Field field = sigA.addField("f", sigB.any_arrow_lone(sigC));
 
+        Var rangeAxiom = Term.mkVar("rangeAxiom");
+        Var domainAxiom1 = Term.mkVar("domainAxiom1");
+        Var domainAxiom2 = Term.mkVar("domainAxiom2");
+
         // even when lone opt is on
         FunctionOptTranslator translator = new FunctionOptTranslator(
-                mockRoot, mockEvaluator, mockSortPolicy, nameGenerator, true);
+                mockRoot, mockEvaluator, mockSortPolicy, sigAxioms, nameGenerator, true);
         when(mockRoot.translate(any(), any()))
-                .then(useTestFunction("inA", sigA))
-                .then(useTestFunction("inB", sigB))
-                .then(useTestFunction("inC", sigC));
+                .thenReturn(rangeAxiom)
+                .thenReturn(domainAxiom1)
+                .thenReturn(domainAxiom2);
 
         Term result = translator.translate(field, context);
         assertNotNull(result); // opt applied
@@ -418,7 +423,7 @@ public class FunctionOptTranslatorTest {
         when(mockSortPolicy.getSort(sigA)).thenReturn(sortA);
         Sig.Field fieldF = sigA.addField("f", sigA.oneOf());
         FunctionOptTranslator translator = new FunctionOptTranslator(
-                mockRoot, mockEvaluator, mockSortPolicy, nameGenerator, true);
+                mockRoot, mockEvaluator, mockSortPolicy, sigAxioms, nameGenerator, true);
         FortressSolution solution = mock(FortressSolution.class);
         assertNull(translator.evaluate(fieldF, solution, context));
     }
@@ -431,12 +436,17 @@ public class FunctionOptTranslatorTest {
         when(mockSortPolicy.getSort(sigB)).thenReturn(sortB);
         Sig.Field field = sigA.addField("f", sigB.loneOf());
 
+        Var rangeAxiom = Term.mkVar("rangeAxiom");
+        Var domainAxiom1 = Term.mkVar("domainAxiom1");
+        Var domainAxiom2 = Term.mkVar("domainAxiom2");
+
         // lone opt must be on
         FunctionOptTranslator translator = new FunctionOptTranslator(
-                mockRoot, mockEvaluator, mockSortPolicy, nameGenerator, true);
+                mockRoot, mockEvaluator, mockSortPolicy, sigAxioms, nameGenerator, true);
         when(mockRoot.translate(any(), any()))
-                .then(useTestFunction("inA", sigA))
-                .then(useTestFunction("inB", sigB));
+                .thenReturn(rangeAxiom)
+                .thenReturn(domainAxiom1)
+                .thenReturn(domainAxiom2);
 
         Term result = translator.translate(field, context);
         assertNotNull(result); // opt applied
@@ -462,11 +472,16 @@ public class FunctionOptTranslatorTest {
         when(mockSortPolicy.getSort(sigB)).thenReturn(sortB);
         Sig.Field field = sigA.addField("f", sigB.oneOf());
 
+        Var rangeAxiom = Term.mkVar("rangeAxiom");
+        Var domainAxiom1 = Term.mkVar("domainAxiom1");
+        Var domainAxiom2 = Term.mkVar("domainAxiom2");
+
         FunctionOptTranslator translator = new FunctionOptTranslator(
-                mockRoot, mockEvaluator, mockSortPolicy, nameGenerator, true);
+                mockRoot, mockEvaluator, mockSortPolicy, sigAxioms, nameGenerator, true);
         when(mockRoot.translate(any(), any()))
-                .then(useTestFunction("inA", sigA))
-                .then(useTestFunction("inB", sigB));
+                .thenReturn(rangeAxiom)
+                .thenReturn(domainAxiom1)
+                .thenReturn(domainAxiom2);
 
         Term result = translator.translate(field, context);
         assertNotNull(result); // opt applied
@@ -486,11 +501,16 @@ public class FunctionOptTranslatorTest {
         when(mockSortPolicy.getSort(sigB)).thenReturn(sortB);
         Sig.Field field = sigA.addField("f", sigB.oneOf());
 
+        Var rangeAxiom = Term.mkVar("rangeAxiom");
+        Var domainAxiom1 = Term.mkVar("domainAxiom1");
+        Var domainAxiom2 = Term.mkVar("domainAxiom2");
+
         FunctionOptTranslator translator = new FunctionOptTranslator(
-                mockRoot, mockEvaluator, mockSortPolicy, nameGenerator, true);
+                mockRoot, mockEvaluator, mockSortPolicy, sigAxioms, nameGenerator, true);
         when(mockRoot.translate(any(), any()))
-                .then(useTestFunction("inA", sigA))
-                .then(useTestFunction("inB", sigB));
+                .thenReturn(rangeAxiom)
+                .thenReturn(domainAxiom1)
+                .thenReturn(domainAxiom2);
 
         Term result = translator.translate(field, context);
         assertNotNull(result); // opt applied
@@ -514,11 +534,16 @@ public class FunctionOptTranslatorTest {
         when(mockSortPolicy.getSort(sigB)).thenReturn(sortB);
         Sig.Field field = sigA.addField("f", sigB.oneOf());
 
+        Var rangeAxiom = Term.mkVar("rangeAxiom");
+        Var domainAxiom1 = Term.mkVar("domainAxiom1");
+        Var domainAxiom2 = Term.mkVar("domainAxiom2");
+
         FunctionOptTranslator translator = new FunctionOptTranslator(
-                mockRoot, mockEvaluator, mockSortPolicy, nameGenerator, true);
+                mockRoot, mockEvaluator, mockSortPolicy, sigAxioms, nameGenerator, true);
         when(mockRoot.translate(any(), any()))
-                .then(useTestFunction("inA", sigA))
-                .then(useTestFunction("inB", sigB));
+                .thenReturn(rangeAxiom)
+                .thenReturn(domainAxiom1)
+                .thenReturn(domainAxiom2);
 
         Term result = translator.translate(field, context);
         assertNotNull(result); // opt applied
@@ -549,12 +574,16 @@ public class FunctionOptTranslatorTest {
         when(mockSortPolicy.getSort(sigC)).thenReturn(sortC);
         Sig.Field field = sigA.addField("f", sigB.any_arrow_one(sigC));
 
+        Var rangeAxiom = Term.mkVar("rangeAxiom");
+        Var domainAxiom1 = Term.mkVar("domainAxiom1");
+        Var domainAxiom2 = Term.mkVar("domainAxiom2");
+
         FunctionOptTranslator translator = new FunctionOptTranslator(
-                mockRoot, mockEvaluator, mockSortPolicy, nameGenerator, true);
+                mockRoot, mockEvaluator, mockSortPolicy, sigAxioms, nameGenerator, true);
         when(mockRoot.translate(any(), any()))
-                .then(useTestFunction("inA", sigA))
-                .then(useTestFunction("inB", sigB))
-                .then(useTestFunction("inC", sigC));
+                .thenReturn(rangeAxiom)
+                .thenReturn(domainAxiom1)
+                .thenReturn(domainAxiom2);
 
         Term result = translator.translate(field, context);
         assertNotNull(result); // opt applied

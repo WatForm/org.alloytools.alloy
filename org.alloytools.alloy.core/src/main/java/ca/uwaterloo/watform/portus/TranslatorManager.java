@@ -74,7 +74,8 @@ final class TranslatorManager implements Translator, ScalarCaster, Evaluator {
 
         // There *shouldn't* be side effects in the constructors, so it should be ok to always construct these
         OneSigOptTranslator oneSigOpt = new OneSigOptTranslator(this, sortPolicy, sigAxioms);
-        FunctionOptTranslator functionOpt = new FunctionOptTranslator(this, this, sortPolicy, nameGenerator, true);
+        FunctionOptTranslator functionOpt = new FunctionOptTranslator(
+                this, this, sortPolicy, sigAxioms, nameGenerator, true);
         JoinOptTranslator joinOpt = new JoinOptTranslator(this, this);
         OrderingModuleOptTranslator orderingModuleOpt = new OrderingModuleOptTranslator(
                 this, sortPolicy, nameGenerator, options.enableOrderingDefinition);

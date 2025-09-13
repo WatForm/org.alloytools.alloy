@@ -72,6 +72,7 @@ final class SimpleScalarOptTranslator implements Translator {
 
     private Term translateInEquals(ExprBinary expr, TranslationContext context) {
         if (expr.op != ExprBinary.Op.EQUALS && expr.op != ExprBinary.Op.IN) return null;
+        if (PortusUtil.isDeclarationFormula(expr)) return null; // let DefaultTranslator handle declaration formulas
 
         Scalar leftScalar = scalarCaster.castToScalar(expr.left, context);
         if (leftScalar == null) {
