@@ -82,10 +82,7 @@ final class CorrectnessChecker {
 
         // Collect all atoms and strings
         for (Sig sig : solution.getAllReachableSigs()) {
-            if (sig == Sig.UNIV || sig == Sig.SIGINT || sig == Sig.SEQIDX
-                    || sig == Sig.NONE || sig.isMeta != null) {
-                continue;
-            }
+            if (sig.builtin && sig != Sig.STRING) continue;
             A4TupleSet tuples = solution.eval(sig);
             for (A4Tuple tuple : tuples) {
                 String atom = tuple.atom(0);
