@@ -305,6 +305,15 @@ public final class A4Solution implements AlloySolution {
 
     // ===================================================================================================//
 
+    private static Map<String, Expression> makeS2k(Set<String> stringAtoms) {
+        Map<String,Expression> s2k = new HashMap<>();
+        for (String e : stringAtoms) {
+            Relation r = Relation.unary("");
+            s2k.put(e, r);
+        }
+        return s2k;
+    }
+
     /**
      * Construct a blank A4Solution containing just UNIV, SIGINT, SEQIDX, STRING,
      * and NONE as its only known sigs.
@@ -321,6 +330,14 @@ public final class A4Solution implements AlloySolution {
      *            0 means no, -1 means the user did not express an expectation)
      */
     public A4Solution(String originalCommand, int bitwidth, int mintrace, int maxtrace, int maxseq, Set<String> stringAtoms, Collection<String> atoms, final A4Reporter rep, A4Options opt, int expected) throws Err {
+        this(originalCommand, bitwidth, mintrace, maxtrace, maxseq, makeS2k(stringAtoms), atoms, rep, opt, expected);
+    }
+
+    /**
+     * Secondary constructor providing direct access to s2k for Portus correctness checking.
+     * @since Added by Portus.
+     */
+    public A4Solution(String originalCommand, int bitwidth, int mintrace, int maxtrace, int maxseq, Map<String, Expression> s2k, Collection<String> atoms, final A4Reporter rep, A4Options opt, int expected) {
         opt = opt.dup();
         this.unrolls = opt.unrolls;
         this.sigs = new SafeList<Sig>(Arrays.asList(UNIV, SIGINT, SEQIDX, STRING, NONE));
@@ -381,12 +398,9 @@ public final class A4Solution implements AlloySolution {
         this.seqidxBounds = seqidxBounds.unmodifiableView();
         bounds.boundExactly(KK_NEXT, next);
         bounds.boundExactly(KK_SEQIDX, this.seqidxBounds);
-        Map<String,Expression> s2k = new HashMap<String,Expression>();
-        for (String e : stringAtoms) {
-            Relation r = Relation.unary("");
+        for (String e : s2k.keySet()) {
             Tuple t = factory.tuple(e);
-            s2k.put(e, r);
-            bounds.boundExactly(r, factory.range(t, t));
+            bounds.boundExactly((Relation) s2k.get(e), factory.range(t, t));
             stringBounds.add(t);
         }
         this.s2k = ConstMap.make(s2k);

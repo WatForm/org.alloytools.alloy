@@ -691,7 +691,7 @@ public final class TranslateAlloyToKodkod extends VisitReturn<Object> {
 
         A4Solution frame = new A4Solution(
                 signature.getOriginalCommand(), signature.getBitwidth(), signature.getMinTrace(),
-                signature.getMaxTrace(), signature.getMaxSeq(), signature.s2k().keySet(),
+                signature.getMaxTrace(), signature.getMaxSeq(), signature.s2k(),
                 atoms, A4Reporter.NOP, opt, cmd.expects);
 
         for (Sig sig : signature.getAllReachableSigs()) {
