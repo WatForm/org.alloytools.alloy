@@ -34,6 +34,7 @@ import java.io.PrintWriter;
 import java.io.StringReader;
 import java.io.StringWriter;
 import java.io.UncheckedIOException;
+import java.util.List;
 import java.util.stream.Collectors;
 
 final class CorrectnessChecker {
@@ -43,6 +44,8 @@ final class CorrectnessChecker {
             OK("OK", false),
             KODKOD_SAT_FORTRESS_UNSAT("Fortress gives UNSAT but Kodkod gives SAT", true),
             FORTRESS_INTERPRETATION_INVALID("Fortress SAT interpretation not valid according to Kodkod", true),
+            KODKOD_UNSAT_FORTRESS_SAT("Fortress gives SAT but Kodkod gives UNSAT " +
+                    "(but Fortress interpretation valid or cannot be evaluated)", true),
             EXCEPTION("Exception thrown", true);
 
             public final String description;
@@ -116,6 +119,20 @@ final class CorrectnessChecker {
         }
     }
 
+    private static Sig mapSigToNewA4Solution(Sig sig, A4Solution solution) {
+        // find the sig in the solution with the same name - hope the label is a unique enough ID...
+        for (Sig solSig : solution.getAllReachableSigs()) {
+            if (solSig.label.equals(sig.label)) {
+                return solSig;
+            }
+        }
+        throw new ErrorFatal("Could not find A4Solution match for sig: " + sig.label);
+    }
+
+    private static List<Sig> mapSigsToNewA4Solution(List<Sig> sigs, A4Solution solution) {
+        return sigs.stream().map(sig -> mapSigToNewA4Solution(sig, solution)).collect(Collectors.toList());
+    }
+
     /**
      * When we convert a FortressSolution to an A4Solution via XML, A4SolutionWriter makes new Field/Sig
      * objects, which means that A4Solution.eval() won't recognize them as the same as the Field/Sig
@@ -127,13 +144,7 @@ final class CorrectnessChecker {
         return new FortressVisitReturn<Expr>() {
             @Override
             public Expr visit(Sig sig) throws Err {
-                // find the sig in the solution with the same name - hope the label is a unique enough ID...
-                for (Sig solSig : solution.getAllReachableSigs()) {
-                    if (solSig.label.equals(sig.label)) {
-                        return solSig;
-                    }
-                }
-                throw new ErrorFatal("Could not find A4Solution match for sig: " + sig.label);
+                return mapSigToNewA4Solution(sig, solution);
             }
 
             @Override
@@ -171,6 +182,7 @@ final class CorrectnessChecker {
 
             @Override
             public Expr visit(ExprCall x) throws Err {
+                // TODO: this might recurse infinitely on recursive calls (but we don't support this anyways yet)
                 return ExprCall.make(x.pos, x.closingBracket, (Func) visitThis(x.fun), x.args.stream()
                         .map(this::visitThis)
                         .collect(Collectors.toList()), x.extraWeight);
@@ -205,7 +217,6 @@ final class CorrectnessChecker {
 
             @Override
             public Expr visit(Func x) throws Err {
-                // TODO: this might recurse infinitely on recursive calls (but we don't support this anyways yet...)
                 return new Func(x.pos, x.labelPos, x.label, x.decls.stream()
                         .map(this::visitDecl)
                         .collect(Collectors.toList()), visitThis(x.returnDecl), visitThis(x.getBody()));
@@ -236,6 +247,27 @@ final class CorrectnessChecker {
         }.visitThis(formula);
     }
 
+    private Command mapCommandToNewA4Solution(Command command, A4Solution solution) {
+        Expr formula = mapFormulaToNewA4Solution(command.formula, solution);
+        List<Sig> additionalExactScopes = mapSigsToNewA4Solution(command.additionalExactScopes, solution);
+        return new Command(
+                command.pos, command.nameExpr, command.label, command.check, command.overall, command.bitwidth,
+                command.maxseq, command.minprefix, command.maxprefix, command.expects, command.scope,
+                additionalExactScopes, command.commandKeyword, formula, command.parent);
+    }
+
+    private boolean verifySolution(FortressSolution solution, Command command, A4Options options) {
+        // Convert it to an A4Solution to validate it with Kodkod
+        A4Solution kodkodSol = convertToKodkod(solution);
+
+        // The Kodkod-converted formula uses different objects for Sig/Field than the original formula (because it
+        // was reconstructed from XML), so A4Solution.eval() won't recognize them as equivalent. Fix this by
+        // mapping the Sig/Field objects to those in the new A4Solution.
+        Command kodkodCompatibleCommand = mapCommandToNewA4Solution(command, kodkodSol);
+
+        return kodkodSol.evalModel(kodkodCompatibleCommand, options);
+    }
+
     public Result checkCorrectness(Module world, Command command, A4Options options) {
         return checkCorrectness(new PortusStatistics(), world, command, options);
     }
@@ -260,21 +292,9 @@ final class CorrectnessChecker {
                 }
             }
 
-            // Convert it to an A4Solution to validate it with Kodkod
-            A4Solution kodkodSol = convertToKodkod(fortressSol);
-
-            // The Kodkod-converted formula uses different objects for Sig/Field than the original formula (because it
-            // was reconstructed from XML), so A4Solution.eval() won't recognize them as equivalent. Fix this by
-            // mapping the Sig/Field objects to those in the new A4Solution.
-            Expr kodkodCompatibleFormula = mapFormulaToNewA4Solution(command.formula, kodkodSol);
-
             try {
-                // The assertion in the command needs to be valid according to Kodkod too
-                // Typechecking should ensure we don't get any class cast errors here...
-                boolean assertionValid = (boolean) kodkodSol.eval(kodkodCompatibleFormula);
-                if (assertionValid) {
-                    return new Result(Result.Kind.OK, fortressSol);
-                } else {
+                // Ensure the model is satisfied in the solution according to Fortress too.
+                if (!verifySolution(fortressSol, command, options)) {
                     return new Result(Result.Kind.FORTRESS_INTERPRETATION_INVALID, fortressSol);
                 }
             } catch (HigherOrderDeclException e) {
@@ -282,16 +302,18 @@ final class CorrectnessChecker {
                 // Kodkod also thinks it's SAT.
                 System.out.println("WARNING: Model contains higher-order quantifiers: cannot verify correctness of " +
                         "interpretation returned by Fortress!");
-                statistics.onStartKodkod();
-                AlloySolution newKodkodSol = kodkodSolver.commandRunner().executeCommand(
-                        A4Reporter.NOP, world, command, options);
-                statistics.onKodkodFinished();
+            }
 
-                if (newKodkodSol.satisfiable()) {
-                    return new Result(Result.Kind.OK, fortressSol);
-                } else {
-                    return new Result(Result.Kind.FORTRESS_INTERPRETATION_INVALID, fortressSol);
-                }
+            // For completeness, always also check that Kodkod thinks it's SAT.
+            statistics.onStartKodkod();
+            AlloySolution newKodkodSol = kodkodSolver.commandRunner().executeCommand(
+                    A4Reporter.NOP, world, command, options);
+            statistics.onKodkodFinished();
+
+            if (newKodkodSol.satisfiable()) {
+                return new Result(Result.Kind.OK, fortressSol);
+            } else {
+                return new Result(Result.Kind.KODKOD_UNSAT_FORTRESS_SAT, fortressSol);
             }
         } catch (Exception exception) {
             return new Result(Result.Kind.EXCEPTION, exception);

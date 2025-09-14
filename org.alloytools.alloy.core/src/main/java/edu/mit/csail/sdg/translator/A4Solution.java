@@ -131,7 +131,8 @@ import kodkod.util.ints.IndexedEntry;
  *           supports additional iteration operations provided by the kodkod
  *           backend
  *
- * @modified [portus] extracted AlloySolution and used in other packages
+ * @modified [portus] extracted AlloySolution and used in other packages;
+ *           added evalModel for correctness testing
  */
 
 public final class A4Solution implements AlloySolution {
@@ -1126,6 +1127,27 @@ public final class A4Solution implements AlloySolution {
     }
 
     /**
+     * Is the given command satisfied in this solution under this solution's signature?
+     * @since Added by Portus.
+     */
+    public boolean evalModel(Command cmd, A4Options opt) {
+        return evalModel(cmd, opt, 0);
+    }
+
+    /**
+     * Is the given command satisfied in this solution at this state under this solution's signature?
+     * @since Added by Portus.
+     */
+    public boolean evalModel(Command cmd, A4Options opt, int state) {
+        Formula fullFormula = TranslateAlloyToKodkod.model2kodkod(this, cmd, opt);
+        try {
+            return eval.evaluate(fullFormula, state);
+        } catch (CapacityExceededException ex) {
+            throw TranslateAlloyToKodkod.rethrow(ex);
+        }
+    }
+
+    /**
      * Returns the Kodkod instance represented by this solution; throws an exception
      * if the problem is not yet solved or if it is unsatisfiable.
      */
@@ -1276,6 +1298,14 @@ public final class A4Solution implements AlloySolution {
         formulas.add(newFormula);
         if (expr != null)
             k2pos(newFormula, expr);
+    }
+
+    /**
+     * Return the conjunction of all formulas added to the A4Solution.
+     * @since Added by Portus.
+     */
+    Formula getFullFormula() {
+        return Formula.and(formulas);
     }
 
     // ===================================================================================================//

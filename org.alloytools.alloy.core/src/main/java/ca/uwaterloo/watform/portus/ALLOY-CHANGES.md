@@ -31,3 +31,6 @@
 - Made `Err`'s constructor public so that `ErrorNoPortusSupport` can be defined in the Portus package.
 - Added condition in `SimpleReporter.SimpleTask2.run` exempting Portus solutions from a Kodkod-specific bugfix
   related to getting the next interpretation.
+- Made some changes in `A4Solution` (adding `evalModel`, `getFullFormula`) and `TranslateAlloyToKodkod`
+  (adding `model2kodkod` and associated constructor) to enable extracting the full formula of the model which
+  is sent to Kodkod for correctness testing purposes.

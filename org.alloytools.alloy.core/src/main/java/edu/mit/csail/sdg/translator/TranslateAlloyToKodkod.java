@@ -86,7 +86,8 @@ import kodkod.util.ints.IntVector;
  *           facts are also implicitly globally quantified); also, variable
  *           singleton sigs are not collapsed like static ones; name all
  *           relations of total order; updated reporting
- * @modified [portus] added Runner adapter for the CommandRunner interface
+ * @modified [portus] added Runner adapter for the CommandRunner interface;
+ *           added model2kodkod for correctness testing
  */
 
 public final class TranslateAlloyToKodkod extends VisitReturn<Object> {
@@ -188,6 +189,24 @@ public final class TranslateAlloyToKodkod extends VisitReturn<Object> {
         this.min = Util.min(bitwidth);
         this.a2k = ConstMap.make(a2k);
         this.s2k = ConstMap.make(s2k);
+    }
+
+    /**
+     * Construct a translator which outputs into an existing frame.
+     *
+     * @param frame - the frame to output into
+     * @param cmd - the command to base the translation on
+     */
+    private TranslateAlloyToKodkod(A4Solution frame, Command cmd) throws Err {
+        this.unrolls = frame.unrolls();
+        this.rep = A4Reporter.NOP;
+        this.cmd = cmd;
+        this.frame = frame;
+        this.bitwidth = frame.getBitwidth();
+        this.min = frame.min();
+        this.max = frame.max();
+        this.a2k = null;
+        this.s2k = null;
     }
 
     /**
@@ -657,6 +676,34 @@ public final class TranslateAlloyToKodkod extends VisitReturn<Object> {
         if ((ans instanceof IntExpression) || (ans instanceof Formula) || (ans instanceof Expression))
             return ans;
         throw new ErrorFatal("Unknown internal error encountered in the evaluator.");
+    }
+
+    /**
+     * Compute the full Kodkod formula for an entire model, including all facts, field bounds, etc.
+     * The signature of the model is determined by the given A4Solution.
+     * @since Added by Portus.
+     */
+    public static Formula model2kodkod(A4Solution signature, Command cmd, A4Options opt) {
+        // We need to make a blank A4Solution with the same Kodkod objects assigned to each sig/field/etc as signature
+        // Extract the atoms in the frame
+        List<String> atoms = new ArrayList<>();
+        signature.getBounds().universe().forEach(atom -> atoms.add((String) atom));
+
+        A4Solution frame = new A4Solution(
+                signature.getOriginalCommand(), signature.getBitwidth(), signature.getMinTrace(),
+                signature.getMaxTrace(), signature.getMaxSeq(), signature.s2k().keySet(),
+                atoms, A4Reporter.NOP, opt, cmd.expects);
+
+        for (Sig sig : signature.getAllReachableSigs()) {
+            frame.addSig(sig, signature.a2k(sig));
+            for (Sig.Field field : sig.getFields()) {
+                frame.addField(field, signature.a2k(field));
+            }
+        }
+
+        TranslateAlloyToKodkod tr = new TranslateAlloyToKodkod(frame, cmd);
+        tr.makeFacts(cmd.formula);
+        return tr.frame.getFullFormula();
     }
 
     /**
