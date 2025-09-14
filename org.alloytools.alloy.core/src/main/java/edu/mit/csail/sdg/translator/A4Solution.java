@@ -320,7 +320,7 @@ public final class A4Solution implements AlloySolution {
      * @param expected - whether the user expected an instance or not (1 means yes,
      *            0 means no, -1 means the user did not express an expectation)
      */
-    A4Solution(String originalCommand, int bitwidth, int mintrace, int maxtrace, int maxseq, Set<String> stringAtoms, Collection<String> atoms, final A4Reporter rep, A4Options opt, int expected) throws Err {
+    public A4Solution(String originalCommand, int bitwidth, int mintrace, int maxtrace, int maxseq, Set<String> stringAtoms, Collection<String> atoms, final A4Reporter rep, A4Options opt, int expected) throws Err {
         opt = opt.dup();
         this.unrolls = opt.unrolls;
         this.sigs = new SafeList<Sig>(Arrays.asList(UNIV, SIGINT, SEQIDX, STRING, NONE));
@@ -670,6 +670,10 @@ public final class A4Solution implements AlloySolution {
         return bounds.clone();
     }
 
+    public Universe getUniverse() {
+        return bounds.universe();
+    }
+
     /**
      * Add a new relation with the given label and the given lower and upper bound
      * with variable information that could not be retrieved when <code>expr</code>
@@ -681,7 +685,7 @@ public final class A4Solution implements AlloySolution {
      * @param upper - the upperbound; cannot be null; must contain everything in
      *            lowerbound
      */
-    Relation addRel(String label, TupleSet lower, TupleSet upper, boolean var) throws ErrorFatal {
+    public Relation addRel(String label, TupleSet lower, TupleSet upper, boolean var) throws ErrorFatal {
         if (solved)
             throw new ErrorFatal("Cannot add a Kodkod relation since solve() has completed.");
         Relation rel;
@@ -727,7 +731,7 @@ public final class A4Solution implements AlloySolution {
      * (If the sig was already added by a previous call to addSig(), then this call
      * will return immediately without altering what it is associated with)
      */
-    void addSig(Sig s, Expression expr) throws ErrorFatal {
+    public void addSig(Sig s, Expression expr) throws ErrorFatal {
         if (solved)
             throw new ErrorFatal("Cannot add an additional sig since solve() has completed.");
         if (expr.arity() != 1)
@@ -748,7 +752,7 @@ public final class A4Solution implements AlloySolution {
      * (If the field was already added by a previous call to addField(), then this
      * call will return immediately without altering what it is associated with)
      */
-    void addField(Field f, Expression expr) throws ErrorFatal {
+    public void addField(Field f, Expression expr) throws ErrorFatal {
         if (solved)
             throw new ErrorFatal("Cannot add an additional field since solve() has completed.");
         if (expr.arity() != f.type().arity())
@@ -1584,7 +1588,7 @@ public final class A4Solution implements AlloySolution {
      */
     // [electrum] this is the method now called, iteratively, by the static reader;
     // it reads a state at a time, and the solution is built incrementally
-    A4Solution solve(final A4Reporter rep, A4Solution pre_sol, int loop) throws Err, IOException {
+    public A4Solution solve(final A4Reporter rep, A4Solution pre_sol, int loop) throws Err {
         // construct the instance from the current state
         Universe static_uni;
         if (pre_sol != null)

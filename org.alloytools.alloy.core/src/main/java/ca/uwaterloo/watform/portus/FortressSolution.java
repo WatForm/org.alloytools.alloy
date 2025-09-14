@@ -229,7 +229,7 @@ public class FortressSolution implements AlloySolution, AutoCloseable {
 
     @Override
     public Object eval(Expr expr) throws Err {
-        ValueTupleSet tupleSet = evaluator.evaluate(expr, this, context);
+        ValueTupleSet tupleSet = evaluateExpr(expr);
 
         // Pure booleans and ints are expected to be returned as Java booleans and ints.
         if (tupleSet.isPureBoolean()) {
@@ -246,6 +246,10 @@ public class FortressSolution implements AlloySolution, AutoCloseable {
     public Object eval(Expr expr, int state) throws Err {
         // TODO - temporal support
         return eval(expr);
+    }
+
+    public ValueTupleSet evaluateExpr(Expr expr) {
+        return evaluator.evaluate(expr, this, context);
     }
 
     /** Is this given Fortress formula true in this theory's interpretation? It must be a boolean formula. */
@@ -392,6 +396,9 @@ public class FortressSolution implements AlloySolution, AutoCloseable {
             if (stringConst != null) {
                 return stringConst;
             }
+        }
+        if (atom instanceof IntegerLiteral) {
+            return String.valueOf(((IntegerLiteral) atom).value());
         }
         return atom.toString();
     }

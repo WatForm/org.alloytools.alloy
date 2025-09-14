@@ -7,6 +7,7 @@ import fortress.msfol.Term;
 import fortress.msfol.Value;
 import kodkod.instance.Tuple;
 import kodkod.instance.TupleFactory;
+import kodkod.instance.Universe;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -22,7 +23,7 @@ import java.util.stream.Stream;
  * A set of Fortress tuples, for use when evaluating. Immutable.
  * This is like Kodkod's TupleSet class but not Kodkod-specific.
  */
-final class ValueTupleSet {
+public final class ValueTupleSet {
 
     // We mostly delegate to tupleSet with some helper methods on top.
     private final TupleSet<Value> tupleSet;
@@ -183,9 +184,20 @@ final class ValueTupleSet {
      * Note: if this ValueTupleSet contains a boolean, this will fail!
      */
     public A4TupleSet toAlloy(FortressSolution solution) {
-        TupleFactory factory = solution.getUniverse().factory();
+        return toAlloy(solution, solution.getUniverse(), false);
+    }
+
+    // Possibly convert to a different universe and convert to names.
+    public A4TupleSet toAlloy(FortressSolution solution, Universe universe, boolean toName) {
+        TupleFactory factory = universe.factory();
         List<Tuple> kodkodTuples = stream()
-                .map(this::convertTupleToKodkod)
+                .map(values -> {
+                    if (toName) {
+                        return values.stream().map(solution::atom2name).collect(Collectors.toList());
+                    } else {
+                        return convertTupleToKodkod(values);
+                    }
+                })
                 .map(factory::tuple)
                 .collect(Collectors.toList());
 

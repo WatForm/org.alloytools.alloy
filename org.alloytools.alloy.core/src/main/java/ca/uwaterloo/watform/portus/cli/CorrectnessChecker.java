@@ -1,41 +1,18 @@
 package ca.uwaterloo.watform.portus.cli;
 
 import ca.uwaterloo.watform.portus.*;
-import edu.mit.csail.sdg.alloy4.A4Reporter;
-import edu.mit.csail.sdg.alloy4.Err;
-import edu.mit.csail.sdg.alloy4.ErrorFatal;
-import edu.mit.csail.sdg.alloy4.XMLNode;
-import edu.mit.csail.sdg.ast.Assert;
+import edu.mit.csail.sdg.alloy4.*;
 import edu.mit.csail.sdg.ast.Command;
-import edu.mit.csail.sdg.ast.Decl;
 import edu.mit.csail.sdg.ast.Expr;
-import edu.mit.csail.sdg.ast.ExprBinary;
-import edu.mit.csail.sdg.ast.ExprCall;
-import edu.mit.csail.sdg.ast.ExprConstant;
-import edu.mit.csail.sdg.ast.ExprHasName;
-import edu.mit.csail.sdg.ast.ExprITE;
-import edu.mit.csail.sdg.ast.ExprLet;
-import edu.mit.csail.sdg.ast.ExprList;
-import edu.mit.csail.sdg.ast.ExprQt;
-import edu.mit.csail.sdg.ast.ExprUnary;
-import edu.mit.csail.sdg.ast.ExprVar;
-import edu.mit.csail.sdg.ast.Func;
 import edu.mit.csail.sdg.ast.Module;
 import edu.mit.csail.sdg.ast.Sig;
-import edu.mit.csail.sdg.parser.Macro;
-import edu.mit.csail.sdg.translator.A4Options;
-import edu.mit.csail.sdg.translator.A4Solution;
-import edu.mit.csail.sdg.translator.A4SolutionReader;
-import edu.mit.csail.sdg.translator.AlloySolution;
+import edu.mit.csail.sdg.translator.*;
+import kodkod.ast.Relation;
 import kodkod.engine.fol2sat.HigherOrderDeclException;
+import kodkod.instance.Universe;
 
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.StringReader;
-import java.io.StringWriter;
-import java.io.UncheckedIOException;
-import java.util.List;
-import java.util.stream.Collectors;
+import java.util.HashSet;
+import java.util.Set;
 
 final class CorrectnessChecker {
 
@@ -103,169 +80,61 @@ final class CorrectnessChecker {
         this(false);
     }
 
-    private static A4Solution convertToKodkod(AlloySolution solution) {
-        // Output to XML (in-memory) and then read back
-        StringWriter stringWriter = new StringWriter();
-        PrintWriter printWriter = new PrintWriter(stringWriter);
-        solution.writeXML(printWriter, null, null);
-        printWriter.flush();
-        stringWriter.flush();
-
-        String xml = stringWriter.toString();
-        try {
-            return A4SolutionReader.read(null, new XMLNode(new StringReader(xml)));
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+    private static kodkod.instance.TupleSet evalInUniverse(FortressSolution solution, Universe universe, Expr expr) {
+        return solution.evaluateExpr(expr).toAlloy(solution, universe, true).debugGetKodkodTupleset();
     }
 
-    private static Sig mapSigToNewA4Solution(Sig sig, A4Solution solution) {
-        // find the sig in the solution with the same name - hope the label is a unique enough ID...
-        for (Sig solSig : solution.getAllReachableSigs()) {
-            if (solSig.label.equals(sig.label)) {
-                return solSig;
+    private static A4Solution convertToKodkod(FortressSolution solution, A4Options options) {
+        // Patterned after A4SolutionReader
+        Set<String> atoms = new HashSet<>();
+        Set<String> strings = new HashSet<>();
+
+        // Collect all atoms and strings
+        for (Sig sig : solution.getAllReachableSigs()) {
+            if (sig == Sig.UNIV || sig == Sig.SIGINT || sig == Sig.SEQIDX
+                    || sig == Sig.NONE || sig.isMeta != null) {
+                continue;
             }
-        }
-        throw new ErrorFatal("Could not find A4Solution match for sig: " + sig.label);
-    }
-
-    private static List<Sig> mapSigsToNewA4Solution(List<Sig> sigs, A4Solution solution) {
-        return sigs.stream().map(sig -> mapSigToNewA4Solution(sig, solution)).collect(Collectors.toList());
-    }
-
-    /**
-     * When we convert a FortressSolution to an A4Solution via XML, A4SolutionWriter makes new Field/Sig
-     * objects, which means that A4Solution.eval() won't recognize them as the same as the Field/Sig
-     * objects in formulas meant for the old FortressSolution. So map any such objects to their equivalent values
-     * in the new solution, matching on names.
-     * Hopefully this doesn't mess anything up...
-     */
-    private static Expr mapFormulaToNewA4Solution(Expr formula, A4Solution solution) {
-        return new FortressVisitReturn<Expr>() {
-            @Override
-            public Expr visit(Sig sig) throws Err {
-                return mapSigToNewA4Solution(sig, solution);
-            }
-
-            @Override
-            public Expr visit(Sig.Field field) throws Err {
-                // find the field in the solution with the same name + sig, hope this is unique enough...
-                for (Sig solSig : solution.getAllReachableSigs()) {
-                    if (solSig.label.equals(field.sig.label)) {
-                        for (Sig.Field sigField : solSig.getFields()) {
-                            if (sigField.label.equals(field.label)) {
-                                return sigField;
-                            }
-                        }
-                    }
+            A4TupleSet tuples = solution.eval(sig);
+            for (A4Tuple tuple : tuples) {
+                String atom = tuple.atom(0);
+                atoms.add(atom);
+                if (sig == Sig.STRING) {
+                    strings.add(atom);
                 }
-                throw new ErrorFatal("Could not find A4Solution match for field: " + field);
             }
+        }
+        int bitwidth = solution.getBitwidth();
+        for (int i = Util.min(bitwidth); i <= Util.max(bitwidth); i++) {
+            atoms.add(Integer.toString(i));
+        }
 
-            @Override
-            public Expr visit(ExprVar x) throws Err {
-                // It *should* be fine to not deal with ExprVars because in formulas they don't refer to atoms directly
-                return x;
+        A4Solution kodkodSol = new A4Solution(
+                solution.getOriginalCommand(), bitwidth, solution.getMinTrace(), solution.getMaxTrace(),
+                solution.getMaxSeq(), strings, atoms, null, options, 1);
+        Universe universe = kodkodSol.getUniverse();
+
+        for (Sig sig : solution.getAllReachableSigs()) {
+            if (sig.builtin) continue;
+            kodkod.instance.TupleSet sigTuples = evalInUniverse(solution, universe, sig);
+            Relation sigRel = kodkodSol.addRel(sig.label, sigTuples, sigTuples, false);
+            kodkodSol.addSig(sig, sigRel);
+
+            for (Sig.Field field : sig.getFields()) {
+                kodkod.instance.TupleSet fieldTuples = evalInUniverse(solution, universe, field);
+                Relation fieldRel = kodkodSol.addRel(sig.label + "." + field.label, fieldTuples, fieldTuples, false);
+                kodkodSol.addField(field, fieldRel);
             }
+        }
 
-            @Override
-            public Expr visit(ExprBinary x) throws Err {
-                return x.op.make(x.pos, x.closingBracket, visitThis(x.left), visitThis(x.right));
-            }
-
-            @Override
-            public Expr visit(ExprList x) throws Err {
-                return ExprList.make(x.pos, x.closingBracket, x.op, x.args.stream()
-                        .map(this::visitThis)
-                        .collect(Collectors.toList()));
-            }
-
-            @Override
-            public Expr visit(ExprCall x) throws Err {
-                // TODO: this might recurse infinitely on recursive calls (but we don't support this anyways yet)
-                return ExprCall.make(x.pos, x.closingBracket, (Func) visitThis(x.fun), x.args.stream()
-                        .map(this::visitThis)
-                        .collect(Collectors.toList()), x.extraWeight);
-            }
-
-            @Override
-            public Expr visit(ExprConstant x) throws Err {
-                return x;
-            }
-
-            @Override
-            public Expr visit(ExprITE x) throws Err {
-                return ExprITE.make(x.pos, visitThis(x.cond), visitThis(x.left), visitThis(x.right));
-            }
-
-            @Override
-            public Expr visit(ExprLet x) throws Err {
-                return ExprLet.make(x.pos, (ExprVar) visitThis(x.var), visitThis(x.expr), visitThis(x.sub));
-            }
-
-            @Override
-            public Expr visit(ExprQt x) throws Err {
-                return x.op.make(x.pos, x.closingBracket, x.decls.stream()
-                        .map(this::visitDecl)
-                        .collect(Collectors.toList()), visitThis(x.sub));
-            }
-
-            @Override
-            public Expr visit(ExprUnary x) throws Err {
-                return x.op.make(x.pos, visitThis(x.sub));
-            }
-
-            @Override
-            public Expr visit(Func x) throws Err {
-                return new Func(x.pos, x.labelPos, x.label, x.decls.stream()
-                        .map(this::visitDecl)
-                        .collect(Collectors.toList()), visitThis(x.returnDecl), visitThis(x.getBody()));
-            }
-
-            private Decl visitDecl(Decl decl) {
-                return new Decl(decl.isPrivate, decl.disjoint, decl.disjoint2, decl.isVar,
-                        decl.names.stream()
-                                .map(name -> (ExprHasName) visitThis(name))
-                                .collect(Collectors.toList()),
-                        visitThis(decl.expr));
-            }
-
-            @Override
-            public Expr visit(ExprElementOf x) throws Err {
-                return ExprElementOf.make(x.tuple, visitThis(x.sub));
-            }
-
-            @Override
-            public Expr visit(Assert x) throws Err {
-                throw new ErrorFatal("We don't support Assert in formulas!");
-            }
-
-            @Override
-            public Expr visit(Macro macro) throws Err {
-                throw new ErrorFatal("We don't support Macro in formulas!");
-            }
-        }.visitThis(formula);
-    }
-
-    private Command mapCommandToNewA4Solution(Command command, A4Solution solution) {
-        Expr formula = mapFormulaToNewA4Solution(command.formula, solution);
-        List<Sig> additionalExactScopes = mapSigsToNewA4Solution(command.additionalExactScopes, solution);
-        return new Command(
-                command.pos, command.nameExpr, command.label, command.check, command.overall, command.bitwidth,
-                command.maxseq, command.minprefix, command.maxprefix, command.expects, command.scope,
-                additionalExactScopes, command.commandKeyword, formula, command.parent);
+        kodkodSol.solve(A4Reporter.NOP, null, 0);
+        return kodkodSol;
     }
 
     private boolean verifySolution(FortressSolution solution, Command command, A4Options options) {
         // Convert it to an A4Solution to validate it with Kodkod
-        A4Solution kodkodSol = convertToKodkod(solution);
-
-        // The Kodkod-converted formula uses different objects for Sig/Field than the original formula (because it
-        // was reconstructed from XML), so A4Solution.eval() won't recognize them as equivalent. Fix this by
-        // mapping the Sig/Field objects to those in the new A4Solution.
-        Command kodkodCompatibleCommand = mapCommandToNewA4Solution(command, kodkodSol);
-
-        return kodkodSol.evalModel(kodkodCompatibleCommand, options);
+        A4Solution kodkodSol = convertToKodkod(solution, options);
+        return kodkodSol.evalModel(command, options);
     }
 
     public Result checkCorrectness(Module world, Command command, A4Options options) {

@@ -33,4 +33,6 @@
   related to getting the next interpretation.
 - Made some changes in `A4Solution` (adding `evalModel`, `getFullFormula`) and `TranslateAlloyToKodkod`
   (adding `model2kodkod` and associated constructor) to enable extracting the full formula of the model which
-  is sent to Kodkod for correctness testing purposes.
+  is sent to Kodkod for correctness testing purposes. Made `A4Solution`'s constructor, `addSig`, `addField`,
+  `addRel`, `solve` public (removed unnecessary `throws IOException` on `solve`), added `getUniverse`
+  for the same reason.
