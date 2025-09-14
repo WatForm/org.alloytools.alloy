@@ -62,22 +62,13 @@ final class CorrectnessChecker {
     private final PortusOptions.FortressSmtSolver fortressSolver;
     private final A4Options.SatSolver kodkodSolver;
 
-    // Should we always eval + record the Kodkod solver's time, even if not necessary?
-    private final boolean alwaysRecordKodkodTime;
-
-    public CorrectnessChecker(PortusOptions.FortressSmtSolver fortressSolver, A4Options.SatSolver kodkodSolver,
-                              boolean alwaysRecordKodkodTime) {
+    public CorrectnessChecker(PortusOptions.FortressSmtSolver fortressSolver, A4Options.SatSolver kodkodSolver) {
         this.fortressSolver = fortressSolver;
         this.kodkodSolver = kodkodSolver;
-        this.alwaysRecordKodkodTime = alwaysRecordKodkodTime;
-    }
-
-    public CorrectnessChecker(boolean alwaysRecordKodkodTime) {
-        this(DEFAULT_FORTRESS_SOLVER, DEFAULT_KODKOD_SOLVER, alwaysRecordKodkodTime);
     }
 
     public CorrectnessChecker() {
-        this(false);
+        this(DEFAULT_FORTRESS_SOLVER, DEFAULT_KODKOD_SOLVER);
     }
 
     private static kodkod.instance.TupleSet evalInUniverse(FortressSolution solution, Universe universe, Expr expr) {
@@ -146,8 +137,8 @@ final class CorrectnessChecker {
         // Run through Portus and get a solution using Fortress
         try (FortressSolution fortressSol = fortressSolver.commandRunner().executeCommand(
                 new StdoutA4Reporter(options.portusOptions.verbose), statistics, world, command, options)) {
-            if (!fortressSol.satisfiable() || alwaysRecordKodkodTime) {
-                // If Fortress reports UNSAT, evaluate for correctness reasons; otherwise evaluate if the user requests it.
+            if (!fortressSol.satisfiable()) {
+                // If Fortress reports UNSAT, evaluate for correctness reasons.
                 statistics.onStartKodkod();
                 AlloySolution kodkodSol = kodkodSolver.commandRunner().executeCommand(
                         A4Reporter.NOP, world, command, options);

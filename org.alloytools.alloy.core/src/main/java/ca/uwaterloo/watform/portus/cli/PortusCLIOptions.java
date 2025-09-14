@@ -54,9 +54,6 @@ final class PortusCLIOptions {
     public final Option useCountCommandsProcessor = new Option(
             "-cmd-count", "Output a count of the commands in each file.");
 
-    public final Option alwaysShowKodkodTime = new Option(
-            "-show-kodkod-time", "When evaluating correctness, always evaluate and show Kodkod's time (slower).");
-
     public final Option disableSimpleScalarOpt = new Option(
             "-disable-simple-scalar-opt", "Disable simple scalar optimization.");
     public final Option disableOneSigOpt = new Option(
@@ -118,7 +115,6 @@ final class PortusCLIOptions {
             useCorrectnessProcessor, useDeltaDebugProcessor,
             useOutputPreSmtlibProcessor, useOutputPostSmtlibProcessor, useCheckSupportProcessor,
             useStatisticsProcessor, useCountCommandsProcessor,
-            alwaysShowKodkodTime,
             disableSimpleScalarOpt, disableOneSigOpt, disableJoinOpt, disableOrderingModuleOpt,
             disableClosureOfScalarOpt, disableIntsAsScalars, disableMembershipPredicateOpt, disablePartitionSortPolicy,
             disableSumDefinitionsOpt, disableExprDefnOpt, disableRelationalScalarOpt,
