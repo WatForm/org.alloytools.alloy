@@ -1,6 +1,6 @@
 # Building Portus
 
-1. Fortress is included in org.alloytools.fortress.core/fortress as a git submodule. Run `git pull --recurse-submodules` to pull it. Check by going to org.alloytools.fortress.core/fortress and checking that it looks like the Fortress repo.
+1. Clone the repository with `git clone --recurse-submodules https://github.com/WatForm/org.alloytools.alloy.git`. Fortress is included in org.alloytools.fortress.core/fortress as a git submodule; if it is not present after you clone, run `cd org.alloytools.fortress.core/fortress; git submodule init; git submodule update` to clone it.
 2. Portus is currently compiled with *Java 12*. Install OpenJDK 12.0.2 from https://jdk.java.net/archive. I recommend using JEnv (https://jenv.be) to manage multiple Java versions. Once you've set it up, do `java -version` to make sure you're on Java 12.0.2. (Note: JARs compiled with a later Java version might require that later version to run.)
     * Note: Java 17 also works as of 2024-02-07. The Java version must be compatible with the Gradle version, which is currently 7.2 (check .gradle-wrapper/gradle-wrapper.properties).
 3. Fortress is compiled with SBT. Install it from https://www.scala-sbt.org or your preferred package manager.
